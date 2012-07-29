@@ -63,6 +63,12 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
     => returns number of chunks
 
 
+## See also:
+
+  http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
+
+
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -88,11 +94,4 @@ TODO: Write usage instructions here
 3. Commit your changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
-
-
-## See also:
-
-  http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
-
-  https://gist.github.com/3101950
 
