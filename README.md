@@ -13,20 +13,21 @@ and parallel processing with Resque or Sidekiq.
  * able to ignore "columns" in the input (delete columns)
  * able to eliminate nil or empty fields from the result hashes
 
-## Why?
+### Why?
 
 Ruby's CSV library's API is pretty old, and it's processing of CSV-files returning Arrays of Arrays feels 'very close to the metal'. The output is not easy to use - especially not if you want to create database records from it. Another shortcoming is that Ruby's CSV library does not have good support for huge CSV-files, e.g. there is no support for 'chunking' and/or parallel processing of the CSV-content (e.g. with Resque or Sidekiq),
 
 As the existing CSV libraries didn't fit my needs, I was writing my own CSV processing - specifically for use in connection with Rails ORMs like Mongoid, MongoMapper or ActiveRecord. In those ORMs you can easily pass a hash with attribute/value pairs to the create() method. The lower-level Mongo driver and Moped also accept larger arrays of such hashes to create a larger amount of records quickly with just one call.
 
-## Example 1: Reading a CSV-File in one Chunk, returning one Array of Hashes:
+### Examples
+#### Example 1: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
     filename = '/tmp/input_file.txt' # TAB delimited file, each row ending with Control-M
     recordsA = SmarterCSV.process_csv(filename, {:col_sep => "\t", :row_sep => "\cM"}
 
     => returns an array of hashes
 
-## Example 2: Populate a MySQL or MongoDB Database with SmarterCSV:
+#### Example 2: Populate a MySQL or MongoDB Database with SmarterCSV:
 
     # without using chunks:
     filename = '/tmp/some.csv'
@@ -39,7 +40,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
      => returns number of chunks / rows we processed 
 
 
-## Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
+#### Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 
     # using chunks:
     filename = '/tmp/some.csv'
@@ -52,7 +53,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
      => returns number of chunks we processed
 
 
-## Example 4: Reading a CSV-like File, and Processing it with Resque:
+#### Example 4: Reading a CSV-like File, and Processing it with Resque:
 
     filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes)
     n = SmarterCSV.process_csv(filename, {:col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
