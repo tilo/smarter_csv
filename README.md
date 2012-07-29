@@ -23,7 +23,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 #### Example 1: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
     filename = '/tmp/input_file.txt' # TAB delimited file, each row ending with Control-M
-    recordsA = SmarterCSV.process_csv(filename, {:col_sep => "\t", :row_sep => "\cM"}
+    recordsA = SmarterCSV.process(filename, {:col_sep => "\t", :row_sep => "\cM"}
 
     => returns an array of hashes
 
@@ -31,7 +31,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 
     # without using chunks:
     filename = '/tmp/some.csv'
-    n = SmarterCSV.process_csv(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}) do |array|
+    n = SmarterCSV.process(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}) do |array|
           # we're passing a block in, to process each resulting hash / =row (the block takes array of hashes)
           # when chunking is not enabled, there is only one hash in each array
           MyModel.create( array.first )
@@ -44,7 +44,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 
     # using chunks:
     filename = '/tmp/some.csv'
-    n = SmarterCSV.process_csv(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}, :chunk_size => 100}) do |array|
+    n = SmarterCSV.process(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}, :chunk_size => 100}) do |array|
           # we're passing a block in, to process each resulting hash / row (block takes array of hashes)
           # when chunking is enabled, there are up to :chunk_size hashes in each array
           MyModel.collection.insert( array )   # insert up to 100 records at a time
@@ -56,7 +56,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 #### Example 4: Reading a CSV-like File, and Processing it with Resque:
 
     filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes)
-    n = SmarterCSV.process_csv(filename, {:col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
+    n = SmarterCSV.process(filename, {:col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
             :chunk_size => '5' , :key_mapping => {:export_date => nil, :name => :genre}}) do |x|
         puts   "Resque.enque( ResqueWorkerClass, #{x.size}, #{x.inspect} )"   # simulate processing each chunk
     end

@@ -29,7 +29,7 @@ module SmarterCSV
   #    This can be very useful when passing chunked data to a post-processing step, e.g. through Resque
   #
 
-  def SmarterCSV.process_csv(filename, options={}, &block)
+  def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :remove_empty_fields => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil
     }
@@ -107,5 +107,9 @@ module SmarterCSV
     end
   end
 
+  def SmarterCSV.process_csv(*args)
+    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
+    SmarterCSV.process(*args)
+  end
 end
 
