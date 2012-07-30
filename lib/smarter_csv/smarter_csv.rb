@@ -1,37 +1,7 @@
 module SmarterCSV
-  # this reads and processes a "generalized" CSV file and returns the contents either as an Array of Hashes,
-  # or an Array of Arrays, which contain Hashes, or processes Chunks of Hashes via a given block
-  #
-  # File.read_csv supports the following options:
-  #  * :col_sep : column separator , which defaults to ','
-  #  * :row_sep : row separator or record separator , defaults to system's $/ , which defaults to "\n"
-  #  * :quote_char : quotation character , defaults to '"' (currently not used)
-  #  * :comment_regexp : regular expression which matches comment lines , defaults to /^#/ (see NOTE about the CSV header)
-  #  * :chunk_size : if set, determines the desired chunk-size (defaults to nil, no chunk processing)
-  #  * :remove_empty_fields : remove fields which have nil or empty strings as values (default: true)
-  #
-  # NOTES about CSV Headers:
-  #  - as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
-  #  - the first line with the CSV header may or may not be commented out according to the :comment_regexp
-  #  - any occurences of :comment_regexp or :row_sep will be stripped from the first line with the CSV header
-  #  - any of the keys in the header line will be converted to Ruby symbols before being used in the returned Hashes
-  #
-  # NOTES on Key Mapping:
-  #  - keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes
-  #    can be better used internally in our application (e.g. when directly creating MongoDB entries with them)
-  #  - if you want to completely delete a key, then map it to nil or to '', they will be automatically deleted from any result Hash
-  #
-  # NOTES on the use of Chunking and Blocks:
-  #  - chunking can be VERY USEFUL if used in combination with passing a block to File.read_csv FOR LARGE FILES
-  #  - if you pass a block to File.read_csv, that block will be executed and given an Array of Hashes as the parameter.
-  #    If the chunk_size is not set, then the array will only contain one Hash.
-  #    If the chunk_size is > 0 , then the array may contain up to chunk_size Hashes.
-  #    This can be very useful when passing chunked data to a post-processing step, e.g. through Resque
-  #
-
   def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
-      :remove_empty_fields => true, :remove_zero_fields => false , :remove_fields_matching => nil , :remove_empty_hashes => true ,
+      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true ,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
     options = default_options.merge(options)
@@ -75,9 +45,9 @@ module SmarterCSV
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil); hash.delete(''); hash.delete(:"") # delete any hash keys which were mapped to be deleted
-        hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_fields]
-        hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_fields]   # values are typically Strings!
-        hash.delete_if{|k,v| v =~ options[:remove_fields_matching]} if options[:remove_fields_matching]
+        hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_values]
+        hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
+        hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
         next if hash.empty? if options[:remove_empty_hashes]
 
         if use_chunks

@@ -133,9 +133,9 @@ The options and the block are optional.
  * :key_mapping : a hash which maps headers from the CSV file to keys in the result hash (default: nil)
  * :downcase_header : downcase all column headers (default: true)
  * :strings_as_keys : use strings instead of symbols as the keys in the result hashes (default: false)
- * :remove_empty_fields : remove fields which have nil or empty strings as values (default: true)
- * :remove_zero_fields  : remove fields which have a numeric value equal to zero / 0 (default: false)
- * :remove_fields_matching : removes key/value pairs if value matches given regular expressions (default: nil) ,
+ * :remove_empty_values : remove values which have nil or empty strings as values (default: true)
+ * :remove_zero_values  : remove values which have a numeric value equal to zero / 0 (default: false)
+ * :remove_values_matching : removes key/value pairs if value matches given regular expressions (default: nil) ,
      e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
  * :remove_empty_hashes : remove / ignore any hashes which don't have any key/value pairs (default: true)
 
@@ -182,7 +182,11 @@ Or install it yourself as:
 
 #### 1.0.1 (2012-07-30)
 
- * added options :downcase_header , :strings_as_keys , :remove_zero_fields , :remove_fields_matching , :remove_empty_hashes
+ * added options :downcase_header , :strings_as_keys , :remove_zero_values , :remove_values_matching , :remove_empty_hashes
+
+ * renamed the following options:
+    * :remove_empty_fields => :remove_empty_values
+    
 
 #### 1.0.0 (2012-07-29)
 
