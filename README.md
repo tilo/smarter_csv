@@ -44,10 +44,10 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 
     # using chunks:
     filename = '/tmp/some.csv'
-    n = SmarterCSV.process(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}, :chunk_size => 100}) do |array|
+    n = SmarterCSV.process(filename, {:chunk_size => 100, :key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}) do |chunk|
           # we're passing a block in, to process each resulting hash / row (block takes array of hashes)
-          # when chunking is enabled, there are up to :chunk_size hashes in each array
-          MyModel.collection.insert( array )   # insert up to 100 records at a time
+          # when chunking is enabled, there are up to :chunk_size hashes in each chunk
+          MyModel.collection.insert( chunk )   # insert up to 100 records at a time
     end
 
      => returns number of chunks we processed
