@@ -56,6 +56,21 @@ In case the number of rows is not cleanly divisible by `:chunk_size`, the last c
             [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
           ]
 
+#### Example 1c: How SmarterCSV processes CSV-files as chunks, and passes arrays of hashes to a given block:
+Please note how the given block is passed the data for each chunk as the parameter (array of hashes),
+and how the `process` method returns the number of chunks when called with a block
+
+     animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
+       chunk.each do |h|
+         h[:full_name] = [h[:first],h[:last]].join(' ')
+       end
+       puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
+     end
+
+     [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan , Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy , Laweless"}]
+     [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles , O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy , Homes"}]
+      => 2 
+
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
     filename = '/tmp/input_file.txt' # TAB delimited file, each row ending with Control-M
