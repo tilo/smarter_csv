@@ -39,7 +39,7 @@ Please note how each hash contains only the keys for columns with non-null value
      $ irb
      > require 'smarter_csv'
       => true 
-     > animals_array = SmarterCSV.process('/tmp/pets.csv')
+     > pets_by_owner = SmarterCSV.process('/tmp/pets.csv')
       => [ {:first_name=>"Dan", :last_name=>"McAllister", :dogs=>"2"},
            {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"}, 
            {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"}, 
@@ -51,7 +51,7 @@ Please note how each hash contains only the keys for columns with non-null value
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
-     > animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
+     > pets_by_owner = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
        => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
             [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
           ]
@@ -60,16 +60,16 @@ In case the number of rows is not cleanly divisible by `:chunk_size`, the last c
 Please note how the given block is passed the data for each chunk as the parameter (array of hashes),
 and how the `process` method returns the number of chunks when called with a block
 
-     animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
-       chunk.each do |h|
-         h[:full_name] = [h[:first],h[:last]].join(' ')
+     > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
+         chunk.each do |h|
+           h[:full_name] = [h[:first],h[:last]].join(' ')
+         end
+         puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
        end
-       puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
-     end
 
-     [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy Laweless"}]
-     [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
-      => 2 
+       [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy Laweless"}]
+       [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
+        => 2 
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
