@@ -62,13 +62,13 @@ and how the `process` method returns the number of chunks when called with a blo
 
      > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
          chunk.each do |h|   # you can post-process the data from each row to your heart's content, and also create virtual attributes:
-           h[:full_name] = [h[:first],h[:last]].join(' ')
-           h.delete(:first) ; h.delete(:last)
+           h[:full_name] = [h[:first],h[:last]].join(' ')  # create a virtual attribute
+           h.delete(:first) ; h.delete(:last)              # remove two keys
          end
          puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
        end
 
-       [{:dogs=>"2", :full_name=>"Dan Mac Allister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
+       [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
        [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
         => 2 
 
