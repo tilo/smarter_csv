@@ -67,8 +67,8 @@ and how the `process` method returns the number of chunks when called with a blo
        puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
      end
 
-     [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan , Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy , Laweless"}]
-     [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles , O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy , Homes"}]
+     [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy , Laweless"}]
+     [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy , Homes"}]
       => 2 
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
