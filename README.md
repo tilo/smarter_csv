@@ -135,8 +135,7 @@ The options and the block are optional.
  * :strings_as_keys : use strings instead of symbols as the keys in the result hashes (default: false)
  * :remove_empty_values : remove values which have nil or empty strings as values (default: true)
  * :remove_zero_values  : remove values which have a numeric value equal to zero / 0 (default: false)
- * :remove_values_matching : removes key/value pairs if value matches given regular expressions (default: nil) ,
-     e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
+ * :remove_values_matching : removes key/value pairs if value matches given regular expressions (default: nil) , e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
  * :convert_values_to_numeric : converts strings containing Integers or Floats to the appropriate class (default: true)
  * :remove_empty_hashes : remove / ignore any hashes which don't have any key/value pairs (default: true)
 
@@ -200,6 +199,11 @@ Or install it yourself as:
  * renamed `SmarterCSV.process_csv` to `SmarterCSV.process`.
 
 #### 1.0.0.pre1 (2012-07-29)
+
+
+## Reporting Bugs / Feature Requests
+
+Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if you have feedback, new feature requests, or want to report a bug. Thank you!
 
 
 
