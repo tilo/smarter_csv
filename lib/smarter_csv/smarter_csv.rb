@@ -2,7 +2,7 @@ module SmarterCSV
   def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true ,
-      :convert_values_to_numeric => true, 
+      :convert_values_to_numeric => true, :strip_chars_from_headers => nil ,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
     options = default_options.merge(options)
@@ -15,7 +15,9 @@ module SmarterCSV
       
       # process the header line in the CSV file..
       # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-      headerA = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep]).split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_')}
+      headerA = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+      headerA = headerA.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
+      headerA = headerA.split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_')}
       headerA.map!{|x| x.downcase }   if options[:downcase_header]
       headerA.map!{|x| x.to_sym } unless options[:strings_as_keys]
       key_mappingH = options[:key_mapping]
