@@ -23,7 +23,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 
 ### Examples
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
-     Please note how each hash contains only the keys for columns with non-null values.
+Please note how each hash contains only the keys for columns with non-null values.
 
      $ cat pets.csv
      first name,last name,dogs,cats,birds,fish
@@ -66,9 +66,10 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
            {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"} 
          ]
 
-     #### Example 1b: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
-     Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
-     In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
+
+#### Example 1b: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
+Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
+In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
      ap animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
      [
