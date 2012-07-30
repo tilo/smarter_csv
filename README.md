@@ -137,6 +137,7 @@ The options and the block are optional.
  * :remove_zero_values  : remove values which have a numeric value equal to zero / 0 (default: false)
  * :remove_values_matching : removes key/value pairs if value matches given regular expressions (default: nil) ,
      e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
+ * :convert_values_to_numeric : converts strings containing Integers or Floats to the appropriate class (default: true)
  * :remove_empty_hashes : remove / ignore any hashes which don't have any key/value pairs (default: true)
 
 #### NOTES about CSV Headers:
@@ -182,7 +183,13 @@ Or install it yourself as:
 
 #### 1.0.1 (2012-07-30)
 
- * added options :downcase_header , :strings_as_keys , :remove_zero_values , :remove_values_matching , :remove_empty_hashes
+ * added the following options: 
+    * :downcase_header
+    * :strings_as_keys
+    * :remove_zero_values
+    * :remove_values_matching
+    * :remove_empty_hashes
+    * :convert_values_to_numeric
 
  * renamed the following options:
     * :remove_empty_fields => :remove_empty_values

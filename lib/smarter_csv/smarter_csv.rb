@@ -2,6 +2,7 @@ module SmarterCSV
   def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true ,
+      :convert_values_to_numeric => true, 
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
     options = default_options.merge(options)
@@ -48,6 +49,16 @@ module SmarterCSV
         hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_values]
         hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
+        if options[:convert_values_to_numeric]
+          hash.each do |k,v|
+            case v
+            when /^\d+$/
+              hash[k] = v.to_i 
+            when /^\d+\.\d+$/
+              hash[k] = v.to_f
+            end
+          end
+        end
         next if hash.empty? if options[:remove_empty_hashes]
 
         if use_chunks
