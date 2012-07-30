@@ -115,6 +115,44 @@ and how the `process` method returns the number of chunks when called with a blo
     => returns number of chunks
 
 
+## Documentation
+
+The `process` method reads and processes a "generalized" CSV file and returns the contents either as an Array of Hashes,
+or an Array of Arrays, which contain Hashes, or processes Chunks of Hashes via a given block
+
+`SmarterCSV.process` supports the following options:
+ * :col_sep : column separator , which defaults to ','
+ * :row_sep : row separator or record separator , defaults to system's $/ , which defaults to "\n"
+ * :quote_char : quotation character , defaults to '"'
+ * :comment_regexp : regular expression which matches comment lines , defaults to /^#/ (see NOTE about the CSV header)
+ * :chunk_size : if set, determines the desired chunk-size (defaults to nil, no chunk processing)
+ * :key_mapping : a hash which maps headers from the CSV file to keys in the result hash (default: nil)
+ * :downcase_header : downcase all column headers (default: true)
+ * :strings_as_keys : use strings instead of symbols as the keys in the result hashes (default: false)
+ * :remove_empty_fields : remove fields which have nil or empty strings as values (default: true)
+ * :remove_zero_fields  : remove fields which have a numeric value equal to zero / 0 (default: false)
+ * :remove_fields_matching : removes key/value pairs if value matches given regular expressions (default: nil) ,
+     e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
+ * :remove_empty_hashes : remove / ignore any hashes which don't have any key/value pairs (default: true)
+
+#### NOTES about CSV Headers:
+ * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
+ * the first line with the CSV header may or may not be commented out according to the :comment_regexp
+ * any occurences of :comment_regexp or :row_sep will be stripped from the first line with the CSV header
+ * any of the keys in the header line will be downcased, spaces replaced by underscore, and converted to Ruby symbols before being used as keys in the returned Hashes
+
+#### NOTES on Key Mapping:
+ * keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes can be better used internally in your application (e.g. when directly creating MongoDB entries with them)
+ * if you want to completely delete a key, then map it to nil or to '', they will be automatically deleted from any result Hash
+
+#### NOTES on the use of Chunking and Blocks:
+ * chunking can be VERY USEFUL if used in combination with passing a block to File.read_csv FOR LARGE FILES
+ * if you pass a block to File.read_csv, that block will be executed and given an Array of Hashes as the parameter.
+ * if the chunk_size is not set, then the array will only contain one Hash.
+ * if the chunk_size is > 0 , then the array may contain up to chunk_size Hashes.
+ * this can be very useful when passing chunked data to a post-processing step, e.g. through Resque
+
+
 ## See also:
 
   http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
@@ -137,6 +175,10 @@ Or install it yourself as:
 
 
 ## Changes
+
+#### 1.0.1 (2012-07-30)
+
+ * added options :downcase_header , :strings_as_keys , :remove_zero_fields , :remove_fields_matching , :remove_empty_hashes
 
 #### 1.0.0 (2012-07-29)
 

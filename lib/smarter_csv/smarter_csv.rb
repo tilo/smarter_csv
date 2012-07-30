@@ -30,8 +30,9 @@ module SmarterCSV
   #
 
   def SmarterCSV.process(filename, options={}, &block)
-    default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :remove_empty_fields => true,
-      :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil
+    default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
+      :remove_empty_fields => true, :remove_zero_fields => false , :remove_fields_matching => nil , :remove_empty_hashes => true ,
+      :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
     options = default_options.merge(options)
     headerA = []
@@ -43,7 +44,9 @@ module SmarterCSV
       
       # process the header line in the CSV file..
       # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-      headerA = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep]).split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_').to_sym}
+      headerA = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep]).split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_')}
+      headerA.map!{|x| x.downcase }   if options[:downcase_header]
+      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys]
       key_mappingH = options[:key_mapping]
       
       # do some key mapping on the keys in the file header
@@ -73,7 +76,10 @@ module SmarterCSV
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil); hash.delete(''); hash.delete(:"") # delete any hash keys which were mapped to be deleted
         hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_fields]
-        
+        hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_fields]   # values are typically Strings!
+        hash.delete_if{|k,v| v =~ options[:remove_fields_matching]} if options[:remove_fields_matching]
+        next if hash.empty? if options[:remove_empty_hashes]
+
         if use_chunks
           chunk << hash  # append temp result to chunk
           
