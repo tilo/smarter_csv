@@ -23,7 +23,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 #### Example 1: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
     filename = '/tmp/input_file.txt' # TAB delimited file, each row ending with Control-M
-    recordsA = SmarterCSV.process(filename, {:col_sep => "\t", :row_sep => "\cM"}
+    recordsA = SmarterCSV.process(filename, {:col_sep => "\t", :row_sep => "\cM"})  # no block given
 
     => returns an array of hashes
 
