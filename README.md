@@ -119,11 +119,10 @@ and how the `process` method returns the number of chunks when called with a blo
 
 The `process` method reads and processes a "generalized" CSV file and returns the contents either as an Array of Hashes,
 or an Array of Arrays, which contain Hashes, or processes Chunks of Hashes via a given block.
-The options and the block are optional.
-
 
     SmarterCSV.process(filename, options={}, &block)
 
+The options and the block are optional.
 
 `SmarterCSV.process` supports the following options:
  * :col_sep : column separator , which defaults to ','
