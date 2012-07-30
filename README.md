@@ -57,8 +57,8 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 
     filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes)
     n = SmarterCSV.process(filename, {:col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
-            :chunk_size => '5' , :key_mapping => {:export_date => nil, :name => :genre}}) do |x|
-        puts   "Resque.enque( ResqueWorkerClass, #{x.size}, #{x.inspect} )"   # simulate processing each chunk
+            :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre}}) do |chunk|
+        Resque.enque( ResqueWorkerClass, chunk ) # pass chunks of CSV-data to Resque workers for parallel processing
     end
     => returns number of chunks
 
