@@ -22,6 +22,11 @@ Ruby's CSV library's API is pretty old, and it's processing of CSV-files returni
 As the existing CSV libraries didn't fit my needs, I was writing my own CSV processing - specifically for use in connection with Rails ORMs like Mongoid, MongoMapper or ActiveRecord. In those ORMs you can easily pass a hash with attribute/value pairs to the create() method. The lower-level Mongo driver and Moped also accept larger arrays of such hashes to create a larger amount of records quickly with just one call.
 
 ### Examples
+
+The two main choices you have in terms of how to call `SmarterCSV.process` are:
+ * calling `process` with or without a block
+ * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
+
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
 
