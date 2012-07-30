@@ -22,7 +22,8 @@ Ruby's CSV library's API is pretty old, and it's processing of CSV-files returni
 As the existing CSV libraries didn't fit my needs, I was writing my own CSV processing - specifically for use in connection with Rails ORMs like Mongoid, MongoMapper or ActiveRecord. In those ORMs you can easily pass a hash with attribute/value pairs to the create() method. The lower-level Mongo driver and Moped also accept larger arrays of such hashes to create a larger amount of records quickly with just one call.
 
 ### Examples
-#### Example 1: How SmarterCSV processes CSV-files as arrays of hashes:
+#### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
+     Please note how each hash contains only the keys for columns with non-null values.
 
      $ cat pets.csv
      first name,last name,dogs,cats,birds,fish
@@ -59,6 +60,47 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
                   :birds => "1"
          }
      ]
+      => [ {:first_name=>"Dan", :last_name=>"McAllister", :dogs=>"2"},
+           {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"}, 
+           {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"}, 
+           {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"} 
+         ]
+
+     #### Example 1b: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
+     Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
+     In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
+
+     ap animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
+     [
+         [0] [
+             [0] {
+                 :first => "Dan",
+                  :last => "McAllister",
+                  :dogs => "2"
+             },
+             [1] {
+                 :first => "Lucy",
+                  :last => "Laweless",
+                  :cats => "5"
+             }
+         ],
+         [1] [
+             [0] {
+                 :first => "Miles",
+                  :last => "O'Brian",
+                  :fish => "21"
+             },
+             [1] {
+                 :first => "Nancy",
+                  :last => "Homes",
+                  :dogs => "2",
+                 :birds => "1"
+             }
+         ]
+     ]
+       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
+            [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
+          ]
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
