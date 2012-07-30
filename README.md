@@ -83,9 +83,16 @@ Or install it yourself as:
 
     $ gem install smarter_csv
 
-## Usage
 
-TODO: Write usage instructions here
+## Changes
+
+#### 1.0.0 (2012-07-29)
+
+ * renamed `SmarterCSV.process_csv` to `SmarterCSV.process`.
+
+#### 1.0.0.pre1 (2012-07-29)
+
+
 
 ## Contributing
 
