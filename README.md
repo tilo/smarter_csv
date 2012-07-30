@@ -34,32 +34,7 @@ Please note how each hash contains only the keys for columns with non-null value
      $ irb
      > require 'smarter_csv'
       => true 
-     > require 'awesome_print'
-      => true 
-     > ap animals_array = SmarterCSV.process('/tmp/pets.csv')
-     [
-         [0] {
-             :first_name => "Dan",
-              :last_name => "McAllister",
-                   :dogs => "2"
-         },
-         [1] {
-             :first_name => "Lucy",
-              :last_name => "Laweless",
-                   :cats => "5"
-         },
-         [2] {
-             :first_name => "Miles",
-              :last_name => "O'Brian",
-                   :fish => "21"
-         },
-         [3] {
-             :first_name => "Nancy",
-              :last_name => "Homes",
-                   :dogs => "2",
-                  :birds => "1"
-         }
-     ]
+     > animals_array = SmarterCSV.process('/tmp/pets.csv')
       => [ {:first_name=>"Dan", :last_name=>"McAllister", :dogs=>"2"},
            {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"}, 
            {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"}, 
@@ -71,34 +46,7 @@ Please note how each hash contains only the keys for columns with non-null value
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
-     ap animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
-     [
-         [0] [
-             [0] {
-                 :first => "Dan",
-                  :last => "McAllister",
-                  :dogs => "2"
-             },
-             [1] {
-                 :first => "Lucy",
-                  :last => "Laweless",
-                  :cats => "5"
-             }
-         ],
-         [1] [
-             [0] {
-                 :first => "Miles",
-                  :last => "O'Brian",
-                  :fish => "21"
-             },
-             [1] {
-                 :first => "Nancy",
-                  :last => "Homes",
-                  :dogs => "2",
-                 :birds => "1"
-             }
-         ]
-     ]
+     > animals_array = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
        => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
             [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
           ]
