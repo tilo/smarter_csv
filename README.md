@@ -61,14 +61,15 @@ Please note how the given block is passed the data for each chunk as the paramet
 and how the `process` method returns the number of chunks when called with a block
 
      > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
-         chunk.each do |h|
+         chunk.each do |h|   # you can post-process the data from each row to your heart's content, and also create virtual attributes:
            h[:full_name] = [h[:first],h[:last]].join(' ')
+           h.delete(:first) ; h.delete(:last)
          end
          puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
        end
 
-       [{:first=>"Dan", :last=>"Mac Allister", :dogs=>"2", :full_name=>"Dan Mac Allister"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5", :full_name=>"Lucy Laweless"}]
-       [{:first=>"Miles", :last=>"O'Brian", :fish=>"21", :full_name=>"Miles O'Brian"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
+       [{:dogs=>"2", :full_name=>"Dan Mac Allister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
+       [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
         => 2 
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
