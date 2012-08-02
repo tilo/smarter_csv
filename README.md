@@ -127,7 +127,7 @@ The options and the block are optional.
 `SmarterCSV.process` supports the following options:
 
       Option                     | Default  |  Explanation
-    --------------------------------+----------+--------------------------------------------------------------
+    --------------------------------+-----------+--------------------------------------------------------------
      :col_sep                    |   ','    | column separator
      :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n"
      :quote_char                 |   '"'    | quotation character
