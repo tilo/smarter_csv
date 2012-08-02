@@ -142,8 +142,9 @@ The options and the block are optional.
                                  |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
      :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class
      :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs
-     :user_provided_headers      |   nil    | user provided Array of header strings or symbols, to define
-                                 |          | what headers should be used, overriding any in-file headers. (careful with that axe!)
+     :user_provided_headers      |   nil    | *careful with that axe!*
+                                 |          | user provided Array of header strings or symbols, to define
+                                 |          | what headers should be used, overriding any in-file headers.
                                  |          | You can not combine the :user_provided_headers and :key_mapping options
      :headers_in_file            |   true   | Whether or not the file contains headers as the first line. 
                                  |          | Important if the file does not contain headers, 
