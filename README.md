@@ -143,7 +143,7 @@ The options and the block are optional.
      :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class
      :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs
      :user_provided_headers      |   nil    | user provided Array of header strings or symbols, to define
-                                 |          | what headers should be used, overriding any in-file headers. (dangerous)
+                                 |          | what headers should be used, overriding any in-file headers. (careful with that axe!)
                                  |          | You can not combine the :user_provided_headers and :key_mapping options
      :headers_in_file            |   true   | Whether or not the file contains headers as the first line. 
                                  |          | Important if the file does not contain headers, 
@@ -194,7 +194,7 @@ Or install it yourself as:
 
 ## Changes
 
-#### 1.0.1 (2012-08-02)
+#### 1.0.2 (2012-08-02)
 
  * added more options for dealing with headers:
     * :user_provided_headers ,user provided Array with header strings or symbols, to precisely define what the headers should be, overriding any in-file headers (default: nil)
