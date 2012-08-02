@@ -125,25 +125,38 @@ or an Array of Arrays, which contain Hashes, or processes Chunks of Hashes via a
 The options and the block are optional.
 
 `SmarterCSV.process` supports the following options:
- * :col_sep : column separator , which defaults to ','
- * :row_sep : row separator or record separator , defaults to system's $/ , which defaults to "\n"
- * :quote_char : quotation character , defaults to '"'
- * :comment_regexp : regular expression which matches comment lines , defaults to /^#/ (see NOTE about the CSV header)
- * :chunk_size : if set, determines the desired chunk-size (defaults to nil, no chunk processing)
- * :key_mapping : a hash which maps headers from the CSV file to keys in the result hash (default: nil)
- * :downcase_header : downcase all column headers (default: true)
- * :strings_as_keys : use strings instead of symbols as the keys in the result hashes (default: false)
- * :remove_empty_values : remove values which have nil or empty strings as values (default: true)
- * :remove_zero_values  : remove values which have a numeric value equal to zero / 0 (default: false)
- * :remove_values_matching : removes key/value pairs if value matches given regular expressions (default: nil) , e.g. /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
- * :convert_values_to_numeric : converts strings containing Integers or Floats to the appropriate class (default: true)
- * :remove_empty_hashes : remove / ignore any hashes which don't have any key/value pairs (default: true)
+
+      Option                     | Default  |  Explanation
+    -----------------------------+----------+--------------------------------------------------------------
+     :col_sep                    |   ','    | column separator
+     :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n"
+     :quote_char                 |   '"'    | quotation character
+     :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)
+     :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)
+     :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash
+     :downcase_header            |   true   | downcase all column headers
+     :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes
+     :remove_empty_values        |   true   | remove values which have nil or empty strings as values
+     :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0
+     :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:
+                                 |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets
+     :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class
+     :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs
+     :user_provided_headers      |   nil    | user provided Array of header strings or symbols, to define
+                                 |          | what headers should be used, overriding any in-file headers. (dangerous)
+                                 |          | You can not combine the :user_provided_headers and :key_mapping options
+     :headers_in_file            |   true   | Whether or not the file contains headers as the first line. 
+                                 |          | Important if the file does not contain headers, 
+                                 |          | otherwise you would lose the first line of data.
+
 
 #### NOTES about CSV Headers:
  * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
  * the first line with the CSV header may or may not be commented out according to the :comment_regexp
  * any occurences of :comment_regexp or :row_sep will be stripped from the first line with the CSV header
  * any of the keys in the header line will be downcased, spaces replaced by underscore, and converted to Ruby symbols before being used as keys in the returned Hashes
+ * you can not combine the :user_provided_headers and :key_mapping options
+ * if the incorrect number of headers are provided via :user_provided_headers, exception SmarterCSV::HeaderSizeMismatch is raised
 
 #### NOTES on Key Mapping:
  * keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes can be better used internally in your application (e.g. when directly creating MongoDB entries with them)
@@ -178,7 +191,14 @@ Or install it yourself as:
     $ gem install smarter_csv
 
 
+
 ## Changes
+
+#### 1.0.1 (2012-08-02)
+
+ * added more options for dealing with headers:
+    * :user_provided_headers ,user provided Array with header strings or symbols, to precisely define what the headers should be, overriding any in-file headers (default: nil)
+    * :headers_in_file , if the file contains headers as the first line (default: true)
 
 #### 1.0.1 (2012-07-30)
 

@@ -1,8 +1,12 @@
 module SmarterCSV
+
+  class HeaderSizeMismatch < Exception
+  end
+
   def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true ,
-      :convert_values_to_numeric => true, :strip_chars_from_headers => nil ,
+      :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
     options = default_options.merge(options)
@@ -12,20 +16,39 @@ module SmarterCSV
     begin
       $/ = options[:row_sep]
       f = File.open(filename, "r")
-      
-      # process the header line in the CSV file..
-      # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-      headerA = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
-      headerA = headerA.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-      headerA = headerA.split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_')}
-      headerA.map!{|x| x.downcase }   if options[:downcase_header]
+
+      if options[:headers_in_file]        # extract the header line
+        # process the header line in the CSV file..
+        # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
+        header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
+        file_headerA = header.split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'').gsub(/\s+/,'_')}
+        file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
+        file_header_size = file_headerA.size
+      end
+      if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
+        # use user-provided headers 
+        headerA = options[:user_provided_headers]
+        if defined?(file_header_size)
+          if headerA.size != file_header_size
+            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{filename} has #{file_header_size} headers" 
+          else
+            # we could print out the mapping of file_headerA to headerA here
+          end
+        end
+      else
+        headerA = file_headerA
+      end
       headerA.map!{|x| x.to_sym } unless options[:strings_as_keys]
-      key_mappingH = options[:key_mapping]
       
-      # do some key mapping on the keys in the file header
-      #   if you want to completely delete a key, then map it to nil or to ''
-      if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-        headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x].to_sym) : x}
+      unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers 
+        key_mappingH = options[:key_mapping]
+      
+        # do some key mapping on the keys in the file header
+        #   if you want to completely delete a key, then map it to nil or to ''
+        if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
+          headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x].to_sym) : x}
+        end
       end
 
       # in case we use chunking.. we'll need to set it up..
