@@ -5,7 +5,7 @@ module SmarterCSV
 
   def SmarterCSV.process(filename, options={}, &block)
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
-      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true ,
+      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace_from_values => true, 
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false 
     }
@@ -68,6 +68,7 @@ module SmarterCSV
         line.chomp!    # will use $/ which is set to options[:col_sep]
         
         dataA = line.split(options[:col_sep])
+        dataA.map!{|x| x.strip}  if options[:strip_whitespace_from_values]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil); hash.delete(''); hash.delete(:"") # delete any hash keys which were mapped to be deleted
