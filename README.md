@@ -136,7 +136,7 @@ The options and the block are optional.
      :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash
      :downcase_header            |   true   | downcase all column headers
      :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes
-     :strip_whitepace            |   true   | remove whitespace before/after values and headers
+     :strip_whitespace           |   true   | remove whitespace before/after values and headers
      :remove_empty_values        |   true   | remove values which have nil or empty strings as values
      :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0
      :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:
