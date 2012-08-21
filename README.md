@@ -126,30 +126,30 @@ The options and the block are optional.
 
 `SmarterCSV.process` supports the following options:
 
- | Option                      | Default  |  Explanation                                                                         |
- ---------------------------------------------------------------------------------------------------------------------------------
- | :col_sep                    |   ','    | column separator                                                                     |
- | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
- | :quote_char                 |   '"'    | quotation character                                                                  |
- | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
- | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
- | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
- | :downcase_header            |   true   | downcase all column headers                                                          |
- | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
- | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
- | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
- | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
- | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
- |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
- | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
- | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
- | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
- |                             |          | user provided Array of header strings or symbols, to define                          |
- |                             |          | what headers should be used, overriding any in-file headers.                         |
- |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
- | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
- |                             |          | Important if the file does not contain headers,                                      |
- |                             |          | otherwise you would lose the first line of data.                                     |
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :col_sep                    |   ','    | column separator                                                                     |
+     | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
+     | :quote_char                 |   '"'    | quotation character                                                                  |
+     | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
+     | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
+     | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
+     | :downcase_header            |   true   | downcase all column headers                                                          |
+     | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
+     | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
+     | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
+     | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
+     | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
+     |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
+     | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
+     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
+     | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
+     |                             |          | user provided Array of header strings or symbols, to define                          |
+     |                             |          | what headers should be used, overriding any in-file headers.                         |
+     |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
+     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
+     |                             |          | Important if the file does not contain headers,                                      |
+     |                             |          | otherwise you would lose the first line of data.                                     |
 
 
 #### NOTES about CSV Headers:
