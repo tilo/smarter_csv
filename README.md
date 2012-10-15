@@ -196,6 +196,7 @@ Or install it yourself as:
 
 ## Changes
 
+
 #### 1.0.4 (2012-08-17)
 
  * renamed the following options: 
