@@ -62,20 +62,20 @@ module SmarterCSV
       else
         use_chunks = false
       end
-      
+
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
         line.chomp!    # will use $/ which is set to options[:col_sep]
-        
+
         dataA = line.split(options[:col_sep])
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
         hash.delete(nil); hash.delete('');
-        if RUBY_VERSION >= 1.9
+        if RUBY_VERSION.to_f > 1.8
           eval('hash.delete(:"")')
         end
 
