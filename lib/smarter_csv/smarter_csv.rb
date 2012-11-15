@@ -73,7 +73,12 @@ module SmarterCSV
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
-        hash.delete(nil); hash.delete(''); hash.delete(:"") # delete any hash keys which were mapped to be deleted
+        # Note: Ruby < 1.9 doesn't allow empty symbol literals!
+        hash.delete(nil); hash.delete('');
+        if RUBY_VERSION >= 1.9
+          eval('hash.delete(:"")')
+        end
+
         hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_values]
         hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
