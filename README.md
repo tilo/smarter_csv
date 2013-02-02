@@ -51,26 +51,32 @@ Please note how each hash contains only the keys for columns with non-null value
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
-     > pets_by_owner = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
-       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
-            [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
-          ]
+```ruby
+pets_by_owner = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
+#  => 
+      [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
+        [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
+      ]
+```
 
 #### Example 1c: How SmarterCSV processes CSV-files as chunks, and passes arrays of hashes to a given block:
 Please note how the given block is passed the data for each chunk as the parameter (array of hashes),
 and how the `process` method returns the number of chunks when called with a block
 
-     > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
-         chunk.each do |h|   # you can post-process the data from each row to your heart's content, and also create virtual attributes:
-           h[:full_name] = [h[:first],h[:last]].join(' ')  # create a virtual attribute
-           h.delete(:first) ; h.delete(:last)              # remove two keys
-         end
-         puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
-       end
+```ruby
+total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
+  chunk.each do |h|   # you can post-process the data from each row to your heart's content, and also create virtual attributes:
+    h[:full_name] = [h[:first],h[:last]].join(' ')  # create a virtual attribute
+    h.delete(:first) ; h.delete(:last)              # remove two keys
+  end
+  puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
+end
 
-       [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
-       [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
-        => 2 
+#
+   [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
+   [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
+    => 2 
+```
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
@@ -150,6 +156,7 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     | :source_encoding            |   nil    | encoding of csv file (string, eg 'windows-1251')                                     |
 
 
 #### NOTES about CSV Headers:
