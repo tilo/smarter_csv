@@ -147,6 +147,7 @@ The options and the block are optional.
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
+     | :strip_chars_from_headers   |   nil    | remove extraneous characters from the header line (e.g. if the headers are quoted)   |
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
