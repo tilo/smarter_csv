@@ -69,7 +69,7 @@ module SmarterCSV
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
-        dataA = line.split(options[:col_sep])
+        dataA = line.split(options[:col_sep])   # ISSUE 4 : BUG : this splits incorrectly if , is inside quoted fields
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
