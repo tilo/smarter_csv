@@ -244,6 +244,17 @@ Or install it yourself as:
 Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if you have feedback, new feature requests, or want to report a bug. Thank you!
 
 
+## Special Thanks
+
+Many thanks to people who have filed issues and sent comments. 
+And a special thanks to those who contributed pull requests:
+
+ * [Sean Duckett](http://github.com/sduckett)
+ * [Alex Ong](http://github.com/khaong) 
+ * [Martin Nilsson](http://github.com/MrTin) 
+ * [Eustáquio Rangel](http://github.com/taq) 
+ * [Pavel](http://github.com/paxa) 
+
 
 ## Contributing
 
