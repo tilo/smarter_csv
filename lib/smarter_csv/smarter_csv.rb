@@ -31,7 +31,7 @@ module SmarterCSV
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
         # use user-provided headers 
         headerA = options[:user_provided_headers]
-        if defined?(file_header_size)
+        if defined?(file_header_size) && ! file_header_size.nil?
           if headerA.size != file_header_size
             raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{filename} has #{file_header_size} headers" 
           else
