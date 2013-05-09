@@ -201,6 +201,9 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.5 (2013-05-08)
+
+ * bugfix : for :headers_in_file option
 
 #### 1.0.4 (2012-08-17)
 
