@@ -197,7 +197,7 @@ Or install it yourself as:
 
 ## Changes
 
-#### 1.0.7 (2013-05-19)
+#### 1.0.7 (2013-05-20)
 
  * allowing process to work with objects with a 'readline' method (thanks to taq)
  * added options:
