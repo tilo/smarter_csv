@@ -3,7 +3,7 @@ module SmarterCSV
   class HeaderSizeMismatch < Exception
   end
 
-  def SmarterCSV.process(filename, options={}, &block)
+  def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true, 
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
@@ -15,7 +15,7 @@ module SmarterCSV
     old_row_sep = $/
     begin
       $/ = options[:row_sep]
-      f = File.open(filename, "r:#{options[:file_encoding]}")
+      f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
@@ -38,7 +38,7 @@ module SmarterCSV
         headerA = options[:user_provided_headers]
         if defined?(file_header_size) && ! file_header_size.nil?
           if headerA.size != file_header_size
-            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{filename} has #{file_header_size} headers" 
+            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers" 
           else
             # we could print out the mapping of file_headerA to headerA here
           end
