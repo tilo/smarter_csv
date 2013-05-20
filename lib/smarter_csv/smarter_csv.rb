@@ -22,7 +22,11 @@ module SmarterCSV
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-        file_headerA = header.split(options[:col_sep]).map{|x| x.gsub(%r/options[:quote_char]/,'')}
+        if header =~ %r{#{options[:quote_char]}}
+          File_headerA = CSV.parse( header ).flatten
+        else
+          File_headerA =  header.split(options[:col_sep])
+        end
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         file_headerA.map!{|x| x.gsub(/\s+/,'_')}
         file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
@@ -69,7 +73,11 @@ module SmarterCSV
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
-        dataA = line.split(options[:col_sep])   # ISSUE 4 : BUG : this splits incorrectly if , is inside quoted fields
+        if line =~ %r{#{options[:quote_char]}}
+          dataA = CSV.parse( line ).flatten
+        else
+          dataA =  line.split(options[:col_sep])
+        end
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:

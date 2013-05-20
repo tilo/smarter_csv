@@ -13,5 +13,6 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.name          = "smarter_csv"
   gem.require_paths = ["lib"]
+  gem.requirements  = ['csv'] # for CSV.parse() only needed in case we have quoted fields
   gem.version       = SmarterCSV::VERSION
 end

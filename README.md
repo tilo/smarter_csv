@@ -194,12 +194,11 @@ Or install it yourself as:
     $ gem install smarter_csv
 
 
-## Known Bugs
-
- * if :col_sep (e.g. a comma) appears inside a quoted field, smarter_csv <= 1.0.4 incorrectly splits on that :col_sep
-
-
 ## Changes
+
+#### 1.0.6 (2013-05-19)
+
+ * bugfix : quoted fields are now correctly parsed
 
 #### 1.0.5 (2013-05-08)
 
