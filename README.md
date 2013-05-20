@@ -197,6 +197,12 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.7 (2013-05-19)
+
+ * allowing process to work with objects with a 'readline' method (thanks to taq)
+ * added options:
+    * :file_encoding : defaults to utf8  (thanks to MrTin, Paxa)
+
 #### 1.0.6 (2013-05-19)
 
  * bugfix : quoted fields are now correctly parsed
