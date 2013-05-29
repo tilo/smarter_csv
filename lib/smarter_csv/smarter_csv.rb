@@ -27,10 +27,10 @@ module SmarterCSV
         else
           file_headerA =  header.split(options[:col_sep])
         end
-        file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
-        file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
-        file_headerA.map!{|x| x.gsub(/\s+/,'_')}
-        file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
+        file_headerA.map!{|x| x.is_a?(String) ? x.gsub(%r/options[:quote_char]/,'') : x }
+        file_headerA.map!{|x| x.is_a?(String) ? x.strip : x }  if options[:strip_whitespace]
+        file_headerA.map!{|x| x.is_a?(String) ? x.gsub(/\s+/,'_') : x }
+        file_headerA.map!{|x| x.is_a?(String) ? x.downcase : x }   if options[:downcase_header]
         file_header_size = file_headerA.size
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
@@ -79,8 +79,8 @@ module SmarterCSV
         else
           dataA =  line.split(options[:col_sep])
         end
-        dataA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
-        dataA.map!{|x| x.strip}  if options[:strip_whitespace]
+        dataA.map!{|x| x.is_a?(String) ? x.gsub(%r/options[:quote_char]/,'') : x }
+        dataA.map!{|x| x.is_a?(String) ? x.strip : x }  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
