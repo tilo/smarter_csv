@@ -152,6 +152,9 @@ The options and the block are optional.
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
      | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
+     | :force_simple_split         |   false  | force simiple splitting on :col_sep character for non-standard CSV-files.            |
+     |                             |          | e.g. when :quote_char is not properly escaped                                        |
+     | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
 
 
 #### NOTES about CSV Headers:
@@ -196,6 +199,13 @@ Or install it yourself as:
 
 
 ## Changes
+
+#### 1.0.8 (2013-06-01)
+
+ * bugfix : fixed issue with nil values in inputs with quote-char (thanks to Félix Bellanger)
+ * new options:
+    * :force_simple_split : to force simiple splitting on :col_sep character for non-standard CSV-files. e.g. without properly escaped :quote_char
+    * :verbose : print out line number while processing (to track down problems in input files)
 
 #### 1.0.7 (2013-05-20)
 
@@ -263,6 +273,7 @@ And a special thanks to those who contributed pull requests:
  * [Martin Nilsson](http://github.com/MrTin) 
  * [Eustáquio Rangel](http://github.com/taq) 
  * [Pavel](http://github.com/paxa) 
+ * [Félix Bellanger](https://github.com/Keeguon)
 
 
 ## Contributing

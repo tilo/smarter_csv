@@ -4,7 +4,7 @@ module SmarterCSV
   end
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
-    default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"',
+    default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true, 
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8'
@@ -13,6 +13,7 @@ module SmarterCSV
     headerA = []
     result = []
     old_row_sep = $/
+    line_count = 0
     begin
       $/ = options[:row_sep]
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
@@ -21,9 +22,10 @@ module SmarterCSV
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-        if header =~ %r{#{options[:quote_char]}}
-          file_headerA = CSV.parse( header ).flatten
+        if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+          file_headerA = CSV.parse( header ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           file_headerA =  header.split(options[:col_sep])
         end
@@ -71,11 +73,13 @@ module SmarterCSV
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        line_count += 1
+        print "processing line %10d\r" % line_count if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
-        if line =~ %r{#{options[:quote_char]}}
-          dataA = CSV.parse( line ).flatten
+        if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+          dataA = CSV.parse( line ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           dataA =  line.split(options[:col_sep])
         end
