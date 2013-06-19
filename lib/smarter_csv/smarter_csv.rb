@@ -99,10 +99,10 @@ module SmarterCSV
         if options[:convert_values_to_numeric]
           hash.each do |k,v|
             case v
-            when /^\d+$/
-              hash[k] = v.to_i 
-            when /^\d+\.\d+$/
+            when /^[+-]?\d+\.\d+$/
               hash[k] = v.to_f
+            when /^[+-]?\d+$/
+              hash[k] = v.to_i 
             end
           end
         end

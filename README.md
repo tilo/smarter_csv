@@ -200,6 +200,9 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.9 (2013-06-19)
+ * bugfix : fixed issue #13 with negative integers and floats not being correctly converted (thanks to Graham Wetzler)
+
 #### 1.0.8 (2013-06-01)
 
  * bugfix : fixed issue with nil values in inputs with quote-char (thanks to Félix Bellanger)
@@ -274,6 +277,7 @@ And a special thanks to those who contributed pull requests:
  * [Eustáquio Rangel](http://github.com/taq) 
  * [Pavel](http://github.com/paxa) 
  * [Félix Bellanger](https://github.com/Keeguon)
+ * [Graham Wetzler](https://github.com/grahamwetzler)
 
 
 ## Contributing
