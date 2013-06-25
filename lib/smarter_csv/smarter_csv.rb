@@ -5,11 +5,12 @@ module SmarterCSV
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
-      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true, 
+      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8'
     }
     options = default_options.merge(options)
+    csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
     headerA = []
     result = []
     old_row_sep = $/
@@ -25,7 +26,7 @@ module SmarterCSV
         line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
-          file_headerA = CSV.parse( header ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+          file_headerA = CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           file_headerA =  header.split(options[:col_sep])
         end
@@ -36,11 +37,11 @@ module SmarterCSV
         file_header_size = file_headerA.size
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
-        # use user-provided headers 
+        # use user-provided headers
         headerA = options[:user_provided_headers]
         if defined?(file_header_size) && ! file_header_size.nil?
           if headerA.size != file_header_size
-            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers" 
+            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers"
           else
             # we could print out the mapping of file_headerA to headerA here
           end
@@ -49,10 +50,10 @@ module SmarterCSV
         headerA = file_headerA
       end
       headerA.map!{|x| x.to_sym } unless options[:strings_as_keys]
-      
-      unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers 
+
+      unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
-      
+
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
@@ -79,7 +80,7 @@ module SmarterCSV
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
-          dataA = CSV.parse( line ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+          dataA = CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           dataA =  line.split(options[:col_sep])
         end
@@ -102,7 +103,7 @@ module SmarterCSV
             when /^[+-]?\d+\.\d+$/
               hash[k] = v.to_f
             when /^[+-]?\d+$/
-              hash[k] = v.to_i 
+              hash[k] = v.to_i
             end
           end
         end
@@ -110,7 +111,7 @@ module SmarterCSV
 
         if use_chunks
           chunk << hash  # append temp result to chunk
-          
+
           if chunk.size >= chunk_size || f.eof?   # if chunk if full, or EOF reached
             # do something with the chunk
             if block_given?
@@ -122,7 +123,7 @@ module SmarterCSV
             chunk = []  # initialize for next chunk of data
           end
           # while a chunk is being filled up we don't need to do anything else here
-          
+
         else # no chunk handling
           if block_given?
             yield [hash]  # do something with the hash in the block (better to use chunking here)
