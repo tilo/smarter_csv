@@ -200,6 +200,9 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.10 (2013-06-26)
+ * bugfix : fixed issue #14 - passing options along to CSV.parse (thank to Marcos Zimmermann)
+
 #### 1.0.9 (2013-06-19)
  * bugfix : fixed issue #13 with negative integers and floats not being correctly converted (thanks to Graham Wetzler)
 
@@ -278,6 +281,7 @@ And a special thanks to those who contributed pull requests:
  * [Pavel](http://github.com/paxa) 
  * [Félix Bellanger](https://github.com/Keeguon)
  * [Graham Wetzler](https://github.com/grahamwetzler)
+ * [Marcos G. Zimmermann](https://github.com/marcosgz)
 
 
 ## Contributing
