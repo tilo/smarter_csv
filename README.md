@@ -179,9 +179,7 @@ The options and the block are optional.
 
 ## See also:
 
-  http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
-
-
+  Process CSV file as Hash: https://gist.github.com/tilo/3101950
 
 ## Installation
 
