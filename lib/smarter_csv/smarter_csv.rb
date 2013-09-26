@@ -107,30 +107,29 @@ module SmarterCSV
             end
           end
         end
-        next if hash.empty? if options[:remove_empty_hashes]
 
-        if use_chunks
-          chunk << hash  # append temp result to chunk
-
-          if chunk.size >= chunk_size || f.eof?   # if chunk if full, or EOF reached
-            # do something with the chunk
-            if block_given?
-              yield chunk  # do something with the hashes in the chunk in the block
-            else
-              result << chunk  # not sure yet, why anybody would want to do this without a block
-            end
-            chunk_count += 1
-            chunk = []  # initialize for next chunk of data
-          end
-          # while a chunk is being filled up we don't need to do anything else here
-
-        else # no chunk handling
-          if block_given?
-            yield [hash]  # do something with the hash in the block (better to use chunking here)
+        unless hash.empty? && options[:remove_empty_hashes]
+          if use_chunks
+            chunk << hash
+            next unless chunk.size >= chunk_size || f.eof?  # finish chunk unless chunk is full, or EOF is reached
           else
-            result << hash
+            if block_given?
+              yield [hash]  # do something with the hash in the block (better to use chunking here)
+            else
+              result << hash
+            end
           end
         end
+        next unless use_chunks
+
+        # do something with the chunk
+        if block_given?
+          yield chunk  # do something with the hashes in the chunk in the block
+        else
+          result << chunk  # not sure yet, why anybody would want to do this without a block
+        end
+        chunk_count += 1
+        chunk = []  # initialize for next chunk of data
       end
     ensure
       $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
