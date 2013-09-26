@@ -2,7 +2,10 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
 
-Rake::TestTask.new do |t|
-  t.test_files = FileList['spec/*_spec.rb']
+gemspec = Bundler::GemHelper.gemspec
+
+Rake::TestTask.new do |spec|
+  spec.libs << "spec"
+  spec.test_files = gemspec.test_files
 end
 task :default => :test

@@ -1,16 +1,15 @@
-require "minitest/autorun"
+require "spec_helper"
 require "tempfile"
-require "smarter_csv"
 
 module SharedExamples
   module ItShouldProcessEveryRow
     def self.included(base)
       base.class_eval do
         it "should process every row" do
-          chunks  = SmarterCSV.process(new_path, smarter_csv_opts.merge(extra_opts))
-          rows    = chunks.reduce(:+)
+          result = SmarterCSV.process(new_path, smarter_csv_opts.merge(extra_opts))
+          result = result.reduce(:+) if extra_opts[:use_chunks] != false
 
-          rows.size.must_equal num_rows_expected
+          result.size.must_equal num_rows_expected
         end
       end
     end
@@ -18,7 +17,6 @@ module SharedExamples
 end
 
 describe SmarterCSV do
-  let(:row_skip_match) { /^#/ } # Don't count comment lines
   let(:smarter_csv_opts) { { chunk_size: 2 } }
   let(:extra_opts) { {} }
 
@@ -35,9 +33,9 @@ describe SmarterCSV do
     let(:csv_data) {
       unindent <<-CSV
         foo,bar,baz
-        1,2,3 
-        4,5,6
-        7,8,9 
+        A,1,2
+        A,3,4
+        A,5,6
       CSV
     }
     let(:num_rows_expected) { 3 }
@@ -49,10 +47,10 @@ describe SmarterCSV do
     let(:csv_data) {
       unindent <<-CSV
         foo,bar,baz
-        1,2,3
+        B,1,2
         ,,
-        4,5,6
-        7,8,9
+        B,3,4
+        B,5,6
         ,,
       CSV
     }
@@ -62,6 +60,17 @@ describe SmarterCSV do
       let(:num_rows_expected) { 3 }
 
       include SharedExamples::ItShouldProcessEveryRow
+
+      describe "and :use_chunks => false" do
+        let(:extra_opts)  { { remove_empty_hashes:  true,
+                              use_chunks:           false,
+                              chunk_size:           nil
+                            }
+                          }
+
+        include SharedExamples::ItShouldProcessEveryRow
+
+      end
     end
 
     describe "and :remove_empty_hashes => false" do
