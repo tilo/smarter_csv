@@ -121,7 +121,14 @@ module SmarterCSV
             end
             chunk_count += 1
             chunk = []  # initialize for next chunk of data
+          else
+
+            # the last chunk may contain partial data, which also needs to be returned (BUG / ISSUE-18)
+            
+
           end
+
+
           # while a chunk is being filled up we don't need to do anything else here
 
         else # no chunk handling
@@ -131,6 +138,17 @@ module SmarterCSV
             result << hash
           end
         end
+      end
+      # last chunk:
+      if ! chunk.nil? && chunk.size > 0
+        # do something with the chunk
+        if block_given?
+          yield chunk  # do something with the hashes in the chunk in the block
+        else
+          result << chunk  # not sure yet, why anybody would want to do this without a block
+        end
+        chunk_count += 1
+        chunk = []  # initialize for next chunk of data
       end
     ensure
       $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
