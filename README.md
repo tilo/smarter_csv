@@ -176,6 +176,15 @@ The options and the block are optional.
  * if the chunk_size is > 0 , then the array may contain up to chunk_size Hashes.
  * this can be very useful when passing chunked data to a post-processing step, e.g. through Resque
 
+#### Known Issue:
+ * if your CSV data contains the :row_sep character, e.g. CR, smarter_csv will not be able to handle the data, but will report `CSV::MalformedCSVError: Unclosed quoted field`.
+
+   Invalid CSV:
+
+      id,name,comment
+      1,James,a simple comment
+      2,Paul,"a comment which contains
+      the :row_sep character CR"
 
 ## See also:
 
