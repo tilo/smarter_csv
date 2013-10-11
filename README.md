@@ -186,6 +186,10 @@ Example of Invalid CSV:
     1,James,a simple comment
     2,Paul,"a comment which contains
     the :row_sep character CR"
+    3,Frank,"some other comment"
+
+The second row contains a comment with an embedded \n carriage return character.
+`smarter_csv` handles this special case as invalid CSV.
 
 
 ## See also:
