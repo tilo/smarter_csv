@@ -3,17 +3,18 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'not_downcase_headers' do 
-    options = {:downcase_header => false}
+  it 'remove_zero_values' do 
+    options = {:remove_zero_values => true, :remove_empty_values => true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 4
     # all the keys should be symbols
     data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
 
-    data.each do |item| 
-      item.keys.each do |key|
-        [:First_Name, :Last_Name, :Dogs, :Cats, :Birds, :Fish].should include( key )
+    data.each do |hash| 
+      hash.keys.each do |key|
+        [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include( key )
       end
+      hash.values.should_not include( 0 )
     end
 
     data.each do |h|

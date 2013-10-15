@@ -3,8 +3,8 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'strip_whitespace_in_keys' do 
-    options = {:strip_whitespace => true}
+  it 'strip_whitespace_from_headers' do 
+    options = {:strip_chars_from_headers => ' '}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 4
     # all the keys should be symbols
@@ -12,7 +12,7 @@ describe 'be_able_to' do
 
     data.each do |item| 
       item.keys.each do |key|
-        [:firstname, :lastname, :dogs, :cats, :birds, :fish].include?( key )
+        [:firstname, :lastname, :dogs, :cats, :birds, :fish].should include( key )
       end
     end
 

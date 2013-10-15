@@ -12,7 +12,7 @@ describe 'be_able_to' do
 
     data.each do |item| 
       item.keys.each do |key|
-        ["first_name", "last_name", "dogs", "cats", "birds", "fish"].include?( key )
+        ["first_name", "last_name", "dogs", "cats", "birds", "fish"].should include( key )
       end
     end
 
