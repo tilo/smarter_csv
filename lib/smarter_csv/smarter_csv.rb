@@ -34,6 +34,9 @@ module SmarterCSV
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         file_headerA.map!{|x| x.gsub(/\s+/,'_')}
         file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
+
+#        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
+
         file_header_size = file_headerA.size
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
