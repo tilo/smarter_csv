@@ -6,7 +6,7 @@ describe 'be_able_to' do
   it 'remove_zero_values' do 
     options = {:remove_zero_values => true, :remove_empty_values => true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 4
+    data.size.should == 5
     # all the keys should be symbols
     data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
 
