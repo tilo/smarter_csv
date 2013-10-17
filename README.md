@@ -176,7 +176,8 @@ The options and the block are optional.
  * if the chunk_size is > 0 , then the array may contain up to chunk_size Hashes.
  * this can be very useful when passing chunked data to a post-processing step, e.g. through Resque
 
-#### Known Issue:
+#### Known Issues:
+ * if you are using 1.8.7 versions of Ruby, JRuby, or Ruby Enterprise Edition, `smarter_csv` will have problems with double-quoted fields, because of a bug in an underlying library.
  * if your CSV data contains the :row_sep character, e.g. CR, smarter_csv will not be able to handle the data, but will report `CSV::MalformedCSVError: Unclosed quoted field`.
 
 
