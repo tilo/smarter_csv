@@ -15,7 +15,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.requirements  = ['csv'] # for CSV.parse() only needed in case we have quoted fields
   gem.version       = SmarterCSV::VERSION
-  gem.license       = 'GPL-2'
+  gem.licenses      = ['MIT','GPL-2']
   gem.add_development_dependency "rspec"
 #  gem.add_development_dependency "guard-rspec"
 end
