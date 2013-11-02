@@ -216,6 +216,9 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.13 (2013-11-01)
+ * added GPL-2 license to GEM spec file; if you need another license contact me
+
 #### 1.0.12 (2013-10-15)
  * added RSpec tests
 
