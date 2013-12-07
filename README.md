@@ -134,6 +134,7 @@ The options and the block are optional.
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
+     | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
      | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
      | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
@@ -168,6 +169,7 @@ The options and the block are optional.
 #### NOTES on Key Mapping:
  * keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes can be better used internally in your application (e.g. when directly creating MongoDB entries with them)
  * if you want to completely delete a key, then map it to nil or to '', they will be automatically deleted from any result Hash
+ * if you have input files with a large number of columns, and you want to ignore all columns which are not specifically mapped with :key_mapping, then use option :remove_unmapped_keys => true
 
 #### NOTES on the use of Chunking and Blocks:
  * chunking can be VERY USEFUL if used in combination with passing a block to File.read_csv FOR LARGE FILES
@@ -215,6 +217,10 @@ Or install it yourself as:
 
 
 ## Changes
+
+#### 1.0.15 (2013-11-01)
+ * new option: 
+   * :remove_unmapped_keys  to completely ignore columns which were not mapped with :key_mapping (thanks to Dave Sanders)
 
 #### 1.0.14 (2013-11-01)
  * added GPL-2 and MIT license to GEM spec file; if you need another license contact me
@@ -312,6 +318,7 @@ And a special thanks to those who contributed pull requests:
  * [Graham Wetzler](https://github.com/grahamwetzler)
  * [Marcos G. Zimmermann](https://github.com/marcosgz)
  * [Jordan Running](https://github.com/jrunning)
+ * [Dave Sanders](https://github.com/DaveSanders)
 
 
 ## Contributing
