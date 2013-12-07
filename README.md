@@ -218,7 +218,7 @@ Or install it yourself as:
 
 ## Changes
 
-#### 1.0.15 (2013-11-01)
+#### 1.0.15 (2013-12-07)
  * new option: 
    * :remove_unmapped_keys  to completely ignore columns which were not mapped with :key_mapping (thanks to Dave Sanders)
 
