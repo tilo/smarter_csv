@@ -7,8 +7,6 @@ rvm:
   - 2.0.0
   - jruby-18mode
   - jruby-19mode
-  - rbx-18mode
-  - rbx-19mode
   - ruby-head
   - jruby-head
   - ree
@@ -18,6 +16,8 @@ jdk:
 env: JRUBY_OPTS="--server -Xcompile.invokedynamic=false -J-XX:+TieredCompilation -J-XX:TieredStopAtLevel=1 -J-noverify -J-Xms512m -J-Xmx1024m"
 matrix:
   allow_failures:
+    - rbx-18mode
+    - rbx-19mode
     - rvm: jruby-head
     - rvm: ruby-head
     - rvm: ree
