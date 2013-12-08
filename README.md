@@ -153,7 +153,7 @@ The options and the block are optional.
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
-     | :strip_chars_from_headers   |   nil    | remove extraneous characters from the header line (e.g. if the headers are quoted)   |
+     | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line (e.g. if headers are quoted) |
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
@@ -182,6 +182,10 @@ The options and the block are optional.
  * if the chunk_size is not set, then the array will only contain one Hash.
  * if the chunk_size is > 0 , then the array may contain up to chunk_size Hashes.
  * this can be very useful when passing chunked data to a post-processing step, e.g. through Resque
+
+#### NOTES on improper quotation and unwanted characters in headers:
+ * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, use the `:force_simple_split => true` option in combination with `:strip_chars_from_headers => /[\-"]/` . This will also significantly speed up the import.
+   If you would force a different :quote_char instead (setting it to a non-used character), then the import would be up to 5-times slower than using `:force_simple_split`.
 
 #### Known Issues:
  * if you are using 1.8.7 versions of Ruby, JRuby, or Ruby Enterprise Edition, `smarter_csv` will have problems with double-quoted fields, because of a bug in an underlying library.
