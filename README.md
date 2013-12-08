@@ -3,6 +3,11 @@
 `smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord, 
 and parallel processing with Resque or Sidekiq.
 
+One `smarter_csv` user wrote:
+
+  *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
+   [...] Smarter CSV was a big part and helped clean up our code ALOT*
+
 `smarter_csv` has lots of features:
  * able to process large CSV-files
  * able to chunk the input from the CSV file to avoid loading the whole CSV file into memory
