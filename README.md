@@ -148,6 +148,7 @@ The options and the block are optional.
      | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
      |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
      | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
+     |                             |          | also accepts either except: [:key1,:key2] or only: :key3
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |

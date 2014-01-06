@@ -25,8 +25,18 @@ describe 'numeric conversion of values' do
     end
   end
 
-  it 'can be prevented for some existing keys' do
+  it 'can be prevented for some keys' do
     options = { convert_values_to_numeric: { except: :reference }}
+    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
+
+    data.each do |hash| 
+      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil? 
+      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+    end
+  end
+  
+  it 'can occur only for some keys' do
+    options = { convert_values_to_numeric: { only: :wealth }}
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
 
     data.each do |hash| 
