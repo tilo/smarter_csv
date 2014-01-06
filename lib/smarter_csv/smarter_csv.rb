@@ -103,6 +103,11 @@ module SmarterCSV
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
         if options[:convert_values_to_numeric]
           hash.each do |k,v|
+            if options[:convert_values_to_numeric].is_a?(Hash) && options[:convert_values_to_numeric].has_key?(:except)
+              next if Array(options[:convert_values_to_numeric][:except]).include?(k)
+            elsif options[:convert_values_to_numeric].is_a?(Hash) && options[:convert_values_to_numeric].has_key?(:only)
+              next unless Array(options[:convert_values_to_numeric][:only]).include?(k)
+            end
             case v
             when /^[+-]?\d+\.\d+$/
               hash[k] = v.to_f
