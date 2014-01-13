@@ -1,7 +1,8 @@
 module SmarterCSV
 
-  class HeaderSizeMismatch < Exception
-  end
+  class HeaderSizeMismatch < Exception; end
+
+  class IncorrectOption < Exception; end
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
@@ -103,6 +104,10 @@ module SmarterCSV
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
         if options[:convert_values_to_numeric]
           hash.each do |k,v|
+            # deal with the :only / :except options to :convert_values_to_numeric
+            next if SmarterCSV.only_or_except_limit_execution( options, :convert_values_to_numeric , k )
+
+            # convert if it's a numeric value:
             case v
             when /^[+-]?\d+\.\d+$/
               hash[k] = v.to_f
@@ -128,10 +133,8 @@ module SmarterCSV
           else
 
             # the last chunk may contain partial data, which also needs to be returned (BUG / ISSUE-18)
-            
 
           end
-
 
           # while a chunk is being filled up we don't need to do anything else here
 
@@ -164,9 +167,23 @@ module SmarterCSV
     end
   end
 
-  def SmarterCSV.process_csv(*args)
-    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
-    SmarterCSV.process(*args)
+#  def SmarterCSV.process_csv(*args)
+#    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
+#    SmarterCSV.process(*args)
+#  end
+
+  private
+  # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
+
+  def self.only_or_except_limit_execution( options, option_name, key )
+    if options[option_name].is_a?(Hash)
+      if options[option_name].has_key?( :except )
+        return true if Array( options[ option_name ][:except] ).include?(key)
+      elsif options[ option_name ].has_key?(:only)
+        return true unless Array( options[ option_name ][:only] ).include?(key)
+      end
+    end
+    return false
   end
 end
 

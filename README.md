@@ -148,6 +148,7 @@ The options and the block are optional.
      | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
      |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
      | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
+     |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
@@ -227,6 +228,10 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.16 (2014-01-13)
+ * :convert_values_to_numeric option can now be qualified with :except or :only (thanks to Hugo Lepetit)
+ * removed deprecated `process_csv` method
+ 
 #### 1.0.15 (2013-12-07)
  * new option: 
    * :remove_unmapped_keys  to completely ignore columns which were not mapped with :key_mapping (thanks to Dave Sanders)
@@ -328,6 +333,7 @@ And a special thanks to those who contributed pull requests:
  * [Marcos G. Zimmermann](https://github.com/marcosgz)
  * [Jordan Running](https://github.com/jrunning)
  * [Dave Sanders](https://github.com/DaveSanders)
+ * [Hugo Lepetit](https://github.com/giglemad)
 
 
 ## Contributing
