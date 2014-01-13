@@ -135,6 +135,7 @@ The options and the block are optional.
      ---------------------------------------------------------------------------------------------------------------------------------
      | :col_sep                    |   ','    | column separator                                                                     |
      | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
+     |                             |          |        this can also be set to :auto , but will process the whole cvs file first     |
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
@@ -227,6 +228,9 @@ Or install it yourself as:
 
 
 ## Changes
+
+#### 1.0.17 (2014-01-13)
+ * added option to set :row_sep to :auto , for automatic detection of the row-separator (issue #22)
 
 #### 1.0.16 (2014-01-13)
  * :convert_values_to_numeric option can now be qualified with :except or :only (thanks to Hugo Lepetit)

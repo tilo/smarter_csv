@@ -18,8 +18,13 @@ module SmarterCSV
     old_row_sep = $/
     line_count = 0
     begin
-      $/ = options[:row_sep]
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+
+      if options[:row_sep] == :auto
+        options[:row_sep] =  SmarterCSV.guess_line_ending( f )
+        f.rewind
+      end
+      $/ = options[:row_sep]
 
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
@@ -184,6 +189,19 @@ module SmarterCSV
       end
     end
     return false
+  end
+
+  # limitation: this currently reads the whole file in before making a decision
+  def self.guess_line_ending( filehandle )
+    counts = {"\n" => 0 , "\r" => 0, "\r\n" => 0}
+
+    filehandle.each_char do |c|
+      next if c !~ /\r|\n|\r\n/
+      counts[c] += 1            # count how many of the pre-defined line-endings we find
+    end
+    # find the key/value pair with the largest counter:
+    k,v = counts.max_by{|k,v| v}
+    return k                    # the most frequent one is it
   end
 end
 
