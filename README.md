@@ -1,6 +1,6 @@
 # SmarterCSV  [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.png?branch=master)](http://travis-ci.org/tilo/smarter_csv)
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord, 
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
 and parallel processing with Resque or Sidekiq.
 
 One `smarter_csv` user wrote:
@@ -40,15 +40,15 @@ Please note how each hash contains only the keys for columns with non-null value
      Dan,McAllister,2,,,
      Lucy,Laweless,,5,,
      Miles,O'Brian,,,,21
-     Nancy,Homes,2,,1, 
+     Nancy,Homes,2,,1,
      $ irb
      > require 'smarter_csv'
-      => true 
+      => true
      > pets_by_owner = SmarterCSV.process('/tmp/pets.csv')
       => [ {:first_name=>"Dan", :last_name=>"McAllister", :dogs=>"2"},
-           {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"}, 
-           {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"}, 
-           {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"} 
+           {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"},
+           {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"},
+           {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"}
          ]
 
 
@@ -57,7 +57,7 @@ Please note how the returned array contains two sub-arrays containing the chunks
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
      > pets_by_owner = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
-       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
+       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ],
             [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
           ]
 
@@ -75,7 +75,7 @@ and how the `process` method returns the number of chunks when called with a blo
 
        [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
        [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
-        => 2 
+        => 2
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
@@ -94,7 +94,7 @@ and how the `process` method returns the number of chunks when called with a blo
           MyModel.create( array.first )
     end
 
-     => returns number of chunks / rows we processed 
+     => returns number of chunks / rows we processed
 
 
 #### Example 4: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
@@ -143,6 +143,7 @@ The options and the block are optional.
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
      | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
+     | :natural_header             |   false  | keep the header row as found in csv source, result keys are strings not downcased    |
      | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
      | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
      | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
@@ -244,9 +245,9 @@ Or install it yourself as:
 #### 1.0.16 (2014-01-13)
  * :convert_values_to_numeric option can now be qualified with :except or :only (thanks to Hugo Lepetit)
  * removed deprecated `process_csv` method
- 
+
 #### 1.0.15 (2013-12-07)
- * new option: 
+ * new option:
    * :remove_unmapped_keys  to completely ignore columns which were not mapped with :key_mapping (thanks to Dave Sanders)
 
 #### 1.0.14 (2013-11-01)
@@ -291,12 +292,12 @@ Or install it yourself as:
 
 #### 1.0.4 (2012-08-17)
 
- * renamed the following options: 
+ * renamed the following options:
     * :strip_whitepace_from_values => :strip_whitespace   - removes leading/trailing whitespace from headers and values
 
 #### 1.0.3 (2012-08-16)
 
- * added the following options: 
+ * added the following options:
     * :strip_whitepace_from_values   - removes leading/trailing whitespace from values
 
 #### 1.0.2 (2012-08-02)
@@ -307,7 +308,7 @@ Or install it yourself as:
 
 #### 1.0.1 (2012-07-30)
 
- * added the following options: 
+ * added the following options:
     * :downcase_header
     * :strings_as_keys
     * :remove_zero_values
@@ -317,7 +318,7 @@ Or install it yourself as:
 
  * renamed the following options:
     * :remove_empty_fields => :remove_empty_values
-    
+
 
 #### 1.0.0 (2012-07-29)
 
@@ -333,14 +334,14 @@ Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if 
 
 ## Special Thanks
 
-Many thanks to people who have filed issues and sent comments. 
+Many thanks to people who have filed issues and sent comments.
 And a special thanks to those who contributed pull requests:
 
  * [Sean Duckett](http://github.com/sduckett)
- * [Alex Ong](http://github.com/khaong) 
- * [Martin Nilsson](http://github.com/MrTin) 
- * [Eustáquio Rangel](http://github.com/taq) 
- * [Pavel](http://github.com/paxa) 
+ * [Alex Ong](http://github.com/khaong)
+ * [Martin Nilsson](http://github.com/MrTin)
+ * [Eustáquio Rangel](http://github.com/taq)
+ * [Pavel](http://github.com/paxa)
  * [Félix Bellanger](https://github.com/Keeguon)
  * [Graham Wetzler](https://github.com/grahamwetzler)
  * [Marcos G. Zimmermann](https://github.com/marcosgz)

@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false,
+      :remove_unmapped_keys => false, :natural_header => false
     }
     options = default_options.merge(options)
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
@@ -38,9 +38,11 @@ module SmarterCSV
           file_headerA =  header.split(options[:col_sep])
         end
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
-        file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
-        file_headerA.map!{|x| x.gsub(/\s+/,'_')}
-        file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
+        file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
+        unless options[:natural_header]
+          file_headerA.map!{|x| x.gsub(/\s+/,'_')}
+          file_headerA.map!{|x| x.downcase } if options[:downcase_header]
+        end
 
 #        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
 
@@ -59,7 +61,7 @@ module SmarterCSV
       else
         headerA = file_headerA
       end
-      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys]
+      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:natural_header]
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
