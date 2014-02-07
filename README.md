@@ -165,6 +165,15 @@ The options and the block are optional.
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
 
 
+#### NOTES about File Encodings:
+ * if you have a CSV file which contains unicode characters, you can process it as follows:
+
+
+       f = File.open(filename, "r:bom|utf-8");
+       data = SmarterCSV.process(f);
+       f.close
+
+
 #### NOTES about CSV Headers:
  * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
  * the first line with the CSV header may or may not be commented out according to the :comment_regexp
