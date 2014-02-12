@@ -200,19 +200,6 @@ The options and the block are optional.
 
 #### Known Issues:
  * if you are using 1.8.7 versions of Ruby, JRuby, or Ruby Enterprise Edition, `smarter_csv` will have problems with double-quoted fields, because of a bug in an underlying library.
- * if your CSV data contains the :row_sep character, e.g. CR, smarter_csv will not be able to handle the data, but will report `CSV::MalformedCSVError: Unclosed quoted field`.
-
-
-Example of Invalid CSV:
-
-    id,name,comment
-    1,James,a simple comment
-    2,Paul,"a comment which contains
-    the :row_sep character CR"
-    3,Frank,"some other comment"
-
-The second row contains a comment with an embedded \n carriage return character.
-`smarter_csv` handles this special case as invalid CSV.
 
 
 ## See also:
