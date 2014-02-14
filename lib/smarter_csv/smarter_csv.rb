@@ -21,7 +21,7 @@ module SmarterCSV
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       if options[:row_sep] == :auto
-        options[:row_sep] =  SmarterCSV.guess_line_ending( f )
+        options[:row_sep] =  SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
       $/ = options[:row_sep]
@@ -201,12 +201,16 @@ module SmarterCSV
   end
 
   # limitation: this currently reads the whole file in before making a decision
-  def self.guess_line_ending( filehandle )
+  def self.guess_line_ending( filehandle, options )
     counts = {"\n" => 0 , "\r" => 0, "\r\n" => 0}
+    quoted_char = false
 
+    # count how many of the pre-defined line-endings we find
+    # ignoring those contained within quote characters
     filehandle.each_char do |c|
-      next if c !~ /\r|\n|\r\n/
-      counts[c] += 1            # count how many of the pre-defined line-endings we find
+      quoted_char = !quoted_char if c == options[:quote_char]
+      next if quoted_char || c !~ /\r|\n|\r\n/
+      counts[c] += 1
     end
     # find the key/value pair with the largest counter:
     k,v = counts.max_by{|k,v| v}
