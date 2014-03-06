@@ -10,6 +10,9 @@ rvm:
   - ruby-head
   - jruby-head
   - ree
+  - rbx
+  - rbx-2.0
+  - rbx-2.1
 jdk:
   - oraclejdk7
   - openjdk7
