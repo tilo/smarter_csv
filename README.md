@@ -1,4 +1,4 @@
-# SmarterCSV  [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.png?branch=master)](http://travis-ci.org/tilo/smarter_csv)
+# SmarterCSV  [![Build Status](https://travis-ci.org/tilo/smarter_csv.svg?branch=master)](https://travis-ci.org/tilo/smarter_csv)
 
 `smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord, 
 and parallel processing with Resque or Sidekiq.
