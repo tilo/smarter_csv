@@ -84,7 +84,7 @@ and how the `process` method returns the number of chunks when called with a blo
 
     => returns an array of hashes
 
-#### Example 3: Populate a MySQL or MongoDB Database with SmarterCSV:
+#### Example 3a: Populate a MySQL or MongoDB Database with SmarterCSV:
 
     # without using chunks:
     filename = '/tmp/some.csv'
@@ -96,7 +96,31 @@ and how the `process` method returns the number of chunks when called with a blo
 
      => returns number of chunks / rows we processed 
 
+#### Example 3b: Populate a Postgres Database with SmarterCSV
 
+    # product_upload.rb:
+    def parse!
+      products_attributes = SmarterCSV.process(@file)
+      products_attributes.each do |product_attributes|
+        Product.create(product_attributes)
+      end
+    end
+
+
+    # product_uploads_controller.rb:
+    def create
+      @product_upload = ProductUpload.new(params[:file].tempfile).parse!
+      redirect_to products_path, notice: "CSV file parsed, products uploaded."
+    end
+    
+
+    # product_uploads/new.html.erb:
+    <%= form_tag product_uploads_path, multipart: true do %>
+      <%= file_field_tag :file %>
+      <%= submit_tag "Import" %>
+    <% end %>
+    
+    
 #### Example 4: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 
     # using chunks:
