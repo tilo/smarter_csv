@@ -31,6 +31,8 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
+ 
+Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options. Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
@@ -88,7 +90,8 @@ and how the `process` method returns the number of chunks when called with a blo
 
     # without using chunks:
     filename = '/tmp/some.csv'
-    n = SmarterCSV.process(filename, {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}) do |array|
+    options = {:key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}
+    n = SmarterCSV.process(filename, options) do |array|
           # we're passing a block in, to process each resulting hash / =row (the block takes array of hashes)
           # when chunking is not enabled, there is only one hash in each array
           MyModel.create( array.first )
@@ -96,12 +99,12 @@ and how the `process` method returns the number of chunks when called with a blo
 
      => returns number of chunks / rows we processed 
 
-
 #### Example 4: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 
     # using chunks:
     filename = '/tmp/some.csv'
-    n = SmarterCSV.process(filename, {:chunk_size => 100, :key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}) do |chunk|
+    options = {:chunk_size => 100, :key_mapping => {:unwanted_row => nil, :old_row_name => :new_name}}
+    n = SmarterCSV.process(filename, options) do |chunk|
           # we're passing a block in, to process each resulting hash / row (block takes array of hashes)
           # when chunking is enabled, there are up to :chunk_size hashes in each chunk
           MyModel.collection.insert( chunk )   # insert up to 100 records at a time
@@ -112,9 +115,12 @@ and how the `process` method returns the number of chunks when called with a blo
 
 #### Example 5: Reading a CSV-like File, and Processing it with Resque:
 
-    filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes)
-    n = SmarterCSV.process(filename, {:col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
-            :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre}}) do |chunk|
+    filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
+    options = {
+      :col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
+      :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre}
+    }
+    n = SmarterCSV.process(filename, options) do |chunk|
         Resque.enque( ResqueWorkerClass, chunk ) # pass chunks of CSV-data to Resque workers for parallel processing
     end
     => returns number of chunks
