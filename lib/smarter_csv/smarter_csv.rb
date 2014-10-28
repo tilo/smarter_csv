@@ -21,7 +21,7 @@ module SmarterCSV
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       if options[:row_sep] == :auto
-        options[:row_sep] =  SmarterCSV.guess_line_ending( f )
+        options[:row_sep] =  SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
       $/ = options[:row_sep]
@@ -87,6 +87,15 @@ module SmarterCSV
         line_count += 1
         print "processing line %10d\r" % line_count if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
+
+        # cater for the quoted csv data containing the row separator carriage return character
+        # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
+        # by detecting the existence of an uneven number of quote characters 
+        while line.count(options[:quote_char])%2 == 1
+          print "line contains uneven number of quote chars so including content of next line" if options[:verbose]
+          line += f.readline
+        end
+        
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
@@ -104,7 +113,10 @@ module SmarterCSV
           eval('hash.delete(:"")')
         end
 
-        hash.delete_if{|k,v| v.nil? || v =~ /^\s*$/}  if options[:remove_empty_values]
+        # remove empty values using the same regexp as used by the rails blank? method
+        # which caters for double \n and \r\n characters such as "1\r\n\r\n2" whereas the original check (v =~ /^\s*$/) does not
+        hash.delete_if{|k,v| v.nil? || v !~ /[^[:space:]]/}  if options[:remove_empty_values]
+
         hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
         if options[:convert_values_to_numeric]
@@ -192,12 +204,16 @@ module SmarterCSV
   end
 
   # limitation: this currently reads the whole file in before making a decision
-  def self.guess_line_ending( filehandle )
+  def self.guess_line_ending( filehandle, options )
     counts = {"\n" => 0 , "\r" => 0, "\r\n" => 0}
+    quoted_char = false
 
+    # count how many of the pre-defined line-endings we find
+    # ignoring those contained within quote characters
     filehandle.each_char do |c|
-      next if c !~ /\r|\n|\r\n/
-      counts[c] += 1            # count how many of the pre-defined line-endings we find
+      quoted_char = !quoted_char if c == options[:quote_char]
+      next if quoted_char || c !~ /\r|\n|\r\n/
+      counts[c] += 1
     end
     # find the key/value pair with the largest counter:
     k,v = counts.max_by{|k,v| v}
