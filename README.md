@@ -225,6 +225,9 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.18 (2014-10-27)
+ * added support for multi-line fields / csv fields containing CR (thanks to Chris Hilton) (issue #31)
+ 
 #### 1.0.17 (2014-01-13)
  * added option to set :row_sep to :auto , for automatic detection of the row-separator (issue #22)
 
@@ -323,6 +326,7 @@ Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if 
 Many thanks to people who have filed issues and sent comments. 
 And a special thanks to those who contributed pull requests:
 
+ * [Chris Hilton](https://github.com/chrismhilton)
  * [Sean Duckett](http://github.com/sduckett)
  * [Alex Ong](http://github.com/khaong) 
  * [Martin Nilsson](http://github.com/MrTin) 
