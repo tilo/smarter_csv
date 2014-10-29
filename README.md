@@ -1,6 +1,6 @@
 # SmarterCSV  [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.png?branch=master)](http://travis-ci.org/tilo/smarter_csv)
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord, 
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
 and parallel processing with Resque or Sidekiq.
 
 One `smarter_csv` user wrote:
@@ -31,7 +31,7 @@ As the existing CSV libraries didn't fit my needs, I was writing my own CSV proc
 The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
- 
+
 Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options. Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
@@ -42,15 +42,15 @@ Please note how each hash contains only the keys for columns with non-null value
      Dan,McAllister,2,,,
      Lucy,Laweless,,5,,
      Miles,O'Brian,,,,21
-     Nancy,Homes,2,,1, 
+     Nancy,Homes,2,,1,
      $ irb
      > require 'smarter_csv'
-      => true 
+      => true
      > pets_by_owner = SmarterCSV.process('/tmp/pets.csv')
       => [ {:first_name=>"Dan", :last_name=>"McAllister", :dogs=>"2"},
-           {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"}, 
-           {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"}, 
-           {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"} 
+           {:first_name=>"Lucy", :last_name=>"Laweless", :cats=>"5"},
+           {:first_name=>"Miles", :last_name=>"O'Brian", :fish=>"21"},
+           {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"}
          ]
 
 
@@ -59,7 +59,7 @@ Please note how the returned array contains two sub-arrays containing the chunks
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
      > pets_by_owner = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}})
-       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ], 
+       => [ [ {:first=>"Dan", :last=>"McAllister", :dogs=>"2"}, {:first=>"Lucy", :last=>"Laweless", :cats=>"5"} ],
             [ {:first=>"Miles", :last=>"O'Brian", :fish=>"21"}, {:first=>"Nancy", :last=>"Homes", :dogs=>"2", :birds=>"1"} ]
           ]
 
@@ -77,7 +77,7 @@ and how the `process` method returns the number of chunks when called with a blo
 
        [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
        [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
-        => 2 
+        => 2
 
 #### Example 2: Reading a CSV-File in one Chunk, returning one Array of Hashes:
 
@@ -97,7 +97,7 @@ and how the `process` method returns the number of chunks when called with a blo
           MyModel.create( array.first )
     end
 
-     => returns number of chunks / rows we processed 
+     => returns number of chunks / rows we processed
 
 #### Example 4: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 
@@ -145,18 +145,14 @@ The options and the block are optional.
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
+     ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
      | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
      | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
-     | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
-     | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
-     | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
-     |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
-     | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
-     |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
-     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
+     | :keep_original_headers      |   false  | keep the original headers from the CSV-file as-is.                                   |
+     |                             |          | Disables other flags manipulating the header fields.                                 |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
@@ -165,6 +161,14 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
+     | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
+     | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
+     |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
+     | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
+     |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
+     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
      | :force_simple_split         |   false  | force simiple splitting on :col_sep character for non-standard CSV-files.            |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
@@ -231,18 +235,21 @@ Or install it yourself as:
 
 ## Changes
 
+#### 1.0.19 (2014-10-29)
+ * added option :keep_original_headers to keep CSV-headers as-is (thanks to Benjamin Thouret)
+
 #### 1.0.18 (2014-10-27)
  * added support for multi-line fields / csv fields containing CR (thanks to Chris Hilton) (issue #31)
- 
+
 #### 1.0.17 (2014-01-13)
  * added option to set :row_sep to :auto , for automatic detection of the row-separator (issue #22)
 
 #### 1.0.16 (2014-01-13)
  * :convert_values_to_numeric option can now be qualified with :except or :only (thanks to Hugo Lepetit)
  * removed deprecated `process_csv` method
- 
+
 #### 1.0.15 (2013-12-07)
- * new option: 
+ * new option:
    * :remove_unmapped_keys  to completely ignore columns which were not mapped with :key_mapping (thanks to Dave Sanders)
 
 #### 1.0.14 (2013-11-01)
@@ -287,12 +294,12 @@ Or install it yourself as:
 
 #### 1.0.4 (2012-08-17)
 
- * renamed the following options: 
+ * renamed the following options:
     * :strip_whitepace_from_values => :strip_whitespace   - removes leading/trailing whitespace from headers and values
 
 #### 1.0.3 (2012-08-16)
 
- * added the following options: 
+ * added the following options:
     * :strip_whitepace_from_values   - removes leading/trailing whitespace from values
 
 #### 1.0.2 (2012-08-02)
@@ -303,7 +310,7 @@ Or install it yourself as:
 
 #### 1.0.1 (2012-07-30)
 
- * added the following options: 
+ * added the following options:
     * :downcase_header
     * :strings_as_keys
     * :remove_zero_values
@@ -313,7 +320,7 @@ Or install it yourself as:
 
  * renamed the following options:
     * :remove_empty_fields => :remove_empty_values
-    
+
 
 #### 1.0.0 (2012-07-29)
 
@@ -329,15 +336,16 @@ Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if 
 
 ## Special Thanks
 
-Many thanks to people who have filed issues and sent comments. 
+Many thanks to people who have filed issues and sent comments.
 And a special thanks to those who contributed pull requests:
 
+ * [Benjamin Thouret](https://github.com/benichu)
  * [Chris Hilton](https://github.com/chrismhilton)
  * [Sean Duckett](http://github.com/sduckett)
- * [Alex Ong](http://github.com/khaong) 
- * [Martin Nilsson](http://github.com/MrTin) 
- * [Eustáquio Rangel](http://github.com/taq) 
- * [Pavel](http://github.com/paxa) 
+ * [Alex Ong](http://github.com/khaong)
+ * [Martin Nilsson](http://github.com/MrTin)
+ * [Eustáquio Rangel](http://github.com/taq)
+ * [Pavel](http://github.com/paxa)
  * [Félix Bellanger](https://github.com/Keeguon)
  * [Graham Wetzler](https://github.com/grahamwetzler)
  * [Marcos G. Zimmermann](https://github.com/marcosgz)
