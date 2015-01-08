@@ -4,7 +4,9 @@ module SmarterCSV
 
   class IncorrectOption < Exception; end
 
-  def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
+  class InvalidCSVContent < Exception; end
+
+  def self.process(input, options={}, &block)   # first parameter: filename or input object with readline method
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
@@ -95,7 +97,12 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         while line.count(options[:quote_char])%2 == 1
           print "line contains uneven number of quote chars so including content of next line" if options[:verbose]
-          line += f.readline
+          begin
+            line += f.readline
+          rescue EOFError => e
+            raise InvalidCSVContent, 'file ended with uneven quotes.No more valid content.'
+          end
+
         end
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
