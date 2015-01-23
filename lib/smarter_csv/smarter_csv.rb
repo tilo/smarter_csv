@@ -191,6 +191,10 @@ module SmarterCSV
 #    SmarterCSV.process(*args)
 #  end
 
+  # def SmarterCSV.save(input, filename)
+  
+  # end
+
   private
   # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
 
