@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false,
+      :remove_unmapped_keys => false, :keep_original_headers => false, force_utf8: false
     }
     options = default_options.merge(options)
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
@@ -86,6 +86,8 @@ module SmarterCSV
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        #enforces UTF-8 encoding on each line if force_utf8 option is true
+        line = line.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '') if options[:force_utf8]
         line_count += 1
         print "processing line %10d\r" % line_count if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
