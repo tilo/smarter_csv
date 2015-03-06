@@ -41,6 +41,9 @@ module SmarterCSV
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+/,'_')}
+          if options[:header_converter] && options[:header_converter].respond_to?(:call)
+            file_headerA.map!{|x| options[:header_converter].call(x)}
+          end
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 
