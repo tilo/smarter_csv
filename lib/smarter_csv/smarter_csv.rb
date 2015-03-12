@@ -44,8 +44,6 @@ module SmarterCSV
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 
-#        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
-
         file_header_size = file_headerA.size
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
@@ -186,11 +184,6 @@ module SmarterCSV
     end
   end
 
-#  def SmarterCSV.process_csv(*args)
-#    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
-#    SmarterCSV.process(*args)
-#  end
-
   private
   # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
 
@@ -217,9 +210,10 @@ module SmarterCSV
       next if quoted_char || c !~ /\r|\n|\r\n/
       counts[c] += 1
     end
+
     # find the key/value pair with the largest counter:
-    k,v = counts.max_by{|k,v| v}
-    return k                    # the most frequent one is it
+    k, _ = counts.max_by{ |_, v| v }
+    k # the most frequent one is it
   end
 end
 
