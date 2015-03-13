@@ -186,6 +186,10 @@ module SmarterCSV
     end
   end
 
+  def SmarterCSV.write(*args)
+    nil
+  end
+
 #  def SmarterCSV.process_csv(*args)
 #    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
 #    SmarterCSV.process(*args)
