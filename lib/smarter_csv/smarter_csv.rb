@@ -186,8 +186,33 @@ module SmarterCSV
     end
   end
 
-  def SmarterCSV.write(*args)
-    nil
+  # SmarterCSV.write(rows, out, header = nil)
+  #   `rows`   -> Array of hashes representing each row.
+  #   `out`    -> The filename to write the data to.
+  #   `header` -> Array of column names as strings or symbols. Optional. If it
+  #               isn't given, the keys of the first row are used as header.
+  #
+  # Example:
+  #   rows = [{"a" => 1, "b" => 2}, {"a" => 4, "b" => 5, "c" => 99}]
+  #   out = "results.csv"
+  #   SmarterCSV.write(rows, out)
+  #
+  #   $ cat results.csv
+  #   a,b
+  #   1,2
+  #   4,5
+  def SmarterCSV.write(rows, out, header = nil)
+    unless header
+      header = rows.first.keys
+    end
+
+    CSV.open(out, "w") do |csv|
+      csv << header.map(&:to_s)
+
+      rows.each do |r|
+        csv << header.map { |h| r[h.to_sym] }
+      end
+    end
   end
 
 #  def SmarterCSV.process_csv(*args)
