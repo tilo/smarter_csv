@@ -40,7 +40,7 @@ module SmarterCSV
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         unless options[:keep_original_headers]
-          file_headerA.map!{|x| x.gsub(/\s+/,'_')}
+          file_headerA.map!{|x| x.gsub(/\s+|\-+/,'_')}
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 

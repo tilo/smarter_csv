@@ -12,7 +12,7 @@ describe 'be_able_to' do
 
     data.each do |item|
       item.keys.each do |key|
-        ['First Name','Last Name','Dogs','Cats','Birds','Fish'].should include( key )
+        ['First Name','Last Name','Dogs','Cats','Birds','Fish','With-multiple-dashes'].should include( key )
       end
     end
 
