@@ -17,6 +17,5 @@ Gem::Specification.new do |gem|
   gem.version       = SmarterCSV::VERSION
   gem.licenses      = ['MIT','GPL-2']
   gem.add_development_dependency "rspec"
-  gem.add_development_dependency "pry-byebug"
 #  gem.add_development_dependency "guard-rspec"
 end
