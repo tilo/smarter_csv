@@ -3,7 +3,7 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'loads_basic_csv_file' do 
+  it 'loads_basic_csv_file' do
     data = SmarterCSV.process("#{fixture_path}/basic.csv")
     data.size.should == 5
 
@@ -11,7 +11,7 @@ describe 'be_able_to' do
     data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
     data.each do |h|
       h.keys.each do |key|
-        [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include( key )
+        [:first_name, :last_name, :dogs, :cats, :birds, :fish, :with_multiple_dashes].should include( key )
       end
       h.size.should <= 6
     end
