@@ -3,7 +3,6 @@ require 'bundler/setup'
 
 Bundler.require(:default)
 
-require 'pry'
 require 'smarter_csv'
 
 
