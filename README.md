@@ -173,6 +173,7 @@ The options and the block are optional.
      |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
+     | :invalid_byte_sequence      |   ?      | Set the replacer for invalid byte sequence when :file_encoding is set to utf-8       |
      | :force_simple_split         |   false  | force simiple splitting on :col_sep character for non-standard CSV-files.            |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
