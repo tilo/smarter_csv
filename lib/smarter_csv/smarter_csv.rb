@@ -217,7 +217,7 @@ module SmarterCSV
     filehandle.each_char do |c|
       quoted_char = !quoted_char if c == options[:quote_char]
                              # Skip invalid byte sequence in UTF-8
-      next if quoted_char || begin c !~ /\r|\n|\r\n/ rescue false end
+      next if quoted_char || begin c !~ /\r|\n|\r\n/ rescue true end
       counts[c] += 1
     end
     # find the key/value pair with the largest counter:
