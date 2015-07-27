@@ -163,6 +163,9 @@ and how the `process` method returns the number of chunks when called with a blo
     data[0][:price].class
       => Float
 
+## Parallel Processing
+Jack (@xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing/)
+
 ## Documentation
 
 The `process` method reads and processes a "generalized" CSV file and returns the contents either as an Array of Hashes,
