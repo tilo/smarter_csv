@@ -1,4 +1,4 @@
-# SmarterCSV 
+# SmarterCSV
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.png?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
@@ -34,7 +34,7 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
 
-Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options. 
+Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options.
 But this could be slow, because it will try to analyze each CSV file first. If you want to speed things up, set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
@@ -128,6 +128,40 @@ and how the `process` method returns the number of chunks when called with a blo
     end
     => returns number of chunks
 
+#### Example 6: Using Value Converters
+
+    $ cat spec/fixtures/with_dates.csv
+    first,last,date,price
+    Ben,Miller,10/30/1998,$44.50
+    Tom,Turner,2/1/2011,$15.99
+    Ken,Smith,01/09/2013,$199.99
+    $ irb
+    > require 'smarter_csv'
+    > require 'date'
+
+    # define a custom converter class, which implements self.convert(value)
+    class DateConverter
+      def self.convert(value)
+        Date.strptime( value, '%m/%d/%Y') # parses custom date format into Date instance
+      end
+    end
+
+    class DollarConverter
+      def self.convert(value)
+        value.sub('$','').to_f
+      end
+    end
+
+    options = {:value_converters => {:date => DateConverter, :price => DollarConverter}}
+    data = SmarterCSV.process("spec/fixtures/with_dates.csv", options)
+    data[0][:date]
+      => #<Date: 1998-10-30 ((2451117j,0s,0n),+0s,2299161j)>
+    data[0][:date].class
+      => Date
+    data[0][:price]
+      => 44.50
+    data[0][:price].class
+      => Float
 
 ## Documentation
 
@@ -165,6 +199,7 @@ The options and the block are optional.
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
      ---------------------------------------------------------------------------------------------------------------------------------
+     | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
      | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
      | :remove_zero_values         |   true   | remove values which have a numeric value equal to zero / 0                           |
      | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
@@ -237,6 +272,12 @@ Or install it yourself as:
 
 
 ## Changes
+
+#### 1.1.0 (2015-07-26)
+ * added feature :value_converters, which allows parsing of dates, money, and other things (thanks to Raphaël Bleuse, Lucas Camargo de Almeida, Alejandro)
+ * added error if :headers_in_file is set to false, and no :user_provided_headers are given (thanks to innhyu)
+ * added support to convert dashes to underscore characters in headers (thanks to César Camacho)
+ * fixing automatic detection of \r\n line-endings (thanks to feens)
 
 #### 1.0.19 (2014-10-29)
  * added option :keep_original_headers to keep CSV-headers as-is (thanks to Benjamin Thouret)
@@ -342,6 +383,12 @@ Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if 
 Many thanks to people who have filed issues and sent comments.
 And a special thanks to those who contributed pull requests:
 
+ * [Alejandro](https://github.com/agaviria)
+ * [Lucas Camargo de Almeida](https://github.com/lcalmeida)
+ * [Raphaël Bleuse](https://github.com/bleuse)
+ * [feens](https://github.com/feens)
+ * [César Camacho](https://github.com/chanko)
+ * [innhyu](https://github.com/innhyu)
  * [Benjamin Thouret](https://github.com/benichu)
  * [Chris Hilton](https://github.com/chrismhilton)
  * [Sean Duckett](http://github.com/sduckett)

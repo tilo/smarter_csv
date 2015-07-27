@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false,
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil,
     }
     options = default_options.merge(options)
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
@@ -40,13 +40,15 @@ module SmarterCSV
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         unless options[:keep_original_headers]
-          file_headerA.map!{|x| x.gsub(/\s+/,'_')}
+          file_headerA.map!{|x| x.gsub(/\s+|-+/,'_')}
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 
 #        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
 
         file_header_size = file_headerA.size
+      else
+        raise SmarterCSV::IncorrectOption , "ERROR [smarter_csv]: If :headers_in_file is set to false, you have to provide :user_provided_headers" if ! options.keys.include?(:user_provided_headers)
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
         # use user-provided headers
@@ -135,6 +137,15 @@ module SmarterCSV
             end
           end
         end
+
+        if options[:value_converters]
+          hash.each do |k,v|
+            converter = options[:value_converters][k]
+            next unless converter
+            hash[k] = converter.convert(v)
+          end
+        end
+
         next if hash.empty? if options[:remove_empty_hashes]
 
         if use_chunks
@@ -212,11 +223,23 @@ module SmarterCSV
 
     # count how many of the pre-defined line-endings we find
     # ignoring those contained within quote characters
+    last_char = nil
     filehandle.each_char do |c|
       quoted_char = !quoted_char if c == options[:quote_char]
-      next if quoted_char || c !~ /\r|\n|\r\n/
-      counts[c] += 1
+      next if quoted_char
+
+      if last_char == "\r"
+        if c == "\n"
+          counts["\r\n"] +=  1
+        else
+          counts["\r"] += 1  # \r are counted after they appeared, we might
+        end
+      elsif c == "\n"
+        counts["\n"] += 1
+      end
+      last_char = c
     end
+    counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
     k,v = counts.max_by{|k,v| v}
     return k                    # the most frequent one is it
