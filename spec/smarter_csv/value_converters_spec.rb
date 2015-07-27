@@ -11,7 +11,7 @@ end
 
 class CurrencyConverter
   def self.convert(value)
-    value.sub(/[$€]/,'').to_f  # would be nice to add a computed column :currency => '€'
+    value.sub(/[$]/,'').to_f  # would be nice to add a computed column :currency => '€'
   end
 end
 
