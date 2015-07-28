@@ -164,7 +164,7 @@ and how the `process` method returns the number of chunks when called with a blo
       => Float
 
 ## Parallel Processing
-Jack (@xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing/)
+[Jack](https://github.com/xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing/)
 
 ## Documentation
 
@@ -386,6 +386,7 @@ Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if 
 Many thanks to people who have filed issues and sent comments.
 And a special thanks to those who contributed pull requests:
 
+ * [Jack 0](https://github.com/xjlin0)
  * [Alejandro](https://github.com/agaviria)
  * [Lucas Camargo de Almeida](https://github.com/lcalmeida)
  * [Raphaël Bleuse](https://github.com/bleuse)
