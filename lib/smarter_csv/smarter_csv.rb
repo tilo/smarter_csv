@@ -95,7 +95,7 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        while line.count(options[:quote_char])%2 == 1
+        while (line.scan(/[^\\]?#{options[:quote_char]}/).size % 2) == 1
           print "line contains uneven number of quote chars so including content of next line" if options[:verbose]
           line += f.readline
         end
