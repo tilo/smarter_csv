@@ -6,4 +6,3 @@
 .bundle
 Gemfile.lock
 pkg/*
-*.sublime-*
