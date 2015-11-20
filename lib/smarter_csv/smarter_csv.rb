@@ -36,7 +36,7 @@ module SmarterCSV
           file_headerA = begin
             CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: line #{line_count}]", $!.backtrace
+            raise $!, "#{e.message} [SmarterCSV: line #{line_count}]", $!.backtrace
           end
         else
           file_headerA =  header.split(options[:col_sep])
@@ -110,7 +110,7 @@ module SmarterCSV
           dataA = begin
             CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: line #{line_count}]", $!.backtrace
+            raise $!, "#{e.message} [SmarterCSV: line #{line_count}]", $!.backtrace
           end
         else
           dataA =  line.split(options[:col_sep])
