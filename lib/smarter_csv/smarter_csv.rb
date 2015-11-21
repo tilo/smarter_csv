@@ -92,7 +92,7 @@ module SmarterCSV
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
         file_line_count += 1
         csv_line_count += 1
-        print "processing file line %10d, csv line %10d\r" % file_line_count, csv_line_count if options[:verbose]
+        print "processing file line %10d, csv line %10d\r" % [file_line_count, csv_line_count] if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
 
         # cater for the quoted csv data containing the row separator carriage return character
@@ -105,7 +105,7 @@ module SmarterCSV
         while line.count(options[:quote_char])%2 == 1
           line += f.readline
           file_line_count += 1
-          print "line contains uneven number of quote chars so including content of file line %10d\n" % (file_line_count) if options[:verbose]
+          print "line contains uneven number of quote chars so including content of file line %10d\n" % file_line_count if options[:verbose]
         end
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
