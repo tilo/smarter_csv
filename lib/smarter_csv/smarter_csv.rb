@@ -105,7 +105,7 @@ module SmarterCSV
         while line.count(options[:quote_char])%2 == 1
           line += f.readline
           file_line_count += 1
-          print "line contains uneven number of quote chars so including content of file line %10d\n" % file_line_count if options[:verbose]
+          print "line contains uneven number of quote chars so including content of file line %d\n" % file_line_count if options[:verbose]
         end
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
