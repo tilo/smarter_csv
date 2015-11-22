@@ -33,6 +33,18 @@ module SmarterCSV
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
         file_line_count += 1
         csv_line_count += 1
+        print "processing file line %10d, csv line %10d\r" % [file_line_count, csv_line_count] if options[:verbose]
+
+        # cater for the quoted header containing the row separator carriage return character
+        # in which case the header will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
+        # by detecting the existence of an uneven number of quote characters
+        multiline = header.count(options[:quote_char])%2 == 1
+        while header.count(options[:quote_char])%2 == 1
+          header += f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+          file_line_count += 1
+        end
+        print "\nheader contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
+
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
@@ -41,10 +53,18 @@ module SmarterCSV
         end
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
+
+        if options[:verbose]
+          print "\n" if !multiline
+          print "original headers: %s\n" % file_headerA.to_s
+        end
+
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+|-+/,'_')}
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
+          print "modified headers: %s\n" % file_headerA.to_s if options[:verbose]
         end
+
 
 #        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
 
@@ -52,9 +72,11 @@ module SmarterCSV
       else
         raise SmarterCSV::IncorrectOption , "ERROR [smarter_csv]: If :headers_in_file is set to false, you have to provide :user_provided_headers" if ! options.keys.include?(:user_provided_headers)
       end
+
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
         # use user-provided headers
         headerA = options[:user_provided_headers]
+        print "user provided headers: %s\n" % headerA.to_s if options[:verbose]
         if defined?(file_header_size) && ! file_header_size.nil?
           if headerA.size != file_header_size
             raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers"
@@ -65,7 +87,10 @@ module SmarterCSV
       else
         headerA = file_headerA
       end
-      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+      unless options[:strings_as_keys] || options[:keep_original_headers]
+        headerA.map!{|x| x.to_sym }
+        print "symbolized headers: %s\n" % headerA.to_s if options[:verbose]
+      end
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
@@ -74,8 +99,13 @@ module SmarterCSV
         #   if you want to completely delete a key, then map it to nil or to ''
         if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x].to_sym) : (options[:remove_unmapped_keys] ? nil : x)}
+          print "key mapped headers: %s\n" % headerA.to_s if options[:verbose]
         end
+
       end
+
+      print "final headers: %s\n" % headerA.to_s if options[:verbose]
+
 
       # in case we use chunking.. we'll need to set it up..
       if ! options[:chunk_size].nil? && options[:chunk_size].to_i > 0
