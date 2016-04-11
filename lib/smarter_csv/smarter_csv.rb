@@ -44,8 +44,6 @@ module SmarterCSV
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 
-#        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
-
         file_header_size = file_headerA.size
       else
         raise SmarterCSV::IncorrectOption , "ERROR [smarter_csv]: If :headers_in_file is set to false, you have to provide :user_provided_headers" if ! options.keys.include?(:user_provided_headers)
