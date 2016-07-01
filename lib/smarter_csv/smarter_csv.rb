@@ -106,7 +106,7 @@ module SmarterCSV
           dataA = CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           dataA =  line.split(options[:col_sep])
-          dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
+          dataA.map!{|x| x.gsub(%r/\A#{options[:quote_char]}|#{options[:quote_char]}\z/,'') }
         end
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
