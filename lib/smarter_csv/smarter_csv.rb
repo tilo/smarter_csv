@@ -87,7 +87,7 @@ module SmarterCSV
 
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        line = f.readline.encode(options[:file_encoding], options[:file_encoding], :invalid => :replace) # read one line.. this uses the input_record_separator $/ which we set previously!
         line_count += 1
         print "processing line %10d\r" % line_count if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
