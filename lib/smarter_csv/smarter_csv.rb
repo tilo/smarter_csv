@@ -44,8 +44,6 @@ module SmarterCSV
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
 
-#        puts "HeaderA: #{file_headerA.join(' , ')}" if options[:verbose]
-
         file_header_size = file_headerA.size
       else
         raise SmarterCSV::IncorrectOption , "ERROR [smarter_csv]: If :headers_in_file is set to false, you have to provide :user_provided_headers" if options[:user_provided_headers].nil?
@@ -189,6 +187,7 @@ module SmarterCSV
       end
     ensure
       $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
+      f.close
     end
     if block_given?
       return chunk_count  # when we do processing through a block we only care how many chunks we processed
