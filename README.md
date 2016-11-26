@@ -187,7 +187,6 @@ The options and the block are optional.
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
-     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
@@ -204,6 +203,8 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
+     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |     
      ---------------------------------------------------------------------------------------------------------------------------------
      | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
      | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |

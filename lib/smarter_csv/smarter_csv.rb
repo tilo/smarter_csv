@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false
     }
     options = default_options.merge(options)
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
@@ -35,6 +35,7 @@ module SmarterCSV
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = header.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '') if options[:force_utf8]
         file_line_count += 1
         csv_line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
@@ -97,6 +98,7 @@ module SmarterCSV
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        line = line.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '') if options[:force_utf8]
         file_line_count += 1
         csv_line_count += 1
         print "processing file line %10d, csv line %10d\r" % [file_line_count, csv_line_count] if options[:verbose]
