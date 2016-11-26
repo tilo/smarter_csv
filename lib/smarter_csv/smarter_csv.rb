@@ -16,7 +16,8 @@ module SmarterCSV
     headerA = []
     result = []
     old_row_sep = $/
-    line_count = 0
+    file_line_count = 0
+    csv_line_count = 0
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
@@ -30,7 +31,8 @@ module SmarterCSV
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
-        line_count += 1
+        file_line_count += 1
+        csv_line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
         if (header =~ %r{#{options[:quote_char]}}) && (! options[:force_simple_split])
           file_headerA = CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
@@ -86,17 +88,20 @@ module SmarterCSV
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
-        line_count += 1
-        print "processing line %10d\r" % line_count if options[:verbose]
+        file_line_count += 1
+        csv_line_count += 1
+        print "processing file line %10d, csv line %10d\r" % [file_line_count, csv_line_count] if options[:verbose]
         next  if  line =~ options[:comment_regexp]  # ignore all comment lines if there are any
 
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
+        multiline = line.count(options[:quote_char])%2 == 1
         while line.count(options[:quote_char])%2 == 1
-          print "line contains uneven number of quote chars so including content of next line" if options[:verbose]
           line += f.readline
+          file_line_count += 1
         end
+        print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
@@ -174,6 +179,10 @@ module SmarterCSV
           end
         end
       end
+
+      # print new line to retain last processing line message
+      print "\n" if options[:verbose]
+
       # last chunk:
       if ! chunk.nil? && chunk.size > 0
         # do something with the chunk
