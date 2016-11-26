@@ -34,9 +34,14 @@ module SmarterCSV
         file_line_count += 1
         csv_line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-        if (header =~ %r{#{options[:quote_char]}}) && (! options[:force_simple_split])
-          file_headerA = CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
-        else
+<<
+        if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+          file_headerA = begin
+            CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+          rescue CSV::MalformedCSVError => e
+            raise $!, "#{$!} [SmarterCSV: line #{line_count}]", $!.backtrace
+          end
+>>      else
           file_headerA =  header.split(options[:col_sep])
         end
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
@@ -105,8 +110,12 @@ module SmarterCSV
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
-        if (line =~ %r{#{options[:quote_char]}}) && (! options[:force_simple_split])
-          dataA = CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+        if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+          dataA = begin
+            CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+          rescue CSV::MalformedCSVError => e
+            raise $!, "#{$!} [SmarterCSV: line #{line_count}]", $!.backtrace
+          end
         else
           dataA =  line.split(options[:col_sep])
         end

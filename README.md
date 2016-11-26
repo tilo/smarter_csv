@@ -286,6 +286,7 @@ Planned in the next releases:
 #### 1.1.1 (2016-11-26)  
  * bugfix if no headers in input data (thanks to esBeee)
  * ensure input file is closed (thanks to waldyr)
+ * improved verbose output (thankd to benmaher)
  * improved documentation
  
 #### 1.1.0 (2015-07-26)
@@ -420,6 +421,7 @@ And a special thanks to those who contributed pull requests:
  * [Hugo Lepetit](https://github.com/giglemad)
  * [esBeee](https://github.com/esBeee)
  * [Waldyr de Souza](https://github.com/waldyr)
+ * [Ben Maher](https://github.com/benmaher)
 
 
 ## Contributing
