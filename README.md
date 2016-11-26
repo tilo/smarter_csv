@@ -20,7 +20,7 @@ One `smarter_csv` user wrote:
  * able to ignore "columns" in the input (delete columns)
  * able to eliminate nil or empty fields from the result hashes (default)
 
-NOTE; This Gem is only for importing CSV files - writing of CSV files is not supported.
+NOTE; This Gem is only for importing CSV files - writing of CSV files is not supported at this time.
 
 ### Why?
 
@@ -129,6 +129,8 @@ and how the `process` method returns the number of chunks when called with a blo
     => returns number of chunks
 
 #### Example 6: Using Value Converters
+
+NOTE: If you use `key_mappings` and `value_converters`, make sure that the value converters has references the keys based on the final mapped name, not the original name in the CSV file.
 
     $ cat spec/fixtures/with_dates.csv
     first,last,date,price
@@ -273,9 +275,19 @@ Or install it yourself as:
 
     $ gem install smarter_csv
 
+## Upcoming
+
+Planned in the next releases:
+ * programmatic header transformations
+ * CSV command line
 
 ## Changes
 
+#### 1.1.1 (2016-11-26)  
+ * bugfix if no headers in input data (thanks to esBeee)
+ * ensure input file is closed (thanks to waldyr)
+ * improved documentation
+ 
 #### 1.1.0 (2015-07-26)
  * added feature :value_converters, which allows parsing of dates, money, and other things (thanks to Raphaël Bleuse, Lucas Camargo de Almeida, Alejandro)
  * added error if :headers_in_file is set to false, and no :user_provided_headers are given (thanks to innhyu)
@@ -406,6 +418,8 @@ And a special thanks to those who contributed pull requests:
  * [Jordan Running](https://github.com/jrunning)
  * [Dave Sanders](https://github.com/DaveSanders)
  * [Hugo Lepetit](https://github.com/giglemad)
+ * [esBeee](https://github.com/esBeee)
+ * [Waldyr de Souza](https://github.com/waldyr)
 
 
 ## Contributing

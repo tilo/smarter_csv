@@ -32,7 +32,7 @@ module SmarterCSV
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
         line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-        if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+        if (header =~ %r{#{options[:quote_char]}}) && (! options[:force_simple_split])
           file_headerA = CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           file_headerA =  header.split(options[:col_sep])
@@ -102,7 +102,7 @@ module SmarterCSV
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
-        if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
+        if (line =~ %r{#{options[:quote_char]}}) && (! options[:force_simple_split])
           dataA = CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
         else
           dataA =  line.split(options[:col_sep])
@@ -196,11 +196,6 @@ module SmarterCSV
       return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end
   end
-
-#  def SmarterCSV.process_csv(*args)
-#    warn "[DEPRECATION] `process_csv` is deprecated.  Please use `process` instead."
-#    SmarterCSV.process(*args)
-#  end
 
   private
   # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
