@@ -187,6 +187,7 @@ The options and the block are optional.
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
+     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
@@ -284,6 +285,8 @@ Planned in the next releases:
 ## Changes
 
 #### 1.1.1 (2016-11-26)  
+ * added option to `skip_lines` (thanks to wal)
+ * added option to `force_utf8` encoding (thanks to jordangraft)
  * bugfix if no headers in input data (thanks to esBeee)
  * ensure input file is closed (thanks to waldyr)
  * improved verbose output (thankd to benmaher)
@@ -422,6 +425,8 @@ And a special thanks to those who contributed pull requests:
  * [esBeee](https://github.com/esBeee)
  * [Waldyr de Souza](https://github.com/waldyr)
  * [Ben Maher](https://github.com/benmaher)
+ * [Wal McConnell](https://github.com/wal)
+ * [Jordan Graft](https://github.com/jordangraft)
 
 
 ## Contributing

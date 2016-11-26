@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil,
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil
     }
     options = default_options.merge(options)
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
@@ -27,6 +27,10 @@ module SmarterCSV
       end
       $/ = options[:row_sep]
 
+      if options[:skip_lines].to_i > 0
+        options[:skip_lines].to_i.times{f.readline}
+      end
+
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
@@ -34,14 +38,14 @@ module SmarterCSV
         file_line_count += 1
         csv_line_count += 1
         header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-<<
+
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = begin
             CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: line #{line_count}]", $!.backtrace
           end
->>      else
+        else
           file_headerA =  header.split(options[:col_sep])
         end
         file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
@@ -253,7 +257,7 @@ module SmarterCSV
     end
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
-    k,v = counts.max_by{|k,v| v}
+    k,_ = counts.max_by{|_,v| v}
     return k                    # the most frequent one is it
   end
 end
