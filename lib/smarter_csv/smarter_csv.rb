@@ -22,6 +22,10 @@ module SmarterCSV
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
+      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8') )
+        puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+      end
+
       if options[:row_sep] == :auto
         options[:row_sep] =  SmarterCSV.guess_line_ending( f, options )
         f.rewind
@@ -36,7 +40,7 @@ module SmarterCSV
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
-        header = header.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] == 'utf-8'
+        header = header.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] =~ /utf-8/i
 
         file_line_count += 1
         csv_line_count += 1
@@ -103,7 +107,7 @@ module SmarterCSV
         line = line.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '') if options[:force_utf8]
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = line.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] == 'utf-8'
+        line = line.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] =~ /utf-8/i
 
         file_line_count += 1
         csv_line_count += 1

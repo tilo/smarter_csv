@@ -293,6 +293,9 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.1.3 (2016-12-30)
+ * added warning when options indicate UTF-8 processing, but input filehandle is not opened with r:UTF-8 option
+
 #### 1.1.2 (2016-12-29)
  * added option `invalid_byte_sequence` (thanks to polycarpou)
  * added comments on handling of UTF-8 encoding when opening from File vs. OpenURI (thanks to KevinColemanInc)
