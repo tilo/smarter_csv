@@ -204,7 +204,8 @@ The options and the block are optional.
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
-     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |     
+     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
+     | :invalid_byte_sequence      |   ''     | how to replace invalid byte sequences with                                           |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
      | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
@@ -224,10 +225,17 @@ The options and the block are optional.
  * if you have a CSV file which contains unicode characters, you can process it as follows:
 
 
-       f = File.open(filename, "r:bom|utf-8");
-       data = SmarterCSV.process(f);
-       f.close
+       File.open(filename, "r:bom|utf-8") do |f|
+         data = SmarterCSV.process(f);
+       end
 
+* if the CSV file with unicode characters is in a remote location, similarly you need to give the encoding as an option to the `open` call:
+
+       require 'open-uri'
+       file_location = 'http://your.remote.org/sample.csv'
+       open(file_location, 'r:utf-8') do |f|   # don't forget to specify the UTF-8 encoding!!
+         data = SmarterCSV.process(f)
+       end
 
 #### NOTES about CSV Headers:
  * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
@@ -285,14 +293,18 @@ Planned in the next releases:
 
 ## Changes
 
-#### 1.1.1 (2016-11-26)  
+#### 1.1.2 (2016-12-29)
+ * added option `invalid_byte_sequence` (thanks to polycarpou)
+ * added comments on handling of UTF-8 encoding when opening from File vs. OpenURI (thanks to KevinColemanInc)
+
+#### 1.1.1 (2016-11-26)
  * added option to `skip_lines` (thanks to wal)
  * added option to `force_utf8` encoding (thanks to jordangraft)
  * bugfix if no headers in input data (thanks to esBeee)
  * ensure input file is closed (thanks to waldyr)
  * improved verbose output (thankd to benmaher)
  * improved documentation
- 
+
 #### 1.1.0 (2015-07-26)
  * added feature :value_converters, which allows parsing of dates, money, and other things (thanks to Raphaël Bleuse, Lucas Camargo de Almeida, Alejandro)
  * added error if :headers_in_file is set to false, and no :user_provided_headers are given (thanks to innhyu)
@@ -428,6 +440,8 @@ And a special thanks to those who contributed pull requests:
  * [Ben Maher](https://github.com/benmaher)
  * [Wal McConnell](https://github.com/wal)
  * [Jordan Graft](https://github.com/jordangraft)
+ * [Michael](https://github.com/polycarpou)
+ * [Kevin Coleman](https://github.com/KevinColemanInc)
 
 
 ## Contributing
