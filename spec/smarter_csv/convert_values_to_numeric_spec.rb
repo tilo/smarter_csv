@@ -6,12 +6,12 @@ describe 'numeric conversion of values' do
   it 'occurs by default' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
-    data.size.should == 3
+    expect(data.size).to eq(3)
     
     # all the keys should be symbols
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(Numeric) unless hash[:reference].nil?
+      expect(hash[:wealth]).to be_kind_of(Numeric) unless hash[:wealth].nil?
+      expect(hash[:reference]).to be_kind_of(Numeric) unless hash[:reference].nil?
     end
   end
 
@@ -20,8 +20,8 @@ describe 'numeric conversion of values' do
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
     
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(String) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+      expect(hash[:wealth]).to be_instance_of(String) unless hash[:wealth].nil?
+      expect(hash[:reference]).to be_instance_of(String) unless hash[:reference].nil?
     end
   end
 
@@ -30,8 +30,8 @@ describe 'numeric conversion of values' do
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
 
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+      expect(hash[:wealth]).to be_kind_of(Numeric) unless hash[:wealth].nil?
+      expect(hash[:reference]).to be_instance_of(String) unless hash[:reference].nil?
     end
   end
   
@@ -40,8 +40,8 @@ describe 'numeric conversion of values' do
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
 
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+      expect(hash[:wealth]).to be_kind_of(Numeric) unless hash[:wealth].nil?
+      expect(hash[:reference]).to be_instance_of(String) unless hash[:reference].nil?
     end
   end
 end
