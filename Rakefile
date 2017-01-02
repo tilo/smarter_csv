@@ -12,7 +12,7 @@ RSpec::Core::RakeTask.new do |t|
 end
 
 desc "Run specs for all test cases"
-task :spec_all do 
+task :spec_all do
   system "rake spec"
 end
 
