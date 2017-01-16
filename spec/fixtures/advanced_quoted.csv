@@ -1,0 +1,3 @@
+header1,header2,header3
+"field1, contains the col_sep character","field2","field3"
+"field1 has ""nested quotes"" in it","field2", "field3"

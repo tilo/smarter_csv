@@ -9,7 +9,8 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
+      :multiline => true
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -50,7 +51,13 @@ module SmarterCSV
           file_headerA = begin
             CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+
+            begin
+              SmarterCSV.parse( header, csv_options )
+            rescue => e2
+              raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            end
+
           end
         else
           file_headerA =  header.split(options[:col_sep])
@@ -117,12 +124,15 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        multiline = line.count(options[:quote_char])%2 == 1
-        while line.count(options[:quote_char])%2 == 1
-          line += f.readline
-          file_line_count += 1
+        if options[:multiline]
+          multiline = line.count(options[:quote_char]).odd?
+          while line.count(options[:quote_char]).odd?
+            # we could also warn of a run-away quote in this line
+            line += f.readline
+            file_line_count += 1
+          end
+          print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
         end
-        print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
 
@@ -130,7 +140,14 @@ module SmarterCSV
           dataA = begin
             CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+
+            begin
+              SmarterCSV.parse( line, csv_options )
+
+            rescue => e2
+              raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            end
+
           end
         else
           dataA =  line.split(options[:col_sep])
@@ -272,4 +289,47 @@ module SmarterCSV
     k,_ = counts.max_by{|_,v| v}
     return k                    # the most frequent one is it
   end
+end
+
+
+
+module SmarterCSV
+
+  class MalformedCSVError < StandardError; end
+
+  # poor-man's sequential parsing of a CSV line
+
+  def self.parse( line , options )
+    result = []
+    part = ''
+    quotes_in_part = 0
+
+    line.each_char.each_with_index do |c,i|
+      if c == options[:quote_char]
+        quotes_in_part += 1
+        part << c
+      elsif c == options[:col_sep]
+        if quotes_in_part.even?
+          part.strip!
+          part.sub!(/\A#{ options[:quote_char] }/,'')
+          part.sub!(/#{ options[:quote_char] }\z/,'')
+          result << part
+          part = ''
+          quotes_in_part = 0
+        end
+      else
+        part << c
+      end
+    end
+
+    if quotes_in_part.even?
+      part.strip!
+      part.sub!(/\A#{ options[:quote_char] }/,'')
+      part.sub!(/#{ options[:quote_char] }\z/,'')
+      result << part
+    else
+      raise SmarterCSV::MalformedCSVError
+    end
+  end
+
 end
