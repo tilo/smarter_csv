@@ -40,7 +40,7 @@ module SmarterCSV
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
-        header = header.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] =~ /utf-8/i
+        header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
         file_line_count += 1
         csv_line_count += 1
@@ -104,10 +104,9 @@ module SmarterCSV
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
-        line = line.encode!('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '') if options[:force_utf8]
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = line.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] =~ /utf-8/i
+        line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
         file_line_count += 1
         csv_line_count += 1

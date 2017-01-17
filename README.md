@@ -293,6 +293,9 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.1.4 (2017-01-16)
+ * fixing UTF-8 related bug which was introduced in 1.1.2 (thank to Tirdad C.)
+
 #### 1.1.3 (2016-12-30)
  * added warning when options indicate UTF-8 processing, but input filehandle is not opened with r:UTF-8 option
 
@@ -445,6 +448,7 @@ And a special thanks to those who contributed pull requests:
  * [Jordan Graft](https://github.com/jordangraft)
  * [Michael](https://github.com/polycarpou)
  * [Kevin Coleman](https://github.com/KevinColemanInc)
+ * [Tirdad C.](https://github.com/tridadc)
 
 
 ## Contributing
