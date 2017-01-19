@@ -264,13 +264,6 @@ The options and the block are optional.
 #### Known Issues:
  * if you are using 1.8.7 versions of Ruby, JRuby, or Ruby Enterprise Edition, `smarter_csv` will have problems with double-quoted fields, because of a bug in an underlying library.
 
-
-## See also:
-
-  http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
-
-
-
 ## Installation
 
 Add this line to your application's Gemfile:
