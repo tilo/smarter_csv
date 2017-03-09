@@ -166,7 +166,7 @@ NOTE: If you use `key_mappings` and `value_converters`, make sure that the value
       => Float
 
 ## Parallel Processing
-[Jack](https://github.com/xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing/)
+[Jack](https://github.com/xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
 
 ## Documentation
 
