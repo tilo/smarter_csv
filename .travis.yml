@@ -1,29 +1,20 @@
 language: ruby
 bundler_args: --without development
-rvm:
-  - 1.8.7
-  - 1.9.2
-  - 1.9.3
-  - 2.0.0
-  - 2.1.3
-  - 2.2.2
-  - jruby
-  - ruby-head
-  - jruby-head
-  - ree
-  - rbx
-# jdk:
-#   - oraclejdk7
-#   - openjdk7
-env: JRUBY_OPTS="--server -Xcompile.invokedynamic=false -J-XX:+TieredCompilation -J-XX:TieredStopAtLevel=1 -J-noverify -J-Xms512m -J-Xmx1024m"
+before_install:
+  - gem install bundler
+  - gem update --system
+
 matrix:
-  allow_failures:
-    - rbx
-    - rvm: jruby-head
+  include:
+    - rvm: 2.1.10
+    - rvm: 2.2.6
+    - rvm: 2.3.3
+    - rvm: 2.4.0
+    - rvm: jruby-9.1.8.0
+      env:
+        - JRUBY_OPTS="--server -Xcompile.invokedynamic=false -J-XX:+TieredCompilation -J-XX:TieredStopAtLevel=1 -J-noverify -J-Xms512m -J-Xmx1024m"
     - rvm: ruby-head
-    - rvm: ree
-    - rvm: 1.8.7
-    - rvm: jruby-18mode
+
 branches:
   only:
     - master

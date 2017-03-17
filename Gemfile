@@ -4,8 +4,8 @@ source 'https://rubygems.org'
 gemspec
 
 
-gem "rake"
+gem "rake", "< 11"
 
 group :test do
-  gem "rspec", "~> 2.14"
+  gem "rspec", "~> 2.99"
 end
