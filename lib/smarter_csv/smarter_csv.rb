@@ -172,6 +172,14 @@ module SmarterCSV
             hash[k] = converter.convert(v)
           end
         end
+        
+        if options[:datetime_converters]
+          hash.each do |k,v|
+            converter = options[:value_converters][k]
+            next unless converter
+            hash[k] = converter.convert(v, options[:well_id])
+          end
+        end        
 
         next if hash.empty? if options[:remove_empty_hashes]
 
