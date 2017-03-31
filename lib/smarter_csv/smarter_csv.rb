@@ -9,7 +9,7 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :datetime_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -172,6 +172,14 @@ module SmarterCSV
             hash[k] = converter.convert(v)
           end
         end
+        
+        if options[:datetime_converters]
+          hash.each do |k,v|
+            converter = options[:datetime_converters][k]
+            next unless converter
+            hash[k] = converter.convert(v, options[:well_id])
+          end
+        end        
 
         next if hash.empty? if options[:remove_empty_hashes]
 
