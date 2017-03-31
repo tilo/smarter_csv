@@ -56,6 +56,7 @@ Please note how each hash contains only the keys for columns with non-null value
            {:first_name=>"Nancy", :last_name=>"Homes", :dogs=>"2", :birds=>"1"}
          ]
 
+Note: If you are returning a blank array, try specifying the row separator: `pets_by_owner = SmarterCSV.process('/tmp/pets.csv', row_sep: :auto)`
 
 #### Example 1b: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
