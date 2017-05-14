@@ -118,7 +118,8 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1
         while line.count(options[:quote_char])%2 == 1
-          line += f.readline
+          next_line = f.readline
+          line += next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
