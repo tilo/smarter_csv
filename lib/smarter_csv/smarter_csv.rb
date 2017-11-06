@@ -9,7 +9,8 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
+      :auto_row_sep_max_lines => nil
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -252,6 +253,8 @@ module SmarterCSV
     # count how many of the pre-defined line-endings we find
     # ignoring those contained within quote characters
     last_char = nil
+    nb_lines = 0
+
     filehandle.each_char do |c|
       quoted_char = !quoted_char if c == options[:quote_char]
       next if quoted_char
@@ -266,6 +269,11 @@ module SmarterCSV
         counts["\n"] += 1
       end
       last_char = c
+
+      nb_lines += 1
+      if options[:auto_row_sep_max_lines] && nb_lines > options[:auto_row_sep_max_lines]
+        break
+      end
     end
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:

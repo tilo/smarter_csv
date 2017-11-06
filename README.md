@@ -36,6 +36,7 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
 
 Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options.
 But this could be slow, because it will try to analyze each CSV file first. If you want to speed things up, set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
+You can can speed this process by analysing only first X lines of your file by setting the option `:auto_row_sep_max_lines` to the value of your choice.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
