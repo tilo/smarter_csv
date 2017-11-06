@@ -9,7 +9,8 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
+      :auto_row_sep_chars => 500
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -27,7 +28,7 @@ module SmarterCSV
       end
 
       if options[:row_sep] == :auto
-        options[:row_sep] =  SmarterCSV.guess_line_ending( f, options )
+        options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
       $/ = options[:row_sep]
@@ -39,8 +40,9 @@ module SmarterCSV
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = f.readline
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        header = header.sub(options[:comment_regexp],'').chomp(options[:row_sep])
 
         file_line_count += 1
         csv_line_count += 1
@@ -118,7 +120,9 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1
         while line.count(options[:quote_char])%2 == 1
-          line += f.readline
+          next_line = f.readline
+          next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+          line += next_line
           file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
@@ -251,6 +255,7 @@ module SmarterCSV
     # count how many of the pre-defined line-endings we find
     # ignoring those contained within quote characters
     last_char = nil
+    lines = 0
     filehandle.each_char do |c|
       quoted_char = !quoted_char if c == options[:quote_char]
       next if quoted_char
@@ -265,6 +270,8 @@ module SmarterCSV
         counts["\n"] += 1
       end
       last_char = c
+      lines += 1
+      break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
     end
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:

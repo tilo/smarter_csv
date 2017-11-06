@@ -35,7 +35,10 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
 
 Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options.
-But this could be slow, because it will try to analyze each CSV file first. If you want to speed things up, set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
+But this could be slow if we would analyze the whole CSV file first (previous to 1.1.5 the whole file was analyzed).
+To speed things up, you can setting the option `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500; nil or 0 will check the whole file).
+You can also set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
+
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
@@ -184,6 +187,7 @@ The options and the block are optional.
      | :col_sep                    |   ','    | column separator                                                                     |
      | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
+     | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
@@ -216,7 +220,7 @@ The options and the block are optional.
      |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
-     | :force_simple_split         |   false  | force simiple splitting on :col_sep character for non-standard CSV-files.            |
+     | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.            |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
 
@@ -289,8 +293,14 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.1.5 (2017-11-05)
+ * fix issue with invalid byte sequences in header (issue #103, thanks to Dave Myron)
+ * fix issue with invalid byte sequences in multi-line data (thanks to Ivan Ushakov)
+ * analyze only 500 lines by default when `:row_sep => :auto` is used.
+   added option `row_sep_auto_chars` to change the default if necessary. (thanks to Matthieu Paret)
+
 #### 1.1.4 (2017-01-16)
- * fixing UTF-8 related bug which was introduced in 1.1.2 (thank to Tirdad C.)
+ * fixing UTF-8 related bug which was introduced in 1.1.2 (thanks to Tirdad C.)
 
 #### 1.1.3 (2016-12-30)
  * added warning when options indicate UTF-8 processing, but input filehandle is not opened with r:UTF-8 option
@@ -445,6 +455,10 @@ And a special thanks to those who contributed pull requests:
  * [Michael](https://github.com/polycarpou)
  * [Kevin Coleman](https://github.com/KevinColemanInc)
  * [Tirdad C.](https://github.com/tridadc)
+ * [Dave Myron](https://github.com/contentfree)
+ * [Ivan Ushakov](https://github.com/IvanUshakov)
+ * [Matthieu Paret](https://github.com/mtparet)
+ * [Rohit Amarnath](https://github.com/ramarnat)
 
 
 ## Contributing
