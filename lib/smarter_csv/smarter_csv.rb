@@ -9,7 +9,8 @@ module SmarterCSV
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => ''
+      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
+      :disallow_multiline => false, :skip_malformed_line => false
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -118,8 +119,17 @@ module SmarterCSV
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1
+        if options[:disallow_multiline] && multiline
+          print "WARNING: line %d contains uneven number of quote chars and multiline is disallowed, skipping line\n"  % file_line_count
+          next
+        end
+
         while line.count(options[:quote_char])%2 == 1
-          line += f.readline
+          if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+            line += f.readline.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+          else
+            line += f.readline
+          end
           file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
@@ -130,7 +140,12 @@ module SmarterCSV
           dataA = begin
             CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            if options[:skip_malformed_line]
+              print "WARNING: line %d contains malformed csv, skipping line\n"  % file_line_count
+              next
+            else
+              raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            end
           end
         else
           dataA =  line.split(options[:col_sep])
