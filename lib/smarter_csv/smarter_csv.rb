@@ -39,8 +39,9 @@ module SmarterCSV
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header = f.readline.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = f.readline
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        header = header.sub(options[:comment_regexp],'').chomp(options[:row_sep])
 
         file_line_count += 1
         csv_line_count += 1
