@@ -296,7 +296,7 @@ Planned in the next releases:
 #### 1.1.5 (2017-11-05)
  * fix issue with invalid byte sequences in header (issue #103, thanks to Dave Myron)
  * fix issue with invalid byte sequences in multi-line data (thanks to Ivan Ushakov)
- * analyze only 500 lines by default when `:row_sep => :auto` is used.
+ * analyze only 500 characters by default when `:row_sep => :auto` is used.
    added option `row_sep_auto_chars` to change the default if necessary. (thanks to Matthieu Paret)
 
 #### 1.1.4 (2017-01-16)
