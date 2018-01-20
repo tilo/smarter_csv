@@ -193,7 +193,7 @@ The options and the block are optional.
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
-     | :required_headers           |   nil    | An array. Eacn of the given headers must be present in the CSV  file,                |
+     | :required_headers           |   nil    | An array. Eacn of the given headers must be present after header manipulation,       |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
