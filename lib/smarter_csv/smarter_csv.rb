@@ -68,14 +68,14 @@ module SmarterCSV
 
         file_header_size = file_headerA.size
       else
-        raise SmarterCSV::IncorrectOption , "ERROR [smarter_csv]: If :headers_in_file is set to false, you have to provide :user_provided_headers" if options[:user_provided_headers].nil?
+        raise SmarterCSV::IncorrectOption , "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" if options[:user_provided_headers].nil?
       end
       if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
         # use user-provided headers
         headerA = options[:user_provided_headers]
         if defined?(file_header_size) && ! file_header_size.nil?
           if headerA.size != file_header_size
-            raise SmarterCSV::HeaderSizeMismatch , "ERROR [smarter_csv]: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers"
+            raise SmarterCSV::HeaderSizeMismatch , "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers"
           else
             # we could print out the mapping of file_headerA to headerA here
           end
@@ -100,14 +100,14 @@ module SmarterCSV
       headerA.compact.each do |k|
         duplicate_headers << k if headerA.select{|x| x == k}.size > 1
       end
-      raise SmarterCSV::DuplicateHeaders , "ERORR [smarter_csv]: duplicate headers: #{duplicate_headers.join(',')}" unless duplicate_headers.empty?
+      raise SmarterCSV::DuplicateHeaders , "ERROR: duplicate headers: #{duplicate_headers.join(',')}" unless duplicate_headers.empty?
 
       if options[:required_headers] && options[:required_headers].is_a?(Array)
         missing_headers = []
         options[:required_headers].each do |k|
           missing_headers << k unless headerA.include?(k)
         end
-        raise SmarterCSV::MissingHeaders , "ERORR [smarter_csv]: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
+        raise SmarterCSV::MissingHeaders , "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
       end
 
       # in case we use chunking.. we'll need to set it up..
