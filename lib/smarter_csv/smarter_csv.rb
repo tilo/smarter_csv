@@ -1,8 +1,10 @@
 module SmarterCSV
 
   class HeaderSizeMismatch < Exception; end
-
   class IncorrectOption < Exception; end
+  class DuplicateHeaders < Exception; end
+  class MissingHeaders < Exception; end
+
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
     default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
@@ -10,7 +12,7 @@ module SmarterCSV
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /^#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
       :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
-      :auto_row_sep_chars => 500
+      :auto_row_sep_chars => 500, :required_headers => nil
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -91,6 +93,21 @@ module SmarterCSV
         if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x].to_sym) : (options[:remove_unmapped_keys] ? nil : x)}
         end
+      end
+
+      # header_validations
+      duplicate_headers = []
+      headerA.compact.each do |k|
+        duplicate_headers << k if headerA.select{|x| x == k}.size > 1
+      end
+      raise SmarterCSV::DuplicateHeaders , "ERORR [smarter_csv]: duplicate headers: #{duplicate_headers.join(',')}" unless duplicate_headers.empty?
+
+      if options[:required_headers] && options[:required_headers].is_a?(Array)
+        missing_headers = []
+        options[:required_headers].each do |k|
+          missing_headers << k unless headerA.include?(k)
+        end
+        raise SmarterCSV::MissingHeaders , "ERORR [smarter_csv]: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
       end
 
       # in case we use chunking.. we'll need to set it up..

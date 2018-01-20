@@ -193,6 +193,8 @@ The options and the block are optional.
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
+     | :required_headers           |   nil    | An array. Eacn of the given headers must be present in the CSV  file,                |
+     |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
      | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
@@ -292,6 +294,10 @@ Planned in the next releases:
  * CSV command line
 
 ## Changes
+
+#### 1.2.0 (2018-01-20)
+ * add default validation that a header can only appear once
+ * add option `required_headers`
 
 #### 1.1.5 (2017-11-05)
  * fix issue with invalid byte sequences in header (issue #103, thanks to Dave Myron)
