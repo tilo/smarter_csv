@@ -25,4 +25,17 @@ describe 'processes files' do
     data[0][:first_name].should eq 'Dan'
     data[0][:last_name].should eq 'McAllister'
   end
+
+
+  it 'with dashes in header fields as symbols when using v1.x old_defaults' do
+    options = {
+      :old_defaults => true
+    }
+    data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
+
+    data.flatten.size.should == 5
+    data[0][:first_name].should eq 'Dan'
+    data[0][:last_name].should eq 'McAllister'
+  end
+
 end
