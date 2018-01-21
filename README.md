@@ -1,10 +1,10 @@
 # SmarterCSV
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
-  
+
 ---------------
 ####Service Announcement:
-Starting to think about SmarterCSV 2.0 with much improved features, and more streamlined options. 
+Starting to think about SmarterCSV 2.0 with much improved features, and more streamlined options.
 
 Please check the open issues marked v2.0 and leave your comments.
 
@@ -191,16 +191,40 @@ The options and the block are optional.
 
 `SmarterCSV.process` supports the following options:
 
+#### Options:
+
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
+     | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
+     | :invalid_byte_sequence      |   ''     | what to replace invalid byte sequences with                                          |
+     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
+     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
+     | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
+     ---------------------------------------------------------------------------------------------------------------------------------
      | :col_sep                    |   ','    | column separator                                                                     |
+     | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
+     |                             |          | e.g. when :quote_char is not properly escaped                                        |
      | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
-     | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
+     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
+     | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      ---------------------------------------------------------------------------------------------------------------------------------
+
+#### Deprecated 1.x Options: to be replaced in 2.0
+
+There have been a lot of 1-offs and feature creep around these options, and going forward we'll have a simpler, but more flexible way to address these features.
+
+Instead of these options, there will be a new and more flexible way to process the header fields, as well as the fields in each line of the CSV.
+And header and data validations will also be supported in 2.x
+
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
+     |                             |          | Important if the file does not contain headers,                                      |
+     |                             |          | otherwise you would lose the first line of data.                                     |
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :required_headers           |   nil    | An array. Eacn of the given headers must be present after header manipulation,       |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
@@ -215,12 +239,6 @@ The options and the block are optional.
      |                             |          | what headers should be used, overriding any in-file headers.                         |
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
      | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line (e.g. if headers are quoted) |
-     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
-     |                             |          | Important if the file does not contain headers,                                      |
-     |                             |          | otherwise you would lose the first line of data.                                     |
-     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
-     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
-     | :invalid_byte_sequence      |   ''     | how to replace invalid byte sequences with                                           |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
      | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
@@ -229,11 +247,7 @@ The options and the block are optional.
      |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
      | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
      |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
-     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
-     | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
-     | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.            |
-     |                             |          | e.g. when :quote_char is not properly escaped                                        |
-     | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
+     ---------------------------------------------------------------------------------------------------------------------------------
 
 
 #### NOTES about File Encodings:
