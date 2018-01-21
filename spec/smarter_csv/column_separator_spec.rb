@@ -3,8 +3,14 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'loads_file_with_different_column_separator' do 
+  it 'loads_file_with_different_column_separator' do
     options = {:col_sep => ';'}
+    data = SmarterCSV.process("#{fixture_path}/separator.csv", options)
+    data.flatten.size.should == 3
+  end
+
+  it 'loads_file_with_different_column_separator and old_defaults' do
+    options = {:col_sep => ';', :old_defaults => true}
     data = SmarterCSV.process("#{fixture_path}/separator.csv", options)
     data.flatten.size.should == 3
   end
