@@ -22,26 +22,6 @@ module SmarterCSV
     @@remove_blank_values.call(hash)
   end
 
-  def self.convert_to_integer(hash, args=nil)
-    @@convert_to_integer ||= Proc.new{|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
-
-      keys.each {|key| hash[key] = hash[key].to_i }
-      hash
-    }
-    @@convert_to_integer.call(hash, args)
-  end
-
-  def self.convert_to_float(hash, args=nil)
-    @@convert_to_integer ||= Proc.new{|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
-
-      keys.each {|key| hash[key] = hash[key].to_f }
-      hash
-    }
-    @@convert_to_float.call(hash, args)
-  end
-
   def self.convert_values_to_numeric(hash, args=nil)
     @@convert_values_to_numeric ||= Proc.new {|hash, args=nil|
       keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
@@ -74,6 +54,32 @@ module SmarterCSV
       hash
     }
     @@convert_values_to_numeric_unless_leading_zeroes.call(hash)
+  end
+
+  # IMPORTANT NOTE:
+  # this can lead to cases where a nil or empty value gets converted into 0 or 0.0,
+  # and can then not be properly removed!
+  #
+  # you should first try to use convert_values_to_numeric or convert_values_to_numeric_unless_leading_zeroes
+  #
+  def self.convert_to_integer(hash, args=nil)
+    @@convert_to_integer ||= Proc.new{|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+
+      keys.each {|key| hash[key] = hash[key].to_i }
+      hash
+    }
+    @@convert_to_integer.call(hash, args)
+  end
+
+  def self.convert_to_float(hash, args=nil)
+    @@convert_to_integer ||= Proc.new{|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+
+      keys.each {|key| hash[key] = hash[key].to_f }
+      hash
+    }
+    @@convert_to_float.call(hash, args)
   end
 
 end
