@@ -3,7 +3,8 @@
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
 ---------------
-####Service Announcement:
+#### Service Announcement
+
 Starting to think about SmarterCSV 2.0 with much improved features, and more streamlined options.
 
 Please check the open issues marked v2.0 and leave your comments.
