@@ -3,46 +3,79 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'numeric conversion of values' do
-  it 'occurs by default' do
-    options = {}
+
+  it 'is not happening by default' do
+    options = {
+      :header_transformations => [ :keys_as_symbols ],
+    }
+    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
+
+    data.each do |hash|
+      hash.keys.each do |k|
+        k.should be_a(Symbol)
+      end
+      hash[:wealth].should be_a(String) unless hash[:wealth].nil?
+      hash[:reference].should be_a(String) unless hash[:reference].nil?
+    end
+  end
+
+  it 'is happening when using old_defaults' do
+    options = { old_defaults: true }
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
     data.size.should == 3
-    
+
+    data.each do |hash|
+      hash.keys.each do |k|
+        k.should be_a(Symbol)
+      end
+      hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil?
+      hash[:reference].should be_a(Numeric) unless hash[:reference].nil?
+    end
+  end
+
+  it 'can be enabled based on string content' do
+    options = {
+      :header_transformations => [ :keys_as_symbols ],
+      :hash_transformations => [ :convert_values_to_numeric ]
+    }
+    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
+    data.size.should == 3
+
     # all the keys should be symbols
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(Numeric) unless hash[:reference].nil?
+      hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil?
+      hash[:reference].should be_a(Numeric) unless hash[:reference].nil?
     end
   end
 
-  it 'can be prevented for all values' do
-    options = { :convert_values_to_numeric => false }
-    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
-    
+  it 'can be enabled based on string content, leaving strings with leading zeroes' do
+    options = {
+      :header_transformations => [ :keys_as_symbols ],
+      :hash_transformations => [ :strip_spaces, :remove_blank_values, :convert_values_to_numeric_unless_leading_zeroes ]
+    }
+    data = SmarterCSV.process("#{fixture_path}/numeric_leading_zeroes.csv", options)
+    data.size.should == 3
+
+    # all the keys should be symbols
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(String) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+      hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil?
+      hash[:reference].should be_a(String) unless hash[:reference].nil?
     end
   end
 
-  it 'can be prevented for some keys' do
-    options = { :convert_values_to_numeric => { :except => :reference }}
-    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
-
-    data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
-    end
-  end
-  
-  it 'can occur only for some keys' do
-    options = { :convert_values_to_numeric => { :only => :wealth }}
-    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
+  it 'can be enabled for select key/s' do
+    options = {
+      :header_transformations => [ :keys_as_symbols ],
+      :hash_transformations => [ :strip_spaces, :remove_blank_values, convert_values_to_numeric: :wealth ]
+    }
+    data = SmarterCSV.process("#{fixture_path}/numeric_leading_zeroes.csv", options)
+    data.size.should == 3
 
     data.each do |hash|
-      hash[:wealth].should be_a_kind_of(Numeric) unless hash[:wealth].nil?
-      hash[:reference].should be_a_kind_of(String) unless hash[:reference].nil?
+      hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil?
+      hash[:reference].should be_a(String) unless hash[:reference].nil?
     end
   end
+
 end
 

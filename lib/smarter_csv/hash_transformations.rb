@@ -2,6 +2,16 @@ module SmarterCSV
   # these are some pre-defined data hash transformations which can be used
   # all these take the data hash as the input
 
+  def self.strip_spaces(hash, args=nil)
+    @@strip_spaces ||= Proc.new {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+
+      keys.each {|key| hash[key]&.strip! }
+      hash
+    }
+    @@strip_spaces.call(hash)
+  end
+
   def self.remove_blank_values(hash, args=nil)
     @@remove_blank_values ||= Proc.new {|hash, args=nil|
       keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
@@ -39,11 +49,12 @@ module SmarterCSV
       keys.each {|k|
         case hash[k]
         when /^[+-]?\d+\.\d+$/
-          hash[k] = v.to_f
+          hash[k] = hash[k].to_f
         when /^[+-]?\d+$/
-          hash[k] = v.to_i
+          hash[k] = hash[k].to_i
         end
       }
+      hash
     }
     @@convert_values_to_numeric.call(hash)
   end
@@ -55,11 +66,12 @@ module SmarterCSV
       keys.each {|k|
         case hash[k]
         when /^[+-]?[1-9]\d*\.\d+$/
-          hash[k] = v.to_f
+          hash[k] = hash[k].to_f
         when /^[+-]?[1-9]\d*$/
-          hash[k] = v.to_i
+          hash[k] = hash[k].to_i
         end
       }
+      hash
     }
     @@convert_values_to_numeric_unless_leading_zeroes.call(hash)
   end

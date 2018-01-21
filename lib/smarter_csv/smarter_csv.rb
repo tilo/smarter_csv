@@ -19,6 +19,8 @@ module SmarterCSV
       :header_transformations => nil, :header_validations => nil,
       :data_array_transformations => nil, :hash_transformations => nil,
 
+      :old_defaults => nil
+
 =begin
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil ,  :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil ,
@@ -27,6 +29,12 @@ module SmarterCSV
       :required_headers => nil
 =end
     }
+
+    if options[:old_defaults]
+      options[:header_transformations] = [ :keys_as_symbols ]
+      options[:hash_transformations] = [ :strip_spaces, :remove_blank_values, :convert_values_to_numeric ]
+    end
+
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
