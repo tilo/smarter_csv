@@ -2,17 +2,23 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'not_downcase_headers' do 
-    options = {:downcase_header => false}
-    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
+describe 'not downcasing headers' do
 
-    data.each do |item| 
+  it 'not_downcase_headers' do
+    # new default is to not downcase or modify the headers
+    options = {}
+    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
+    data.size.should eq 5
+    # all the keys should be symbols
+    data.each do |item|
+      item.keys.each do |x|
+        x.class.should eq String
+      end
+    end
+
+    data.each do |item|
       item.keys.each do |key|
-        [:First_Name, :Last_Name, :Dogs, :Cats, :Birds, :Fish].should include( key )
+        ["First Name", "Last Name", "Dogs", "Cats", "Birds", "Fish"].should include( key )
       end
     end
 

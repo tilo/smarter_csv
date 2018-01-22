@@ -16,4 +16,18 @@ module SmarterCSV
     @@keys_as_strings.call(array)
   end
 
+  # this is a convenience function for supporting v1 feature parity
+
+  def self.key_mapping(array, mapping={})
+    @@key_mapping ||= Proc.new {|headers,mapping={}|
+      raise( SmarterCSV::IncorrectOption , "ERROR: key_mapping header transformation needs a hash argument" ) unless mapping.is_a?(Hash)
+      new_headers = []
+      headers.each do |key|
+        new_headers << (mapping[key] ? mapping[key] : key)
+      end
+      new_headers
+    }
+    @@key_mapping.call(array, mapping)
+  end
+
 end

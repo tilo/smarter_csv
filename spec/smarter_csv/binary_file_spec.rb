@@ -8,13 +8,35 @@ fixture_path = 'spec/fixtures'
 
 describe 'loads binary file format with comments' do
 
-  it 'with symbols as keys when using 1.x old_defaults' do
+  it 'with symbols as keys when using v1 defaults' do
     # old default is to have symbols as keys
     # old default is to automatically remove blank values
 
     options = {
       :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
-      :old_defaults => true
+      :defaults => 'v1'
+    }
+    data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
+
+    data.flatten.size.should == 8
+    data.each do |item|
+      # all keys should be symbols when using v1.x backwards compatible mode
+      item.keys.each{|x| x.class.should be == Symbol}
+      item[:timestamp].should == 1381388409
+      item[:item_id].class.should be == Fixnum
+      item[:name].size.should be > 0
+    end
+    data[3][:parent_id].should be_nil
+    data[4][:parent_id].should be_nil
+  end
+
+  it 'with symbols as keys when using safe defaults' do
+    # new default is to keep strings as keys, so nothing to do for that
+    # we have to remove blank values explicitly
+
+    options = {
+      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
+      :defaults => 'safe'
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 

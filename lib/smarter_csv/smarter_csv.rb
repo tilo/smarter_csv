@@ -6,6 +6,10 @@ module SmarterCSV
   class DuplicateHeaders < Exception; end
   class MissingHeaders < Exception; end
 
+  DEPRECATED_OPTIONS = [:remove_empty_values, :remove_zero_values, :remove_values_matching, :strip_whitespace,
+    :convert_values_to_numeric, :strip_chars_from_headers, :key_mapping_hash, :downcase_header, :strings_as_keys,
+    :remove_unmapped_keys, :keep_original_headers, :value_converters, :required_headers
+  ]
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
 
@@ -16,24 +20,31 @@ module SmarterCSV
 
       :headers_in_file => true, :user_provided_headers => nil,
 
-      :header_transformations => nil, :header_validations => nil,
-      :data_array_transformations => nil, :hash_transformations => nil,
+      :header_transformations => nil,
+      :header_validations =>  [ :unique_headers ],
+      :data_transformations => [ :replace_blank_with_nil ],
+      :hash_transformations => nil,
 
-      :old_defaults => nil
-
-=begin
-      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil ,  :strip_whitespace => true,
-      :convert_values_to_numeric => true, :strip_chars_from_headers => nil ,
-       :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false,
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil,
-      :required_headers => nil
-=end
+      :defaults => 'safe'
     }
 
-    if options[:old_defaults]
-      options[:header_transformations] = [ :keys_as_symbols ]
-      options[:hash_transformations] = [ :strip_spaces, :remove_blank_values, :convert_values_to_numeric ]
+    used_deprecated_options = DEPRECATED_OPTIONS & options.keys
+    puts " SmarterCSV #{VERSION} DEPRECATED OPTIONS: #{used_deprecated_options.inspect}" unless used_deprecated_options.empty?
+
+    if options[:defaults].to_s == 'v1'
+      options[:header_transformations] = [:keys_as_symbols] + (options[:header_transformations] || [])
+      options[:header_validations] = [:unique_headers] + (options[:header_validations] || [])
+      options[:hash_transformations] = [:strip_spaces, :remove_blank_values, :convert_values_to_numeric] + (options[:hash_transformations] || [])
+
+    elsif options[:defaults].to_s == 'safe'
+      options[:header_transformations] = [ :keys_as_symbols ] + (options[:header_transformations] || [])
+      options[:header_validations] = [ :unique_headers ] + (options[:header_validations] || [])
+      options[:hash_transformations] = [ :strip_spaces, :remove_blank_values, :convert_values_to_numeric_unless_leading_zeroes ] + (options[:hash_transformations] || [])
     end
+
+    # unless set by the user, or purposely set to 'none', we'll always enforce the headers to be unique
+    options[:header_validations] = nil if options[:header_validations].to_s == 'none'
+    options[:data_transformations] = nil if options[:data_transformations].to_s == 'none'
 
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
@@ -90,6 +101,12 @@ module SmarterCSV
           options[:header_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
               file_headerA = self.public_send( transformation, file_headerA )
+            elsif transformation.is_a?(Hash)
+              trans, args = transformation.first
+              file_headerA = self.public_send( trans, file_headerA, args )
+            elsif transformation.is_a?(Array)
+              trans, args = transformation
+              file_headerA = self.public_send( trans, file_headerA, args )
             else
               file_headerA = transformation.call( file_headerA )
             end
@@ -118,15 +135,21 @@ module SmarterCSV
         headerA = file_headerA
       end
 
-      # header_validations
+      # header_validations on headerA
 
       # do the header validations the user requested:
       if options[:header_validations]
         options[:header_validations].each do |validation|
           if validation.is_a?(Symbol)
-            file_headerA = self.public_send( validation, file_headerA )
+            self.public_send( validation, headerA )
+          elsif validation.is_a?(Hash)
+            val, args = validation.first
+            self.public_send( val, headerA, args )
+          elsif validation.is_a?(Array)
+            val, args = validation
+            self.public_send( val, headerA, args )
           else
-            file_headerA = validation.call( file_headerA )
+            validation.call( headerA ) unless validation.nil?
           end
         end
       end
@@ -187,8 +210,8 @@ module SmarterCSV
         next if dataA.empty?
 
         # do the data transformations the user requested:
-        if options[:data_array_transformations]
-          options[:data_array_transformations].each do |transformation|
+        if options[:data_transformations]
+          options[:data_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
               dataA = self.public_send( transformation, dataA )
             else

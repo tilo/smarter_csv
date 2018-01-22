@@ -9,8 +9,14 @@ describe 'be_able_to' do
     data.flatten.size.should == 3
   end
 
-  it 'loads_file_with_different_column_separator and old_defaults' do
-    options = {:col_sep => ';', :old_defaults => true}
+  it 'loads_file_with_different_column_separator and v1 defaults' do
+    options = {:col_sep => ';', :defaults => 'v1' }
+    data = SmarterCSV.process("#{fixture_path}/separator.csv", options)
+    data.flatten.size.should == 3
+  end
+
+  it 'loads_file_with_different_column_separator and safe defaults' do
+    options = {:col_sep => ';', :defaults => 'safe' }
     data = SmarterCSV.process("#{fixture_path}/separator.csv", options)
     data.flatten.size.should == 3
   end

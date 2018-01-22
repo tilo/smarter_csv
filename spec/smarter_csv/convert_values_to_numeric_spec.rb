@@ -4,8 +4,8 @@ fixture_path = 'spec/fixtures'
 
 describe 'numeric conversion of values' do
 
-  it 'is happening when using v1.x old_defaults' do
-    options = { old_defaults: true }
+  it 'is happening when using v1 defaults' do
+    options = { defaults: 'v1' }
     data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
     data.size.should == 3
 
@@ -15,6 +15,20 @@ describe 'numeric conversion of values' do
       end
       hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil?
       hash[:reference].should be_a(Numeric) unless hash[:reference].nil?
+    end
+  end
+
+  it 'is happening when using safe defaults' do
+    options = { defaults: 'safe' }
+    data = SmarterCSV.process("#{fixture_path}/numeric.csv", options)
+    data.size.should == 3
+
+    data.each_with_index do |hash, i|
+      hash.keys.each do |k|
+        k.should be_a(Symbol)
+      end
+      hash[:wealth].should be_a(Numeric) unless hash[:wealth].nil? || i == 2
+      hash[:reference].should be_a(Numeric) unless hash[:reference].nil? || i == 0
     end
   end
 
