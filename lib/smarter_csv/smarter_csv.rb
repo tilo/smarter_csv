@@ -5,8 +5,8 @@ module SmarterCSV
   class IncorrectOption < Exception; end
   class DuplicateHeaders < Exception; end
   class MissingHeaders < Exception; end
+  class ObsoleteOptions < Exception; end
 
-# TODO: we should refactor the it-then-else cascades for the transformations / validations into a separate method
 
   def SmarterCSV.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
 
@@ -42,10 +42,11 @@ module SmarterCSV
 
       # if headers are in the file, we need to process them...
 
-      if options[:headers_in_file]        # extract the header line
+      if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline
+        puts "Raw headers:\n#{header}\n" if options[:verbose]
         file_line_count += 1
         csv_line_count += 1
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
@@ -60,6 +61,8 @@ module SmarterCSV
         else
           file_headerA =  header.split(options[:col_sep])
         end
+
+        puts "Split headers:\n#{pp(file_headerA)}\n" if options[:verbose]
 
         # do the header transformations the user requested:
         if options[:header_transformations]
@@ -77,6 +80,8 @@ module SmarterCSV
             end
           end
         end
+
+        puts "Transformed headers:\n#{pp(file_headerA)}\n" if options[:verbose]
 
         file_header_size = file_headerA.size
       else
@@ -99,6 +104,8 @@ module SmarterCSV
       else
         headerA = file_headerA
       end
+
+      puts "Effective headers:\n#{pp(headerA)}\n" if options[:verbose]
 
       # header_validations on headerA
 

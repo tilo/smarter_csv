@@ -70,7 +70,7 @@ module SmarterCSV
 
     # warn about obsolete options
     used_obsolete_options = OBSOLETE_OPTIONS & options.keys
-    raise( SmarterCSV::DeprecatedOptions, "ERROR: SmarterCSV #{VERSION} IGNORING OBSOLETE OPTIONS: #{used_obsolete_options.inspect}" ) unless used_deprecated_options.empty? || options[:silence_obsolete_error]
+    raise( SmarterCSV::ObsoleteOptions, "ERROR: SmarterCSV #{VERSION} IGNORING OBSOLETE OPTIONS: #{pp(used_obsolete_options)}" ) unless used_deprecated_options.empty? || options[:silence_obsolete_error]
 
     # default transformations and validations can be disabled individually
     options[:header_transformations] = [] if ['none', nil].include?( options[:header_transformations].to_s) || options[:header_transformations].first.to_s) == 'none'
