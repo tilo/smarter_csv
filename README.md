@@ -210,6 +210,9 @@ The options and the block are optional.
      | :quote_char                 |   '"'    | quotation character                                                                  |
      | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
+     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
+     |                             |          | Important if the file does not contain headers,                                      |
+     |                             |          | otherwise you would lose the first line of data.                                     |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -222,9 +225,6 @@ And header and data validations will also be supported in 2.x
 
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
-     |                             |          | Important if the file does not contain headers,                                      |
-     |                             |          | otherwise you would lose the first line of data.                                     |
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :required_headers           |   nil    | An array. Eacn of the given headers must be present after header manipulation,       |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
