@@ -73,10 +73,10 @@ module SmarterCSV
     raise( SmarterCSV::ObsoleteOptions, "ERROR: SmarterCSV #{VERSION} IGNORING OBSOLETE OPTIONS: #{pp(used_obsolete_options)}" ) unless used_deprecated_options.empty? || options[:silence_obsolete_error]
 
     # default transformations and validations can be disabled individually
-    options[:header_transformations] = [] if ['none', nil].include?( options[:header_transformations].to_s) || options[:header_transformations].first.to_s) == 'none'
-    options[:header_validations] = []     if ['none', nil].include?( options[:header_validations].to_s) || options[:header_validations].first.to_s) == 'none'
-    options[:data_transformations] = []   if ['none', nil].include?( options[:data_transformations].to_s) || options[:data_transformations].first.to_s) == 'none'
-    options[:hash_transformations] = []   if ['none', nil].include?( options[:hash_transformations].to_s) || options[:hash_transformations].first.to_s) == 'none'
+    options[:header_transformations] = [] if ['none', nil].include?( options[:header_transformations].to_s) || options[:header_transformations].first.to_s == 'none'
+    options[:header_validations] = []     if ['none', nil].include?( options[:header_validations].to_s) || options[:header_validations].first.to_s == 'none'
+    options[:data_transformations] = []   if ['none', nil].include?( options[:data_transformations].to_s) || options[:data_transformations].first.to_s == 'none'
+    options[:hash_transformations] = []   if ['none', nil].include?( options[:hash_transformations].to_s) || options[:hash_transformations].first.to_s == 'none'
 
     if ['no_rules', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
       options[:header_transformations] = []
