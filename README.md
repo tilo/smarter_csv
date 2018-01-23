@@ -9,7 +9,8 @@ Work towards SmarterCSV 2.0 is on it's way, with much improved features, and mor
 
 Please check the 2.0-develop branch, and open issues marked v2.0 and leave your comments.
 
-Versions on the 1.2 branch will not print a deprecation warning if you set :verbose to true
+New versions on the 1.2 branch will soon print a deprecation warning if you set :verbose to true
+See below for list of deprecated options.
 
 ---------------
 #### SmarterCSV
@@ -221,6 +222,7 @@ The options and the block are optional.
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
+     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -240,7 +242,6 @@ And header and data validations will also be supported in 2.x
      | :downcase_header            |   true   | downcase all column headers                                                          |
      | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
      | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
-     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :keep_original_headers      |   false  | keep the original headers from the CSV-file as-is.                                   |
      |                             |          | Disables other flags manipulating the header fields.                                 |
      | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line (e.g. if headers are quoted) |
