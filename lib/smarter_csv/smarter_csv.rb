@@ -6,49 +6,14 @@ module SmarterCSV
   class DuplicateHeaders < Exception; end
   class MissingHeaders < Exception; end
 
-  DEPRECATED_OPTIONS = [:remove_empty_values, :remove_zero_values, :remove_values_matching, :strip_whitespace,
-    :convert_values_to_numeric, :strip_chars_from_headers, :key_mapping_hash, :downcase_header, :strings_as_keys,
-    :remove_unmapped_keys, :keep_original_headers, :value_converters, :required_headers
-  ]
+# TODO: we should refactor the it-then-else cascades for the transformations / validations into a separate method
 
-  def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
+  def SmarterCSV.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
 
-    default_options = {
-      :file_encoding => 'utf-8', :invalid_byte_sequence => '', :force_utf8 => false, :skip_lines => nil, :comment_regexp => /^#/,
-      :col_sep => ',', :force_simple_split => false, :row_sep => $/ , :auto_row_sep_chars => 500,  :quote_char => '"',  :chunk_size => nil,
-      :remove_empty_hashes => true, :verbose => false,
+    options = process_options(given_options)
 
-      :headers_in_file => true, :user_provided_headers => nil,
-
-      :header_transformations => nil,
-      :header_validations =>  [ :unique_headers ],
-      :data_transformations => [ :replace_blank_with_nil ],
-      :hash_transformations => nil,
-
-      :defaults => 'safe'
-    }
-
-    used_deprecated_options = DEPRECATED_OPTIONS & options.keys
-    puts " SmarterCSV #{VERSION} DEPRECATED OPTIONS: #{used_deprecated_options.inspect}" unless used_deprecated_options.empty?
-
-    if options[:defaults].to_s == 'v1'
-      options[:header_transformations] = [:keys_as_symbols] + (options[:header_transformations] || [])
-      options[:header_validations] = [:unique_headers] + (options[:header_validations] || [])
-      options[:hash_transformations] = [:strip_spaces, :remove_blank_values, :convert_values_to_numeric] + (options[:hash_transformations] || [])
-
-    elsif options[:defaults].to_s == 'safe'
-      options[:header_transformations] = [ :keys_as_symbols ] + (options[:header_transformations] || [])
-      options[:header_validations] = [ :unique_headers ] + (options[:header_validations] || [])
-      options[:hash_transformations] = [ :strip_spaces, :remove_blank_values, :convert_values_to_numeric_unless_leading_zeroes ] + (options[:hash_transformations] || [])
-    end
-
-    # unless set by the user, or purposely set to 'none', we'll always enforce the headers to be unique
-    options[:header_validations] = nil if options[:header_validations].to_s == 'none'
-    options[:data_transformations] = nil if options[:data_transformations].to_s == 'none'
-
-    options = default_options.merge(options)
-    options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
+
     headerA = []
     result = []
     old_row_sep = $/
@@ -214,6 +179,12 @@ module SmarterCSV
           options[:data_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
               dataA = self.public_send( transformation, dataA )
+            elsif transformation.is_a?(Hash)
+              trans, args = transformation.first
+              dataA = self.public_send( trans, dataA, args )
+            elsif transformation.is_a?(Array)
+              trans, args = transformation
+              dataA = self.public_send( trans, dataA, args )
             else
               dataA = transformation.call( dataA )
             end
@@ -221,7 +192,8 @@ module SmarterCSV
         end
 
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
-        # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
+        # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
+        # e.g. if any keys which are mapped to nil or an empty string
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
         hash.delete(nil); hash.delete('');
         if RUBY_VERSION.to_f > 1.8
@@ -302,6 +274,7 @@ module SmarterCSV
       return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end
   end
+
 
   private
 
