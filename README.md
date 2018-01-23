@@ -3,10 +3,14 @@
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
 ---------------
-####Service Announcement:
-Starting to think about SmarterCSV 2.0 with much improved features, and more streamlined options.
+#### Service Announcement
 
-Please check the open issues marked v2.0 and leave your comments.
+Work towards SmarterCSV 2.0 is on it's way, with much improved features, and more streamlined options.
+
+Please check the 2.0-develop branch, and open issues marked v2.0 and leave your comments.
+
+New versions on the 1.2 branch will soon print a deprecation warning if you set :verbose to true
+See below for list of deprecated options.
 
 ---------------
 #### SmarterCSV
@@ -195,6 +199,8 @@ The options and the block are optional.
 
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
+     | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
+     |                             |          |                                                                                      |
      | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
      | :invalid_byte_sequence      |   ''     | what to replace invalid byte sequences with                                          |
      | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
@@ -208,11 +214,15 @@ The options and the block are optional.
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
-     | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
-     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
+     ---------------------------------------------------------------------------------------------------------------------------------
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
+     |                             |          | user provided Array of header strings or symbols, to define                          |
+     |                             |          | what headers should be used, overriding any in-file headers.                         |
+     |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
+     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs                      |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -234,10 +244,6 @@ And header and data validations will also be supported in 2.x
      | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
      | :keep_original_headers      |   false  | keep the original headers from the CSV-file as-is.                                   |
      |                             |          | Disables other flags manipulating the header fields.                                 |
-     | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
-     |                             |          | user provided Array of header strings or symbols, to define                          |
-     |                             |          | what headers should be used, overriding any in-file headers.                         |
-     |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
      | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line (e.g. if headers are quoted) |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
