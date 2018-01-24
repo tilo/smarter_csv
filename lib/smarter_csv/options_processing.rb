@@ -58,52 +58,94 @@ module SmarterCSV
     chunk_size: nil, remove_empty_hashes: true, verbose: false,
 
     headers_in_file: true, user_provided_headers: nil,
+  }
 
-    header_transformations: [],
+  BASE_TRANSFORMATIONS = {
+    header_transformations: [:keys_as_symbols],
     header_validations:   [ :unique_headers ],
     data_transformations: [ :replace_blank_with_nil ],
     hash_transformations: [ :strip_spaces, :remove_blank_values ],
   }
 
-  def process_options(options)
+  V1_TRANSFORMATIONS = {
+     header_transformations: [:keys_as_symbols],
+     header_validations: [:unique_headers],
+     data_transformations: [ :replace_blank_with_nil ],
+     hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric]
+  }
+
+  def self.process_options(options={})
+
     puts "User provided options:\n#{pp(options)}\n" if options[:verbose]
 
     # warn about obsolete options
     used_obsolete_options = OBSOLETE_OPTIONS & options.keys
-    raise( SmarterCSV::ObsoleteOptions, "ERROR: SmarterCSV #{VERSION} IGNORING OBSOLETE OPTIONS: #{pp(used_obsolete_options)}" ) unless used_deprecated_options.empty? || options[:silence_obsolete_error]
+    raise( SmarterCSV::ObsoleteOptions, "ERROR: SmarterCSV #{VERSION} IGNORING OBSOLETE OPTIONS: #{pp(used_obsolete_options)}" ) unless used_obsolete_options.empty? || options[:silence_obsolete_error]
 
-    # default transformations and validations can be disabled individually
-    options[:header_transformations] = [] if ['none', nil].include?( options[:header_transformations].to_s) || options[:header_transformations].first.to_s == 'none'
-    options[:header_validations] = []     if ['none', nil].include?( options[:header_validations].to_s) || options[:header_validations].first.to_s == 'none'
-    options[:data_transformations] = []   if ['none', nil].include?( options[:data_transformations].to_s) || options[:data_transformations].first.to_s == 'none'
-    options[:hash_transformations] = []   if ['none', nil].include?( options[:hash_transformations].to_s) || options[:hash_transformations].first.to_s == 'none'
-
-    if ['no_rules', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
-      options[:header_transformations] = []
-      options[:header_validations] = []
-      options[:data_transformations] = []
-      options[:hash_transformations] = []
+    default_options = {}
+    if options[:defaults].to_s != 'none'
+      default_options = DEFAULT_OPTIONS
+      if options[:defaults].to_s == 'v1'
+        default_options.merge!(V1_TRANSFORMATIONS)
+      else
+        default_options.merge!(BASE_TRANSFORMATIONS)
+      end
     end
 
-    # use the default options unless user wants a clean slate
-    options = DEFAULT_OPTIONS.merge(options) unless options[:defaults].to_s == 'none'
+    requested_header_transformations = options.delete(:header_transformations)
+    requested_header_validations = options.delete(:header_validations)
+    requested_data_transformations = options.delete(:data_transformations)
+    requested_hash_transformations = options.delete(:hash_transformations)
 
-    if options[:defaults].to_s == 'v1'
-      options[:header_transformations] = [:keys_as_symbols]
-      options[:header_validations] = [:unique_headers]
-      options[:hash_transformations] = [:strip_spaces, :remove_blank_values, :convert_values_to_numeric]
+    # default transformations and validations can be disabled individually
+    default_options[:header_transformations] = [] if ['none', nil].include?( requested_header_transformations.to_s) || requested_header_transformations&.first.to_s == 'none'
+    default_options[:header_validations] = []     if ['none', nil].include?( requested_header_validations.to_s) || requested_header_validations&.first.to_s == 'none'
+    default_options[:data_transformations] = []   if ['none', nil].include?( requested_data_transformations.to_s) || requested_data_transformations&.first.to_s == 'none'
+    default_options[:hash_transformations] = []   if ['none', nil].include?( requested_hash_transformations.to_s) || requested_hash_transformations&.first.to_s == 'none'
+
+    if ['no_rules', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
+      default_options[:header_transformations] = []
+      default_options[:header_validations] = []
+      default_options[:data_transformations] = []
+      default_options[:hash_transformations] = []
+    end
+
+    # remove the 'none'
+    if requested_header_transformations.to_s == 'none'
+      requested_header_transformations = []
+    else
+      requested_header_transformations&.reject!{|x| x.to_s == 'none'}
+    end
+    if requested_header_validations.to_s == 'none'
+      requested_header_validations = []
+    else
+      requested_header_validations&.reject!{|x| x.to_s == 'none'}
+    end
+    if requested_data_transformations.to_s == 'none'
+      requested_data_transformations = []
+    else
+      requested_data_transformations&.reject!{|x| x.to_s == 'none'}
+    end
+    if requested_hash_transformations.to_s == 'none'
+      requested_hash_transformations = []
+    else
+      requested_hash_transformations&.reject!{|x| x.to_s == 'none'}
     end
 
     # now append the user-defined validations / transformations:
-    options[:header_transformations] += (options[:header_transformations] || [])
-    options[:header_validations]     += (options[:header_validations] || [])
-    options[:data_transformations]   += (options[:data_transformations] || [])
-    options[:hash_transformations]   += (options[:hash_transformations] || [])
+    default_options[:header_transformations] += (requested_header_transformations || [])
+    default_options[:header_validations]     += (requested_header_validations || [])
+    default_options[:data_transformations]   += (requested_data_transformations || [])
+    default_options[:hash_transformations]   += (requested_hash_transformations || [])
 
-    #
+    # use the default options unless user wants a clean slate
+    options = default_options.merge(options) unless options[:defaults].to_s == 'none'
+
+    # fix invalid input
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
 
     puts "Computed options:\n#{pp(options)}\n" if options[:verbose]
+
     return options
   end
 
