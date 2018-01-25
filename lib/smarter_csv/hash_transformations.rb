@@ -22,6 +22,16 @@ module SmarterCSV
     @@remove_blank_values.call(hash)
   end
 
+  def self.remove_zero_values(hash, args=nil)
+    @@remove_zero_values ||= Proc.new {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+
+      keys.each {|key| hash.delete(key) if hash[key].is_a?(Numeric) && hash[key].zero? }
+      hash
+    }
+    @@remove_zero_values.call(hash)
+  end
+
   def self.convert_values_to_numeric(hash, args=nil)
     @@convert_values_to_numeric ||= Proc.new {|hash, args=nil|
       keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )

@@ -103,7 +103,7 @@ module SmarterCSV
     default_options[:data_transformations] = []   if ['none', nil].include?( requested_data_transformations.to_s) || requested_data_transformations&.first.to_s == 'none'
     default_options[:hash_transformations] = []   if ['none', nil].include?( requested_hash_transformations.to_s) || requested_hash_transformations&.first.to_s == 'none'
 
-    if ['no_rules', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
+    if ['no_procs', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
       default_options[:header_transformations] = []
       default_options[:header_validations] = []
       default_options[:data_transformations] = []

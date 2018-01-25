@@ -13,8 +13,8 @@ describe 'loads binary file format with comments' do
     # old default is to automatically remove blank values
 
     options = {
-      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
-      :defaults => 'v1'
+      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/,
+      defaults: 'v1'
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 
@@ -35,7 +35,7 @@ describe 'loads binary file format with comments' do
     # we have to remove blank values explicitly
 
     options = {
-      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
+      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/,
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 
@@ -56,9 +56,9 @@ describe 'loads binary file format with comments' do
     # new default is to have symbols as keys, so nothing to do for that
 
     options = {
-      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/ ,
-      :header_transformations => [:none, :keys_as_strings],
-      :hash_transformations => [ convert_values_to_numeric: ['timestamp','item_id','parent_id'] ]
+      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/ ,
+      header_transformations: [:none, :keys_as_strings],
+      hash_transformations: [ convert_values_to_numeric: ['timestamp','item_id','parent_id'] ]
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 

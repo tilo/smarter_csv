@@ -5,8 +5,9 @@ fixture_path = 'spec/fixtures'
 describe 'not downcasing headers' do
 
   it 'not_downcase_headers' do
-    # new default is to not downcase or modify the headers
-    options = {}
+    options = {
+      header_transformations: [:none]
+    }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should eq 5
     # all the keys should be symbols

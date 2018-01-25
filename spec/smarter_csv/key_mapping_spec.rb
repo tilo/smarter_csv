@@ -6,67 +6,54 @@ describe 'modify headers' do
 
   it 'rename some headers with v1 defaults' do
     options = {
-      :defaults => 'v1',
-      :header_transformations => [ :key_mapping => {:first_name => :vorname, :last_name => :nachname} ]
+      defaults: 'v1',
+      header_transformations: [ key_mapping: {first_name: :vorname, last_name: :nachname} ]
     }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should eq Symbol}}
+    data.size.should eq 5
 
     data.each do |hash|
       hash.keys.each do |key|
+        key.class.should eq Symbol
         [:vorname, :nachname, :dogs, :cats, :birds, :fish].should include( key )
       end
       hash.values.should_not include( nil ) # v1 defaults should remove blank values
-    end
-
-    data.each do |h|
-      h.size.should <= 6
+      hash.size.should <= 6
     end
   end
 
-  it 'rename some headers with safe defaults' do
+  it 'rename some headers with new defaults' do
     options = {
-      :defaults => 'safe',
-      :header_transformations => [ :key_mapping => {:first_name => :vorname, :last_name => :nachname} ]
+      header_transformations: [ key_mapping: {first_name: :vorname, last_name: :nachname} ]
     }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should eq Symbol}}
+    data.size.should eq 5
 
     data.each do |hash|
       hash.keys.each do |key|
+        key.class.should eq Symbol
         [:vorname, :nachname, :dogs, :cats, :birds, :fish].should include( key )
       end
       hash.values.should_not include( nil ) # safe defaults should remove blank values
-    end
-
-    data.each do |h|
-      h.size.should <= 6
+      hash.size.should <= 6
     end
   end
 
-  it 'rename some headers' do
+  it 'remove fields by mapping them to nil' do
     options = {
-      :header_transformations => [ :keys_as_symbols, :key_mapping => {:first_name => :vorname, :last_name => :nachname} ]
+      header_transformations: [ key_mapping: {first_name: :vorname, last_name: :nachname, birds: nil, fish: nil, dogs: nil, cats: nil} ]
     }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should eq Symbol}}
+    data.size.should eq 5
 
     data.each do |hash|
       hash.keys.each do |key|
-        [:vorname, :nachname, :dogs, :cats, :birds, :fish].should include( key )
+        key.class.should eq Symbol
+        [:vorname, :nachname].should include( key )
+        [:dogs, :cats, :birds, :fish].should_not include( key )
       end
-      hash.values.should_not include( 0 )
-    end
-
-    data.each do |h|
-      h.size.should <= 6
+      hash.values.should_not include( nil ) # safe defaults should remove blank values
+      hash.size.should eq 2
     end
   end
-
 end

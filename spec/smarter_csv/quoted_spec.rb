@@ -5,7 +5,7 @@ fixture_path = 'spec/fixtures'
 describe 'loading file with quoted fields' do
 
   it 'should work by default, empty strings are replaced by nil, numbers are not converted' do
-    options = {}
+    options = {header_transformations: :none}
     data = SmarterCSV.process("#{fixture_path}/quoted.csv", options)
 
     data.flatten.size.should eq 4
@@ -40,7 +40,7 @@ describe 'loading file with quoted fields' do
   end
 
   it 'should work with safe defaults' do
-    options = {:defaults => 'safe'}
+    options = {}
     data = SmarterCSV.process("#{fixture_path}/quoted.csv", options)
 
     data.flatten.size.should eq 4
@@ -49,10 +49,10 @@ describe 'loading file with quoted fields' do
     data[2][:model].should eq 'Venture "Extended Edition, Very Large"'
     data[2][:description].should be_nil
     data.each do |h|
-      h[:year].class.should eq Fixnum
+      h[:year].class.should eq String
       h[:make].should_not be_nil
       h[:model].should_not be_nil
-      h[:price].class.should eq Float
+      h[:price].class.should eq String
     end
   end
 end

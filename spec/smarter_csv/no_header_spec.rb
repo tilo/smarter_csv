@@ -5,7 +5,7 @@ fixture_path = 'spec/fixtures'
 describe 'CSV files without header' do
 
   it 'should allow to manually define the header and read all CSV lines' do
-    options = {:headers_in_file => false, :user_provided_headers => [:a,:b,:c,:d,:e,:f]}
+    options = {headers_in_file: false, user_provided_headers: [:a,:b,:c,:d,:e,:f]}
     data = SmarterCSV.process("#{fixture_path}/no_header.csv", options)
     data.size.should eq 5
     # all the keys should be symbols

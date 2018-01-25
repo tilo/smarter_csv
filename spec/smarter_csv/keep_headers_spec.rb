@@ -4,8 +4,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'not_downcase_headers' do
-    # new default behavior is to not modify the headers
-    options = {}
+    options = {defaults: :no_procs}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 5
     # all the keys should be string

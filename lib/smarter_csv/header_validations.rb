@@ -4,7 +4,7 @@ module SmarterCSV
 
   def self.unique_headers(array)
     @@unique_headers ||= Proc.new {|headers|
-      dupes = headers.each_with_object({}){ |x,h| h[x] ||= 0; h[x] += 1}.reject{|k,v| v < 2 }
+      dupes = headers.each_with_object({}){ |x,h| h[x] ||= 0; h[x] += 1}.reject{|k,v| k == nil || v < 2 } # when we remove fields we map them to nil - we don't count these as dupes
       dupes.empty? ? nil : raise( SmarterCSV::DuplicateHeaders, "Duplicate Headers in CSV: #{dupes.inspect}" )
     }
     @@unique_headers.call(array)
@@ -18,5 +18,4 @@ module SmarterCSV
     }
     @@required_headers.call(array,required)
   end
-
 end

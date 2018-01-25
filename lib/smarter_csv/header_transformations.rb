@@ -23,11 +23,10 @@ module SmarterCSV
       raise( SmarterCSV::IncorrectOption , "ERROR: key_mapping header transformation needs a hash argument" ) unless mapping.is_a?(Hash)
       new_headers = []
       headers.each do |key|
-        new_headers << (mapping[key] ? mapping[key] : key)
+        new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!
       end
       new_headers
     }
     @@key_mapping.call(array, mapping)
   end
-
 end

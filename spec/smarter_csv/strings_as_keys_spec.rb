@@ -2,16 +2,29 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'use_strings_as_keys' do 
-    options = {:strings_as_keys => true}
-    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should be == String}}
+describe 'strings as keys' do
 
-    data.each do |item| 
+  it 'does not use strings as keys by default' do
+    data = SmarterCSV.process("#{fixture_path}/basic.csv")
+    data.size.should eq 5
+
+    data.each do |item|
       item.keys.each do |key|
+        key.class.should eq Symbol
+      end
+    end
+  end
+
+  it 'does use strings as keys when specifically asked' do
+    options = {
+      header_transformations: [ :none, :keys_as_strings ]
+    }
+    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
+    data.size.should eq 5
+
+    data.each do |item|
+      item.keys.each do |key|
+        key.class.should eq String
         ["first_name", "last_name", "dogs", "cats", "birds", "fish"].should include( key )
       end
     end

@@ -6,7 +6,7 @@ describe 'processes files' do
 
   it 'with dashes in header fields as symbols when using v1 defaults' do
     options = {
-      :defaults => 'v1'
+      defaults: 'v1'
     }
     data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
 
@@ -17,7 +17,7 @@ describe 'processes files' do
 
   it 'with dashes in header fields as symbols when using safe defaults' do
     options = {
-      :defaults => 'safe'
+      defaults: 'safe'
     }
     data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
 
@@ -28,7 +28,7 @@ describe 'processes files' do
 
   it 'with dashes in header fields as strings' do
     options = {
-      :header_transformations => [ :keys_as_strings ],
+      header_transformations: [ :none, :keys_as_strings ],
     }
     data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
 
@@ -39,7 +39,7 @@ describe 'processes files' do
 
   it 'with dashes in header fields as symbols' do
     options = {
-      :header_transformations => [ :keys_as_symbols ],
+      header_transformations: [ :none, :keys_as_symbols ]
     }
     data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
 
