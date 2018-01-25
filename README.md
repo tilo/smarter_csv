@@ -1,39 +1,68 @@
-# SmarterCSV
+# SmarterCSV 
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
 ---------------
 #### Service Announcement
 
-Work towards SmarterCSV 2.0 is on it's way, with much improved features, and more streamlined options.
+**SmarterCSV 2.0.0 is out! 🎉 You are looking at the 2.x documentation.**
 
-Please check the 2.0-develop branch, and open issues marked v2.0 and leave your comments.
+If you are looking for SmarterCSV 1.x, please check the README on the `1.2-stable` branch.
 
-New versions on the 1.2 branch will soon print a deprecation warning if you set :verbose to true
-See below for list of deprecated options.
+For feature requests, feedback, comments on 2.x please open a GitHub comment.
 
 ---------------
 #### SmarterCSV
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
-and parallel processing with Resque or Sidekiq.
+Simple, efficient CSV processing for Ruby.
+
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for parallel processing with Resque or Sidekiq, 
+as well as direct processing with ActiveRecord, Mongoiid.
 
 One `smarter_csv` user wrote:
 
   *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
    [...] Smarter CSV was a big part and helped clean up our code ALOT*
+  
+SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
 
-`smarter_csv` has lots of features:
+
+### Features
+  
+Now SmarterCSV 2.0 is out, and strives to keep the same features, but using a different implementation which allows you more control when you need to handle special cases.
+Becaues of this, some of the options from version 1.x are no longer supported. Alternative solutions can be found in the Upgrading guide.
+
+SmarterCSV 2.x has lots of features:
+
  * able to process large CSV-files
  * able to chunk the input from the CSV file to avoid loading the whole CSV file into memory
  * return a Hash for each line of the CSV file, so we can quickly use the results for either creating MongoDB or ActiveRecord entries, or further processing with Resque
  * able to pass a block to the `process` method, so data from the CSV file can be directly processed (e.g. Resque.enqueue )
  * allows to have a bit more flexible input format, where comments are possible, and col_sep,row_sep can be set to any character sequence, including control characters.
- * able to re-map CSV "column names" to Hash-keys of your choice (normalization)
- * able to ignore "columns" in the input (delete columns)
- * able to eliminate nil or empty fields from the result hashes (default)
 
-NOTE; This Gem is only for importing CSV files - writing of CSV files is not supported at this time.
+ * able to transmogrify CSV column names to the Hash keys of your choice (see: header_transformations)
+ * able to ignore unwanted CSV columns and exclude them from the resulting hash (just map them to `nil`)
+ * able to do validations on the resulting keys computed from CSV column names (see: header_validations)
+ * able to do data transformations for all or select columns (see: data_transformations, hash_transformations)
+ * able to do data validations (TO BE IMPLEMENTED SOON)
+
+ * able to eliminate key/value pairs with blank, or `nil` values from the result hashes.
+ * you can use the transformations to implement any custom behavior by passing-in one or more `Proc`s.
+
+NOTE; This Gem is only for importing CSV files - writing of CSV files is not supported at this time, but writing is on the feature list for the future..+
+
+
+
+
+#### Default Behavior vs Customization
+
+
+SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
+It's default behavior is to change the headers of a CSV file into symbols, which are then used in a hash that gets constructed for each line of the CSV file.
+This default behavior can be changed and customized.
+
+
+
 
 ### Why?
 
