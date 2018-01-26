@@ -1,4 +1,4 @@
-# SmarterCSV 
+# SmarterCSV 2
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
@@ -25,6 +25,21 @@ One `smarter_csv` user wrote:
    [...] Smarter CSV was a big part and helped clean up our code ALOT*
   
 SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
+
+
+### Requirements
+
+SmarterCSV supports Ruby >= 1.9, and is not tied to a specific Rails version.
+  
+### Installation
+
+
+      gem install smarter_csv
+
+
+### Getting Started
+
+See the Getting Started wiki page and follow the simple setup process.
 
 
 ### Features
@@ -352,6 +367,10 @@ Planned in the next releases:
  * CSV command line
 
 ## Changes
+
+#### 2.0.0.pre1 (2018-01-26)
+ * completely overhauled how headers and data lines are processed - users can now write their own Procs to transmogrify the raw data.
+ * adding validations, so you can catch errors while or after processing a CSV file.
 
 #### 1.2.0 (2018-01-20)
  * add default validation that a header can only appear once
