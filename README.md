@@ -324,6 +324,9 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.2.1 (2018-01-25)
+ * bugfix (thanks to Joshua Smith for reporting)
+
 #### 1.2.0 (2018-01-20)
  * add default validation that a header can only appear once
  * add option `required_headers`
@@ -494,6 +497,7 @@ And a special thanks to those who contributed pull requests:
  * [Ivan Ushakov](https://github.com/IvanUshakov)
  * [Matthieu Paret](https://github.com/mtparet)
  * [Rohit Amarnath](https://github.com/ramarnat)
+ * [Joshua Smith](https://github.com/enviable)
 
 
 ## Contributing

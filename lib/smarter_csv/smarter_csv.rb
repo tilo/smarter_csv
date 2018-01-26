@@ -59,7 +59,7 @@ module SmarterCSV
         else
           file_headerA =  header.split(options[:col_sep])
         end
-        file_headerA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
+        file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+|-+/,'_')}
@@ -155,7 +155,7 @@ module SmarterCSV
         else
           dataA =  line.split(options[:col_sep])
         end
-        dataA.map!{|x| x.gsub(%r/options[:quote_char]/,'') }
+        dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
