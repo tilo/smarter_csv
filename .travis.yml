@@ -17,3 +17,5 @@ matrix:
 branches:
   only:
     - master
+    - 1.2-stable
+    - 2.0-develop
