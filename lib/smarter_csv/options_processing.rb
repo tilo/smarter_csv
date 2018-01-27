@@ -101,11 +101,12 @@ module SmarterCSV
     requested_hash_transformations = options.delete(:hash_transformations)
 
     # default transformations and validations can be disabled individually
-    default_options[:header_transformations] = [] if ['none', nil].include?( requested_header_transformations.to_s) || requested_header_transformations&.first.to_s == 'none'
-    default_options[:header_validations] = []     if ['none', nil].include?( requested_header_validations.to_s) || requested_header_validations&.first.to_s == 'none'
-    default_options[:data_transformations] = []   if ['none', nil].include?( requested_data_transformations.to_s) || requested_data_transformations&.first.to_s == 'none'
-    default_options[:data_validations] = []   if ['none', nil].include?( requested_data_validations.to_s) || requested_data_validations&.first.to_s == 'none'
-    default_options[:hash_transformations] = []   if ['none', nil].include?( requested_hash_transformations.to_s) || requested_hash_transformations&.first.to_s == 'none'
+    # can't use &. until Ruby 2.2 is EOL
+    default_options[:header_transformations] = [] if ['none', nil].include?( requested_header_transformations.to_s) || !requested_header_transformations.nil? && requested_header_transformations.first.to_s == 'none'
+    default_options[:header_validations] = []     if ['none', nil].include?( requested_header_validations.to_s) || !requested_header_validations.nil? && requested_header_validations.first.to_s == 'none'
+    default_options[:data_transformations] = []   if ['none', nil].include?( requested_data_transformations.to_s) || !requested_data_transformations.nil? && requested_data_transformations.first.to_s == 'none'
+    default_options[:data_validations] = []   if ['none', nil].include?( requested_data_validations.to_s) || !requested_data_validations.nil? && requested_data_validations.first.to_s == 'none'
+    default_options[:hash_transformations] = []   if ['none', nil].include?( requested_hash_transformations.to_s) || !requested_hash_transformations.nil? && requested_hash_transformations.first.to_s == 'none'
 
     if ['no_procs', 'none'].include?( options[:defaults].to_s) # you can disable all default transformations / validations
       default_options[:header_transformations] = []
@@ -119,27 +120,27 @@ module SmarterCSV
     if requested_header_transformations.to_s == 'none'
       requested_header_transformations = []
     else
-      requested_header_transformations&.reject!{|x| x.to_s == 'none'}
+      requested_header_transformations.reject!{|x| x.to_s == 'none'} unless requested_header_transformations.nil?
     end
     if requested_header_validations.to_s == 'none'
       requested_header_validations = []
     else
-      requested_header_validations&.reject!{|x| x.to_s == 'none'}
+      requested_header_validations.reject!{|x| x.to_s == 'none'} unless requested_header_validations.nil?
     end
     if requested_data_transformations.to_s == 'none'
       requested_data_transformations = []
     else
-      requested_data_transformations&.reject!{|x| x.to_s == 'none'}
+      requested_data_transformations.reject!{|x| x.to_s == 'none'} unless requested_data_transformations.nil?
     end
     if requested_data_validations.to_s == 'none'
       requested_data_validations = []
     else
-      requested_data_validations&.reject!{|x| x.to_s == 'none'}
+      requested_data_validations.reject!{|x| x.to_s == 'none'} unless requested_data_validations.nil?
     end
     if requested_hash_transformations.to_s == 'none'
       requested_hash_transformations = []
     else
-      requested_hash_transformations&.reject!{|x| x.to_s == 'none'}
+      requested_hash_transformations.reject!{|x| x.to_s == 'none'} unless requested_hash_transformations.nil?
     end
 
     # now append the user-defined validations / transformations:

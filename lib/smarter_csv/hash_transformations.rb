@@ -8,7 +8,7 @@ module SmarterCSV
     @@strip_spaces ||= Proc.new {|hash, args=nil|
       keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
 
-      keys.each {|key| hash[key]&.strip! }
+      keys.each {|key| hash[key].strip! unless hash[key].nil? } # &. syntax was introduced in Ruby 2.3 - need to stay backwards compatible
       hash
     }
     @@strip_spaces.call(hash)

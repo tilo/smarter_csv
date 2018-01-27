@@ -6,9 +6,10 @@ before_install:
 
 matrix:
   include:
-    - rvm: 2.2.8
-    - rvm: 2.3.5
-    - rvm: 2.4.2
+    - rvm: 2.2.9
+    - rvm: 2.3.6
+    - rvm: 2.4.3
+    - rvm: 2.5.0
     - rvm: jruby-9.1.13.0
       env:
         - JRUBY_OPTS="--server -Xcompile.invokedynamic=false -J-XX:+TieredCompilation -J-XX:TieredStopAtLevel=1 -J-noverify -J-Xms512m -J-Xmx1024m"
