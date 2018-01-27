@@ -198,6 +198,22 @@ module SmarterCSV
           end
         end
 
+       # do the data validations the user requested:
+        if options[:data_validations]
+          options[:data_validations].each do |validation|
+            if validation.is_a?(Symbol)
+              self.public_send( validation, dataA )
+            elsif validation.is_a?(Hash)
+              trans, args = validation.first
+              self.public_send( trans, dataA, args )
+            elsif validation.is_a?(Array)
+              trans, args = validation
+              self.public_send( trans, dataA, args )
+            else
+              validation.call( dataA )
+            end
+          end
+        end
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
         # e.g. if any keys which are mapped to nil or an empty string
