@@ -1,6 +1,8 @@
 module SmarterCSV
   # these are some pre-defined header validations which can be used
   # all these take the headers array as the input
+  #
+  # the computed options can be accessed via @options
 
   def self.unique_headers(array)
     @@unique_headers ||= Proc.new {|headers|

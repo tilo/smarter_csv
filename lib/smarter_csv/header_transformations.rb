@@ -1,17 +1,19 @@
 module SmarterCSV
   # these are some pre-defined header transformations which can be used
   # all these take the headers array as the input
+  #
+  # the computed options can be accessed via @options
 
   def self.keys_as_symbols(array)
     @@keys_as_symbols ||= Proc.new {|headers|
-      headers.map{|x| x.strip.downcase.gsub(/(\s|\-)+/,'_').to_sym }
+      headers.map{|x| x.strip.downcase.gsub(%r{#{@options[:quote_char]}}, '').gsub(/(\s|\-)+/,'_').to_sym }
     }
     @@keys_as_symbols.call(array)
   end
 
   def self.keys_as_strings(array)
     @@keys_as_strings ||= Proc.new {|headers|
-      headers.map{|x| x.strip.downcase.gsub(/(\s|\-)+/,'_') }
+      headers.map{|x| x.strip.gsub(%r{#{@options[:quote_char]}}, '').downcase.gsub(/(\s|\-)+/,'_') }
     }
     @@keys_as_strings.call(array)
   end
@@ -29,4 +31,5 @@ module SmarterCSV
     }
     @@key_mapping.call(array, mapping)
   end
+
 end

@@ -72,7 +72,7 @@ module SmarterCSV
      header_transformations: [:keys_as_symbols],
      header_validations: [:unique_headers],
      data_transformations: [ :replace_blank_with_nil ],
-    data_validations: [],
+     data_validations: [],
      hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric]
   }
 
@@ -157,7 +157,8 @@ module SmarterCSV
 
     puts "Computed options:\n#{pp(options)}\n" if options[:verbose]
 
-    return options
+    @options = options.clone
+    return @options
   end
 
   private

@@ -1,6 +1,8 @@
 module SmarterCSV
   # these are some pre-defined data hash transformations which can be used
   # all these take the data hash as the input
+  #
+  # the computed options can be accessed via @options
 
   def self.strip_spaces(hash, args=nil)
     @@strip_spaces ||= Proc.new {|hash, args=nil|

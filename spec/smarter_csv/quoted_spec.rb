@@ -4,6 +4,21 @@ fixture_path = 'spec/fixtures'
 
 describe 'loading file with quoted fields' do
 
+  # NOTE: quotes inside headers need to be escaped by doubling them
+  #       e.g. 'correct ""EXAMPLE""'
+  #       this escaping is illegal: 'incorrect \"EXAMPLE\"' <-- this caused CSV parsing error
+  #  in case of CSV parsing errirs, use :user_provided_headers, or key_mapping
+  #
+  it 'removes extra quotes inside headers' do
+    options = {}
+    data = SmarterCSV.process("#{fixture_path}/quoted2.csv", options)
+
+    data.length.should eq 3
+    data.first.keys[2].should eq :isbn
+    data.first.keys[3].should eq :discounted_price
+  end
+
+
   it 'should work by default, empty strings are replaced by nil, numbers are not converted' do
     options = {header_transformations: :none}
     data = SmarterCSV.process("#{fixture_path}/quoted.csv", options)
@@ -55,4 +70,26 @@ describe 'loading file with quoted fields' do
       h[:price].class.should eq String
     end
   end
+
+
+  it 'removes quotes around quoted fields, but not inside data' do
+    options = {}
+    data = SmarterCSV.process("#{fixture_path}/quote_char.csv", options)
+
+    data.length.should eq 6
+    data[1][:first_name].should eq "Jam\ne\nson\""
+    data[2][:first_name].should eq "\"Jean"
+  end
+
+  it 'can remove extra quotes inside data if requested' do
+    options = {
+      data_transformations: [:remove_quote_chars]
+    }
+    data = SmarterCSV.process("#{fixture_path}/quote_char.csv", options)
+
+    data.length.should eq 6
+    data[1][:first_name].should eq "Jam\ne\nson"
+    data[2][:first_name].should eq "Jean"
+  end
+
 end
