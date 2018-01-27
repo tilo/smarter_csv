@@ -326,6 +326,7 @@ Planned in the next releases:
 
 #### 1.2.1 (2018-01-26)
  * fixed regression / test
+ * fuxed quote_char interpolation (thanks to Colin Petruno)
 
 #### 1.2.1 (2018-01-25)    ### YANKED!
  * bugfix (thanks to Joshua Smith for reporting)
@@ -501,6 +502,7 @@ And a special thanks to those who contributed pull requests:
  * [Matthieu Paret](https://github.com/mtparet)
  * [Rohit Amarnath](https://github.com/ramarnat)
  * [Joshua Smith](https://github.com/enviable)
+ * [Colin Petruno](https://github.com/colinpetruno)
 
 
 ## Contributing
