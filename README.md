@@ -324,9 +324,9 @@ Planned in the next releases:
 
 ## Changes
 
-#### 1.2.1 (2018-01-26)
+#### 1.2.3 (2018-01-27)
  * fixed regression / test
- * fuxed quote_char interpolation (thanks to Colin Petruno)
+ * fuxed quote_char interpolation for headers, but not data (thanks to Colin Petruno)
 
 #### 1.2.1 (2018-01-25)    ### YANKED!
  * bugfix (thanks to Joshua Smith for reporting)

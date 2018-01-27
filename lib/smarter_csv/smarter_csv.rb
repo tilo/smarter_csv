@@ -155,7 +155,7 @@ module SmarterCSV
         else
           dataA =  line.split(options[:col_sep])
         end
-        dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
+####     dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }  # this is actually not a good idea as a default
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
