@@ -1,6 +1,11 @@
 # SmarterCSV 2
 
-[![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
+
+[![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=2.0-develop)](http://travis-ci.org/tilo/smarter_csv)
+[![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
+[![Code Climate](https://codeclimate.com/github/tilo/smarter_csv.svg)](https://codeclimate.com/github/tilo/smarter_csv)
+[![Gitter Chat](https://badges.gitter.im/tilo/smarter_csv.svg)](https://gitter.im/tilo/smarter_csv)
+
 
 ---------------
 #### Service Announcement
@@ -16,21 +21,21 @@ For feature requests, feedback, comments on 2.x please open a GitHub comment.
 
 Simple, efficient CSV processing for Ruby.
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for parallel processing with Resque or Sidekiq, 
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for parallel processing with Resque or Sidekiq,
 as well as direct processing with ActiveRecord, Mongoiid.
 
 One `smarter_csv` user wrote:
 
   *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
    [...] Smarter CSV was a big part and helped clean up our code ALOT*
-  
+
 SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
 
 
 ### Requirements
 
 SmarterCSV supports Ruby >= 1.9, and is not tied to a specific Rails version.
-  
+
 ### Installation
 
 
@@ -43,7 +48,7 @@ See the Getting Started wiki page and follow the simple setup process.
 
 
 ### Features
-  
+
 Now SmarterCSV 2.0 is out, and strives to keep the same features, but using a different implementation which allows you more control when you need to handle special cases.
 Becaues of this, some of the options from version 1.x are no longer supported. Alternative solutions can be found in the Upgrading guide.
 
