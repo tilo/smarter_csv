@@ -327,8 +327,6 @@ Planned in the next releases:
 #### 1.2.3 (2018-01-27)
  * fixed regression / test
  * fuxed quote_char interpolation for headers, but not data (thanks to Colin Petruno)
-
-#### 1.2.1 (2018-01-25)    ### YANKED!
  * bugfix (thanks to Joshua Smith for reporting)
 
 #### 1.2.0 (2018-01-20)
@@ -384,9 +382,6 @@ Planned in the next releases:
 
 #### 1.0.14 (2013-11-01)
  * added GPL-2 and MIT license to GEM spec file; if you need another license contact me
-
-#### 1.0.13 (2013-11-01)    ### YANKED!
- * added GPL-2 license to GEM spec file; if you need another license contact me
 
 #### 1.0.12 (2013-10-15)
  * added RSpec tests
