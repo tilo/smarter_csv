@@ -9,7 +9,7 @@ describe 'be able to' do
     data = SmarterCSV.process("#{fixture_path}/quote_char.csv", options)
 
     expect(data.length).to eql(6)
-    expect(data[1][:first_name]).to eql("Jam\ne\nson\"")
-    expect(data[2][:first_name]).to eql("\"Jean")
+    expect(data[1][:first_name]).to eql("Jam\ne\nson")
+    expect(data[2][:first_name]).to eql("Jean")
   end
 end

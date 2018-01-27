@@ -325,6 +325,9 @@ Planned in the next releases:
 ## Changes
 
 #### 1.2.1 (2018-01-25)
+ * fixed regression / test
+
+#### 1.2.1 (2018-01-25)    ### YANKED!
  * bugfix (thanks to Joshua Smith for reporting)
 
 #### 1.2.0 (2018-01-20)
