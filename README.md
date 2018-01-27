@@ -3,8 +3,6 @@
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=2.0-develop)](http://travis-ci.org/tilo/smarter_csv)
 [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
-[![Code Climate](https://codeclimate.com/github/tilo/smarter_csv.svg)](https://codeclimate.com/github/tilo/smarter_csv)
-[![Gitter Chat](https://badges.gitter.im/tilo/smarter_csv.svg)](https://gitter.im/tilo/smarter_csv)
 
 
 ---------------
