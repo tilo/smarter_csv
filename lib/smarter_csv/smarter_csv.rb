@@ -240,6 +240,23 @@ module SmarterCSV
           end
         end
 
+        # do the hash validations the user requested:
+        if options[:hash_validations]
+          options[:hash_validations].each do |validation|
+            if validation.is_a?(Symbol)
+              hash = self.public_send( validation, hash )
+            elsif validation.is_a?(Hash)
+              trans, args = validation.first
+              hash = self.public_send( trans, hash, args )
+            elsif validation.is_a?(Array)
+              trans, args = validation
+              hash = self.public_send( trans, hash, args )
+            else
+              hash = validation.call( hash )
+            end
+          end
+        end
+
         next if hash.empty? if options[:remove_empty_hashes]
 
         # process the chunks or the resulting hash

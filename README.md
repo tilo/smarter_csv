@@ -32,7 +32,8 @@ SmarterCSV was desgined with the use cases in mind that you want to use the impo
 
 ### Requirements
 
-SmarterCSV supports Ruby >= 1.9, and is not tied to a specific Rails version.
+SmarterCSV supports Ruby >= 2.2, and is not tied to a specific Rails version.
+Please take note that Ruby 2.2 EOL date is scheduled for 2018-03-31
 
 ### Installation
 
