@@ -1,6 +1,6 @@
 require 'csv'
 require "smarter_csv/version"
-require "extensions/hash"
+require "core_ext/hash"
 
 require "smarter_csv/header_transformations"
 require "smarter_csv/header_validations"
