@@ -23,10 +23,11 @@ module SmarterCSV
 
   def self.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
     # @errors is  where validation errors get accumulated into - similar to ActiveRecord validations, but with additional keys
-    # @errors[ file_line_no ] << {file_line: 18, csv_line: 22, message: 'invalid value for :employee_id'}
-    # @errors[ file_line_no ] << {file_line: 18, csv_line: 22, message: 'invalid value for :email'}
-    # @errors[ :header ] << {file_line: 1, csv_line: 1, message: 'duplicate header :email'}
-    # @errors[ :base ] << { message: 'did not find :email for all data rows' }
+    # @errors[ file_line_no ] << 'invalid value for :employee_id in line 17'
+    # @errors[ file_line_no ] << 'missing required field :email in line 193'
+    # @errors[ :header ] << 'duplicate header :email'
+    # @errors[ :base ] << 'did not find :email for all data rows'
+    # @warnings[ file_line_no ] << 'line 23 did not contain data'
     #
     @errors = {}
     @warnings = {}
@@ -49,7 +50,7 @@ module SmarterCSV
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
-      if options[:row_sep] == :auto
+      if options[:row_sep].to_s == 'auto'
         options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
@@ -132,6 +133,7 @@ module SmarterCSV
       # header_validations on headerA
 
       # do the header validations the user requested:
+      # Header validations typically raise errors directly
       if options[:header_validations]
         options[:header_validations].each do |validation|
           if validation.is_a?(Symbol)
@@ -201,12 +203,6 @@ module SmarterCSV
           dataA =  line.split(options[:col_sep])
         end
 
-        if dataA.empty?
-          @warnings[ @file_line_count ] ||= []
-          @warnings[ @file_line_count ] << "No data in line #{@file_line_count}"
-          next
-        end
-
         # do the data transformations the user requested:
         if options[:data_transformations]
           options[:data_transformations].each do |transformation|
@@ -224,22 +220,39 @@ module SmarterCSV
           end
         end
 
-       # do the data validations the user requested:
+        # if a row in the CSV does not contain any data, we'll ignore it, but issue a warning:
+        if dataA.empty?
+          @warnings[ @file_line_count ] ||= []
+          @warnings[ @file_line_count ] << "No data in line #{@file_line_count}"
+          next
+        end
+
+        # vvv THIS LOOKS TO BE REDUNDANT -----------------------------------------------
+        #
+        # anything which could be validated here, could be better validated with hash_validations,
+        # because validations typically depend on the column name
+        #
+        # do the data validations the user requested:
+        data_validation_errors = 0
         if options[:data_validations]
           options[:data_validations].each do |validation|
             if validation.is_a?(Symbol)
-              self.public_send( validation, dataA )
+              data_validation_errors += self.public_send( validation, dataA )
             elsif validation.is_a?(Hash)
               trans, args = validation.first
-              self.public_send( trans, dataA, args )
+              data_validation_errors += self.public_send( trans, dataA, args )
             elsif validation.is_a?(Array)
               trans, args = validation
-              self.public_send( trans, dataA, args )
+              data_validation_errors += self.public_send( trans, dataA, args )
             else
-              validation.call( dataA )
+              data_validation_errors += validation.call( dataA )
             end
           end
         end
+        next if data_validation_errors > 0 # ignore lines with data_validation errors
+        #
+        # ^^^ THIS LOOKS TO BE REDUNDANT -----------------------------------------------
+
 
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
 
@@ -285,7 +298,7 @@ module SmarterCSV
             end
           end
         end
-        next if hash_validation_errors > 0 # ignore lines with validation errors
+        next if hash_validation_errors > 0 # ignore lines with hash_validation errors
 
         puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose]
 
