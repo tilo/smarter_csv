@@ -7,8 +7,30 @@ module SmarterCSV
   class MissingHeaders < Exception; end
   class ObsoleteOptions < Exception; end
 
+  def self.errors
+    @errors
+  end
+  def self.errors=(value)
+    @errors = value
+  end
 
-  def SmarterCSV.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
+  def self.warnings
+    @warnings
+  end
+  def self.warnings=(value)
+    @warnings = value
+  end
+
+  def self.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
+    # @errors is  where validation errors get accumulated into - similar to ActiveRecord validations, but with additional keys
+    # @errors[ file_line_no ] << {file_line: 18, csv_line: 22, message: 'invalid value for :employee_id'}
+    # @errors[ file_line_no ] << {file_line: 18, csv_line: 22, message: 'invalid value for :email'}
+    # @errors[ :header ] << {file_line: 1, csv_line: 1, message: 'duplicate header :email'}
+    # @errors[ :base ] << { message: 'did not find :email for all data rows' }
+    #
+    @errors = {}
+    @warnings = {}
+    @counters = {}
 
     options = process_options(given_options)
 
@@ -17,8 +39,8 @@ module SmarterCSV
     headerA = []
     result = []
     old_row_sep = $/
-    file_line_count = 0
-    csv_line_count = 0
+    @file_line_count = 0
+    @csv_line_count = 0
 
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
@@ -36,7 +58,7 @@ module SmarterCSV
       if options[:skip_lines].to_i > 0
         options[:skip_lines].to_i.times do
           f.readline
-          file_line_count += 1
+          @file_line_count += 1
         end
       end
 
@@ -47,8 +69,8 @@ module SmarterCSV
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = f.readline
         puts "Raw headers:\n#{header}\n" if options[:verbose]
-        file_line_count += 1
-        csv_line_count += 1
+        @file_line_count += 1
+        @csv_line_count += 1
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
         header = header.sub(options[:comment_regexp],'').chomp(options[:row_sep])
 
@@ -56,7 +78,7 @@ module SmarterCSV
           file_headerA = begin
             CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
           file_headerA =  header.split(options[:col_sep])
@@ -147,9 +169,9 @@ module SmarterCSV
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
-        file_line_count += 1
-        csv_line_count += 1
-        print "processing file line %10d, csv line %10d\r" % [file_line_count, csv_line_count] if options[:verbose]
+        @file_line_count += 1
+        @csv_line_count += 1
+        print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
         next if line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
 
@@ -162,9 +184,9 @@ module SmarterCSV
           next_line = f.readline
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
-          file_line_count += 1
+          @file_line_count += 1
         end
-        print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
+        print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
         next if line.empty? || line =~ /\A\s*\z/
@@ -173,13 +195,17 @@ module SmarterCSV
           dataA = begin
             CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
+            raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
           dataA =  line.split(options[:col_sep])
         end
 
-        next if dataA.empty?
+        if dataA.empty?
+          @warnings[ @file_line_count ] ||= []
+          @warnings[ @file_line_count ] << "No data in line #{@file_line_count}"
+          next
+        end
 
         # do the data transformations the user requested:
         if options[:data_transformations]
@@ -214,7 +240,9 @@ module SmarterCSV
             end
           end
         end
+
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
+
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
         # e.g. if any keys which are mapped to nil or an empty string
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
@@ -241,21 +269,25 @@ module SmarterCSV
         end
 
         # do the hash validations the user requested:
+        hash_validation_errors = 0
         if options[:hash_validations]
           options[:hash_validations].each do |validation|
             if validation.is_a?(Symbol)
-              hash = self.public_send( validation, hash )
+              hash_validation_errors += self.public_send( validation, hash )
             elsif validation.is_a?(Hash)
               trans, args = validation.first
-              hash = self.public_send( trans, hash, args )
+              hash_validation_errors += self.public_send( trans, hash, args )
             elsif validation.is_a?(Array)
               trans, args = validation
-              hash = self.public_send( trans, hash, args )
+              hash_validation_errors += self.public_send( trans, hash, args )
             else
-              hash = validation.call( hash )
+              hash_validation_errors += validation.call( hash )
             end
           end
         end
+        next if hash_validation_errors > 0 # ignore lines with validation errors
+
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose]
 
         next if hash.empty? if options[:remove_empty_hashes]
 
@@ -308,8 +340,10 @@ module SmarterCSV
       f.close
     end
 
+    # What is the best way to surface validation @errors and @warnings in either of the two scenarios:
+
     if block_given?
-      return chunk_count, csv_line_count # when we do processing through a block we only care how many chunks we processed
+      return chunk_count, @csv_line_count # when we do processing through a block we only care how many chunks we processed
     else
       return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end
