@@ -116,6 +116,11 @@ Planned in the next releases:
  * completely overhauled how headers and data lines are processed - users can now write their own Procs to transmogrify the raw data.
  * adding validations, so you can catch errors while or after processing a CSV file.
 
+#### 1.2.3 (2018-01-27)
+* fixed regression / test
+* fixed quote_char interpolation for headers, but not data (thanks to Colin Petruno)
+* bugfix (thanks to Joshua Smith for reporting)
+
 #### 1.2.0 (2018-01-20)
  * add default validation that a header can only appear once
  * add option `required_headers`
@@ -286,7 +291,8 @@ And a special thanks to those who contributed pull requests:
  * [Ivan Ushakov](https://github.com/IvanUshakov)
  * [Matthieu Paret](https://github.com/mtparet)
  * [Rohit Amarnath](https://github.com/ramarnat)
-
+ * [Joshua Smith](https://github.com/enviable)
+ * [Colin Petruno](https://github.com/colinpetruno)
 
 ## Contributing
 
