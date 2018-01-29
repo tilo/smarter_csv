@@ -45,7 +45,7 @@ describe 'hash validations' do
     }
     data = SmarterCSV.process("#{fixture_path}/user_import_bad.csv", options)
 
-    data.size.should eq 2
+    data.size.should eq 3
     SmarterCSV.errors.keys.size.should eq 2
     SmarterCSV.errors.should eq({
       2=>["Field `:manager_email` in CSV line 2: `tom@blubb.com` did not match /\\A\\w+@bla.com\\z/"],
