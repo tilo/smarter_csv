@@ -61,9 +61,10 @@ SmarterCSV 2.x has lots of features:
 
  * able to transmogrify CSV column names to the Hash keys of your choice (see: header_transformations)
  * able to ignore unwanted CSV columns and exclude them from the resulting hash (just map them to `nil`)
- * able to do validations on the resulting keys computed from CSV column names (see: header_validations)
- * able to do data transformations for all or select columns (see: data_transformations, hash_transformations)
- * able to do data validations (TO BE IMPLEMENTED SOON)
+ * able to do header validations, based on the resulting keys computed from CSV column names (see: header_validations)
+ * able to do data transformations (these apply for all data in a row)
+ * able to do hash_transformations (based on the final key/value pairs in the hash)
+ * able to do hash validations (which can surface the errors per line)
 
  * able to eliminate key/value pairs with blank, or `nil` values from the result hashes.
  * you can use the transformations to implement any custom behavior by passing-in one or more `Proc`s.
