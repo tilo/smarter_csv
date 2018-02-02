@@ -1,0 +1,6 @@
+employee_id,email,first_name,last_name,manager_email,department
+000123,adam@bla.com,Adam,Nielsen,tom@blubb.com,IT
+000012,tom@bla.com,Tom,Sawyer,mike@bla.com,IT
+000001,juergen@bla.com,Jürgen, Münter,tom@bla.com,IT
+17,danny.0000@bla.com,Danny,Dumpf,tom@bla.com,IT
+012133,matz@bla.com, 行弘, 松本 , tom@bla.com,R&D
