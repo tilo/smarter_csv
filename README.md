@@ -8,7 +8,7 @@
 ---------------
 #### Service Announcement
 
-**SmarterCSV 2.0.0 is out! 🎉 You are looking at the 2.x documentation.**
+**SmarterCSV 2.0.0.pre1 is out soon! 🎉 You are looking at the 2.x documentation.**
 
 If you are looking for SmarterCSV 1.x, please check the [README on the `1.2-stable` branch](https://github.com/tilo/smarter_csv/tree/1.2-stable).
 
@@ -112,7 +112,7 @@ Planned in the next releases:
 
 ## Changes
 
-#### 2.0.0.pre1 (2018-01-26)
+#### 2.0.0.pre1 (to be released soon!)
  * completely overhauled how headers and data lines are processed - users can now write their own Procs to transmogrify the raw data.
  * adding validations, so you can catch errors while or after processing a CSV file.
 
