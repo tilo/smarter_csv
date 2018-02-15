@@ -42,6 +42,8 @@ module SmarterCSV
         case hash[k]
         when /^[+-]?\d+\.\d+$/
           hash[k] = hash[k].to_f
+        when /^[+-]?\d+\,\d+$/
+          hash[k] = hash[k].gsub!(',', '.').to_f
         when /^[+-]?\d+$/
           hash[k] = hash[k].to_i
         end
