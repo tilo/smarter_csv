@@ -23,7 +23,12 @@ describe 'loads binary file format with comments' do
       # all keys should be symbols when using v1.x backwards compatible mode
       item.keys.each{|x| x.class.should eq Symbol}
       item[:timestamp].should eq 1381388409
-      item[:item_id].class.should eq Fixnum
+      # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
+      if 0.class == Integer
+        item[:item_id].class.should eq Integer
+      else
+        item[:item_id].class.should eq Fixnum
+      end
       item[:name].size.should be > 0
     end
     data[3][:parent_id].should be_nil
@@ -67,7 +72,12 @@ describe 'loads binary file format with comments' do
       # all keys should be strings
       item.keys.each{|x| x.class.should eq String}
       item['timestamp'].should eq 1381388409
-      item['item_id'].class.should eq Fixnum
+      # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
+      if 0.class == Integer
+        item['item_id'].class.should eq Integer
+      else
+        item['item_id'].class.should eq Fixnum
+      end
       item['name'].size.should be > 0
     end
     data[3]['parent_id'].should be_nil
@@ -91,7 +101,12 @@ describe 'loads binary file format with comments' do
       # all keys should be symbols
       item.keys.each{|x| x.class.should eq Symbol}
       item[:timestamp].should eq 1381388409
-      item[:item_id].class.should eq Fixnum
+      # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
+      if 0.class == Integer
+        item[:item_id].class.should eq Integer
+      else
+        item[:item_id].class.should eq Fixnum
+      end
       item[:name].size.should be > 0
     end
     data[3][:parent_id].should be_nil
