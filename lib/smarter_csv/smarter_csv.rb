@@ -157,6 +157,8 @@ module SmarterCSV
         chunk_size = options[:chunk_size].to_i
         chunk_count = 0
         chunk = []
+        raw_content_chunk_count = 0
+        raw_content_chunk = []
       else
         use_chunks = false
       end
@@ -166,8 +168,9 @@ module SmarterCSV
       # instead of readline, which accumulates the lines in an array, we should use `open.each_line` for large files, which only returns one line at a time
 
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        raw_line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
 
+        line = raw_line
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
@@ -183,9 +186,11 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1
         while line.count(options[:quote_char])%2 == 1
-          next_line = f.readline
+          next_raw_line = f.readline
+          next_line = next_raw_line
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
+          raw_line += next_raw_line
           @file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
@@ -308,15 +313,18 @@ module SmarterCSV
 
         if use_chunks
           chunk << hash  # append temp result to chunk
+          raw_content_chunk << raw_line
 
           if chunk.size >= chunk_size || f.eof?   # if chunk if full, or EOF reached = last chunk
             # do something with the chunk
             if block_given?
-              yield chunk  # do something with the hashes in the chunk in the block
+              yield chunk, raw_content_chunk  # do something with the hashes in the chunk in the block
             else
               result << chunk  # not sure yet, why anybody would want to do this without a block - not a good idea to accumulate an array
             end
             chunk_count += 1
+            raw_content_chunk_count += 1
+            raw_content_chunk = []
             chunk = []  # initialize for next chunk of data
 
           else
@@ -327,7 +335,7 @@ module SmarterCSV
 
         else # no chunk handling
           if block_given?
-            yield [hash]  # do something with the hash in the block (better to use chunking here)
+            yield [hash], [raw_line]  # do something with the hash in the block (better to use chunking here)
           else
             result << hash
           end
@@ -341,11 +349,13 @@ module SmarterCSV
       if ! chunk.nil? && chunk.size > 0
         # do something with the chunk
         if block_given?
-          yield chunk  # do something with the hashes in the chunk in the block
+          yield chunk, raw_content_chunk  # do something with the hashes in the chunk in the block
         else
           result << chunk  # not sure yet, why anybody would want to do this without a block
         end
         chunk_count += 1
+        raw_content_chunk_count += 1
+        raw_content_chunk = []
         chunk = []  # initialize for next chunk of data
       end
     ensure
