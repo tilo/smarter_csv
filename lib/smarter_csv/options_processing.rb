@@ -124,32 +124,32 @@ module SmarterCSV
     if requested_header_transformations.to_s == 'none'
       requested_header_transformations = []
     else
-      requested_header_transformations.reject!{|x| x.to_s == 'none'} unless requested_header_transformations.nil?
+      requested_header_transformations = requested_header_transformations.reject {|x| x.to_s == 'none'} unless requested_header_transformations.nil?
     end
     if requested_header_validations.to_s == 'none'
       requested_header_validations = []
     else
-      requested_header_validations.reject!{|x| x.to_s == 'none'} unless requested_header_validations.nil?
+      requested_header_validations = requested_header_validations.reject {|x| x.to_s == 'none'} unless requested_header_validations.nil?
     end
     if requested_data_transformations.to_s == 'none'
       requested_data_transformations = []
     else
-      requested_data_transformations.reject!{|x| x.to_s == 'none'} unless requested_data_transformations.nil?
+      requested_data_transformations = requested_data_transformations.reject {|x| x.to_s == 'none'} unless requested_data_transformations.nil?
     end
     if requested_data_validations.to_s == 'none'
       requested_data_validations = []
     else
-      requested_data_validations.reject!{|x| x.to_s == 'none'} unless requested_data_validations.nil?
+      requested_data_validations = requested_data_validations.reject {|x| x.to_s == 'none'} unless requested_data_validations.nil?
     end
     if requested_hash_transformations.to_s == 'none'
       requested_hash_transformations = []
     else
-      requested_hash_transformations.reject!{|x| x.to_s == 'none'} unless requested_hash_transformations.nil?
+      requested_hash_transformations = requested_hash_transformations.reject {|x| x.to_s == 'none'} unless requested_hash_transformations.nil?
     end
     if requested_hash_validations.to_s == 'none'
       requested_hash_validations = []
     else
-      requested_hash_validations.reject!{|x| x.to_s == 'none'} unless requested_hash_validations.nil?
+      requested_hash_validations = requested_hash_validations.reject {|x| x.to_s == 'none'} unless requested_hash_validations.nil?
     end
     # now append the user-defined validations / transformations:
     default_options[:header_transformations] += (requested_header_transformations || [])
