@@ -294,6 +294,7 @@ And a special thanks to those who contributed pull requests:
  * [Chris Wong](https://github.com/lightwave)
  * [Olle Jonsson](https://github.com/olleolleolle)
  * [Nicolas Guillemain](https://github.com/Viiruus)
+ * [Sp6](https://github.com/sp6)
 
 
 ## Reporting Issues
