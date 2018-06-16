@@ -291,6 +291,15 @@ And a special thanks to those who contributed pull requests:
  * [Rohit Amarnath](https://github.com/ramarnat)
  * [Joshua Smith](https://github.com/enviable)
  * [Colin Petruno](https://github.com/colinpetruno)
+ * [Chris Wong](https://github.com/lightwave)
+ * [Olle Jonsson](https://github.com/olleolleolle)
+ * [Nicolas Guillemain](https://github.com/Viiruus)
+
+
+## Reporting Issues
+
+1. Please provide the gem version, a sample CSV file and code which reproduces the issue.
+2. Please make a Pull Request with an RSpec3 test which demonstrates the bug if you can.
 
 ## Contributing
 
