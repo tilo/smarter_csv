@@ -169,8 +169,7 @@ module SmarterCSV
         # which caters for double \n and \r\n characters such as "1\r\n\r\n2" whereas the original check (v =~ /^\s*$/) does not
         if options[:remove_empty_values]
           hash.delete_if do |k,v|
-            break v.blank? if v.respond_to?(:blank?)
-            v.nil? || v !~ /[^[:space:]]/
+            v.respond_to?(:blank?) ? v.blank? : (v.nil? || v !~ /[^[:space:]]/
           end
         end
 
