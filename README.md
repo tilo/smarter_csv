@@ -324,6 +324,9 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.2.4 (2018-08-06)
+ * using Rails blank? if it's available
+
 #### 1.2.3 (2018-01-27)
  * fixed regression / test
  * fuxed quote_char interpolation for headers, but not data (thanks to Colin Petruno)
