@@ -42,6 +42,7 @@ module SmarterCSV
     old_row_sep = $/
     @file_line_count = 0
     @csv_line_count = 0
+    @has_rails = !! defined?(Rails)
 
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
