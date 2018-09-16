@@ -1,11 +1,11 @@
 
 module SmarterCSV
-
-  class HeaderSizeMismatch < Exception; end
-  class IncorrectOption < Exception; end
-  class DuplicateHeaders < Exception; end
-  class MissingHeaders < Exception; end
-  class ObsoleteOptions < Exception; end
+  class SmarterCSVException < StandardError; end
+  class HeaderSizeMismatch < SmarterCSVException; end
+  class IncorrectOption < SmarterCSVException; end
+  class DuplicateHeaders < SmarterCSVException; end
+  class MissingHeaders < SmarterCSVException; end
+  class ObsoleteOptions < SmarterCSVException; end
 
   def self.errors
     @errors
