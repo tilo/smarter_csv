@@ -1,9 +1,9 @@
 module SmarterCSV
-
-  class HeaderSizeMismatch < Exception; end
-  class IncorrectOption < Exception; end
-  class DuplicateHeaders < Exception; end
-  class MissingHeaders < Exception; end
+  class SmarterCSVException < StandardError; end
+  class HeaderSizeMismatch < SmarterCSVException; end
+  class IncorrectOption < SmarterCSVException; end
+  class DuplicateHeaders < SmarterCSVException; end
+  class MissingHeaders < SmarterCSVException; end
 
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
