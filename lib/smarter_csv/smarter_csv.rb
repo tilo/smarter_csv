@@ -1,4 +1,4 @@
-
+#frozen_string_literal: true
 module SmarterCSV
 
   class HeaderSizeMismatch < Exception; end
@@ -357,7 +357,7 @@ module SmarterCSV
     # What is the best way to surface validation @errors and @warnings in either of the two scenarios:
 
     if block_given?
-      return chunk_count, @csv_line_count # when we do processing through a block we only care how many chunks we processed
+      return chunk_count, @csv_line_count, @warnings, @errors # when we do processing through a block we only care how many chunks we processed
     else
       return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end

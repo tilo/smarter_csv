@@ -18,7 +18,11 @@ module SmarterCSV
     @@remove_blank_values ||= Proc.new {|hash, args=nil|
       keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
 
-      keys.each {|key| hash.delete(key) if hash[key].nil? || hash[key].is_a?(String) && hash[key] !~ /[^[:space:]]/ }
+      if @has_rails
+        keys.each {|key| hash.delete(key) if hash[key].blank? }
+      else
+        keys.each {|key| hash.delete(key) if hash[key].nil? || hash[key].is_a?(String) && hash[key] !~ /[^[:space:]]/ }
+      end
       hash
     }
     @@remove_blank_values.call(hash)
@@ -32,6 +36,31 @@ module SmarterCSV
       hash
     }
     @@remove_zero_values.call(hash)
+  end
+
+  def self.normalize_floats(hash, args=nil)
+    @@normalize_floats ||= Proc.new {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+
+      keys.each {|k|
+        case hash[k]
+        # US:
+        when /^[+-]?\d+(,\d\d\d)+\.\d+$/
+          hash[k] = hash[k].gsub(',','')
+        when /^[+-]?\d+(,\d\d\d)+$/
+          hash[k] = hash[k].gsub(',','')
+        # Europe:
+        when /^[+-]?\d+(\.\d\d\d)+,\d+$/
+          hash[k] = hash[k].gsub('.','').sub(',','.')
+
+        # THIS is not a good idea, beacuse it could also be a float:
+#        when /^[+-]?\d+(\.\d\d\d)+$/
+#          hash[k] = hash[k].gsub('.','')
+        end
+      }
+      hash
+    }
+    @@normalize_floats.call(hash)
   end
 
   def self.convert_values_to_numeric(hash, args=nil)
