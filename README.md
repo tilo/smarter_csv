@@ -324,6 +324,9 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.2.6 (2018-11-13)
+ * fixing error caused by calling f.close when we do not hand in a file
+
 #### 1.2.5 (2018-09-16)
  * fixing issue #136 with comments in CSV files
  * fixing error class hierarchy

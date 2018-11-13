@@ -248,7 +248,7 @@ module SmarterCSV
       end
     ensure
       $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
-      f.close
+      f.close if f.respond_to?(:close)
     end
     if block_given?
       return chunk_count  # when we do processing through a block we only care how many chunks we processed
