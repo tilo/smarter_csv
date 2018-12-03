@@ -182,14 +182,16 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        multiline = line.count(options[:quote_char])%2 == 1
-        while line.count(options[:quote_char])%2 == 1
-          next_line = f.readline
-          next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-          line += next_line
-          @file_line_count += 1
+        unless options[:force_simple_split]
+          multiline = line.count(options[:quote_char])%2 == 1
+          while line.count(options[:quote_char])%2 == 1
+            next_line = f.readline
+            next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+            line += next_line
+            @file_line_count += 1
+          end
+          print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
         end
-        print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
 
         line.chomp!    # will use $/ which is set to options[:col_sep]
         next if line.empty? || line =~ /\A\s*\z/
