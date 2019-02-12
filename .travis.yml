@@ -10,8 +10,8 @@ matrix:
     - rvm: 2.3.8
     - rvm: 2.4.5
     - rvm: 2.5.3
-    - rvm: 2.6.0
-    - rvm: jruby-9.2.5.0
+    - rvm: 2.6.1
+    - rvm: jruby-9.2.6.0
       env:
         - JRUBY_OPTS="--server -Xcompile.invokedynamic=false -J-XX:+TieredCompilation -J-XX:TieredStopAtLevel=1 -J-noverify -J-Xms512m -J-Xmx1024m"
     - rvm: ruby-head
