@@ -27,7 +27,7 @@ One SmarterCSV user wrote:
   *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
    [...] SmarterCSV was a big part and helped clean up our code ALOT*
 
-SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
+SmarterCSV was designed with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
 
 
 ### Requirements
@@ -75,7 +75,7 @@ NOTE; This Gem is only for importing CSV files - writing of CSV files is not sup
 #### Default Behavior vs Customization
 
 
-SmarterCSV was desgined with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
+SmarterCSV was designed with the use cases in mind that you want to use the imported data to either update a database record, or pass the data on to a background worker.
 It's default behavior is to change the headers of a CSV file into symbols, which are then used in a hash that gets constructed for each line of the CSV file.
 This default behavior can be changed and customized.
 
