@@ -295,7 +295,12 @@ module SmarterCSV
               trans, args = validation
               hash_validation_errors += self.public_send( trans, hash, args )
             else
-              hash_validation_errors += validation.call( hash )
+              error_messages = validation.call( hash )
+              hash_validation_errors += error_messages.size
+              if error_messages.any?
+                @errors[ @file_line_count ] ||= []
+                @errors[ @file_line_count ] += error_messages
+              end
             end
           end
         end
