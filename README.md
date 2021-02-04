@@ -117,6 +117,20 @@ Planned in the next releases:
  * completely overhauled how headers and data lines are processed - users can now write their own Procs to transmogrify the raw data.
  * adding validations, so you can catch errors while or after processing a CSV file.
 
+#### 1.2.8 (2020-02-04)
+ * fixing deprecation warning on Ruby 2.7 (thanks to Diego Salido)
+ * Travis CI
+
+#### 1.2.6 (2018-11-13)
+ * fixing error caused by calling f.close when we do not hand in a file
+
+#### 1.2.5 (2018-09-16)
+ * fixing issue #136 with comments in CSV files
+ * fixing error class hierarchy
+
+#### 1.2.4 (2018-08-06)
+ * using Rails blank? if it's available
+ 
 #### 1.2.3 (2018-01-27)
 * fixed regression / test
 * fixed quote_char interpolation for headers, but not data (thanks to Colin Petruno)
@@ -295,6 +309,7 @@ And a special thanks to those who contributed pull requests:
  * [Olle Jonsson](https://github.com/olleolleolle)
  * [Nicolas Guillemain](https://github.com/Viiruus)
  * [Sp6](https://github.com/sp6)
+ * [Diego Salido](https://github.com/salidux)
 
 
 ## Reporting Issues
