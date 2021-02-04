@@ -53,7 +53,7 @@ module SmarterCSV
 
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = begin
-            CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse( header, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
           end
@@ -149,7 +149,7 @@ module SmarterCSV
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           dataA = begin
-            CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse( line, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
           end

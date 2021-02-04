@@ -324,6 +324,11 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.2.8 (2020-02-04)
+ * fix deprecation warnings on Ruby 2.7 (thank to Diego Salido)
+
+#### 1.2.7 (2020-02-03)
+
 #### 1.2.6 (2018-11-13)
  * fixing error caused by calling f.close when we do not hand in a file
 
@@ -508,6 +513,7 @@ And a special thanks to those who contributed pull requests:
  * [Rohit Amarnath](https://github.com/ramarnat)
  * [Joshua Smith](https://github.com/enviable)
  * [Colin Petruno](https://github.com/colinpetruno)
+ * [Diego Salido](https://github.com/salidux)
 
 
 ## Contributing
