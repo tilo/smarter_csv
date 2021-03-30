@@ -53,4 +53,26 @@ describe 'hash validations' do
     })
     SmarterCSV.warnings.should eq Hash.new
   end
+
+  it 'should validate first_name with size greater than 3 using custom validation' do
+    custom_validation = Proc.new{|hash|
+      errors = []
+      if hash.key?(:first_name) && hash[:first_name].size < 4
+        errors << "first name must be greater than 3"
+      end
+      errors
+    }
+
+    options = {
+      hash_validations: [ custom_validation ]
+    }
+
+    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
+
+    data.size.should eq 4
+    SmarterCSV.errors.keys.size.should eq 1
+    SmarterCSV.errors.should eq({
+      2=>["first name must be greater than 3"],
+    })
+  end
 end
