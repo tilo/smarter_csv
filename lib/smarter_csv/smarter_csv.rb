@@ -295,7 +295,7 @@ module SmarterCSV
               trans, args = validation
               hash_validation_errors += self.public_send( trans, hash, args )
             else
-              hash_validation_errors += validation.call( hash )
+              hash_validation_errors += self.instance_exec(hash, &validation)
             end
           end
         end
