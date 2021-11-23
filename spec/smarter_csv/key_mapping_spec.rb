@@ -22,4 +22,19 @@ describe 'be_able_to' do
     end
   end
 
+  describe 'when keep_original_headers' do
+    it 'sets key_mapping to a symbol' do
+      options = {:keep_original_headers => true, :key_mapping => {'other' => :other}}
+      data = SmarterCSV.process("#{fixture_path}/key_mapping.csv", options)
+      data.size.should == 1
+      data.first.keys.should == ['THIS', 'THAT', :other]
+    end
+
+    it 'sets key_mapping to a string' do
+      options = {:keep_original_headers => true, :key_mapping => {'other' => 'OTHER'}}
+      data = SmarterCSV.process("#{fixture_path}/key_mapping.csv", options)
+      data.size.should == 1
+      data.first.keys.should == ['THIS', 'THAT', 'OTHER']
+    end
+  end
 end

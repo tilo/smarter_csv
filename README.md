@@ -324,6 +324,11 @@ Planned in the next releases:
 
 ## Changes
 
+
+#### 1.2.9 (2021-11-22)
+ * fix bug for key_mappings (issue #181)
+   The values of the `key_mappings` hash will now be used "as is", and no longer forced to be symbols
+
 #### 1.2.8 (2020-02-04)
  * fix deprecation warnings on Ruby 2.7 (thank to Diego Salido)
 
