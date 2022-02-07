@@ -324,8 +324,15 @@ Planned in the next releases:
 
 ## Changes
 
+#### 1.3.0 (2022-01-06) Breaking code change if you used `--key_mappings`
+ * fix bug for key_mappings (issue #181)   
+   The values of the `key_mappings` hash will now be used "as is", and no longer forced to be symbols
 
-#### 1.2.9 (2021-11-22)
+   **Users with existing code with `--key_mappings` need to change their code** to 
+     * either use symbols in the `key_mapping` hash
+     * or change the expected keys from symbols to strings
+
+#### 1.2.9 (2021-11-22) (PULLED)
  * fix bug for key_mappings (issue #181)
    The values of the `key_mappings` hash will now be used "as is", and no longer forced to be symbols
 
