@@ -4,10 +4,10 @@ module SmarterCSV
   class IncorrectOption < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
-
+  class NoColSepDetected < SmarterCSVException; end
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
-    default_options = {:col_sep => ',' , :row_sep => $/ , :quote_char => '"', :force_simple_split => false , :verbose => false ,
+    default_options = {:col_sep => ',', :row_sep => $INPUT_RECORD_SEPARATOR, :quote_char => '"', :force_simple_split => false , :verbose => false ,
       :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
       :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
       :comment_regexp => /\A#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
@@ -19,12 +19,15 @@ module SmarterCSV
     csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
     headerA = []
     result = []
-    old_row_sep = $/
+    old_row_sep = $INPUT_RECORD_SEPARATOR
     file_line_count = 0
     csv_line_count = 0
     has_rails = !! defined?(Rails)
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+
+      # attempt to auto-detect column separator
+      options[:col_sep] = guess_column_separator(f) if options[:col_sep] == 'auto'
 
       if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8') )
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
@@ -34,7 +37,7 @@ module SmarterCSV
         options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
-      $/ = options[:row_sep]
+      $INPUT_RECORD_SEPARATOR = options[:row_sep]
 
       if options[:skip_lines].to_i > 0
         options[:skip_lines].to_i.times{f.readline}
@@ -60,14 +63,14 @@ module SmarterCSV
         else
           file_headerA =  header.split(options[:col_sep])
         end
+        file_header_size = file_headerA.size # before mapping, which could delete keys
+
         file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
         file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+|-+/,'_')}
           file_headerA.map!{|x| x.downcase }   if options[:downcase_header]
         end
-
-        file_header_size = file_headerA.size
       else
         raise SmarterCSV::IncorrectOption , "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" if options[:user_provided_headers].nil?
       end
@@ -84,6 +87,8 @@ module SmarterCSV
       else
         headerA = file_headerA
       end
+      header_size = headerA.size
+
       headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
@@ -123,7 +128,7 @@ module SmarterCSV
 
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        line = f.readline  # read one line.. this uses the input_record_separator $INPUT_RECORD_SEPARATOR which we set previously!
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
@@ -145,7 +150,7 @@ module SmarterCSV
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
 
-        line.chomp!    # will use $/ which is set to options[:col_sep]
+        line.chomp!    # will use $INPUT_RECORD_SEPARATOR which is set to options[:col_sep]
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           dataA = begin
@@ -154,11 +159,17 @@ module SmarterCSV
             raise $!, "#{$!} [SmarterCSV: csv line #{csv_line_count}]", $!.backtrace
           end
         else
-          dataA =  line.split(options[:col_sep])
+          dataA =  line.split(options[:col_sep], header_size)
         end
 ####     dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }  # this is actually not a good idea as a default
         dataA.map!{|x| x.strip}  if options[:strip_whitespace]
+
+        # if all values are blank, then ignore this line
+        # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
+        next if options[:remove_empty_hashes] && blank?(dataA)
+
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
+
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
         hash.delete(nil); hash.delete('');
@@ -166,18 +177,17 @@ module SmarterCSV
           eval('hash.delete(:"")')
         end
 
-        # remove empty values using the same regexp as used by the rails blank? method
-        # which caters for double \n and \r\n characters such as "1\r\n\r\n2" whereas the original check (v =~ /^\s*$/) does not
-        if options[:remove_empty_values]
+        if options[:remove_empty_values] == true
           if has_rails
             hash.delete_if{|k,v| v.blank?}
           else
-            hash.delete_if{|k,v| v.nil? || v !~ /[^[:space:]]/}
+            hash.delete_if{|k,v| blank?(v)}
           end
         end
 
         hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
         hash.delete_if{|k,v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
+
         if options[:convert_values_to_numeric]
           hash.each do |k,v|
             # deal with the :only / :except options to :convert_values_to_numeric
@@ -247,7 +257,7 @@ module SmarterCSV
         chunk = []  # initialize for next chunk of data
       end
     ensure
-      $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
+      $INPUT_RECORD_SEPARATOR = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
       f.close if f.respond_to?(:close)
     end
     if block_given?
@@ -258,8 +268,30 @@ module SmarterCSV
   end
 
   private
-  # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
 
+  def self.blank?(value)
+    case value
+    when Array
+      value.inject(true){|result, x| result &&= elem_blank?(x)}
+    when Hash
+      value.inject(true){|result, x| result &&= elem_blank?(x.last)}
+    else
+      elem_blank?(value)
+    end
+  end
+
+  def self.elem_blank?(value)
+    case value
+    when NilClass
+      true
+    when String
+      value !~ /\S/
+    else
+      false
+    end
+  end
+
+  # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
   def self.only_or_except_limit_execution( options, option_name, key )
     if options[option_name].is_a?(Hash)
       if options[option_name].has_key?( :except )
@@ -269,6 +301,24 @@ module SmarterCSV
       end
     end
     return false
+  end
+
+  # raise exception if none is found
+  def self.guess_column_separator(filehandle)
+    del = [',', "\t", ';', ':', '|']
+    n = Hash.new(0)
+    5.times do
+      line = filehandle.readline
+      del.each do |d|
+        n[d] += line.scan(d).count
+      end
+    rescue EOFError # short files
+      break
+    end
+    filehandle.rewind
+    raise SmarterCSV::NoColSepDetected if n.values.max == 0
+
+    col_sep = n.key(n.values.max)
   end
 
   # limitation: this currently reads the whole file in before making a decision
