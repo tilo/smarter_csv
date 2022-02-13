@@ -10,7 +10,7 @@
 
 **SmarterCSV 2.0.0.pre1 is out soon! 🎉 You are looking at the 2.x documentation.**
 
-If you are looking for SmarterCSV 1.x, please check the [README on the `1.2-stable` branch](https://github.com/tilo/smarter_csv/tree/1.2-stable).
+If you are looking for SmarterCSV 1.x, please check the [README on the `1.x-stable` branch](https://github.com/tilo/smarter_csv/tree/1.x-stable).
 
 For feature requests, feedback, comments on 2.x please open a GitHub comment.
 
