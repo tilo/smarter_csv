@@ -254,45 +254,8 @@ Planned in the next releases:
 Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if you have feedback, new feature requests, or want to report a bug. Thank you!
 
 
-## Special Thanks
+## [A Special Thanks to all Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
 
-Many thanks to people who have filed issues and sent comments.
-And a special thanks to those who contributed pull requests:
-
- * [Jack 0](https://github.com/xjlin0)
- * [Alejandro](https://github.com/agaviria)
- * [Lucas Camargo de Almeida](https://github.com/lcalmeida)
- * [Raphaël Bleuse](https://github.com/bleuse)
- * [feens](https://github.com/feens)
- * [César Camacho](https://github.com/chanko)
- * [innhyu](https://github.com/innhyu)
- * [Benjamin Thouret](https://github.com/benichu)
- * [Chris Hilton](https://github.com/chrismhilton)
- * [Sean Duckett](http://github.com/sduckett)
- * [Alex Ong](http://github.com/khaong)
- * [Martin Nilsson](http://github.com/MrTin)
- * [Eustáquio Rangel](http://github.com/taq)
- * [Pavel](http://github.com/paxa)
- * [Félix Bellanger](https://github.com/Keeguon)
- * [Graham Wetzler](https://github.com/grahamwetzler)
- * [Marcos G. Zimmermann](https://github.com/marcosgz)
- * [Jordan Running](https://github.com/jrunning)
- * [Dave Sanders](https://github.com/DaveSanders)
- * [Hugo Lepetit](https://github.com/giglemad)
- * [esBeee](https://github.com/esBeee)
- * [Waldyr de Souza](https://github.com/waldyr)
- * [Ben Maher](https://github.com/benmaher)
- * [Wal McConnell](https://github.com/wal)
- * [Jordan Graft](https://github.com/jordangraft)
- * [Michael](https://github.com/polycarpou)
- * [Kevin Coleman](https://github.com/KevinColemanInc)
- * [Tirdad C.](https://github.com/tridadc)
- * [Dave Myron](https://github.com/contentfree)
- * [Ivan Ushakov](https://github.com/IvanUshakov)
- * [Matthieu Paret](https://github.com/mtparet)
- * [Rohit Amarnath](https://github.com/ramarnat)
- * [Joshua Smith](https://github.com/enviable)
- * [Colin Petruno](https://github.com/colinpetruno)
 
 ## Contributing
 
