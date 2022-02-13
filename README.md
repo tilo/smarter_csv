@@ -5,10 +5,12 @@
 ---------------
 #### Service Announcement
 
-* Work towards SmarterCSV 2.0 is still on it's way, with much improved features, and more streamlined options.
-  Please check the 2.0-develop branch, open any issues and pull requests with mention of v2.0.
+**You are looking at the 1.x documentation**
 
-* New versions on the 1.2 branch will soon print a deprecation warning if you set :verbose to true
+* Work towards SmarterCSV 2.0 is still on it's way, with much improved features, and more streamlined options.
+  Please check the [2.0-develop branch](https://github.com/tilo/smarter_csv/blob/master/README.md), open any issues and pull requests with mention of v2.0.
+
+* New versions of SmarterCSV 1.x will soon print a deprecation warning if you set :verbose to true
   See below for list of deprecated options.
 
 ---------------
