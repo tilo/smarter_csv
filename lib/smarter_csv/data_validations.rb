@@ -7,5 +7,4 @@ module SmarterCSV
   # we can do validation of:
   # - data being in he correct format
   # - even pass a block to see if everything works with processing, without doing anything
-
 end
