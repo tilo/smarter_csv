@@ -1,3 +1,9 @@
+require 'simplecov'
+SimpleCov.start do
+  add_filter "/spec/"
+  add_filter "/pkg/"
+end
+
 require 'csv'
 require "smarter_csv/version"
 require "core_ext/hash"
