@@ -39,3 +39,7 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Colin Petruno](https://github.com/colinpetruno)
  * [Diego Salido](https://github.com/salidux)
  * [Elie](https://github.com/elieteyssedou)
+ * [Chris Wong](https://github.com/lightwave)
+ * [Olle Jonsson](https://github.com/olleolleolle)
+ * [Nicolas Guillemain](https://github.com/Viiruus)
+ * [Sp6](https://github.com/sp6)

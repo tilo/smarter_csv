@@ -1,11 +1,11 @@
 
 module SmarterCSV
-
-  class HeaderSizeMismatch < Exception; end
-  class IncorrectOption < Exception; end
-  class DuplicateHeaders < Exception; end
-  class MissingHeaders < Exception; end
-  class ObsoleteOptions < Exception; end
+  class SmarterCSVException < StandardError; end
+  class HeaderSizeMismatch < SmarterCSVException; end
+  class IncorrectOption < SmarterCSVException; end
+  class DuplicateHeaders < SmarterCSVException; end
+  class MissingHeaders < SmarterCSVException; end
+  class ObsoleteOptions < SmarterCSVException; end
 
   def self.errors
     @errors
@@ -42,6 +42,7 @@ module SmarterCSV
     old_row_sep = $/
     @file_line_count = 0
     @csv_line_count = 0
+    @has_rails = !! defined?(Rails)
 
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
@@ -77,7 +78,7 @@ module SmarterCSV
 
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = begin
-            CSV.parse( header, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse( header, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
@@ -195,7 +196,7 @@ module SmarterCSV
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           dataA = begin
-            CSV.parse( line, csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse( line, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end

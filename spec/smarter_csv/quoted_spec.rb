@@ -47,7 +47,12 @@ describe 'loading file with quoted fields' do
     data[2][:model].should eq 'Venture "Extended Edition, Very Large"'
     data[2][:description].should be_nil
     data.each do |h|
-      h[:year].class.should eq Fixnum
+      # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
+      if 0.class == Integer
+        h[:year].class.should eq Integer
+      else
+        h[:year].class.should eq Fixnum
+      end
       h[:make].should_not be_nil
       h[:model].should_not be_nil
       h[:price].class.should eq Float

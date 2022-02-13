@@ -4,4 +4,6 @@ module SmarterCSV
   #
   # the computed options can be accessed via @options
 
-end
+  # we can do validation of:
+  # - data being in he correct format
+  # - even pass a block to see if everything works with processing, without doing anything
