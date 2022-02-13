@@ -12,7 +12,7 @@
 
 * Work towards SmarterCSV 2.0 is still on it's way, with much improved features, and more streamlined options. 🎉
 
-* If you are looking for SmarterCSV 1.x, please check the [README on the `1.x-stable` branch](https://github.com/tilo/smarter_csv/tree/1.x-stable).
+* If you are looking for SmarterCSV 1.x, please check the [README on the `main` branch](https://github.com/tilo/smarter_csv/).
 
 * For feature requests, feedback, comments on 2.x please open a GitHub issue, and clearly mark it as '2.x'
 
