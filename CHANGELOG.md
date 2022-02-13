@@ -6,4 +6,7 @@
  * adding validations, so you can catch errors while or after processing a CSV file.
 
 
-# [SmarterCSV 1.x Change Log](https://github.com/tilo/smarter_csv/blob/1.x-stable/CHANGELOG.md)
+# [SmarterCSV 1.x Change Log](https://github.com/tilo/smarter_csv/blob/main/CHANGELOG.md)
+
+
+## [A Special Thanks to all Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
