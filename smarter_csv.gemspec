@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
   spec.requirements  = ['csv'] # for CSV.parse() only needed in case we have quoted fields
   spec.add_development_dependency "rspec"
+  spec.add_development_dependency "simplecov"
   #  spec.add_development_dependency "guard-rspec"
 
   spec.metadata["homepage_uri"] = spec.homepage

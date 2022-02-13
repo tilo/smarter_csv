@@ -1,14 +1,18 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.4.0 (2022-01-11)
+## 1.4.1 (2022-02-12)
+  * minor fix: also support `col_sep: :auto`
+  * added simplecov
+
+## 1.4.0 (2022-02-11)
   * dropped GPL license, smarter_csv is now only using the MIT License
   * added experimental option `col_sep: 'auto` to auto-detect the column separator (issue #183)
     The default behavior is still to assume `,` is the column separator. 
   * fixed buggy behavior when using `remove_empty_values: false` (issue #168)
   * fixed Ruby 3.0 deprecation
 
-## 1.3.0 (2022-01-06) Breaking code change if you used `--key_mappings`
+## 1.3.0 (2022-02-06) Breaking code change if you used `--key_mappings`
  * fix bug for key_mappings (issue #181)   
    The values of the `key_mappings` hash will now be used "as is", and no longer forced to be symbols
 

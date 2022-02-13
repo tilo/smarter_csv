@@ -16,7 +16,6 @@ module SmarterCSV
     }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
-    csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
     headerA = []
     result = []
     old_row_sep = $INPUT_RECORD_SEPARATOR
@@ -27,16 +26,20 @@ module SmarterCSV
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       # attempt to auto-detect column separator
-      options[:col_sep] = guess_column_separator(f) if options[:col_sep] == 'auto'
+      options[:col_sep] = guess_column_separator(f) if options[:col_sep].to_sym == :auto
+
+      csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
+      csv_options.delete(:col_sep) if [nil, :auto].include?( options[:col_sep].to_sym )
 
       if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8') )
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
-      if options[:row_sep] == :auto
-        options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
+      if options[:row_sep].to_sym == :auto
+        options[:row_sep] = SmarterCSV.guess_line_ending(f, options)
         f.rewind
       end
+
       $INPUT_RECORD_SEPARATOR = options[:row_sep]
 
       if options[:skip_lines].to_i > 0
@@ -141,8 +144,8 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        multiline = line.count(options[:quote_char])%2 == 1
-        while line.count(options[:quote_char])%2 == 1
+        multiline = line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
+        while line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
           next_line = f.readline
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line

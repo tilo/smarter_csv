@@ -48,7 +48,7 @@ describe 'can handle col_sep' do
   end
 
   describe 'auto-detection of separator' do
-    options = {:col_sep => 'auto'}
+    options = {col_sep: :auto}
 
     it 'auto-detects comma separator and loads data' do
       data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
@@ -84,6 +84,12 @@ describe 'can handle col_sep' do
       expect {
         SmarterCSV.process("#{fixture_path}/binary.csv", options)
       }.to raise_exception SmarterCSV::NoColSepDetected
+    end
+
+    it 'also works when auto is given a string' do
+      data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", col_sep: 'auto')
+      data.first.keys.size.should == 4
+      data.size.should eq 3
     end
   end
 end
