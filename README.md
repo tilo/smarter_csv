@@ -1,11 +1,5 @@
-# SmarterCSV
 
-[![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
-
----------------
 #### Service Announcement
-
-**You are looking at the 1.x documentation**
 
 * Work towards SmarterCSV 2.0 is still on it's way, with much improved features, and more streamlined options.
   Please check the [2.0-develop branch](https://github.com/tilo/smarter_csv/blob/master/README.md), open any issues and pull requests with mention of v2.0.
@@ -13,7 +7,17 @@
 * New versions of SmarterCSV 1.x will soon print a deprecation warning if you set :verbose to true
   See below for list of deprecated options.
 
+#### Restructured Branches
+
+* default branch is `main` for 1.x development
+* 2.x development is on `2.0-development`
+
 ---------------
+
+# SmarterCSV
+
+[![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=master)](http://travis-ci.org/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
+
 #### SmarterCSV 1.x
 
 `smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
