@@ -7,15 +7,9 @@ module SmarterCSV
   class NoColSepDetected < SmarterCSVException; end
 
   def SmarterCSV.process(input, options={}, &block)   # first parameter: filename or input object with readline method
-    default_options = {:col_sep => ',', :row_sep => $INPUT_RECORD_SEPARATOR, :quote_char => '"', :force_simple_split => false , :verbose => false ,
-      :remove_empty_values => true, :remove_zero_values => false , :remove_values_matching => nil , :remove_empty_hashes => true , :strip_whitespace => true,
-      :convert_values_to_numeric => true, :strip_chars_from_headers => nil , :user_provided_headers => nil , :headers_in_file => true,
-      :comment_regexp => /\A#/, :chunk_size => nil , :key_mapping_hash => nil , :downcase_header => true, :strings_as_keys => false, :file_encoding => 'utf-8',
-      :remove_unmapped_keys => false, :keep_original_headers => false, :value_converters => nil, :skip_lines => nil, :force_utf8 => false, :invalid_byte_sequence => '',
-      :auto_row_sep_chars => 500, :required_headers => nil
-    }
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
+
     headerA = []
     result = []
     old_row_sep = $INPUT_RECORD_SEPARATOR
@@ -42,9 +36,7 @@ module SmarterCSV
 
       $INPUT_RECORD_SEPARATOR = options[:row_sep]
 
-      if options[:skip_lines].to_i > 0
-        options[:skip_lines].to_i.times{f.readline}
-      end
+      options[:skip_lines].to_i.times{f.readline} if options[:skip_lines].to_i > 0
 
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
@@ -271,6 +263,39 @@ module SmarterCSV
   end
 
   private
+
+  def self.default_options
+    {
+      auto_row_sep_chars: 500,
+      chunk_size: nil ,
+      col_sep: ',',
+      comment_regexp: /\A#/,
+      convert_values_to_numeric: true,
+      downcase_header: true,
+      file_encoding: 'utf-8',
+      force_simple_split: false ,
+      force_utf8: false,
+      headers_in_file: true,
+      invalid_byte_sequence: '',
+      keep_original_headers: false,
+      key_mapping_hash: nil ,
+      quote_char: '"',
+      remove_empty_hashes: true ,
+      remove_empty_values: true,
+      remove_unmapped_keys: false,
+      remove_values_matching: nil,
+      remove_zero_values: false,
+      required_headers: nil,
+      row_sep: $INPUT_RECORD_SEPARATOR,
+      skip_lines: nil,
+      strings_as_keys: false,
+      strip_chars_from_headers: nil,
+      strip_whitespace: true,
+      user_provided_headers: nil,
+      value_converters: nil,
+      verbose: false,
+    }
+  end
 
   def self.blank?(value)
     case value
