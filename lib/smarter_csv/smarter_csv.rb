@@ -19,22 +19,19 @@ module SmarterCSV
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
+      # auto-detect the row separator
+      options[:row_sep] = SmarterCSV.guess_line_ending(f, options) if options[:row_sep].to_sym == :auto
+      $INPUT_RECORD_SEPARATOR = options[:row_sep]
       # attempt to auto-detect column separator
       options[:col_sep] = guess_column_separator(f) if options[:col_sep].to_sym == :auto
-
+      # preserve options, in case we need to call the CSV class
       csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
+      csv_options.delete(:row_sep) if [nil, :auto].include?( options[:row_sep].to_sym )
       csv_options.delete(:col_sep) if [nil, :auto].include?( options[:col_sep].to_sym )
 
       if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8') )
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
-
-      if options[:row_sep].to_sym == :auto
-        options[:row_sep] = SmarterCSV.guess_line_ending(f, options)
-        f.rewind
-      end
-
-      $INPUT_RECORD_SEPARATOR = options[:row_sep]
 
       options[:skip_lines].to_i.times{f.readline} if options[:skip_lines].to_i > 0
 
@@ -82,7 +79,7 @@ module SmarterCSV
       else
         headerA = file_headerA
       end
-      header_size = headerA.size
+      header_size = headerA.size # used for splitting lines
 
       headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
 
@@ -375,6 +372,8 @@ module SmarterCSV
       lines += 1
       break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
     end
+    filehandle.rewind
+
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
     k,_ = counts.max_by{|_,v| v}
