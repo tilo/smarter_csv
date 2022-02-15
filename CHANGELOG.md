@@ -1,7 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.4.1 (2022-02-12)
+## 1.4.2 (2022-02-12)
+  * fixed issue with simplecov
+
+## 1.4.1 (2022-02-12) (PULLED)
   * minor fix: also support `col_sep: :auto`
   * added simplecov
 
