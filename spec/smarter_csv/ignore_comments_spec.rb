@@ -3,8 +3,23 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'ignore comments in CSV files' do
+  it 'by default does not ignore comments in CSV files' do
     options = {}
+    data = SmarterCSV.process("#{fixture_path}/ignore_comments.csv", options)
+
+    data.size.should eq 8
+
+    # all the keys should be symbols
+    data.each{|item| item.keys.each{|x| x.is_a?(Symbol).should be_truthy}}
+    data.each do |h|
+      h.keys.each do |key|
+        [:"not_a_comment#first_name", :last_name, :dogs, :cats, :birds, :fish].should include( key )
+      end
+    end
+  end
+
+  it 'ignore comments in CSV files using comment_regexp' do
+    options = {comment_regexp: /\A#/}
     data = SmarterCSV.process("#{fixture_path}/ignore_comments.csv", options)
 
     data.size.should eq 5

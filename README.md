@@ -215,7 +215,7 @@ The options and the block are optional.
      | :invalid_byte_sequence      |   ''     | what to replace invalid byte sequences with                                          |
      | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
-     | :comment_regexp             |   /^#/   | regular expression which matches comment lines (see NOTE about the CSV header)       |
+     | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :col_sep                    |   ','    | column separator, can be set to :auto                                                |
      | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
@@ -284,7 +284,8 @@ And header and data validations will also be supported in 2.x
 ```
 #### NOTES about CSV Headers:
  * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
- * the first line with the CSV header may or may not be commented out according to the :comment_regexp
+ * the first line with the header might be commented out, in which case you will need to set `comment_regexp: /\A#/`
+   This is no longer handled automatically since 1.5.0.
  * any occurences of :comment_regexp or :row_sep will be stripped from the first line with the CSV header
  * any of the keys in the header line will be downcased, spaces replaced by underscore, and converted to Ruby symbols before being used as keys in the returned Hashes
  * you can not combine the :user_provided_headers and :key_mapping options

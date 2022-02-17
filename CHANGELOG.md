@@ -1,6 +1,13 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.5.0.pre1 (2022-02-17)
+  * changed default for `comment_regexp` to be `nil` for a safer default behavior (thanks to David Lazar)
+
+  **Note**
+    This no longer assumes that lines starting with `#` are comments.
+    If you want to treat lines starting with '#' as comments, use `comment_regexp: /\A#/`
+
 ## 1.4.2 (2022-02-12)
   * fixed issue with simplecov
 
