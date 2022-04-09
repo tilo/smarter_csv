@@ -12,7 +12,6 @@ module SmarterCSV
 
     headerA = []
     result = []
-    old_row_sep = $INPUT_RECORD_SEPARATOR
     file_line_count = 0
     csv_line_count = 0
     has_rails = !! defined?(Rails)
@@ -21,9 +20,8 @@ module SmarterCSV
 
       # auto-detect the row separator
       options[:row_sep] = SmarterCSV.guess_line_ending(f, options) if options[:row_sep].to_sym == :auto
-      $INPUT_RECORD_SEPARATOR = options[:row_sep]
       # attempt to auto-detect column separator
-      options[:col_sep] = guess_column_separator(f) if options[:col_sep].to_sym == :auto
+      options[:col_sep] = guess_column_separator(f, options) if options[:col_sep].to_sym == :auto
       # preserve options, in case we need to call the CSV class
       csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
       csv_options.delete(:row_sep) if [nil, :auto].include?( options[:row_sep].to_sym )
@@ -33,12 +31,12 @@ module SmarterCSV
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
-      options[:skip_lines].to_i.times{f.readline} if options[:skip_lines].to_i > 0
+      options[:skip_lines].to_i.times{f.readline(options[:row_sep])} if options[:skip_lines].to_i > 0
 
       if options[:headers_in_file]        # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header = f.readline
+        header = f.readline(options[:row_sep])
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
         header = header.sub(options[:comment_regexp],'') if options[:comment_regexp]
         header = header.chomp(options[:row_sep])
@@ -121,7 +119,7 @@ module SmarterCSV
 
       # now on to processing all the rest of the lines in the CSV file:
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $INPUT_RECORD_SEPARATOR which we set previously!
+        line = f.readline(options[:row_sep])  # read one line
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
@@ -137,14 +135,14 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
         while line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
-          next_line = f.readline
+          next_line = f.readline(options[:row_sep])
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
           file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % file_line_count if options[:verbose] && multiline
 
-        line.chomp!    # will use $INPUT_RECORD_SEPARATOR which is set to options[:col_sep]
+        line.chomp!(options[:row_sep])
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           dataA = begin
@@ -251,7 +249,6 @@ module SmarterCSV
         chunk = []  # initialize for next chunk of data
       end
     ensure
-      $INPUT_RECORD_SEPARATOR = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
       f.close if f.respond_to?(:close)
     end
     if block_given?
@@ -331,11 +328,11 @@ module SmarterCSV
   end
 
   # raise exception if none is found
-  def self.guess_column_separator(filehandle)
+  def self.guess_column_separator(filehandle, options)
     del = [',', "\t", ';', ':', '|']
     n = Hash.new(0)
     5.times do
-      line = filehandle.readline
+      line = filehandle.readline(options[:row_sep])
       del.each do |d|
         n[d] += line.scan(d).count
       end
