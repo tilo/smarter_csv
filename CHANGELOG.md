@@ -1,9 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.5.0.pre1 (2022-02-17)
-  * changed default for `comment_regexp` to be `nil` for a safer default behavior (thanks to David Lazar)
+## 1.5.0 (2022-04-25)
+  * fixed bug with trailing col_sep characters, introduced in 1.4.0
+  * Fix deprecation warning in Ruby 3.0.3 / $INPUT_RECORD_SEPARATOR (thanks to Joel Fouse )
 
+  * changed default for `comment_regexp` to be `nil` for a safer default behavior (thanks to David Lazar)
   **Note**
     This no longer assumes that lines starting with `#` are comments.
     If you want to treat lines starting with '#' as comments, use `comment_regexp: /\A#/`

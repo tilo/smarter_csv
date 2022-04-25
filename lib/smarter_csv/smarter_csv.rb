@@ -153,8 +153,8 @@ module SmarterCSV
         else
           dataA = line.split(options[:col_sep], header_size)
         end
-####     dataA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }  # this is actually not a good idea as a default
-        dataA.map!{|x| x.strip}  if options[:strip_whitespace]
+        dataA.map!{|x| x.sub(/(#{options[:col_sep]})+\z/, '')} # remove any unwanted trailing col_sep characters at the end
+        dataA.map!{|x| x.strip} if options[:strip_whitespace]
 
         # if all values are blank, then ignore this line
         # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
