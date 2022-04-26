@@ -1,6 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.5.1 (2022-04-26)
+  * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
+  * added option `duplicate_header_suffix` (thanks to Skye Shaw)
+    When non-nil, uses the given suffix to append numbering to duplicate headers.
+
 ## 1.5.0 (2022-04-25)
   * fixed bug with trailing col_sep characters, introduced in 1.4.0
   * Fix deprecation warning in Ruby 3.0.3 / $INPUT_RECORD_SEPARATOR (thanks to Joel Fouse )

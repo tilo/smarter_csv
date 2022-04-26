@@ -228,6 +228,7 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     | :duplicate_header_suffix    |   nil    | If set, adds numbers to duplicated headers and separates them by the given suffix    |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
