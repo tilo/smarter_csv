@@ -4,7 +4,7 @@
 ## 1.5.1 (2022-04-26)
   * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
   * added option `duplicate_header_suffix` (thanks to Skye Shaw)
-    When non-nil, uses the given suffix to append numbering to duplicate headers.
+    When given a non-nil string, it uses the suffix to append numbering 2..n to duplicate headers.
 
 ## 1.5.0 (2022-04-25)
   * fixed bug with trailing col_sep characters, introduced in 1.4.0
