@@ -17,12 +17,12 @@ describe 'duplicate headers' do
       }.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
 
-    it 'raises error on missing mapped headers' do
+    it 'raises error on missing mapped headers and includes missing headers in message' do
       expect {
         # the mapping is right, but the underlying csv file is bad
         options = {:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :manager_email => :d, :age => :e} }
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      }.to raise_exception(SmarterCSV::KeyMappingError)
+      }.to raise_exception(SmarterCSV::KeyMappingError, "missing header(s): manager_email")
     end
   end
 

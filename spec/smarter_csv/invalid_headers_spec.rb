@@ -28,11 +28,11 @@ describe 'test exceptions for invalid headers' do
     }.to raise_exception(SmarterCSV::MissingHeaders)
   end
 
-  it 'raises error on missing mapped headers' do
+  it 'raises error on missing mapped headers and includes missing headers in message' do
     expect {
       # :age does not exist in the CSV header
       options = {:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :manager_email => :d, :age => :e} }
       SmarterCSV.process("#{fixture_path}/user_import.csv", options)
-    }.to raise_exception(SmarterCSV::KeyMappingError)
+    }.to raise_exception(SmarterCSV::KeyMappingError, "missing header(s): age")
   end
 end
