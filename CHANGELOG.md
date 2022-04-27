@@ -5,6 +5,7 @@
   * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
   * added option `duplicate_header_suffix` (thanks to Skye Shaw)
     When given a non-nil string, it uses the suffix to append numbering 2..n to duplicate headers.
+    If your code will need to process arbitrary CSV files, please set `duplicate_header_suffix`.
 
 ## 1.5.0 (2022-04-25)
   * fixed bug with trailing col_sep characters, introduced in 1.4.0

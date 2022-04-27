@@ -294,9 +294,10 @@ And header and data validations will also be supported in 2.x
  * if the incorrect number of headers are provided via :user_provided_headers, exception SmarterCSV::HeaderSizeMismatch is raised
 
 #### NOTES on Duplicate Headers:
- * as a corner case, it is possible that a CSV file contains multiple headers with the same name. 
-   If that happens, by default `smarter_csv` will raise a `DuplicateHeaders` error.
+ As a corner case, it is possible that a CSV file contains multiple headers with the same name. 
+ * If that happens, by default `smarter_csv` will raise a `DuplicateHeaders` error.
  * If you set `duplicate_header_suffix` to a non-nil string, it will use it to append numbers 2..n to the duplicate headers. To further disambiguate the headers, you can further use `key_mapping` to assign meaningful names.
+ * If your code will need to process arbitrary CSV files, please set `duplicate_header_suffix`.
  * Another way to deal with duplicate headers it to use `user_assigned_headers` to ignore any headers in the file.
 
 #### NOTES on Key Mapping:
