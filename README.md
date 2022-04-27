@@ -228,6 +228,7 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
+     | :duplicate_header_suffix    |   nil    | If set, adds numbers to duplicated headers and separates them by the given suffix    |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |
@@ -282,6 +283,7 @@ And header and data validations will also be supported in 2.x
          data = SmarterCSV.process(f)
        end
 ```
+
 #### NOTES about CSV Headers:
  * as this method parses CSV files, it is assumed that the first line of any file will contain a valid header
  * the first line with the header might be commented out, in which case you will need to set `comment_regexp: /\A#/`
@@ -290,6 +292,13 @@ And header and data validations will also be supported in 2.x
  * any of the keys in the header line will be downcased, spaces replaced by underscore, and converted to Ruby symbols before being used as keys in the returned Hashes
  * you can not combine the :user_provided_headers and :key_mapping options
  * if the incorrect number of headers are provided via :user_provided_headers, exception SmarterCSV::HeaderSizeMismatch is raised
+
+#### NOTES on Duplicate Headers:
+ As a corner case, it is possible that a CSV file contains multiple headers with the same name. 
+ * If that happens, by default `smarter_csv` will raise a `DuplicateHeaders` error.
+ * If you set `duplicate_header_suffix` to a non-nil string, it will use it to append numbers 2..n to the duplicate headers. To further disambiguate the headers, you can further use `key_mapping` to assign meaningful names.
+ * If your code will need to process arbitrary CSV files, please set `duplicate_header_suffix`.
+ * Another way to deal with duplicate headers it to use `user_assigned_headers` to ignore any headers in the file.
 
 #### NOTES on Key Mapping:
  * keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes can be better used internally in your application (e.g. when directly creating MongoDB entries with them)
