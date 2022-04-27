@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.5.1 (2022-04-26)
+## 1.5.1 (2022-04-27)
   * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
   * added option `duplicate_header_suffix` (thanks to Skye Shaw)
     When given a non-nil string, it uses the suffix to append numbering 2..n to duplicate headers.
