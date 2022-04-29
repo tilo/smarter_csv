@@ -202,14 +202,14 @@ module SmarterCSV
       line.each_char do |c|
         quote_count += 1 if c == quote
         if c == options[:col_sep] && quote_count.even?
-          elements << cleanup_field(field, quote)
+          elements << cleanup_field(field, quote) if header_size.nil? || elements.size < header_size
           count = 0
           field = ''
         else
           field << c # sometimes quotes inside fields are needed, incl. for inches
         end
       end
-      elements << cleanup_field(field, quote)
+      elements << cleanup_field(field, quote) if header_size.nil? || elements.size < header_size
 
     else
       elements = header_size.nil? ? line.split(options[:col_sep]) : line.split(options[:col_sep], header_size)

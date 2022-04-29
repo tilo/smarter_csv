@@ -35,6 +35,30 @@ describe 'fulfills RFC-4180' do
       expect( SmarterCSV.send(:split_line, line, options)).to eq [%w[aaa bbb ccc], 3]
     end
 
+    it 'with extra col_sep, without given header_size' do
+      line = '"aaa","bbb","ccc",'
+      expect( SmarterCSV.send(:split_line, line, options)).to eq [
+        ['aaa', 'bbb', 'ccc', ''], 4
+      ]
+    end
+
+    it 'with extra col_sep, with given header_size' do
+      line = '"aaa","bbb","ccc",'
+      expect( SmarterCSV.send(:split_line, line, options, 3)).to eq [%w[aaa bbb ccc], 3]
+    end
+
+    it 'with multiple extra col_sep, without given header_size' do
+      line = '"aaa","bbb","ccc",,,'
+      expect( SmarterCSV.send(:split_line, line, options)).to eq [
+        ['aaa', 'bbb', 'ccc', '', '', ''], 6
+      ]
+    end
+
+    it 'with multiple extra col_sep, with given header_size' do
+      line = '"aaa","bbb","ccc",,,'
+      expect( SmarterCSV.send(:split_line, line, options, 3)).to eq [%w[aaa bbb ccc], 3]
+    end
+
     it 'quoted parts can contain spaces' do
       line = '" aaa1 aaa2 "," bbb1 bbb2 "," ccc1 ccc2 "'
       expect( SmarterCSV.send(:split_line, line, options)).to eq [
