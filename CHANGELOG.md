@@ -2,7 +2,7 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.5.3 (2022-04-30)
-  * rewrote parsing of quoted fields
+  * rewrote parsing of quoted fields, use "liberal_parsing" by default
 
 ## 1.5.2 (2022-04-29)
   * added missing keys to the SmarterCSV::KeyMappingError exception message #189 (thanks to John Dell)

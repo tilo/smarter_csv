@@ -70,4 +70,14 @@ describe 'fulfills RFC-4180' do
       ]
     end
   end
+
+  # relaxed parsing compared to RFC-4180
+  context 'liberal_parsing' do
+    it 'parses corner case correctly' do
+      line = 'is,this "three, or four",fields'
+      expect( SmarterCSV.send(:split_line, line, options)).to eq [
+        ['is', 'this "three, or four"', 'fields'], 3
+      ]
+    end
+  end
 end

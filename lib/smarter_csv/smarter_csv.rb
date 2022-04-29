@@ -206,7 +206,7 @@ module SmarterCSV
           count = 0
           field = ''
         else
-          field << c # we could skip on quotes here, to get rid of cleanup_field() method
+          field << c # sometimes quotes inside fields are needed, incl. for inches
         end
       end
       elements << cleanup_field(field, quote)
@@ -217,10 +217,11 @@ module SmarterCSV
     [elements, elements.size] # before mapping, which could delete keys
   end
 
-  # could be omitted, if we don't copy quote chars into the field to begin with
   def self.cleanup_field(field, quote)
-    field.delete_prefix!(quote)
-    field.delete_suffix!(quote)
+    if field.start_with?(quote) && field.end_with?(quote)
+      field.delete_prefix!(quote)
+      field.delete_suffix!(quote)
+    end
     field.gsub!("#{quote}#{quote}", "#{quote}")
     field
   end
