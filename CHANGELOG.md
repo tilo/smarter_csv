@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.5.2 (2022-04-29)
+  * added missing keys to the SmarterCSV::KeyMappingError exception message #189 (thanks to John Dell)
+  
 ## 1.5.1 (2022-04-27)
   * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
   * added option `duplicate_header_suffix` (thanks to Skye Shaw)

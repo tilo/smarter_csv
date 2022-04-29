@@ -44,3 +44,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Nicolas Guillemain](https://github.com/Viiruus)
  * [Sp6](https://github.com/sp6)
  * [Joel Fouse](https://github.com/jfouse)
+ * [John Dell](https://github.com/spovich)
