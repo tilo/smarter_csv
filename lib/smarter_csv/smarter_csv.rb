@@ -378,7 +378,8 @@ module SmarterCSV
       #   if you want to completely delete a key, then map it to nil or to ''
       if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
         # we can't map keys that are not there
-        raise SmarterCSV::KeyMappingError unless (key_mappingH.keys - headerA).empty?
+        missing_keys = key_mappingH.keys - headerA
+        raise(SmarterCSV::KeyMappingError, "missing header(s): #{missing_keys.join(",")}") unless missing_keys.empty?
 
         headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
       end
