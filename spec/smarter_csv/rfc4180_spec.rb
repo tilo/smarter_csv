@@ -80,6 +80,13 @@ describe 'fulfills RFC-4180' do
       ]
     end
 
+    it 'some fields are quoted' do
+      line = '1,"board 4""",12.95'
+      expect( SmarterCSV.send(:split_line, line, options)).to eq [
+        ['1', 'board 4"', '12.95'], 3
+      ]
+    end
+
     it 'separating on col_sep' do
       line = '"some","thing","""completely"" different"'
       expect( SmarterCSV.send(:split_line, line, options)).to eq [
