@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.5.2 (2022-04-28)
+  * rewrote parsing of quoted fields
+
 ## 1.5.1 (2022-04-27)
   * added raising of `KeyMappingError` if `key_mapping` refers to a non-existent key
   * added option `duplicate_header_suffix` (thanks to Skye Shaw)
