@@ -73,7 +73,7 @@ module SmarterCSV
 
         line.chomp!(options[:row_sep])
 
-        dataA, data_size = split_line(line, options, header_size)
+        dataA, data_size = parse(line, options, header_size)
 
         dataA.map!{|x| x.sub(/(#{options[:col_sep]})+\z/, '')} # remove any unwanted trailing col_sep characters at the end
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
@@ -182,50 +182,6 @@ module SmarterCSV
 
   private
 
-  def self.readline_with_counts(filehandle, options)
-    line  = filehandle.readline(options[:row_sep])
-    @file_line_count += 1
-    @csv_line_count += 1
-    line
-  end
-
-  # https://datatracker.ietf.org/doc/html/rfc4180
-  # According to RFC-4180 the quotes inside a field need to be doubled, but this parser does not require it.
-  # - we are not assuming that quotes inside a fields need to be doubled
-  # - we are not assuming that all fields need to be quoted (0 is even)
-  def self.split_line(line, options, header_size = nil)
-    quote = options[:quote_char]
-    if (line =~ %r{#{quote}}) && (! options[:force_simple_split])
-      quote_count = 0
-      elements = []
-      field = ''
-      line.each_char do |c|
-        quote_count += 1 if c == quote
-        if c == options[:col_sep] && quote_count.even?
-          elements << cleanup_field(field, quote) if header_size.nil? || elements.size < header_size
-          count = 0
-          field = ''
-        else
-          field << c # sometimes quotes inside fields are needed, incl. for inches
-        end
-      end
-      elements << cleanup_field(field, quote) if header_size.nil? || elements.size < header_size
-
-    else
-      elements = header_size.nil? ? line.split(options[:col_sep]) : line.split(options[:col_sep], header_size)
-    end
-    [elements, elements.size] # before mapping, which could delete keys
-  end
-
-  def self.cleanup_field(field, quote)
-    if field.start_with?(quote) && field.end_with?(quote)
-      field.delete_prefix!(quote)
-      field.delete_suffix!(quote)
-    end
-    field.gsub!("#{quote}#{quote}", "#{quote}")
-    field
-  end
-
   def self.default_options
     {
       auto_row_sep_chars: 500,
@@ -258,6 +214,60 @@ module SmarterCSV
       value_converters: nil,
       verbose: false,
     }
+  end
+
+  def self.readline_with_counts(filehandle, options)
+    line  = filehandle.readline(options[:row_sep])
+    @file_line_count += 1
+    @csv_line_count += 1
+    line
+  end
+
+  # parses CSV header and body lines
+  # - trailing col_sep characters are ignored
+  # - works with multi-char col_sep
+  # - quoting rules compared to RFC-4180 are somewhat relaxed
+  # - we are not assuming that quotes inside a fields need to be doubled
+  # - we are not assuming that all fields need to be quoted (0 is even)
+  # - if header_size is given, only up to header_size fields are parsed
+  #
+  def self.parse(line, options, header_size = nil)
+    return [] if line.nil?
+
+    col_sep = options[:col_sep]
+    quote = options[:quote_char]
+    quote_count = 0
+    elements = []
+    start = 0
+    i = 0
+
+#    line.gsub!(/(#{col_sep})+\z/, '') # remove trailing col_sep
+
+    while i < line.size do
+      if line[i...i+col_sep.size] == col_sep && quote_count.even?
+        break if !header_size.nil? && elements.size >= header_size
+
+        elements << cleanup_quotes(line[start...i], quote)
+        i += col_sep.size
+        start = i
+      else
+        quote_count += 1 if line[i] == quote
+        i += 1
+      end
+    end
+    elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
+    [elements, elements.size]
+  end
+
+  def self.cleanup_quotes(field, quote)
+    return field if field.nil? || field !~ /#{quote}/
+
+    if field.start_with?(quote) && field.end_with?(quote)
+      field.delete_prefix!(quote)
+      field.delete_suffix!(quote)
+    end
+    field.gsub!("#{quote}#{quote}", quote)
+    field
   end
 
   def self.blank?(value)
@@ -346,11 +356,22 @@ module SmarterCSV
     return k                    # the most frequent one is it
   end
 
+  def self.raw_hearder
+    @raw_header
+  end
+
+  def self.headers
+    @headers
+  end
+
   def self.process_headers(filehandle, options)
+    @raw_header = nil
+    @headers = nil
     if options[:headers_in_file]        # extract the header line
       # process the header line in the CSV file..
       # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
       header = readline_with_counts(filehandle, options)
+      @raw_header = header
 
       header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
       header = header.sub(options[:comment_regexp],'') if options[:comment_regexp]
@@ -358,7 +379,7 @@ module SmarterCSV
 
       header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
 
-      file_headerA, file_header_size = split_line(header, options)
+      file_headerA, file_header_size = parse(header, options)
 
       file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
       file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
@@ -418,6 +439,7 @@ module SmarterCSV
       raise SmarterCSV::MissingHeaders , "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
     end
 
+    @headers = headerA
     [headerA, header_size]
   end
 
