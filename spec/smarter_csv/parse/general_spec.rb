@@ -2,7 +2,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'fulfills RFC-4180' do
+describe 'fulfills RFC-4180 and more' do
   let(:options) { {col_sep: ',', row_sep: $INPUT_RECORD_SEPARATOR, quote_char: '"' } }
 
   context 'separates simple CSV' do
