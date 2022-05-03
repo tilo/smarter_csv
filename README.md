@@ -20,6 +20,8 @@
 
 #### SmarterCSV 1.x
 
+`smarter_csv` is now 10 years old, and still kicking! 🎉🎉🎉
+
 `smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
 and parallel processing with Resque or Sidekiq.
 
@@ -42,11 +44,13 @@ NOTE; This Gem is only for importing CSV files - writing of CSV files is not sup
 
 ### Why?
 
-Ruby's CSV library's API is pretty old, and it's processing of CSV-files returning Arrays of Arrays feels 'very close to the metal'. The output is not easy to use - especially not if you want to create database records from it. Another shortcoming is that Ruby's CSV library does not have good support for huge CSV-files, e.g. there is no support for 'chunking' and/or parallel processing of the CSV-content (e.g. with Resque or Sidekiq),
+Ruby's CSV library's API is pretty old, and it's processing of CSV-files returning Arrays of Arrays feels 'very close to the metal'. The output is not easy to use - especially not if you want to create database records or Sidekiq jobs with it. Another shortcoming is that Ruby's CSV library does not have good support for huge CSV-files, e.g. there is no support for 'chunking' and/or parallel processing of the CSV-content (e.g. with Sidekiq).
 
-As the existing CSV libraries didn't fit my needs, I was writing my own CSV processing - specifically for use in connection with Rails ORMs like Mongoid, MongoMapper or ActiveRecord. In those ORMs you can easily pass a hash with attribute/value pairs to the create() method. The lower-level Mongo driver and Moped also accept larger arrays of such hashes to create a larger amount of records quickly with just one call.
+As the existing CSV libraries didn't fit my needs, I was writing my own CSV processing - specifically for use in connection with Rails ORMs like Mongoid, MongoMapper and ActiveRecord. In those ORMs you can easily pass a hash with attribute/value pairs to the create() method. The lower-level Mongo driver and Moped also accept larger arrays of such hashes to create a larger amount of records quickly with just one call. The same patterns are used when you pass data to Sidekiq jobs.
 
-### Examples
+For processing large CSV files it is essential to process them in chunks, so the memory impact is minimized.
+
+### How?
 
 The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block

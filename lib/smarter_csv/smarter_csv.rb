@@ -6,6 +6,7 @@ module SmarterCSV
   class MissingHeaders < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
   class KeyMappingError < SmarterCSVException; end
+  class MalformedCSVError < SmarterCSVException; end
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options={}, &block)
@@ -24,10 +25,6 @@ module SmarterCSV
       options[:row_sep] = SmarterCSV.guess_line_ending(fh, options) if options[:row_sep].to_sym == :auto
       # attempt to auto-detect column separator
       options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep].to_sym == :auto
-      # preserve options, in case we need to call the CSV class
-      csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
-      csv_options.delete(:row_sep) if [nil, :auto].include?( options[:row_sep].to_sym )
-      csv_options.delete(:col_sep) if [nil, :auto].include?( options[:col_sep].to_sym )
 
       if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8') )
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
@@ -39,7 +36,7 @@ module SmarterCSV
         end
       end
 
-      headerA, header_size = process_headers(fh, options, csv_options)
+      headerA, header_size = process_headers(fh, options)
 
       # in case we use chunking.. we'll need to set it up..
       if ! options[:chunk_size].nil? && options[:chunk_size].to_i > 0
@@ -76,15 +73,8 @@ module SmarterCSV
 
         line.chomp!(options[:row_sep])
 
-        if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
-          dataA = begin
-            CSV.parse( line, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
-          rescue CSV::MalformedCSVError => e
-            raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
-          end
-        else
-          dataA = line.split(options[:col_sep], header_size)
-        end
+        dataA, data_size = parse(line, options, header_size)
+
         dataA.map!{|x| x.sub(/(#{options[:col_sep]})+\z/, '')} # remove any unwanted trailing col_sep characters at the end
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
 
@@ -192,13 +182,6 @@ module SmarterCSV
 
   private
 
-  def self.readline_with_counts(filehandle, options)
-    line  = filehandle.readline(options[:row_sep])
-    @file_line_count += 1
-    @csv_line_count += 1
-    line
-  end
-
   def self.default_options
     {
       auto_row_sep_chars: 500,
@@ -231,6 +214,62 @@ module SmarterCSV
       value_converters: nil,
       verbose: false,
     }
+  end
+
+  def self.readline_with_counts(filehandle, options)
+    line  = filehandle.readline(options[:row_sep])
+    @file_line_count += 1
+    @csv_line_count += 1
+    line
+  end
+
+  # parses a single line: either a CSV header and body line
+  # - quoting rules compared to RFC-4180 are somewhat relaxed
+  # - we are not assuming that quotes inside a fields need to be doubled
+  # - we are not assuming that all fields need to be quoted (0 is even)
+  # - works with multi-char col_sep
+  # - if header_size is given, only up to header_size fields are parsed
+  #
+  # We use header_size for parsing the body lines to make sure we always match the number of headers
+  # in case there are trailing col_sep characters in line
+  #
+  # Our convention is that empty fields are returned as empty strings, not as nil.
+  #
+  def self.parse(line, options, header_size = nil)
+    return [] if line.nil?
+
+    col_sep = options[:col_sep]
+    quote = options[:quote_char]
+    quote_count = 0
+    elements = []
+    start = 0
+    i = 0
+
+    while i < line.size do
+      if line[i...i+col_sep.size] == col_sep && quote_count.even?
+        break if !header_size.nil? && elements.size >= header_size
+
+        elements << cleanup_quotes(line[start...i], quote)
+        i += col_sep.size
+        start = i
+      else
+        quote_count += 1 if line[i] == quote
+        i += 1
+      end
+    end
+    elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
+    [elements, elements.size]
+  end
+
+  def self.cleanup_quotes(field, quote)
+    return field if field.nil? || field !~ /#{quote}/
+
+    if field.start_with?(quote) && field.end_with?(quote)
+      field.delete_prefix!(quote)
+      field.delete_suffix!(quote)
+    end
+    field.gsub!("#{quote}#{quote}", quote)
+    field
   end
 
   def self.blank?(value)
@@ -319,11 +358,22 @@ module SmarterCSV
     return k                    # the most frequent one is it
   end
 
-  def self.process_headers(filehandle, options, csv_options)
+  def self.raw_hearder
+    @raw_header
+  end
+
+  def self.headers
+    @headers
+  end
+
+  def self.process_headers(filehandle, options)
+    @raw_header = nil
+    @headers = nil
     if options[:headers_in_file]        # extract the header line
       # process the header line in the CSV file..
       # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
       header = readline_with_counts(filehandle, options)
+      @raw_header = header
 
       header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
       header = header.sub(options[:comment_regexp],'') if options[:comment_regexp]
@@ -331,16 +381,7 @@ module SmarterCSV
 
       header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
 
-      if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
-        file_headerA = begin
-          CSV.parse( header, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
-        rescue CSV::MalformedCSVError => e
-          raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
-        end
-      else
-        file_headerA =  header.split(options[:col_sep])
-      end
-      file_header_size = file_headerA.size # before mapping, which could delete keys
+      file_headerA, file_header_size = parse(header, options)
 
       file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/,'') }
       file_headerA.map!{|x| x.strip}  if options[:strip_whitespace]
@@ -400,6 +441,7 @@ module SmarterCSV
       raise SmarterCSV::MissingHeaders , "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
     end
 
+    @headers = headerA
     [headerA, header_size]
   end
 
