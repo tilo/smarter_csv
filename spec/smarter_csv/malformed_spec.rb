@@ -15,6 +15,7 @@ describe 'malformed CSV quotes' do
 
   context "malformed quotes in content" do
     let(:csv_path) { "#{fixture_path}/malformed.csv" }
+
     it 'should be resilient against single quotes' do
       data = SmarterCSV.process(csv_path)
       expect(data[0]).to eq({:name=>"Arnold Schwarzenegger", :dob=>"1947-07-30"})
