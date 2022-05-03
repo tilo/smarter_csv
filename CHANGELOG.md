@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.5.3 (2022-05-03)
+## 1.6.0 (2022-05-03)
   * completely rewrote line parser
   * added methods `SmarterCSV.raw_headers` and `SmarterCSV.headers` to allow easy examination of how the headers are processed.
 

@@ -1,3 +1,3 @@
 module SmarterCSV
-  VERSION = "1.5.3.pre1"
+  VERSION = "1.6.0"
 end
