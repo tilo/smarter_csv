@@ -65,4 +65,10 @@ describe 'old CSV library parsing tests' do
     array, array_size = SmarterCSV.send(:parse, line, options)
     expect(array).to eq ["Ten Thousand", "10000", " 2710 ", "", "10,000", "It's \"10 Grand\", baby", "10K"]
   end
+
+  it 'single quotes in fields' do
+    line = 'Indoor Chrome,49.2"" L x 49.2"" W x 20.5"" H,Chrome,"Crystal,Metal,Wood",23.12'
+    array, array_size = SmarterCSV.send(:parse, line, options)
+    expect(array).to eq ['Indoor Chrome', '49.2" L x 49.2" W x 20.5" H', 'Chrome', 'Crystal,Metal,Wood', '23.12']
+  end
 end

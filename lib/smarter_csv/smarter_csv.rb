@@ -224,14 +224,17 @@ module SmarterCSV
   end
 
   # parses a single line: either a CSV header and body line
-  # - trailing col_sep characters are ignored
-  # - works with multi-char col_sep
   # - quoting rules compared to RFC-4180 are somewhat relaxed
   # - we are not assuming that quotes inside a fields need to be doubled
   # - we are not assuming that all fields need to be quoted (0 is even)
+  # - works with multi-char col_sep
   # - if header_size is given, only up to header_size fields are parsed
-  # sometimes CSV files can contain trailing col_sep in data lines, that is
-  # why we use header_size for parsing the body lines
+  #
+  # We use header_size for parsing the body lines to make sure we always match the number of headers
+  # in case there are trailing col_sep characters in line
+  #
+  # Our convention is that empty fields are returned as empty strings, not as nil.
+  #
   def self.parse(line, options, header_size = nil)
     return [] if line.nil?
 

@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "simplecov"
+  spec.add_development_dependency "awesome_print"
   #  spec.add_development_dependency "guard-rspec"
 
   spec.metadata["homepage_uri"] = spec.homepage
