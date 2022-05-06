@@ -62,6 +62,7 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
+
         multiline = line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
         while line.count(options[:quote_char])%2 == 1 # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
@@ -75,7 +76,6 @@ module SmarterCSV
 
         dataA, data_size = parse(line, options, header_size)
 
-        dataA.map!{|x| x.sub(/(#{options[:col_sep]})+\z/, '')} # remove any unwanted trailing col_sep characters at the end
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
 
         # if all values are blank, then ignore this line
@@ -420,7 +420,7 @@ module SmarterCSV
       if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
         # we can't map keys that are not there
         missing_keys = key_mappingH.keys - headerA
-        raise(SmarterCSV::KeyMappingError, "missing header(s): #{missing_keys.join(",")}") unless missing_keys.empty?
+        puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
 
         headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
       end
