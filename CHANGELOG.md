@@ -2,7 +2,8 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.6.1 (2022-05-06)
-  * unused keys in `key_mapping` generate a warning, no longer raise an exception
+  * unused keys in `key_mapping` now generate a warning, no longer raise an exception
+    This is preferable when `key_mapping` is done defensively for variabilities in the CSV files.
 
 ## 1.6.0 (2022-05-03)
   * completely rewrote line parser
