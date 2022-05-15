@@ -31,7 +31,7 @@ describe 'old CSV library parsing tests' do
     ["foo,\"foo,bar\",baz", ["foo", "foo,bar", "baz"]],
     [";,;", [";", ";"]]
   ].each do |line, result|
-    it "parses #{line}" do
+    it "parses #{line} as #{result.inspect}" do
       array, array_size = SmarterCSV.send(:parse, line, options)
       expect(array).to eq result
     end
@@ -54,10 +54,16 @@ describe 'old CSV library parsing tests' do
     ["foo,\"\r\n\n\",baz", ["foo", "\r\n\n", "baz"]],
     ["foo,\"foo,bar\",baz", ["foo", "foo,bar", "baz"]]
   ].each do |line, result|
-    it "parses #{line}" do
+    it "parses #{line} as #{result.inspect}" do
       array, array_size = SmarterCSV.send(:parse, line, options)
       expect(array).to eq result
     end
+  end
+
+  it 'quoted test' do
+    line = '"This",is,2"","3""",test'
+    array, array_size = SmarterCSV.send(:parse, line, options)
+    expect(array).to eq ["This", "is", '2"', '3"', "test"]
   end
 
   it 'mixed quotes' do

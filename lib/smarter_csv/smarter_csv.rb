@@ -1,3 +1,5 @@
+require_relative '../../ext/smarter_csv/smarter_csv'
+
 module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
@@ -79,8 +81,7 @@ module SmarterCSV
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
 
         # if all values are blank, then ignore this line
-        # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
-        next if options[:remove_empty_hashes] && blank?(dataA)
+        next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
         hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
 
@@ -184,6 +185,7 @@ module SmarterCSV
 
   def self.default_options
     {
+      accelleration: true,
       auto_row_sep_chars: 500,
       chunk_size: nil ,
       col_sep: ',',
@@ -223,6 +225,21 @@ module SmarterCSV
     line
   end
 
+  ###
+  ### Thin wrapper around C-extension
+  ###
+  def self.parse(line, options, header_size = nil)
+    return parse_csv_line_ruby(line, options, header_size) unless options[:accelleration]
+
+    has_quotes = line =~ /#{options[:quote_char]}/
+    elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
+    elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
+    [elements, elements.size]
+  end
+
+  # ------------------------------------------------------------------
+  # Ruby equivalent of the C-extension for parse_line
+  #
   # parses a single line: either a CSV header and body line
   # - quoting rules compared to RFC-4180 are somewhat relaxed
   # - we are not assuming that quotes inside a fields need to be doubled
@@ -235,18 +252,25 @@ module SmarterCSV
   #
   # Our convention is that empty fields are returned as empty strings, not as nil.
   #
-  def self.parse(line, options, header_size = nil)
+  #
+  # the purpose of the max_size parameter is to handle a corner case where
+  # CSV lines contain more fields than the header.
+  # In which case the remaining fields in the line are ignored
+  #
+  def self.parse_csv_line_ruby(line, options, header_size = nil)
     return [] if line.nil?
 
+    line_size = line.size
     col_sep = options[:col_sep]
+    col_sep_size = col_sep.size
     quote = options[:quote_char]
     quote_count = 0
     elements = []
     start = 0
     i = 0
 
-    while i < line.size do
-      if line[i...i+col_sep.size] == col_sep && quote_count.even?
+    while i < line_size do
+      if line[i...i+col_sep_size] == col_sep && quote_count.even?
         break if !header_size.nil? && elements.size >= header_size
 
         elements << cleanup_quotes(line[start...i], quote)
@@ -260,6 +284,23 @@ module SmarterCSV
     elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
     [elements, elements.size]
   end
+  # ------------------------------------------------------------------
+  # def self.parse_experimental(line, options, header_size = nil)
+  #   return [] if line.nil?
+  #
+  #   return parse_old(line, options, header_size) if line =~ /#{options[:quote_char]}/
+  #
+  #   col_sep = options[:col_sep]
+  #   escaped = ''
+  #   col_sep.each_char { |c| escaped += '[' + c + ']' }
+  #   regex = /^(.*?)#{escaped}/m # if col_sep is a pipe character, it needs to be escaped! :/
+  #   elements = []
+  #   while line.slice!(regex) do
+  #     elements << $1 if header_size.nil? || elements.size < header_size
+  #   end
+  #   elements << line unless line.nil? || !header_size.nil? && elements.size >= header_size
+  #   [elements, elements.size]
+  # end
 
   def self.cleanup_quotes(field, quote)
     return field if field.nil? || field !~ /#{quote}/
@@ -272,23 +313,35 @@ module SmarterCSV
     field
   end
 
+  # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
+  # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
+  BLANK_RE = /\A\s*\z/
+
   def self.blank?(value)
     case value
+    when String
+      value.empty? || BLANK_RE.match?(value)
+
+    when NilClass
+      true
+
     when Array
-      value.inject(true){|result, x| result &&= elem_blank?(x)}
+      value.empty? || value.inject(true){|result, x| result &&= elem_blank?(x)}
+
     when Hash
-      value.inject(true){|result, x| result &&= elem_blank?(x.last)}
+      value.empty? || value.values.inject(true){|result, x| result &&= elem_blank?(x)}
+
     else
-      elem_blank?(value)
+      false
     end
   end
 
   def self.elem_blank?(value)
     case value
+    when String
+      value.empty? || BLANK_RE.match?(value)
     when NilClass
       true
-    when String
-      value !~ /\S/
     else
       false
     end

@@ -19,7 +19,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "awesome_print"
-  #  spec.add_development_dependency "guard-rspec"
+  spec.add_development_dependency "rake-compiler"
+  spec.add_development_dependency "rake-compiler-dock"
 
   spec.metadata["homepage_uri"] = spec.homepage
+
+  spec.extensions << "ext/smarter_csv/smarter_csv.rb"
 end
