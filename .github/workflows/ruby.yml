@@ -1,0 +1,34 @@
+# install dependencies and run tests
+# https://github.com/marketplace/actions/setup-ruby-jruby-and-truffleruby
+
+on:
+  push:
+    paths-ignore:
+    - '**.md'
+  pull_request:
+    types: [ opened, edited, synchronize ]
+
+jobs:
+  test:
+    runs-on: [ubuntu-latest, macos-latest, windows-latest]
+
+    strategy:
+      matrix:
+        ruby-version: [ 3.0, 2.7, 2.5 ]
+
+    name: Ruby ${{ matrix.ruby-version }}
+
+    steps:
+      - name: start Redis
+        run: docker run --name redis --publish 6379:6379 --detach redis:3
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v2
+      - name: setup Ruby ${{ matrix.ruby-version }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+      - name: install dependencies
+        run: bundle install
+      - name: run tests
+        run: bundle exec rake test
