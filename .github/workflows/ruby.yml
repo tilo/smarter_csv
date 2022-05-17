@@ -14,13 +14,11 @@ jobs:
 
     strategy:
       matrix:
-        ruby-version: [ 3.0, 2.7, 2.5 ]
+        ruby-version: [ '3.0', '2.7', '2.5', '1.9', 'ruby-head', jruby', 'jruby-head' ]
 
     name: Ruby ${{ matrix.ruby-version }}
 
     steps:
-      - name: start Redis
-        run: docker run --name redis --publish 6379:6379 --detach redis:3
       - name: clone ${{ github.repository }}
         uses: actions/checkout@v2
       - name: setup Ruby ${{ matrix.ruby-version }}
