@@ -322,7 +322,7 @@ module SmarterCSV
     raise SmarterCSV::NoColSepDetected if n.values.max == 0
 
     col_sep = n.key(n.values.max)
-    puts "SmarterCSV auto-detected col_sep #{col_sep.inspect}"
+    puts "SmarterCSV auto-detected col_sep #{col_sep.inspect}" if options[:verbose]
     col_sep
   end
 
@@ -357,6 +357,7 @@ module SmarterCSV
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
     k,_ = counts.max_by{|_,v| v}
+    puts "SmarterCSV auto-detected row_sep #{k.inspect}"
     return k                    # the most frequent one is it
   end
 
