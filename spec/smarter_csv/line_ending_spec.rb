@@ -15,6 +15,7 @@ describe 'process files with line endings explicitly pre-specified' do
     data.size.should == 3
    end
 
+  # fails on Windows
   it 'reads file with \r\n line endings' do
     options = {:row_sep => "\r\n"}
     data = SmarterCSV.process("#{fixture_path}/line_endings_rn.csv", options)

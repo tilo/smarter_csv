@@ -14,6 +14,7 @@ jobs:
         os:
           - ubuntu
           - macos
+          - windows
         ruby:
           - 2.5
           - 2.6

@@ -322,6 +322,8 @@ module SmarterCSV
     raise SmarterCSV::NoColSepDetected if n.values.max == 0
 
     col_sep = n.key(n.values.max)
+    puts "SmarterCSV auto-detected col_sep #{col_sep.inspect}"
+    col_sep
   end
 
   # limitation: this currently reads the whole file in before making a decision

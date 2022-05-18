@@ -48,6 +48,7 @@ describe 'process files with line endings explicitly pre-specified' do
     data[7][:city].should == "Liverpool"
   end
 
+  # fails on Windows
   it 'should process a file with \r\n for line endings and within data fields' do
     sep = "\r\n"
     data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", {:row_sep => sep})
@@ -153,6 +154,7 @@ describe 'process files with line endings in automatic mode' do
     data[7][:city].should == "Liverpool"
   end
 
+  # fails on Windows
   it 'should process a file with \r\n for line endings and within data fields' do
     sep = "\r\n"
     data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", options)
