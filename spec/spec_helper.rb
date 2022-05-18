@@ -1,17 +1,18 @@
-require 'rubygems'
 require 'bundler/setup'
+require 'rubygems'
+require 'simplecov'
 
 Bundler.require(:default)
-
-require 'smarter_csv'
 
 SimpleCov.start do
   add_filter /spec/
 end
 
+require 'smarter_csv'
+
 RSpec.configure do |config|
 
-  config.filter_run_when_matching :focus
+  config.filter_run focus: true
 
   config.treat_symbols_as_metadata_keys_with_true_values = true
 
