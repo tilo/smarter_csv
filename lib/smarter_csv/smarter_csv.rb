@@ -14,16 +14,17 @@ module SmarterCSV
   def SmarterCSV.process(input, options={}, &block)
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
-    options[:is_windows] = !!(RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 
     headerA = []
     result = []
     @file_line_count = 0
     @csv_line_count = 0
     has_rails = !! defined?(Rails)
+    is_windows = !!(RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
+
     begin
       # open files in binary mode on Windoows, so line endings don't get interpreted
-      file_mode = options[:is_windows] ? "rb:#{options[:file_encoding]}" : "r:#{options[:file_encoding]}"
+      file_mode = is_windows ? "rb:#{options[:file_encoding]}" : "r:#{options[:file_encoding]}"
       fh = input.respond_to?(:readline) ? input : File.open(input, file_mode)
 
       # auto-detect the row separator
@@ -42,6 +43,8 @@ module SmarterCSV
       end
 
       headerA, header_size = process_headers(fh, options)
+
+      puts "HEADERS: #{headerA.inspect}"
 
       # in case we use chunking.. we'll need to set it up..
       if ! options[:chunk_size].nil? && options[:chunk_size].to_i > 0
