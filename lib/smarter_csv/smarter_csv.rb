@@ -1,3 +1,5 @@
+require 'rbconfig'
+
 module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
@@ -12,6 +14,7 @@ module SmarterCSV
   def SmarterCSV.process(input, options={}, &block)
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
+    options[:is_windows] = !!(RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 
     headerA = []
     result = []
@@ -19,7 +22,9 @@ module SmarterCSV
     @csv_line_count = 0
     has_rails = !! defined?(Rails)
     begin
-      fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+      # open files in binary mode on Windoows, so line endings don't get interpreted
+      file_mode = options[:is_windows] ? "rb:#{options[:file_encoding]}" : "r:#{options[:file_encoding]}"
+      fh = input.respond_to?(:readline) ? input : File.open(input, file_mode)
 
       # auto-detect the row separator
       options[:row_sep] = SmarterCSV.guess_line_ending(fh, options) if options[:row_sep].to_sym == :auto
@@ -343,7 +348,7 @@ module SmarterCSV
         if c == "\n"
           counts["\r\n"] +=  1
         else
-          counts["\r"] += 1  # \r are counted after they appeared, we might
+          counts["\r"] += 1  # \r are counted after they appeared
         end
       elsif c == "\n"
         counts["\n"] += 1
