@@ -1,5 +1,3 @@
-require 'rbconfig'
-
 module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
@@ -20,12 +18,9 @@ module SmarterCSV
     @file_line_count = 0
     @csv_line_count = 0
     has_rails = !! defined?(Rails)
-    is_windows = !!(RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 
     begin
-      # open files in binary mode on Windoows, so line endings don't get interpreted
-      file_mode = is_windows ? "rb:#{options[:file_encoding]}" : "r:#{options[:file_encoding]}"
-      fh = input.respond_to?(:readline) ? input : File.open(input, file_mode)
+      fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       # auto-detect the row separator
       options[:row_sep] = SmarterCSV.guess_line_ending(fh, options) if options[:row_sep].to_sym == :auto
@@ -44,7 +39,7 @@ module SmarterCSV
 
       headerA, header_size = process_headers(fh, options)
 
-      puts "HEADERS: #{headerA.inspect}"
+      puts "HEADERS: #{headerA.inspect}" if options[:verbose]
 
       # in case we use chunking.. we'll need to set it up..
       if ! options[:chunk_size].nil? && options[:chunk_size].to_i > 0
@@ -365,7 +360,7 @@ module SmarterCSV
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
     k,_ = counts.max_by{|_,v| v}
-    puts "SmarterCSV auto-detected row_sep #{k.inspect}"
+    puts "SmarterCSV auto-detected row_sep #{k.inspect}" if options[:verbose]
     return k                    # the most frequent one is it
   end
 

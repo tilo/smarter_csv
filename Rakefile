@@ -4,8 +4,8 @@ require 'rspec/core/rake_task'
 require "bundler/gem_tasks"
 require 'rubygems'
 
-task :default => :spec
-task :test => :spec
+task default: :spec
+task test: :spec
 
 desc "Run RSpec"
 RSpec::Core::RakeTask.new do |t|
