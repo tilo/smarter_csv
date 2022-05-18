@@ -10,19 +10,25 @@ describe 'duplicate headers' do
       }.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
 
-    it 'raises error on duplicate given headers' do
+    it 'does not raise error if duplicate_header_suffix is provided' do
+      expect {
+        SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", {duplicate_header_suffix: ''})
+      }.not_to raise_exception
+    end
+
+    it 'does not raise error if user_prvided_headres are provided' do
       expect {
         options = {:user_provided_headers => [:a,:b,:c,:d,:a]}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      }.to raise_exception(SmarterCSV::DuplicateHeaders)
+      }.not_to raise_exception
     end
 
-    it 'does not raise error on missing mapped headers and includes missing headers in message' do
+    it 'raises exception when duplicate headers and key_mapping in place' do
       # the mapping is right, but the underlying csv file is bad
       options = {:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :manager_email => :d, :age => :e} }
       expect {
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      }.not_to raise_exception(SmarterCSV::KeyMappingError)
+      }.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
   end
 

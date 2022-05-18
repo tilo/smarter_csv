@@ -33,6 +33,6 @@ describe 'test exceptions for invalid headers' do
     options = {:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :manager_email => :d, :age => :e} }
     expect {
       SmarterCSV.process("#{fixture_path}/user_import.csv", options)
-    }.not_to raise_exception(SmarterCSV::KeyMappingError)
+    }.not_to raise_exception
   end
 end

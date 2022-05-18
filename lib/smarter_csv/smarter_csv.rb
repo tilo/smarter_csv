@@ -437,7 +437,10 @@ module SmarterCSV
     headerA.compact.each do |k|
       duplicate_headers << k if headerA.select{|x| x == k}.size > 1
     end
-    raise SmarterCSV::DuplicateHeaders , "ERROR: duplicate headers: #{duplicate_headers.join(',')}" unless duplicate_headers.empty?
+
+    unless duplicate_headers.empty? || options[:user_provided_headers]
+      raise SmarterCSV::DuplicateHeaders , "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
+    end
 
     if options[:required_headers] && options[:required_headers].is_a?(Array)
       missing_headers = []
