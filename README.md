@@ -1,3 +1,4 @@
+[![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv)
 
 #### Service Announcement
 
