@@ -4,8 +4,11 @@ require 'simplecov'
 
 Bundler.require(:default)
 
-SimpleCov.start do
-  add_filter /spec/
+SimpleCov.start
+
+if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
+  require 'codecov'
+  SimpleCov.formatter = SimpleCov::Formatter::Codecov
 end
 
 require 'smarter_csv'
