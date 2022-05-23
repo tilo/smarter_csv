@@ -16,6 +16,7 @@ module SmarterCSV
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
 
+    @has_c_acceleration = defined?(parse_csv_line_c)
     headerA = []
     result = []
     @file_line_count = 0
@@ -231,12 +232,13 @@ module SmarterCSV
   def self.parse(line, options, header_size = nil)
     # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    if options[:acceleration] && defined?(parse_csv_line_c)
+    if options[:acceleration] && @has_c_acceleration
       # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
       has_quotes = line =~ /#{options[:quote_char]}/
       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
       elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
       return [elements, elements.size]
+
     else
       # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
       return parse_csv_line_ruby(line, options, header_size)
