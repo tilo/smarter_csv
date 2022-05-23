@@ -7,6 +7,11 @@ SimpleCov.start do
   add_filter "/spec/"
 end
 
+if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
+  require 'codecov'
+  SimpleCov.formatter = SimpleCov::Formatter::Codecov
+end
+
 Bundler.require(:default)
 
 $LOAD_PATH.unshift File.expand_path('../ext', __FILE__)
