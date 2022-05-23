@@ -1,0 +1,57 @@
+# install dependencies and run tests
+# https://github.com/marketplace/actions/setup-ruby-jruby-and-truffleruby
+
+name: Test Suite
+
+on: [ push, pull_request ]
+
+jobs:
+  test_matrix:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu
+          - macos
+        ruby:
+          - 2.5
+          - 2.6
+          - 2.7
+          - '3.0'
+          - 3.1
+          - head
+          - jruby
+          - jruby-head
+          - truffleruby
+          - truffleruby-head
+          - mingw
+        exclude:
+          - { os: ubuntu,  ruby: mingw }
+          - { os: macos,   ruby: mingw }
+          - { os: windows, ruby: truffleruby }
+          - { os: windows, ruby: truffleruby-head }
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v2
+      - name: setup Ruby ${{ matrix.ruby }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+        env:
+          JAVA_OPTS: -Djdk.io.File.enableADS=true
+      - name: Run tests
+        run: bundle exec rake test
+        env:
+          JAVA_OPTS: -Djdk.io.File.enableADS=true
+
+  finish:
+    runs-on: ubuntu-latest
+    needs: [ test_matrix ]
+    steps:
+      - name: Wait for status checks
+        run: echo "All Green!"
