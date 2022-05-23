@@ -229,16 +229,16 @@ module SmarterCSV
   ### Thin wrapper around C-extension
   ###
   def self.parse(line, options, header_size = nil)
-    puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
+    # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    if options[:acceleration] # && defined?(parse_csv_line_c)
-      puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
+    if options[:acceleration] && defined?(parse_csv_line_c)
+      # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
       has_quotes = line =~ /#{options[:quote_char]}/
       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
       elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
       return [elements, elements.size]
     else
-      puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
+      # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
       return parse_csv_line_ruby(line, options, header_size)
     end
   end
