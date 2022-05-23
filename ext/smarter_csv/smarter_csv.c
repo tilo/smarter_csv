@@ -12,27 +12,11 @@
 /*
    max_size: pass nil if no limit is specified
  */
-/* ============
-   STILL TO DO:
-   ============
-  - when gem is loaded, the require of the ext/smarter_csv does not work (RAKE..!?)
-  - passing in the options (?)
- */
-
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
 
   } else if (RB_TYPE_P(line, T_STRING) == 1) {
-   /*
-    static VALUE make_symbol(char*) {
-      return ID2SYM(rb_intern, *char);
-    }
-    VALUE col_sep_sym = ID2SYM(rb_intern(rb_str_new2("col_sep")));
-    VALUE col_sep = rb_hash_aref(options, col_sep_sym);
-    VALUE quote_char_sym = ID2SYM(rb_intern(rb_str_new2("quote_char")));
-    VALUE quote_char = rb_hash_aref(options, quote_char_sym);
-   */
     rb_encoding *encoding = rb_enc_get(line); /* get the encoding from the input line */
     char *startP = RSTRING_PTR(line); /* may not be null terminated */
     long line_len = RSTRING_LEN(line);
@@ -92,8 +76,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   rb_raise(rb_eTypeError, "ERROR in SmarterCSV.parse_line: line has to be a string or nil");
 }
 
-void Init_smarter_csv(void) {
-  VALUE module = rb_define_module("SmarterCSV");
 
-  rb_define_module_function(module, "parse_csv_line_c", rb_parse_csv_line, 4);
+VALUE SmarterCSV = Qnil;
+
+void Init_smarter_csv(void) {
+  VALUE SmarterCSV = rb_define_module("SmarterCSV");
+
+  rb_define_module_function(SmarterCSV, "parse_csv_line_c", rb_parse_csv_line, 4);
 }

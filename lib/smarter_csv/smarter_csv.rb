@@ -14,6 +14,7 @@ module SmarterCSV
   def SmarterCSV.process(input, options={}, &block)
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
+    puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
 
     headerA = []
     result = []
@@ -93,11 +94,9 @@ module SmarterCSV
         end
 
         if options[:remove_empty_values] == true
-          if has_rails
-            hash.delete_if{|k,v| v.blank?}
-          else
-            hash.delete_if{|k,v| blank?(v)}
-          end
+          return hash.delete_if{|k,v| v.blank?} if has_rails
+
+          hash.delete_if{|k,v| blank?(v)}
         end
 
         hash.delete_if{|k,v| ! v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values]   # values are typically Strings!
@@ -183,9 +182,10 @@ module SmarterCSV
 
   private
 
+  # NOTE: this is not called when "parse" methods are tested by themselves
   def self.default_options
     {
-      accelleration: true,
+      acceleration: true,
       auto_row_sep_chars: 500,
       chunk_size: nil ,
       col_sep: ',',
@@ -229,12 +229,18 @@ module SmarterCSV
   ### Thin wrapper around C-extension
   ###
   def self.parse(line, options, header_size = nil)
-    return parse_csv_line_ruby(line, options, header_size) unless options[:accelleration]
+    puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    has_quotes = line =~ /#{options[:quote_char]}/
-    elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
-    elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
-    [elements, elements.size]
+    if options[:acceleration] # && defined?(parse_csv_line_c)
+      puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
+      has_quotes = line =~ /#{options[:quote_char]}/
+      elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
+      elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
+      return [elements, elements.size]
+    else
+      puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
+      return parse_csv_line_ruby(line, options, header_size)
+    end
   end
 
   # ------------------------------------------------------------------
@@ -284,26 +290,10 @@ module SmarterCSV
     elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
     [elements, elements.size]
   end
-  # ------------------------------------------------------------------
-  # def self.parse_experimental(line, options, header_size = nil)
-  #   return [] if line.nil?
-  #
-  #   return parse_old(line, options, header_size) if line =~ /#{options[:quote_char]}/
-  #
-  #   col_sep = options[:col_sep]
-  #   escaped = ''
-  #   col_sep.each_char { |c| escaped += '[' + c + ']' }
-  #   regex = /^(.*?)#{escaped}/m # if col_sep is a pipe character, it needs to be escaped! :/
-  #   elements = []
-  #   while line.slice!(regex) do
-  #     elements << $1 if header_size.nil? || elements.size < header_size
-  #   end
-  #   elements << line unless line.nil? || !header_size.nil? && elements.size >= header_size
-  #   [elements, elements.size]
-  # end
 
   def self.cleanup_quotes(field, quote)
-    return field if field.nil? || field !~ /#{quote}/
+    return field if field.nil?
+    # return if field !~ /#{quote}/ # this check can probably eliminated
 
     if field.start_with?(quote) && field.end_with?(quote)
       field.delete_prefix!(quote)
@@ -340,8 +330,10 @@ module SmarterCSV
     case value
     when String
       value.empty? || BLANK_RE.match?(value)
+
     when NilClass
       true
+
     else
       false
     end
@@ -394,7 +386,7 @@ module SmarterCSV
         if c == "\n"
           counts["\r\n"] +=  1
         else
-          counts["\r"] += 1  # \r are counted after they appeared, we might
+          counts["\r"] += 1  # \r are counted after they appeared
         end
       elsif c == "\n"
         counts["\n"] += 1
@@ -411,7 +403,7 @@ module SmarterCSV
     return k                    # the most frequent one is it
   end
 
-  def self.raw_hearder
+  def self.raw_header
     @raw_header
   end
 
@@ -450,7 +442,7 @@ module SmarterCSV
       headerA = options[:user_provided_headers]
       if defined?(file_header_size) && ! file_header_size.nil?
         if headerA.size != file_header_size
-          raise SmarterCSV::HeaderSizeMismatch , "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file #{input} has #{file_header_size} headers"
+          raise SmarterCSV::HeaderSizeMismatch , "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
         else
           # we could print out the mapping of file_headerA to headerA here
         end
@@ -484,7 +476,10 @@ module SmarterCSV
     headerA.compact.each do |k|
       duplicate_headers << k if headerA.select{|x| x == k}.size > 1
     end
-    raise SmarterCSV::DuplicateHeaders , "ERROR: duplicate headers: #{duplicate_headers.join(',')}" unless duplicate_headers.empty?
+
+    unless duplicate_headers.empty? || options[:user_provided_headers]
+      raise SmarterCSV::DuplicateHeaders , "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
+    end
 
     if options[:required_headers] && options[:required_headers].is_a?(Array)
       missing_headers = []

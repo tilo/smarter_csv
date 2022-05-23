@@ -17,4 +17,20 @@ describe 'be_able_to' do
     end
   end
 
+  it 'replaces headers with user_provided_headers' do
+    options = {user_provided_headers: [:a, :b, :c, :d, :e, :f]}
+    data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
+    data.size.should == 5
+
+    SmarterCSV.raw_header.should eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
+    SmarterCSV.headers.should eq [:a, :b, :c, :d, :e, :f]
+  end
+
+  it 'raises an exception if the number of user_provided_headers is incorrect' do
+    options = {user_provided_headers: [:a, :b, :c, :d, :e]}
+
+    expect {
+      SmarterCSV.process("#{fixture_path}/basic.csv", options)
+    }.to raise_error(SmarterCSV::HeaderSizeMismatch)
+  end
 end

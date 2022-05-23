@@ -1,6 +1,12 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.0 (2022-05-23)
+  * added native code to accellerate line parsing by >10x over 1.6.0
+  * added option `accelleration`, defaulting to `true`, to enable native code.
+    Disable this option to use the ruby code for line parsing.
+  * increased test coverage to 100%
+
 ## 1.6.1 (2022-05-06)
   * unused keys in `key_mapping` now generate a warning, no longer raise an exception
     This is preferable when `key_mapping` is done defensively for variabilities in the CSV files.
