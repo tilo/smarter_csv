@@ -1,4 +1,4 @@
-require_relative '../../ext/smarter_csv/smarter_csv'
+#require_relative '../../ext/smarter_csv/smarter_csv'
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
