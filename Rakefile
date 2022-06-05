@@ -26,6 +26,8 @@ RSpec::Core::RakeTask.new do |t|
   # t.verbose = false
 end
 
+task :test => :spec
+
 task :clean do
   cd "ext/smarter_csv"
   sh "rm -f Makefile"
@@ -47,5 +49,4 @@ task :compile do
   cd "../.."
 end
 
-# task default: :spec
 task default: [:create_makefile, :compile, :spec]
