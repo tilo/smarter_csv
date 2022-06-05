@@ -31,14 +31,8 @@ task :test => :spec
 task :clean do
   cd "ext/smarter_csv"
   sh "rm -f Makefile"
-  sh "rm -f smarter_csv.o"
-  sh "rm -f smarter_csv.bundle"
-  cd "../.."
-end
-
-task :create_makefile do
-  cd "ext/smarter_csv"
-  sh "ruby extconf.rb"
+  sh "rm -f parse_csv_line.o"
+  sh "rm -f parse_csv_line.bundle"
   cd "../.."
 end
 
@@ -49,4 +43,4 @@ task :compile do
   cd "../.."
 end
 
-task default: [:create_makefile, :compile, :spec]
+task default: [:compile, :test]
