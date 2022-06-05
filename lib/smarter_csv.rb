@@ -1,4 +1,4 @@
-require 'csv'
+puts "PWD 1 #{`pwd`}"
 require "smarter_csv/version"
 require "extensions/hash.rb"
 #require "./ext/smarter_csv/parse_csv_line"

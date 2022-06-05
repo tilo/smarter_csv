@@ -1,4 +1,7 @@
 # require "smarter_csv/parse_csv_line"
+puts "PWD 2 #{`pwd`}"
+puts "ENV: #{ENV.inspect}"
+
 require_relative '../../ext/smarter_csv/parse_csv_line'
 
 module SmarterCSV
