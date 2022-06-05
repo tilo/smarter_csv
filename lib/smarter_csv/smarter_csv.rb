@@ -1,5 +1,5 @@
-require "smarter_csv/parse_csv_line"
-# require_relative '../../ext/smarter_csv/smarter_csv'
+# require "smarter_csv/parse_csv_line"
+require_relative '../../ext/smarter_csv/smarter_csv'
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
