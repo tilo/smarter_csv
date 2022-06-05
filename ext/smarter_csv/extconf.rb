@@ -9,4 +9,4 @@ end
 
 CONFIG["optflags"] = "-O3"
 
-create_makefile 'smarter_csv'
+create_makefile 'parse_csv_line'
