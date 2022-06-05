@@ -2,7 +2,7 @@
 puts "PWD 2 #{`pwd`}"
 puts "ENV: #{ENV.inspect}"
 
-require_relative '../../ext/smarter_csv/parse_csv_line'
+require_relative '../../ext/smarter_csv/parse_csv_line' unless ENV['CI']
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
