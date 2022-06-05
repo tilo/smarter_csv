@@ -3,7 +3,7 @@ puts "PWD 2 #{`pwd`}"
 puts "ENV: #{ENV.inspect}"
 
 if ENV['CI']
-  require 'smarter_csv/parse_csv_line'
+  require "#{ENV['GEM_HOME']}/smarter_csv/parse_csv_line" ## does this work?
 else
   require_relative '../../ext/smarter_csv/parse_csv_line'
 end
