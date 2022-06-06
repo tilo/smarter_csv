@@ -36,13 +36,20 @@ task :clean do
   cd "../.."
 end
 
+task :create_makefile do
+  cd "ext/smarter_csv"
+  sh "ruby extconf.rb"
+  cd "../.."
+  puts "\nPWD 0A: #{`pwd`}\n--------------------------------------\ndone"
+end
+
 task :compile do
   puts "\n--------------------------------------\nCOMPILING...\n"
   cd "ext/smarter_csv"
   sh "ruby extconf.rb"
   sh "make"
   cd "../.."
-  puts "PWD 0: #{`pwd`}\n--------------------------------------\ndone"
+  puts "\nPWD 0B: #{`pwd`}\n--------------------------------------\ndone"
 end
 
 task default: [:compile, :test]
