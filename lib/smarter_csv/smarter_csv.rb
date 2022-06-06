@@ -5,7 +5,9 @@ puts "ENV: #{ENV.inspect}"
 puts "GEM_HOME: #{`ls -l #{ENV['GEM_HOME']}`}}"
 
 if ENV['CI']
-  require "#{ENV['GEM_HOME']}/smarter_csv/parse_csv_line" ## does this work?
+  require './ext/smarter_csv/parse_csv_line'
+
+#  require "#{ENV['GEM_HOME']}/smarter_csv/parse_csv_line" ## does this work?
 else
   require_relative '../../ext/smarter_csv/parse_csv_line'
 end

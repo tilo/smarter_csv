@@ -12,18 +12,17 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/tilo/smarter_csv"
   spec.license       = 'MIT'
 
-  # spec.files         = `git ls-files`.split($\)
-  spec.files         = FileList['lib/**/*.rb', 'ext/**/*.{rb,c,h}']
+  spec.files         = Dir.glob('lib/**/*.rb') + Dir.glob('ext/**/*.{c, h, rb}')
+  spec.require_paths = ["lib", "ext"]
+
   spec.executables   = spec.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
-  spec.require_paths = ["lib", "ext"]
+
   spec.add_development_dependency "pry"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "codecov"
   spec.add_development_dependency "awesome_print"
-#  spec.add_development_dependency "rake-compiler", '= 1.2.0'
-#  spec.add_development_dependency "rake-compiler-dock", '~> 1.2', '>= 1.2.1'
 
   spec.metadata["homepage_uri"] = spec.homepage
 
