@@ -23,7 +23,7 @@ require 'smarter_csv'
 
 desc "Run RSpec"
 RSpec::Core::RakeTask.new do |t|
-  # t.verbose = false
+  t.verbose = true
 end
 
 task :test => :spec

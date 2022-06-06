@@ -28,4 +28,6 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
 
   spec.extensions << "ext/smarter_csv/extconf.rb"
+
+  puts "FILES: #{spec.files.inspect}"
 end
