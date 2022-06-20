@@ -32,7 +32,7 @@ module SmarterCSV
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
 
-    @has_c_acceleration = defined?(parse_csv_line_c)
+    @has_acceleration = defined?(parse_csv_line_c)
     headerA = []
     result = []
     @file_line_count = 0
@@ -248,7 +248,7 @@ module SmarterCSV
   def self.parse(line, options, header_size = nil)
     # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    if options[:acceleration] && @has_c_acceleration
+    if options[:acceleration] && @has_acceleration
       # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
       has_quotes = line =~ /#{options[:quote_char]}/
       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
@@ -261,6 +261,9 @@ module SmarterCSV
     end
   end
 
+  def self.has_acceleration
+    @has_acceleration
+  end
   # ------------------------------------------------------------------
   # Ruby equivalent of the C-extension for parse_line
   #
