@@ -3,7 +3,9 @@
 *old
 *.bak
 *.gem
-.bundle
+*.bundle
+*.o
+Makefile
 Gemfile.lock
 pkg/*
 coverage/*
