@@ -1,16 +1,15 @@
 # frozen_string_literal: true
 
-# puts "PWD 2 #{`pwd`}"
-# puts "ENV: #{ENV.inspect}"
-# puts "GEM_HOME: #{`ls -l #{ENV['GEM_HOME']}`}}"
+puts "PWD 2 #{`pwd`}"
+puts "ENV: #{ENV.inspect}"
+puts "GEM_HOME: #{`ls -l #{ENV['GEM_HOME']}`}}"
 
 # require "smarter_csv/parse_csv_line"
 
 if ENV['CI']
   puts "FILE IS: #{`find . -type f -name parse_csv_line\*`.chomp}"
 
-  # require 'smarter_csv/parse_csv_line'
-  require_relative 'parse_csv_line'
+  require 'smarter_csv/parse_csv_line'
 
 #  require "#{ENV['GEM_HOME']}/smarter_csv/parse_csv_line" ## does this work?
 else
