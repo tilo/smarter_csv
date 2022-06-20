@@ -7,7 +7,11 @@ fixture_path = 'spec/fixtures'
   describe "fulfills basic tests with#{bool ? ' C-' : 'out '}acceleration" do
     let(:options) { { acceleration: bool } }
 
-    describe 'be_able_to' do
+    describe 'basic CSV processing' do
+      it 'compiles the acceleration' do
+        expect(SmarterCSV.has_acceleration?).to eq true
+      end
+
       it 'loads_basic_csv_file' do
         data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
         data.size.should == 5
