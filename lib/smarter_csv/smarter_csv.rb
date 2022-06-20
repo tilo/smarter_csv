@@ -16,7 +16,7 @@
 #   require_relative '../../ext/smarter_csv/parse_csv_line'
 # end
 
-require 'smarter_csv/parse_csv_line'
+require 'smarter_csv/parse_csv_line' unless ENV['CI']
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
