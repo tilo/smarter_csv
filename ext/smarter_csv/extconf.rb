@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'mkmf'
 
 require "rbconfig"
@@ -9,4 +11,4 @@ end
 
 CONFIG["optflags"] = "-O3"
 
-create_makefile 'parse_csv_line'
+create_makefile('smarter_csv/parse_csv_line')
