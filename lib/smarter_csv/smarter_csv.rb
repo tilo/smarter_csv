@@ -374,13 +374,15 @@ module SmarterCSV
   def self.guess_column_separator(filehandle, options)
     del = [',', "\t", ';', ':', '|']
     n = Hash.new(0)
-    5.times do
-      line = filehandle.readline(options[:row_sep])
-      del.each do |d|
-        n[d] += line.scan(d).count
+    begin # for backwards compatibility to old Ruby versions < 2.5
+      5.times do
+        line = filehandle.readline(options[:row_sep])
+        del.each do |d|
+          n[d] += line.scan(d).count
+        end
+      rescue EOFError # short files
+        break
       end
-    rescue EOFError # short files
-      break
     end
     filehandle.rewind
     raise SmarterCSV::NoColSepDetected if n.values.max == 0
