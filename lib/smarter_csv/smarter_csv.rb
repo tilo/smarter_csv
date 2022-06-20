@@ -9,7 +9,8 @@
 if ENV['CI']
   puts "FILE IS: #{`find . -type f -name parse_csv_line\*`.chomp}"
 
-  require 'smarter_csv/parse_csv_line'
+  # require 'smarter_csv/parse_csv_line'
+  require_relative '../../ext/smarter_csv/parse_csv_line'
 
 #  require "#{ENV['GEM_HOME']}/smarter_csv/parse_csv_line" ## does this work?
 else
