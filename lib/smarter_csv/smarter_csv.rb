@@ -16,6 +16,8 @@
 #   require_relative '../../ext/smarter_csv/parse_csv_line'
 # end
 
+require 'smarter_csv/parse_csv_line'
+
 module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
@@ -32,7 +34,6 @@ module SmarterCSV
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
 
-    @has_acceleration = defined?(parse_csv_line_c)
     headerA = []
     result = []
     @file_line_count = 0
@@ -197,6 +198,10 @@ module SmarterCSV
     end
   end
 
+  def self.has_acceleration?
+    @has_acceleration ||= !!defined?(parse_csv_line_c)
+  end
+
   private
 
   # NOTE: this is not called when "parse" methods are tested by themselves
@@ -224,7 +229,7 @@ module SmarterCSV
       remove_values_matching: nil,
       remove_zero_values: false,
       required_headers: nil,
-      row_sep: $INPUT_RECORD_SEPARATOR,
+      row_sep: $/,
       skip_lines: nil,
       strings_as_keys: false,
       strip_chars_from_headers: nil,
@@ -248,7 +253,7 @@ module SmarterCSV
   def self.parse(line, options, header_size = nil)
     # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    if options[:acceleration] && @has_acceleration
+    if options[:acceleration] && has_acceleration?
       # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
       has_quotes = line =~ /#{options[:quote_char]}/
       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
@@ -261,9 +266,6 @@ module SmarterCSV
     end
   end
 
-  def self.has_acceleration
-    @has_acceleration
-  end
   # ------------------------------------------------------------------
   # Ruby equivalent of the C-extension for parse_line
   #
@@ -501,7 +503,7 @@ module SmarterCSV
       duplicate_headers << k if headerA.select{|x| x == k}.size > 1
     end
 
-    unless duplicate_headers.empty? || options[:user_provided_headers]
+    unless options[:user_provided_headers] || duplicate_headers.empty?
       raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
     end
 
