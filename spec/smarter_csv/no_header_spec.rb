@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'no header in file' do
   let(:headers) { %i[a b c d e f] }
-  let(:options) { {:headers_in_file => false, :user_provided_headers => headers} }
+  let(:options) { {headers_in_file: false, user_provided_headers: headers} }
   subject(:data) { SmarterCSV.process("#{fixture_path}/no_header.csv", options) }
 
   it 'load the correct number of records' do

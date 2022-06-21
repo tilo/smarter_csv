@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'strip_whitespace_from_headers' do
-    options = {:strip_chars_from_headers => ' '}
+    options = {strip_chars_from_headers: ' '}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 5
     # all the keys should be symbols

@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'remove_values_matching' do
-    options = {:remove_zero_values => true, :remove_empty_values => true, :remove_values_matching => /^\d+$/}
+    options = {remove_zero_values: true, remove_empty_values: true, remove_values_matching: /^\d+$/}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 5
     # all the keys should be symbols

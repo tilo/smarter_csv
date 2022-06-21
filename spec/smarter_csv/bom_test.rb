@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'loads CSV file with BOM character' do
-    options = {:col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/}
+    options = {col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/}
     data = SmarterCSV.process("#{fixture_path}/bom_test.csv", options)
     data.flatten.size.should == 9
     data.each do |item|

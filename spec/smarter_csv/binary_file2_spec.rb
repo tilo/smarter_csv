@@ -12,7 +12,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'loads_binary_file_with_strings_as_keys' do
-    options = {:col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/, :strings_as_keys => true}
+    options = {col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/, strings_as_keys: true}
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
     data.size.should == 8
     data.each do |item|

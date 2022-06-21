@@ -7,8 +7,8 @@ fixture_path = 'spec/fixtures'
 describe 'process files with line endings explicitly pre-specified' do
   it 'should process a file with \n for line endings and within data fields' do
     sep = "\n"
-    options = {:row_sep => sep}
-    data = SmarterCSV.process("#{fixture_path}/carriage_returns_n.csv", {:row_sep => sep})
+    options = {row_sep: sep}
+    data = SmarterCSV.process("#{fixture_path}/carriage_returns_n.csv", {row_sep: sep})
     data.flatten.size.should == 8
     data[0][:name].should == "Anfield"
     data[0][:street].should == "Anfield Road"
@@ -30,7 +30,7 @@ describe 'process files with line endings explicitly pre-specified' do
 
   it 'should process a file with \r for line endings and within data fields' do
     sep = "\r"
-    data = SmarterCSV.process("#{fixture_path}/carriage_returns_r.csv", {:row_sep => sep})
+    data = SmarterCSV.process("#{fixture_path}/carriage_returns_r.csv", {row_sep: sep})
     data.flatten.size.should == 8
     data[0][:name].should == "Anfield"
     data[0][:street].should == "Anfield Road"
@@ -52,7 +52,7 @@ describe 'process files with line endings explicitly pre-specified' do
 
   it 'should process a file with \r\n for line endings and within data fields' do
     sep = "\r\n"
-    data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", {:row_sep => sep})
+    data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", {row_sep: sep})
     data.flatten.size.should == 8
     data[0][:name].should == "Anfield"
     data[0][:street].should == "Anfield Road"
@@ -75,7 +75,7 @@ describe 'process files with line endings explicitly pre-specified' do
   it 'should process a file with more quoted text carriage return characters (\r) than line ending characters (\n)' do
     row_sep = "\n"
     text_sep = "\r"
-    data = SmarterCSV.process("#{fixture_path}/carriage_returns_quoted.csv", {:row_sep => row_sep})
+    data = SmarterCSV.process("#{fixture_path}/carriage_returns_quoted.csv", {row_sep: row_sep})
     data.flatten.size.should == 2
     data[0][:band].should == "New Order"
     data[0][:members].should == ["Bernard Sumner", "Peter Hook", "Stephen Morris", "Gillian Gilbert"].join(text_sep)

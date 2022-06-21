@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
   it 'use_strings_as_keys' do
-    options = {:strings_as_keys => true}
+    options = {strings_as_keys: true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 5
     # all the keys should be symbols

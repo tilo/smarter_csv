@@ -27,7 +27,7 @@ describe 'be_able_to' do
   end
 
   it 'loads file with unicode strings, when forcing utf8' do
-    options = {:force_utf8 => true}
+    options = {force_utf8: true}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
     data.flatten.size.should == 4
     data[0][:artist].should eq 'Кино'
@@ -48,7 +48,7 @@ describe 'be_able_to' do
   end
 
   it 'loads file with unicode strings, when loading from binary input' do
-    options = {:file_encoding => 'binary'}
+    options = {file_encoding: 'binary'}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
     data.flatten.size.should == 4
     data[0][:artist].should eq 'Кино'
@@ -69,7 +69,7 @@ describe 'be_able_to' do
   end
 
   it 'loads file with unicode strings, when forcing utf8 with binary input' do
-    options = {:file_encoding => 'binary', :force_utf8 => true}
+    options = {file_encoding: 'binary', force_utf8: true}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
     data.flatten.size.should == 4
     data[0][:artist].should eq 'Кино'

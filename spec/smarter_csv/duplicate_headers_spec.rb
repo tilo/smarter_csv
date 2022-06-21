@@ -20,14 +20,14 @@ describe 'duplicate headers' do
 
     it 'does not raise error when user_provided_headers are given' do
       expect do
-        options = {:user_provided_headers => %i[a b c d a]}
+        options = {user_provided_headers: %i[a b c d a]}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
       end.not_to raise_exception
     end
 
     it 'raises error on duplicate headers, when attempting to do key_mapping' do
       # the mapping is right, but the underlying csv file is bad
-      options = {:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :manager_email => :d, :age => :e} }
+      options = {key_mapping: {email: :a, firstname: :b, lastname: :c, manager_email: :d, age: :e} }
       expect do
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
       end.to raise_exception(SmarterCSV::DuplicateHeaders)
@@ -49,13 +49,13 @@ describe 'duplicate headers' do
       end
 
       it 'enumerates when duplicate headers are given' do
-        options.merge!({:user_provided_headers => %i[a b c a a]})
+        options.merge!({user_provided_headers: %i[a b c a a]})
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         expect(data.first.keys).to eq %i[a b c a_2 a_3]
       end
 
       it 'can remap duplicated headers' do
-        options.merge!({:key_mapping => {:email => :a, :firstname => :b, :lastname => :c, :email_2 => :d, :age => :e}})
+        options.merge!({key_mapping: {email: :a, firstname: :b, lastname: :c, email_2: :d, age: :e}})
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         expect(data.first).to eq({a: 'tom@bla.com', b: 'Tom', c: 'Sawyer', d: 'mike@bla.com', e: 34})
       end
@@ -75,7 +75,7 @@ describe 'duplicate headers' do
       end
 
       it 'enumerates when duplicate headers are given' do
-        options.merge!({:user_provided_headers => %i[a b c a a]})
+        options.merge!({user_provided_headers: %i[a b c a a]})
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         expect(data.first.keys).to eq %i[a b c a2 a3]
       end

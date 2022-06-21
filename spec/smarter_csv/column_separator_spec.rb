@@ -13,35 +13,35 @@ describe 'can handle col_sep' do
 
   describe 'with explicitly given col_sep' do
     it 'loads file with comma separator' do
-      options = {:col_sep => ','}
+      options = {col_sep: ','}
       data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
       data.first.keys.size.should == 4
       data.size.should eq 3
     end
 
     it 'loads file with tab separator' do
-      options = {:col_sep => "\t"}
+      options = {col_sep: "\t"}
       data = SmarterCSV.process("#{fixture_path}/separator_tab.csv", options)
       data.first.keys.size.should == 4
       data.size.should eq 3
     end
 
     it 'loads file with semi-colon separator' do
-      options = {:col_sep => ';'}
+      options = {col_sep: ';'}
       data = SmarterCSV.process("#{fixture_path}/separator_semi.csv", options)
       data.first.keys.size.should == 4
       data.size.should eq 3
     end
 
     it 'loads file with colon separator' do
-      options = {:col_sep => ':'}
+      options = {col_sep: ':'}
       data = SmarterCSV.process("#{fixture_path}/separator_colon.csv", options)
       data.first.keys.size.should == 4
       data.size.should eq 3
     end
 
     it 'loads file with pipe separator' do
-      options = {:col_sep => '|'}
+      options = {col_sep: '|'}
       data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
       data.first.keys.size.should == 4
       data.size.should eq 3
