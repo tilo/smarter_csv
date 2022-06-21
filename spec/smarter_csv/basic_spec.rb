@@ -8,8 +8,11 @@ fixture_path = 'spec/fixtures'
     let(:options) { { acceleration: bool } }
 
     describe 'basic CSV processing' do
-      it 'compiles the acceleration' do
-        expect(SmarterCSV.has_acceleration?).to eq true
+      # works only when testing locally
+      unless ENV['CI']
+        it 'compiles the acceleration' do
+          expect(SmarterCSV.has_acceleration?).to eq true
+        end
       end
 
       it 'loads_basic_csv_file' do
