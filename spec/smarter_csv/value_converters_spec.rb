@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -5,13 +7,13 @@ fixture_path = 'spec/fixtures'
 require 'date'
 class DateConverter
   def self.convert(value)
-    Date.strptime( value, '%m/%d/%Y')
+    Date.strptime(value, '%m/%d/%Y')
   end
 end
 
 class CurrencyConverter
   def self.convert(value)
-    value.sub(/[$]/,'').to_f  # would be nice to add a computed column :currency => '€'
+    value.sub(/[$]/, '').to_f  # would be nice to add a computed column :currency => '€'
   end
 end
 

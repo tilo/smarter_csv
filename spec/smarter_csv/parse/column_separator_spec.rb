@@ -1,9 +1,9 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 [true, false].each do |bool|
-
   describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
-
     describe 'parse with col_sep' do
       let(:options) { {quote_char: '"', acceleration: bool} }
 
@@ -63,6 +63,5 @@ require 'spec_helper'
         expect(array_size).to eq 7
       end
     end
-
   end
 end

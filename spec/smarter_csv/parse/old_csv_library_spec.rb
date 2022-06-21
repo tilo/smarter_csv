@@ -1,9 +1,9 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 [true, false].each do |bool|
-
   describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
-
     describe 'old CSV library parsing tests' do
       let(:options) { {quote_char: '"', col_sep: ",", acceleration: bool} }
 
@@ -82,6 +82,5 @@ require 'spec_helper'
         expect(array).to eq ['Indoor Chrome', '49.2" L x 49.2" W x 20.5" H', 'Chrome', 'Crystal,Metal,Wood', '23.12']
       end
     end
-
   end
 end

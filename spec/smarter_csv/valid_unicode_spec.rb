@@ -1,10 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-
-
   it 'loads file with unicode strings' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
@@ -15,7 +15,7 @@ describe 'be_able_to' do
     data[0][:label].should eq 'Moroz Records'
     data[0][:year].should eq 1998
 
-    data[0].should eq  data[1]
+    data[0].should eq data[1]
 
     data[2][:artist].should eq 'Rammstein'
     data[2][:track].should eq 'Frühling in Paris'
@@ -23,7 +23,7 @@ describe 'be_able_to' do
     data[2][:label].should eq 'Vagrant'
     data[2][:year].should eq 2009
 
-    data[2].should eq  data[3]
+    data[2].should eq data[3]
   end
 
   it 'loads file with unicode strings, when forcing utf8' do
@@ -36,7 +36,7 @@ describe 'be_able_to' do
     data[0][:label].should eq 'Moroz Records'
     data[0][:year].should eq 1998
 
-    data[0].should eq  data[1]
+    data[0].should eq data[1]
 
     data[2][:artist].should eq 'Rammstein'
     data[2][:track].should eq 'Frühling in Paris'
@@ -44,10 +44,8 @@ describe 'be_able_to' do
     data[2][:label].should eq 'Vagrant'
     data[2][:year].should eq 2009
 
-    data[2].should eq  data[3]
+    data[2].should eq data[3]
   end
-
-
 
   it 'loads file with unicode strings, when loading from binary input' do
     options = {:file_encoding => 'binary'}
@@ -59,7 +57,7 @@ describe 'be_able_to' do
     data[0][:label].should eq 'Moroz Records'
     data[0][:year].should eq 1998
 
-    data[0].should eq  data[1]
+    data[0].should eq data[1]
 
     data[2][:artist].should eq 'Rammstein'
     data[2][:track].should eq 'Frühling in Paris'
@@ -67,7 +65,7 @@ describe 'be_able_to' do
     data[2][:label].should eq 'Vagrant'
     data[2][:year].should eq 2009
 
-    data[2].should eq  data[3]
+    data[2].should eq data[3]
   end
 
   it 'loads file with unicode strings, when forcing utf8 with binary input' do
@@ -80,7 +78,7 @@ describe 'be_able_to' do
     data[0][:label].should eq 'Moroz Records'
     data[0][:year].should eq 1998
 
-    data[0].should eq  data[1]
+    data[0].should eq data[1]
 
     data[2][:artist].should eq 'Rammstein'
     data[2][:track].should eq 'Frühling in Paris'
@@ -88,7 +86,6 @@ describe 'be_able_to' do
     data[2][:label].should eq 'Vagrant'
     data[2][:year].should eq 2009
 
-    data[2].should eq  data[3]
+    data[2].should eq data[3]
   end
-
 end

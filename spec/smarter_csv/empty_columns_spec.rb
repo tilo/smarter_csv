@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'can handle empty columns' do
-
   describe 'default behavior' do
     it 'has empty columns at end' do
       data = SmarterCSV.process("#{fixture_path}/empty_columns_1.csv")

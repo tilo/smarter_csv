@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -13,7 +15,7 @@ describe 'be_able_to' do
     data.each{|item| item.keys.each{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
       h.keys.each do |key|
-        [:"not_a_comment#first_name", :last_name, :dogs, :cats, :birds, :fish].should include( key )
+        [:"not_a_comment#first_name", :last_name, :dogs, :cats, :birds, :fish].should include(key)
       end
     end
   end
@@ -28,7 +30,7 @@ describe 'be_able_to' do
     data.each{|item| item.keys.each{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
       h.keys.each do |key|
-        [:"not_a_comment#first_name", :last_name, :dogs, :cats, :birds, :fish].should include( key )
+        [:"not_a_comment#first_name", :last_name, :dogs, :cats, :birds, :fish].should include(key)
       end
     end
   end

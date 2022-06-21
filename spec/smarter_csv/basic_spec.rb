@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 [true, false].each do |bool|
-
   describe "fulfills basic tests with#{bool ? ' C-' : 'out '}acceleration" do
     let(:options) { { acceleration: bool } }
 
@@ -23,7 +24,7 @@ fixture_path = 'spec/fixtures'
         data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
         data.each do |h|
           h.keys.each do |key|
-            [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include( key )
+            [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include(key)
           end
           h.size.should <= 6
         end
@@ -51,6 +52,5 @@ fixture_path = 'spec/fixtures'
         end
       end
     end
-
   end
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -18,7 +20,7 @@ describe 'duplicate headers' do
 
     it 'does not raise error when user_provided_headers are given' do
       expect {
-        options = {:user_provided_headers => [:a,:b,:c,:d,:a]}
+        options = {:user_provided_headers => [:a, :b, :c, :d, :a]}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
       }.not_to raise_exception
     end
@@ -47,7 +49,7 @@ describe 'duplicate headers' do
       end
 
       it 'enumerates when duplicate headers are given' do
-        options.merge!({:user_provided_headers => [:a,:b,:c,:a,:a]})
+        options.merge!({:user_provided_headers => [:a, :b, :c, :a, :a]})
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         expect(data.first.keys).to eq [:a, :b, :c, :a_2, :a_3]
       end
@@ -73,7 +75,7 @@ describe 'duplicate headers' do
       end
 
       it 'enumerates when duplicate headers are given' do
-        options.merge!({:user_provided_headers => [:a,:b,:c,:a,:a]})
+        options.merge!({:user_provided_headers => [:a, :b, :c, :a, :a]})
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         expect(data.first.keys).to eq [:a, :b, :c, :a2, :a3]
       end

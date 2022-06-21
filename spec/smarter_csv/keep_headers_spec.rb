@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -12,7 +14,7 @@ describe 'be_able_to' do
 
     data.each do |item|
       item.keys.each do |key|
-        ['First Name','Last Name','Dogs','Cats','Birds','Fish'].should include( key )
+        ['First Name', 'Last Name', 'Dogs', 'Cats', 'Birds', 'Fish'].should include(key)
       end
     end
 
@@ -20,5 +22,4 @@ describe 'be_able_to' do
       h.size.should <= 6
     end
   end
-
 end

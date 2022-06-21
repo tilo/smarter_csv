@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'can handle col_sep' do
-
   it 'has default of comma as col_sep' do
     data = SmarterCSV.process("#{fixture_path}/separator_comma.csv") # no options
     data.first.keys.size.should == 4

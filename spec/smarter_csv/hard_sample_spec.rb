@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'can handle the difficult CSV file' do
-
   it 'loads the data with default values' do
     data = SmarterCSV.process("#{fixture_path}/hard_sample.csv")
     data.size.should eq 1
