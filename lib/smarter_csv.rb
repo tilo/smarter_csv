@@ -196,326 +196,329 @@ module SmarterCSV
     @headers
   end
 
-  private
+  class << self
 
-  # NOTE: this is not called when "parse" methods are tested by themselves
-  def self.default_options
-    {
-      acceleration: true,
-      auto_row_sep_chars: 500,
-      chunk_size: nil,
-      col_sep: ',',
-      comment_regexp: nil, # was: /\A#/,
-      convert_values_to_numeric: true,
-      downcase_header: true,
-      duplicate_header_suffix: nil,
-      file_encoding: 'utf-8',
-      force_simple_split: false,
-      force_utf8: false,
-      headers_in_file: true,
-      invalid_byte_sequence: '',
-      keep_original_headers: false,
-      key_mapping_hash: nil,
-      quote_char: '"',
-      remove_empty_hashes: true,
-      remove_empty_values: true,
-      remove_unmapped_keys: false,
-      remove_values_matching: nil,
-      remove_zero_values: false,
-      required_headers: nil,
-      row_sep: $/,
-      skip_lines: nil,
-      strings_as_keys: false,
-      strip_chars_from_headers: nil,
-      strip_whitespace: true,
-      user_provided_headers: nil,
-      value_converters: nil,
-      verbose: false,
-    }
-  end
+    protected
 
-  def self.readline_with_counts(filehandle, options)
-    line = filehandle.readline(options[:row_sep])
-    @file_line_count += 1
-    @csv_line_count += 1
-    line
-  end
-
-  ###
-  ### Thin wrapper around C-extension
-  ###
-  def self.parse(line, options, header_size = nil)
-    # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
-
-    if options[:acceleration] && has_acceleration?
-      # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
-      has_quotes = line =~ /#{options[:quote_char]}/
-      elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
-      elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
-      return [elements, elements.size]
-
-    else
-      # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
-      return parse_csv_line_ruby(line, options, header_size)
+    # NOTE: this is not called when "parse" methods are tested by themselves
+    def default_options
+      {
+        acceleration: true,
+        auto_row_sep_chars: 500,
+        chunk_size: nil,
+        col_sep: ',',
+        comment_regexp: nil, # was: /\A#/,
+        convert_values_to_numeric: true,
+        downcase_header: true,
+        duplicate_header_suffix: nil,
+        file_encoding: 'utf-8',
+        force_simple_split: false,
+        force_utf8: false,
+        headers_in_file: true,
+        invalid_byte_sequence: '',
+        keep_original_headers: false,
+        key_mapping_hash: nil,
+        quote_char: '"',
+        remove_empty_hashes: true,
+        remove_empty_values: true,
+        remove_unmapped_keys: false,
+        remove_values_matching: nil,
+        remove_zero_values: false,
+        required_headers: nil,
+        row_sep: $/,
+        skip_lines: nil,
+        strings_as_keys: false,
+        strip_chars_from_headers: nil,
+        strip_whitespace: true,
+        user_provided_headers: nil,
+        value_converters: nil,
+        verbose: false,
+      }
     end
-  end
 
-  # ------------------------------------------------------------------
-  # Ruby equivalent of the C-extension for parse_line
-  #
-  # parses a single line: either a CSV header and body line
-  # - quoting rules compared to RFC-4180 are somewhat relaxed
-  # - we are not assuming that quotes inside a fields need to be doubled
-  # - we are not assuming that all fields need to be quoted (0 is even)
-  # - works with multi-char col_sep
-  # - if header_size is given, only up to header_size fields are parsed
-  #
-  # We use header_size for parsing the body lines to make sure we always match the number of headers
-  # in case there are trailing col_sep characters in line
-  #
-  # Our convention is that empty fields are returned as empty strings, not as nil.
-  #
-  #
-  # the purpose of the max_size parameter is to handle a corner case where
-  # CSV lines contain more fields than the header.
-  # In which case the remaining fields in the line are ignored
-  #
-  def self.parse_csv_line_ruby(line, options, header_size = nil)
-    return [] if line.nil?
-
-    line_size = line.size
-    col_sep = options[:col_sep]
-    col_sep_size = col_sep.size
-    quote = options[:quote_char]
-    quote_count = 0
-    elements = []
-    start = 0
-    i = 0
-
-    while i < line_size
-      if line[i...i+col_sep_size] == col_sep && quote_count.even?
-        break if !header_size.nil? && elements.size >= header_size
-
-        elements << cleanup_quotes(line[start...i], quote)
-        i += col_sep.size
-        start = i
-      else
-        quote_count += 1 if line[i] == quote
-        i += 1
-      end
-    end
-    elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
-    [elements, elements.size]
-  end
-
-  def self.cleanup_quotes(field, quote)
-    return field if field.nil?
-
-    # return if field !~ /#{quote}/ # this check can probably eliminated
-
-    if field.start_with?(quote) && field.end_with?(quote)
-      field.delete_prefix!(quote)
-      field.delete_suffix!(quote)
-    end
-    field.gsub!("#{quote}#{quote}", quote)
-    field
-  end
-
-  # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
-  # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
-  BLANK_RE = /\A\s*\z/.freeze
-
-  def self.blank?(value)
-    case value
-    when String
-      value.empty? || BLANK_RE.match?(value)
-
-    when NilClass
-      true
-
-    when Array
-      value.empty? || value.inject(true){|result, x| result &&= elem_blank?(x)}
-
-    when Hash
-      value.empty? || value.values.inject(true){|result, x| result &&= elem_blank?(x)}
-
-    else
-      false
-    end
-  end
-
-  def self.elem_blank?(value)
-    case value
-    when String
-      value.empty? || BLANK_RE.match?(value)
-
-    when NilClass
-      true
-
-    else
-      false
-    end
-  end
-
-  # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
-  def self.only_or_except_limit_execution(options, option_name, key)
-    if options[option_name].is_a?(Hash)
-      if options[option_name].has_key?(:except)
-        return true if Array(options[option_name][:except]).include?(key)
-      elsif options[option_name].has_key?(:only)
-        return true unless Array(options[option_name][:only]).include?(key)
-      end
-    end
-    return false
-  end
-
-  # raise exception if none is found
-  def self.guess_column_separator(filehandle, options)
-    del = [',', "\t", ';', ':', '|']
-    n = Hash.new(0)
-
-    5.times do
+    def readline_with_counts(filehandle, options)
       line = filehandle.readline(options[:row_sep])
-      del.each do |d|
-        n[d] += line.scan(d).count
-      end
-    rescue EOFError # short files
-      break
+      @file_line_count += 1
+      @csv_line_count += 1
+      line
     end
 
-    filehandle.rewind
-    raise SmarterCSV::NoColSepDetected if n.values.max == 0
+    ###
+    ### Thin wrapper around C-extension
+    ###
+    def parse(line, options, header_size = nil)
+      # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-    col_sep = n.key(n.values.max)
-  end
+      if options[:acceleration] && has_acceleration?
+        # puts "NOTICE: Accelerated SmarterCSV / #{options[:acceleration]}" if options[:verbose]
+        has_quotes = line =~ /#{options[:quote_char]}/
+        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
+        elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
+        return [elements, elements.size]
 
-  # limitation: this currently reads the whole file in before making a decision
-  def self.guess_line_ending(filehandle, options)
-    counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
-    quoted_char = false
-
-    # count how many of the pre-defined line-endings we find
-    # ignoring those contained within quote characters
-    last_char = nil
-    lines = 0
-    filehandle.each_char do |c|
-      quoted_char = !quoted_char if c == options[:quote_char]
-      next if quoted_char
-
-      if last_char == "\r"
-        if c == "\n"
-          counts["\r\n"] += 1
-        else
-          counts["\r"] += 1 # \r are counted after they appeared
-        end
-      elsif c == "\n"
-        counts["\n"] += 1
-      end
-      last_char = c
-      lines += 1
-      break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
-    end
-    filehandle.rewind
-
-    counts["\r"] += 1 if last_char == "\r"
-    # find the most frequent key/value pair:
-    k, _ = counts.max_by{|_, v| v}
-    return k
-  end
-
-  def self.process_headers(filehandle, options)
-    @raw_header = nil
-    @headers = nil
-    if options[:headers_in_file] # extract the header line
-      # process the header line in the CSV file..
-      # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-      header = readline_with_counts(filehandle, options)
-      @raw_header = header
-
-      header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-      header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
-      header = header.chomp(options[:row_sep])
-
-      header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-
-      file_headerA, file_header_size = parse(header, options)
-
-      file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
-      file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
-      unless options[:keep_original_headers]
-        file_headerA.map!{|x| x.gsub(/\s+|-+/, '_')}
-        file_headerA.map!{|x| x.downcase} if options[:downcase_header]
-      end
-    else
-      raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" unless options[:user_provided_headers]
-    end
-    if options[:user_provided_headers] && options[:user_provided_headers].class == Array && !options[:user_provided_headers].empty?
-      # use user-provided headers
-      headerA = options[:user_provided_headers]
-      if defined?(file_header_size) && !file_header_size.nil?
-        if headerA.size != file_header_size
-          raise SmarterCSV::HeaderSizeMismatch, "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
-        else
-          # we could print out the mapping of file_headerA to headerA here
-        end
-      end
-    else
-      headerA = file_headerA
-    end
-
-    # detect duplicate headers and disambiguate
-    headerA = process_duplicate_headers(headerA, options) if options[:duplicate_header_suffix]
-    header_size = headerA.size # used for splitting lines
-
-    headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
-
-    unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
-      key_mappingH = options[:key_mapping]
-
-      # do some key mapping on the keys in the file header
-      #   if you want to completely delete a key, then map it to nil or to ''
-      if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-        # we can't map keys that are not there
-        missing_keys = key_mappingH.keys - headerA
-        puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
-
-        headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
-      end
-    end
-
-    # header_validations
-    duplicate_headers = []
-    headerA.compact.each do |k|
-      duplicate_headers << k if headerA.select{|x| x == k}.size > 1
-    end
-
-    unless options[:user_provided_headers] || duplicate_headers.empty?
-      raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
-    end
-
-    if options[:required_headers] && options[:required_headers].is_a?(Array)
-      missing_headers = []
-      options[:required_headers].each do |k|
-        missing_headers << k unless headerA.include?(k)
-      end
-      raise SmarterCSV::MissingHeaders, "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
-    end
-
-    @headers = headerA
-    [headerA, header_size]
-  end
-
-  def self.process_duplicate_headers(headers, options)
-    counts = Hash.new(0)
-    result = []
-    headers.each do |key|
-      counts[key] += 1
-      if counts[key] == 1
-        result << key
       else
-        result << [key, options[:duplicate_header_suffix], counts[key]].join
+        # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
+        return parse_csv_line_ruby(line, options, header_size)
       end
     end
-    result
+
+    # ------------------------------------------------------------------
+    # Ruby equivalent of the C-extension for parse_line
+    #
+    # parses a single line: either a CSV header and body line
+    # - quoting rules compared to RFC-4180 are somewhat relaxed
+    # - we are not assuming that quotes inside a fields need to be doubled
+    # - we are not assuming that all fields need to be quoted (0 is even)
+    # - works with multi-char col_sep
+    # - if header_size is given, only up to header_size fields are parsed
+    #
+    # We use header_size for parsing the body lines to make sure we always match the number of headers
+    # in case there are trailing col_sep characters in line
+    #
+    # Our convention is that empty fields are returned as empty strings, not as nil.
+    #
+    #
+    # the purpose of the max_size parameter is to handle a corner case where
+    # CSV lines contain more fields than the header.
+    # In which case the remaining fields in the line are ignored
+    #
+    def parse_csv_line_ruby(line, options, header_size = nil)
+      return [] if line.nil?
+
+      line_size = line.size
+      col_sep = options[:col_sep]
+      col_sep_size = col_sep.size
+      quote = options[:quote_char]
+      quote_count = 0
+      elements = []
+      start = 0
+      i = 0
+
+      while i < line_size
+        if line[i...i+col_sep_size] == col_sep && quote_count.even?
+          break if !header_size.nil? && elements.size >= header_size
+
+          elements << cleanup_quotes(line[start...i], quote)
+          i += col_sep.size
+          start = i
+        else
+          quote_count += 1 if line[i] == quote
+          i += 1
+        end
+      end
+      elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
+      [elements, elements.size]
+    end
+
+    def cleanup_quotes(field, quote)
+      return field if field.nil?
+
+      # return if field !~ /#{quote}/ # this check can probably eliminated
+
+      if field.start_with?(quote) && field.end_with?(quote)
+        field.delete_prefix!(quote)
+        field.delete_suffix!(quote)
+      end
+      field.gsub!("#{quote}#{quote}", quote)
+      field
+    end
+
+    # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
+    # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
+    BLANK_RE = /\A\s*\z/.freeze
+
+    def blank?(value)
+      case value
+      when String
+        value.empty? || BLANK_RE.match?(value)
+
+      when NilClass
+        true
+
+      when Array
+        value.empty? || value.inject(true){|result, x| result &&= elem_blank?(x)}
+
+      when Hash
+        value.empty? || value.values.inject(true){|result, x| result &&= elem_blank?(x)}
+
+      else
+        false
+      end
+    end
+
+    def elem_blank?(value)
+      case value
+      when String
+        value.empty? || BLANK_RE.match?(value)
+
+      when NilClass
+        true
+
+      else
+        false
+      end
+    end
+
+    # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
+    def only_or_except_limit_execution(options, option_name, key)
+      if options[option_name].is_a?(Hash)
+        if options[option_name].has_key?(:except)
+          return true if Array(options[option_name][:except]).include?(key)
+        elsif options[option_name].has_key?(:only)
+          return true unless Array(options[option_name][:only]).include?(key)
+        end
+      end
+      return false
+    end
+
+    # raise exception if none is found
+    def guess_column_separator(filehandle, options)
+      del = [',', "\t", ';', ':', '|']
+      n = Hash.new(0)
+
+      5.times do
+        line = filehandle.readline(options[:row_sep])
+        del.each do |d|
+          n[d] += line.scan(d).count
+        end
+      rescue EOFError # short files
+        break
+      end
+
+      filehandle.rewind
+      raise SmarterCSV::NoColSepDetected if n.values.max == 0
+
+      col_sep = n.key(n.values.max)
+    end
+
+    # limitation: this currently reads the whole file in before making a decision
+    def guess_line_ending(filehandle, options)
+      counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
+      quoted_char = false
+
+      # count how many of the pre-defined line-endings we find
+      # ignoring those contained within quote characters
+      last_char = nil
+      lines = 0
+      filehandle.each_char do |c|
+        quoted_char = !quoted_char if c == options[:quote_char]
+        next if quoted_char
+
+        if last_char == "\r"
+          if c == "\n"
+            counts["\r\n"] += 1
+          else
+            counts["\r"] += 1 # \r are counted after they appeared
+          end
+        elsif c == "\n"
+          counts["\n"] += 1
+        end
+        last_char = c
+        lines += 1
+        break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
+      end
+      filehandle.rewind
+
+      counts["\r"] += 1 if last_char == "\r"
+      # find the most frequent key/value pair:
+      k, _ = counts.max_by{|_, v| v}
+      return k
+    end
+
+    def process_headers(filehandle, options)
+      @raw_header = nil
+      @headers = nil
+      if options[:headers_in_file] # extract the header line
+        # process the header line in the CSV file..
+        # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
+        header = readline_with_counts(filehandle, options)
+        @raw_header = header
+
+        header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
+        header = header.chomp(options[:row_sep])
+
+        header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
+
+        file_headerA, file_header_size = parse(header, options)
+
+        file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
+        file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
+        unless options[:keep_original_headers]
+          file_headerA.map!{|x| x.gsub(/\s+|-+/, '_')}
+          file_headerA.map!{|x| x.downcase} if options[:downcase_header]
+        end
+      else
+        raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" unless options[:user_provided_headers]
+      end
+      if options[:user_provided_headers] && options[:user_provided_headers].class == Array && !options[:user_provided_headers].empty?
+        # use user-provided headers
+        headerA = options[:user_provided_headers]
+        if defined?(file_header_size) && !file_header_size.nil?
+          if headerA.size != file_header_size
+            raise SmarterCSV::HeaderSizeMismatch, "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
+          else
+            # we could print out the mapping of file_headerA to headerA here
+          end
+        end
+      else
+        headerA = file_headerA
+      end
+
+      # detect duplicate headers and disambiguate
+      headerA = process_duplicate_headers(headerA, options) if options[:duplicate_header_suffix]
+      header_size = headerA.size # used for splitting lines
+
+      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+
+      unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
+        key_mappingH = options[:key_mapping]
+
+        # do some key mapping on the keys in the file header
+        #   if you want to completely delete a key, then map it to nil or to ''
+        if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
+          # we can't map keys that are not there
+          missing_keys = key_mappingH.keys - headerA
+          puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
+
+          headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
+        end
+      end
+
+      # header_validations
+      duplicate_headers = []
+      headerA.compact.each do |k|
+        duplicate_headers << k if headerA.select{|x| x == k}.size > 1
+      end
+
+      unless options[:user_provided_headers] || duplicate_headers.empty?
+        raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
+      end
+
+      if options[:required_headers] && options[:required_headers].is_a?(Array)
+        missing_headers = []
+        options[:required_headers].each do |k|
+          missing_headers << k unless headerA.include?(k)
+        end
+        raise SmarterCSV::MissingHeaders, "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
+      end
+
+      @headers = headerA
+      [headerA, header_size]
+    end
+
+    def process_duplicate_headers(headers, options)
+      counts = Hash.new(0)
+      result = []
+      headers.each do |key|
+        counts[key] += 1
+        if counts[key] == 1
+          result << key
+        else
+          result << [key, options[:duplicate_header_suffix], counts[key]].join
+        end
+      end
+      result
+    end
   end
 end
