@@ -70,8 +70,8 @@ module SmarterCSV
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
 
-        multiline = (line.count(options[:quote_char]) % 2) == 1 # should handle quote_char nil
-        while (line.count(options[:quote_char]) % 2) == 1 # should handle quote_char nil
+        multiline = line.count(options[:quote_char]).odd? # should handle quote_char nil
+        while line.count(options[:quote_char]).odd? # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
@@ -373,7 +373,7 @@ module SmarterCSV
   def self.guess_column_separator(filehandle, options)
     del = [',', "\t", ';', ':', '|']
     n = Hash.new(0)
-     # for backwards compatibility to old Ruby versions < 2.5
+
     5.times do
       line = filehandle.readline(options[:row_sep])
       del.each do |d|
