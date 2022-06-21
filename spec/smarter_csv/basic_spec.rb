@@ -18,15 +18,16 @@ fixture_path = 'spec/fixtures'
 
       it 'loads_basic_csv_file' do
         data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-        data.size.should == 5
+        expect(data.size).to eq 5
 
-        # all the keys should be symbols
-        data.each{|item| item.each_key{|x| x.class.should be == Symbol}}
         data.each do |h|
           h.each_key do |key|
-            %i[first_name last_name dogs cats birds fish].should include(key)
+            # all the keys should be symbols
+            expect(key.class).to eq Symbol
+
+            expect(%i[first_name last_name dogs cats birds fish]).to include(key)
           end
-          h.size.should <= 6
+          expect(h.size).to be <= 6
         end
       end
 
@@ -35,10 +36,10 @@ fixture_path = 'spec/fixtures'
 
         it 'replaces headers with user_provided_headers' do
           data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-          data.size.should == 5
+          expect(data.size).to eq 5
 
-          SmarterCSV.raw_header.should eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
-          SmarterCSV.headers.should eq %i[a b c d e f]
+          expect(SmarterCSV.raw_header).to eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
+          expect(SmarterCSV.headers).to eq %i[a b c d e f]
         end
       end
 

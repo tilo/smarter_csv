@@ -8,17 +8,17 @@ describe 'loading file with quoted fields' do
   it 'leaving the quotes in the data' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/quoted.csv", options)
-    data.flatten.size.should == 4
-    data[1][:model].should eq 'Venture "Extended Edition"'
-    data[1][:description].should be_nil
-    data[2][:model].should eq 'Venture "Extended Edition, Very Large"'
-    data[2][:description].should be_nil
-    data[3][:description].should eq 'MUST SELL! air, moon roof, loaded'
+    expect(data.flatten.size).to eq 4
+    expect(data[1][:model]).to eq 'Venture "Extended Edition"'
+    expect(data[1][:description]).to be_nil
+    expect(data[2][:model]).to eq 'Venture "Extended Edition, Very Large"'
+    expect(data[2][:description]).to be_nil
+    expect(data[3][:description]).to eq 'MUST SELL! air, moon roof, loaded'
     data.each do |h|
-      h[:year].class.should eq Fixnum
-      h[:make].should_not be_nil
-      h[:model].should_not be_nil
-      h[:price].class.should eq Float
+      expect(h[:year].class).to eq Fixnum
+      expect(h[:make]).to_not be_nil
+      expect(h[:model]).to_not be_nil
+      expect(h[:price].class).to eq Float
     end
   end
 
@@ -27,14 +27,14 @@ describe 'loading file with quoted fields' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/quote_char.csv", options)
 
-    data.length.should eq 6
-    data[0][:first_name].should eq "\"John"
-    data[0][:last_name].should eq "Cooke\""
-    data[1][:first_name].should eq "Jam\ne\nson\""
-    data[2][:first_name].should eq "\"Jean"
-    data[4][:first_name].should eq "Bo\"bbie"
-    data[5][:first_name].should eq 'Mica'
-    data[5][:last_name].should eq 'Copeland'
+    expect(data.length).to eq 6
+    expect(data[0][:first_name]).to eq "\"John"
+    expect(data[0][:last_name]).to eq "Cooke\""
+    expect(data[1][:first_name]).to eq "Jam\ne\nson\""
+    expect(data[2][:first_name]).to eq "\"Jean"
+    expect(data[4][:first_name]).to eq "Bo\"bbie"
+    expect(data[5][:first_name]).to eq 'Mica'
+    expect(data[5][:last_name]).to eq 'Copeland'
   end
 
   # NOTE: quotes inside headers need to be escaped by doubling them
@@ -46,9 +46,9 @@ describe 'loading file with quoted fields' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/quoted2.csv", options)
 
-    data.length.should eq 3
-    data.first.keys[2].should eq :isbn
-    data.first.keys[3].should eq :discounted_price
-    data[1][:author].should eq 'Timothy "The Parser" Campbell'
+    expect(data.length).to eq 3
+    expect(data.first.keys[2]).to eq :isbn
+    expect(data.first.keys[3]).to eq :discounted_price
+    expect(data[1][:author]).to eq 'Timothy "The Parser" Campbell'
   end
 end

@@ -8,19 +8,19 @@ describe 'test exceptions for invalid headers' do
   it 'does not raise an error if no required headers are given' do
     options = {required_headers: nil} # order does not matter
     data = SmarterCSV.process("#{fixture_path}/user_import.csv", options)
-    data.size.should eq 2
+    expect(data.size).to eq 2
   end
 
   it 'does not raise an error if no required headers are given' do
     options = {required_headers: []} # order does not matter
     data = SmarterCSV.process("#{fixture_path}/user_import.csv", options)
-    data.size.should eq 2
+    expect(data.size).to eq 2
   end
 
   it 'does not raise an error if the required headers are present' do
     options = {required_headers: %i[lastname email firstname manager_email]} # order does not matter
     data = SmarterCSV.process("#{fixture_path}/user_import.csv", options)
-    data.size.should eq 2
+    expect(data.size).to eq 2
   end
 
   it 'raises an error if a required header is missing' do

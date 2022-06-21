@@ -9,13 +9,13 @@ describe 'be_able_to' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/ignore_comments.csv", options)
 
-    data.size.should eq 8
+    expect(data.size).to eq 8
 
-    # all the keys should be symbols
-    data.each{|item| item.each_key{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
       h.each_key do |key|
-        %i[not_a_comment#first_name last_name dogs cats birds fish].should include(key)
+        expect(key.is_a?(Symbol)).to be_truthy # all the keys should be symbols
+
+        expect(%i[not_a_comment#first_name last_name dogs cats birds fish]).to include(key)
       end
     end
   end
@@ -24,13 +24,13 @@ describe 'be_able_to' do
     options = {comment_regexp: /\A#/}
     data = SmarterCSV.process("#{fixture_path}/ignore_comments.csv", options)
 
-    data.size.should eq 5
+    expect(data.size).to eq 5
 
-    # all the keys should be symbols
-    data.each{|item| item.each_key{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
       h.each_key do |key|
-        %i[not_a_comment#first_name last_name dogs cats birds fish].should include(key)
+        expect(key.is_a?(Symbol)).to be_truthy # all the keys should be symbols
+
+        expect(%i[not_a_comment#first_name last_name dogs cats birds fish]).to include(key)
       end
     end
   end
@@ -40,8 +40,8 @@ describe 'be_able_to' do
     data = SmarterCSV.process("#{fixture_path}/ignore_comments2.csv", options)
 
     # all the keys should be symbols
-    data.size.should eq 1
-    data.first[:h1].should eq 'a'
-    data.first[:h2].should eq "b\r\n#c"
+    expect(data.size).to eq 1
+    expect(data.first[:h1]).to eq 'a'
+    expect(data.first[:h2]).to eq "b\r\n#c"
   end
 end

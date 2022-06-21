@@ -21,12 +21,12 @@ describe 'hash extensions' do
   end
 
   it "constructs an empty Hash if given no keys" do
-    Hash.zip([], []).should == {}
-    Hash.zip([], [1]).should == {}
+    expect(Hash.zip([], [])).to eq({})
+    expect(Hash.zip([], [1])).to eq({})
   end
 
   it "uses nil values if there are more keys than values" do
-    Hash.zip(["a"], []).should == { "a" => nil }
-    Hash.zip(%w[a b], [1]).should == { "a" => 1, "b" => nil }
+    expect(Hash.zip(["a"], [])).to eq({ "a" => nil })
+    expect(Hash.zip(%w[a b], [1])).to eq({ "a" => 1, "b" => nil })
   end
 end

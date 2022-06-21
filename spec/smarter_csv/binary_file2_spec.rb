@@ -14,13 +14,16 @@ describe 'be_able_to' do
   it 'loads_binary_file_with_strings_as_keys' do
     options = {col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/, strings_as_keys: true}
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
-    data.size.should == 8
+    expect(data.size).to eq 8
+
     data.each do |item|
       # all keys should be strings
-      item.each_key{|x| x.class.should be == String}
-      item['timestamp'].should == 1_381_388_409
-      item['item_id'].class.should be == Fixnum
-      item['name'].size.should be > 0
+      item.each_key do |key|
+        expect(key.class).to eq String
+      end
+      expect(item['timestamp']).to eq 1_381_388_409
+      expect(item['item_id'].class).to eq Fixnum
+      expect(item['name'].size).to be > 0
     end
   end
 end

@@ -22,6 +22,10 @@ require 'smarter_csv'
 # $LOAD_PATH.unshift File.expand_path('../ext/smarter_cvs', __FILE__)
 
 RSpec.configure do |config|
+  config.expect_with :rspec do |c|
+    c.syntax = :expect
+  end
+
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
 

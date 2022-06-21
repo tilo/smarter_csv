@@ -12,13 +12,16 @@ describe 'be_able_to' do
   it 'loads_binary_file_with_comments' do
     options = {col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/}
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
-    data.flatten.size.should == 8
+    expect(data.flatten.size).to eq 8
+
     data.each do |item|
       # all keys should be symbols
-      item.each_key{|x| x.class.should be == Symbol}
-      item[:timestamp].should == 1_381_388_409
-      item[:item_id].class.should be == Fixnum
-      item[:name].size.should be > 0
+      item.each_key do |key|
+        expect(key.class).to eq Symbol
+      end
+      expect(item[:timestamp]).to eq 1_381_388_409
+      expect(item[:item_id].class).to eq Fixnum
+      expect(item[:name].size).to be > 0
     end
   end
 end

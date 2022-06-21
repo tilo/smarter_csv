@@ -10,7 +10,7 @@ describe 'loading file with UTF-8 characters in the header' do
     options = {col_sep: ";", force_utf8: true}
     data = SmarterCSV.process("#{fixture_path}/problematic.csv", options)
 
-    data.length.should eq 7
+    expect(data.length).to eq 7
   end
 
   it 'loads the file with strings as keys' do
@@ -20,8 +20,8 @@ describe 'loading file with UTF-8 characters in the header' do
     }
     data = SmarterCSV.process("#{fixture_path}/problematic.csv", options)
 
-    data.length.should eq 7
-    data.first.keys.sort.should eq %w[
+    expect(data.length).to eq 7
+    expect(data.first.keys.sort).to eq %w[
       compte
       date_de_comptabilisation
       date_opération

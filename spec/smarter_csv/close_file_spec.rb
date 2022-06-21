@@ -12,6 +12,6 @@ describe 'be_able_to' do
 
     SmarterCSV.process(file, options)
 
-    file.closed?.should == true
+    expect(file.closed?).to eq true
   end
 end

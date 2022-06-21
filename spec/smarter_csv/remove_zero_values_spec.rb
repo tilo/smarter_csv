@@ -8,19 +8,18 @@ describe 'be_able_to' do
   it 'remove_zero_values' do
     options = {remove_zero_values: true, remove_empty_values: true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.each_key{|x| x.class.should be == Symbol}}
+    expect(data.size).to eq 5
 
     data.each do |hash|
       hash.each_key do |key|
-        %i[first_name last_name dogs cats birds fish].should include(key)
-      end
-      hash.values.should_not include(0)
-    end
+        expect(key.class).to eq Symbol # all the keys should be symbols
 
-    data.each do |h|
-      h.size.should <= 6
+        expect(%i[first_name last_name dogs cats birds fish]).to include(key)
+      end
+
+      expect(hash.values).to_not include(0)
+
+      expect(hash.size).to be <= 6
     end
   end
 end
