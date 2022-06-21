@@ -14,7 +14,7 @@ describe 'be_able_to' do
 
     data.each do |item|
       item.keys.each do |key|
-        [:First_Name, :Last_Name, :Dogs, :Cats, :Birds, :Fish].should include(key)
+        %i[First_Name Last_Name Dogs Cats Birds Fish].should include(key)
       end
     end
 

@@ -14,7 +14,7 @@ describe 'be_able_to' do
 
     data.each do |hash|
       hash.keys.each do |key|
-        [:vorname, :nachname, :dogs, :cats, :birds, :fish].should include(key)
+        %i[vorname nachname dogs cats birds fish].should include(key)
       end
       hash.values.should_not include(0)
     end
@@ -29,7 +29,7 @@ describe 'be_able_to' do
       options = {:keep_original_headers => true}
       data = SmarterCSV.process("#{fixture_path}/key_mapping.csv", options)
       data.size.should == 1
-      data.first.keys.should == ['THIS', 'THAT', 'other']
+      data.first.keys.should == %w[THIS THAT other]
     end
 
     it 'sets key_mapping to a symbol' do
@@ -44,7 +44,7 @@ describe 'be_able_to' do
       options = {:keep_original_headers => true, :key_mapping => {'other' => 'OTHER'}}
       data = SmarterCSV.process("#{fixture_path}/key_mapping.csv", options)
       data.size.should == 1
-      data.first.keys.should == ['THIS', 'THAT', 'OTHER']
+      data.first.keys.should == %w[THIS THAT OTHER]
     end
 
     # users now have to explicitly set this to a symbol, or change the expected keys to be strings.

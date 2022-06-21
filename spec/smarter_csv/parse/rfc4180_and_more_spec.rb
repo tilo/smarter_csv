@@ -34,7 +34,7 @@ fixture_path = 'spec/fixtures'
         it 'with extra col_sep with given header_size' do
           line = 'aaa,bbb,ccc,'
           expect(SmarterCSV.send(:parse, line, options, 3)).to eq [
-            ['aaa', 'bbb', 'ccc'], 3
+            %w[aaa bbb ccc], 3
           ]
         end
 
@@ -48,7 +48,7 @@ fixture_path = 'spec/fixtures'
         it 'with multiple extra col_sep' do
           line = 'aaa,bbb,ccc,,,'
           expect(SmarterCSV.send(:parse, line, options, 3)).to eq [
-            ['aaa', 'bbb', 'ccc'], 3
+            %w[aaa bbb ccc], 3
           ]
         end
 
@@ -62,7 +62,7 @@ fixture_path = 'spec/fixtures'
         it 'with multiple complex col_sep with given header_size' do
           line = 'aaa<=>bbb<=>ccc<=><=><=>'
           expect(SmarterCSV.send(:parse, line, options.merge({col_sep: '<=>'}), 3)).to eq [
-            ['aaa', 'bbb', 'ccc'], 3
+            %w[aaa bbb ccc], 3
           ]
         end
       end
@@ -141,7 +141,7 @@ fixture_path = 'spec/fixtures'
         it 'with multiple extra col_sep, with given header_size' do
           line = '"aaa","bbb","ccc",,,'
           expect(SmarterCSV.send(:parse, line, options, 3)).to eq [
-            ['aaa', 'bbb', 'ccc'], 3
+            %w[aaa bbb ccc], 3
           ]
         end
 
@@ -155,7 +155,7 @@ fixture_path = 'spec/fixtures'
         it 'with multiple complex extra col_sep, with given header_size' do
           line = '"aaa"<=>"bbb"<=>"ccc"<=><=><=>'
           expect(SmarterCSV.send(:parse, line, options.merge({col_sep: '<=>'}), 3)).to eq [
-            ['aaa', 'bbb', 'ccc'], 3
+            %w[aaa bbb ccc], 3
           ]
         end
       end

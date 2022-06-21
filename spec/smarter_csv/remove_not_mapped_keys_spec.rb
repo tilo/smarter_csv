@@ -33,4 +33,3 @@ describe ':remove_unmapped_keys option' do
     data.first.size.should eq 2 # column_15 is empty
   end
 end
-

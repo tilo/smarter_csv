@@ -24,31 +24,31 @@ fixture_path = 'spec/fixtures'
         data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
         data.each do |h|
           h.keys.each do |key|
-            [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include(key)
+            %i[first_name last_name dogs cats birds fish].should include(key)
           end
           h.size.should <= 6
         end
       end
 
       context 'with full user_provided_headers' do
-        let(:options) { super().merge({user_provided_headers: [:a, :b, :c, :d, :e, :f]}) }
+        let(:options) { super().merge({user_provided_headers: %i[a b c d e f]}) }
 
         it 'replaces headers with user_provided_headers' do
           data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
           data.size.should == 5
 
           SmarterCSV.raw_header.should eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
-          SmarterCSV.headers.should eq [:a, :b, :c, :d, :e, :f]
+          SmarterCSV.headers.should eq %i[a b c d e f]
         end
       end
 
       context 'with partial user_provided_headers' do
-        let(:options) { super().merge({user_provided_headers: [:a, :b, :c, :d, :e]}) }
+        let(:options) { super().merge({user_provided_headers: %i[a b c d e]}) }
 
         it 'raises an exception if the number of user_provided_headers is incorrect' do
-          expect {
+          expect do
             SmarterCSV.process("#{fixture_path}/basic.csv", options)
-          }.to raise_error(SmarterCSV::HeaderSizeMismatch)
+          end.to raise_error(SmarterCSV::HeaderSizeMismatch)
         end
       end
     end

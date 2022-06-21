@@ -37,6 +37,9 @@ Metrics/PerceivedComplexity: # BS rule
 Naming/VariableName:
   Enabled: false
 
+Naming/VariableNumber:
+  Enabled: false
+
 Style/ConditionalAssignment:
   Enabled: false
 

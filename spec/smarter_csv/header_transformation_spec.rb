@@ -13,7 +13,7 @@ describe 'be_able_to' do
     data[0]['last_name'].should eq 'McAllister'
 
     expect(SmarterCSV.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
-    expect(SmarterCSV.headers).to eq ["first_name", "last_name", "dogs", "cats", "birds", "fish"]
+    expect(SmarterCSV.headers).to eq %w[first_name last_name dogs cats birds fish]
   end
 
   it 'loads_file_with_dashes_in_header_fields as symbols' do
@@ -24,6 +24,6 @@ describe 'be_able_to' do
     data[0][:last_name].should eq 'McAllister'
 
     expect(SmarterCSV.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
-    expect(SmarterCSV.headers).to eq [:first_name, :last_name, :dogs, :cats, :birds, :fish]
+    expect(SmarterCSV.headers).to eq %i[first_name last_name dogs cats birds fish]
   end
 end

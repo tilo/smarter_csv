@@ -14,7 +14,7 @@ describe 'be_able_to' do
 
     data.each do |hash|
       hash.keys.each do |key|
-        [:vorname, :nachname, :dogs, :cats, :birds].should include(key)
+        %i[vorname nachname dogs cats birds].should include(key)
       end
       hash.values.should_not include(0)
     end

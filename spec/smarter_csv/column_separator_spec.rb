@@ -82,9 +82,9 @@ describe 'can handle col_sep' do
     end
 
     it 'does not auto-detect other separators' do
-      expect {
+      expect do
         SmarterCSV.process("#{fixture_path}/binary.csv", options)
-      }.to raise_exception SmarterCSV::NoColSepDetected
+      end.to raise_exception SmarterCSV::NoColSepDetected
     end
 
     it 'also works when auto is given a string' do

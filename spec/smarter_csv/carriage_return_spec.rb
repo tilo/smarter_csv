@@ -18,7 +18,7 @@ describe 'process files with line endings explicitly pre-specified' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -40,7 +40,7 @@ describe 'process files with line endings explicitly pre-specified' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -62,7 +62,7 @@ describe 'process files with line endings explicitly pre-specified' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -101,7 +101,7 @@ describe 'process files with line endings in automatic mode' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -123,7 +123,7 @@ describe 'process files with line endings in automatic mode' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -145,7 +145,7 @@ describe 'process files with line endings in automatic mode' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil
@@ -167,7 +167,7 @@ describe 'process files with line endings in automatic mode' do
     data[3][:city].should == ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
     data[4][:name].should == ["White Hart Lane", "(The Lane)"].join(sep)
     data[4][:street].should == ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-    data[4][:city].should == ["Tottenham", "London"].join(sep)
+    data[4][:city].should == %w[Tottenham London].join(sep)
     data[5][:name].should == "Stamford Bridge"
     data[5][:street].should == ["Fulham Road", "London"].join(sep)
     data[5][:city].should be_nil

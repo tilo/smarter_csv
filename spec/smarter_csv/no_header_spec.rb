@@ -5,7 +5,7 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'no header in file' do
-  let(:headers) { [:a, :b, :c, :d, :e, :f] }
+  let(:headers) { %i[a b c d e f] }
   let(:options) { {:headers_in_file => false, :user_provided_headers => headers} }
   subject(:data) { SmarterCSV.process("#{fixture_path}/no_header.csv", options) }
 
@@ -16,7 +16,7 @@ describe 'no header in file' do
   it 'uses given symbols for all records' do
     data.each do |item|
       item.keys.each do |key|
-        [:a, :b, :c, :d, :e, :f].should include(key)
+        %i[a b c d e f].should include(key)
       end
     end
   end

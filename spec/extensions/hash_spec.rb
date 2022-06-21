@@ -4,7 +4,7 @@ require 'spec_helper'
 require './lib/extensions/hash.rb'
 
 describe 'hash extensions' do
-  let(:keys) { [:a, :b] }
+  let(:keys) { %i[a b] }
   let(:values) { [1, 2] }
 
   it 'calls Array.zip' do
@@ -13,11 +13,11 @@ describe 'hash extensions' do
   end
 
   it 'creates a hash from two arrays' do
-    expect(Hash.zip([], [])).to eq Hash.new
+    expect(Hash.zip([], [])).to eq({})
   end
 
   it 'creates a hash from two arrays' do
-    expect(Hash.zip([:a, :b], [1, 2])).to eq({a: 1, b: 2})
+    expect(Hash.zip(%i[a b], [1, 2])).to eq({a: 1, b: 2})
   end
 
   it "constructs an empty Hash if given no keys" do
@@ -27,6 +27,6 @@ describe 'hash extensions' do
 
   it "uses nil values if there are more keys than values" do
     Hash.zip(["a"], []).should == { "a" => nil }
-    Hash.zip(["a", "b"], [1]).should == { "a" => 1, "b" => nil }
+    Hash.zip(%w[a b], [1]).should == { "a" => 1, "b" => nil }
   end
 end

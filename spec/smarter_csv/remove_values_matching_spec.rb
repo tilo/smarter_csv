@@ -14,7 +14,7 @@ describe 'be_able_to' do
 
     data.each do |hash|
       hash.keys.each do |key|
-        [:first_name, :last_name].should include(key)
+        %i[first_name last_name].should include(key)
       end
       hash.values.each{|x| x.class.should be == String}
       hash.values.should_not include(0)
