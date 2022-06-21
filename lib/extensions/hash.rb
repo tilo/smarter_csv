@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # the following extension for class Hash is needed (from Facets of Ruby library):
 
 class Hash

@@ -15,7 +15,7 @@ module SmarterCSV
   class MalformedCSVError < SmarterCSVException; end
 
   # first parameter: filename or input object which responds to readline method
-  def SmarterCSV.process(input, options={}, &block)
+  def SmarterCSV.process(input, options = {}, &block)
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
@@ -365,16 +365,16 @@ module SmarterCSV
   def self.guess_column_separator(filehandle, options)
     del = [',', "\t", ';', ':', '|']
     n = Hash.new(0)
-    begin # for backwards compatibility to old Ruby versions < 2.5
-      5.times do
-        line = filehandle.readline(options[:row_sep])
-        del.each do |d|
-          n[d] += line.scan(d).count
-        end
-      rescue EOFError # short files
-        break
+     # for backwards compatibility to old Ruby versions < 2.5
+    5.times do
+      line = filehandle.readline(options[:row_sep])
+      del.each do |d|
+        n[d] += line.scan(d).count
       end
+    rescue EOFError # short files
+      break
     end
+
     filehandle.rewind
     raise SmarterCSV::NoColSepDetected if n.values.max == 0
 
@@ -447,14 +447,14 @@ module SmarterCSV
         file_headerA.map!{|x| x.downcase} if options[:downcase_header]
       end
     else
-      raise SmarterCSV::IncorrectOption , "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" unless options[:user_provided_headers]
+      raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers" unless options[:user_provided_headers]
     end
-    if options[:user_provided_headers] && options[:user_provided_headers].class == Array && ! options[:user_provided_headers].empty?
+    if options[:user_provided_headers] && options[:user_provided_headers].class == Array && !options[:user_provided_headers].empty?
       # use user-provided headers
       headerA = options[:user_provided_headers]
-      if defined?(file_header_size) && ! file_header_size.nil?
+      if defined?(file_header_size) && !file_header_size.nil?
         if headerA.size != file_header_size
-          raise SmarterCSV::HeaderSizeMismatch , "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
+          raise SmarterCSV::HeaderSizeMismatch, "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
         else
           # we could print out the mapping of file_headerA to headerA here
         end
@@ -474,7 +474,7 @@ module SmarterCSV
 
       # do some key mapping on the keys in the file header
       #   if you want to completely delete a key, then map it to nil or to ''
-      if ! key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
+      if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
         # we can't map keys that are not there
         missing_keys = key_mappingH.keys - headerA
         puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
