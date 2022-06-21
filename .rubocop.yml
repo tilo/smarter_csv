@@ -1,0 +1,133 @@
+AllCops:
+  TargetRubyVersion: 2.5 # purposely an old Ruby version
+
+Layout/SpaceBeforeBlockBraces:
+  Enabled: false
+
+Layout/SpaceInsideBlockBraces:
+  Enabled: false
+
+Layout/SpaceInsideHashLiteralBraces:
+  Enabled: false
+
+Layout/SpaceAroundOperators:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/BlockNesting:
+  Enabled: false
+
+Metrics/CyclomaticComplexity: # BS rule
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/PerceivedComplexity: # BS rule
+  Enabled: false
+
+Naming/PredicateName:
+  Enabled: false
+
+Naming/VariableName:
+  Enabled: false
+
+Naming/VariableNumber:
+  Enabled: false
+
+Style/ClassEqualityComparison:
+  Enabled: false
+
+Style/ConditionalAssignment:
+  Enabled: false
+
+Style/CommentedKeyword:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Style/DoubleNegation: # that's how to make true boolean results - this rule is nonsense
+  Enabled: false
+
+Style/EmptyElse:
+  Enabled: false
+
+Style/Encoding:
+  Enabled: false
+
+Style/EvalWithLocation:
+  Enabled: false
+
+Style/FormatString:
+  Enabled: false
+
+Style/FormatStringToken:
+  Enabled: false
+
+Style/GuardClause:
+  Enabled: false
+
+Style/IfInsideElse:
+  Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
+
+Style/NestedTernaryOperator:
+  Enabled: false
+
+Style/PreferredHashMethods:
+  Enabled: false
+
+Style/NumericPredicate:
+  Enabled: false
+
+Style/PercentLiteralDelimiters:
+  Enabled: false
+
+Style/RegexpLiteral:
+  Enabled: false
+
+Style/SafeNavigation:
+  Enabled: false
+
+Style/SlicingWithRange:
+  Enabled: false
+
+Style/SpecialGlobalVars: # DANGER: unsafe rule!!
+  Enabled: false
+
+Style/StringLiterals:
+  Enabled: false
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  Enabled: false
+  EnforcedStyle: double_quotes
+
+Style/SymbolProc: # old Ruby versions can't do this
+  Enabled: false
+
+Style/TrailingCommaInHashLiteral:
+  Enabled: false
+
+Style/TrailingUnderscoreVariable:
+  Enabled: false
+
+# Style/UnlessModifier:
+#   Enabled: false
+
+Style/ZeroLengthPredicate:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 240

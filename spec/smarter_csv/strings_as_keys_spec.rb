@@ -1,24 +1,23 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'use_strings_as_keys' do 
-    options = {:strings_as_keys => true}
+  it 'use_strings_as_keys' do
+    options = {strings_as_keys: true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should be == String}}
+    expect(data.size).to eq 5
 
-    data.each do |item| 
-      item.keys.each do |key|
-        ["first_name", "last_name", "dogs", "cats", "birds", "fish"].should include( key )
+    data.each do |hash|
+      hash.each_key do |key|
+        expect(key.class).to eq String # all the keys should be symbols
+
+        expect(%w[first_name last_name dogs cats birds fish]).to include(key)
       end
-    end
 
-    data.each do |h|
-      h.size.should <= 6
+      expect(hash.size).to be <= 6
     end
   end
-
 end

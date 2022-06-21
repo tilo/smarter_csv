@@ -1,94 +1,91 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-
-
   it 'loads file with unicode strings' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
-    data.flatten.size.should == 4
-    data[0][:artist].should eq 'Кино'
-    data[0][:track].should eq 'Мама, мы все сошли с ума'
-    data[0][:album].should eq 'Группа Крови'
-    data[0][:label].should eq 'Moroz Records'
-    data[0][:year].should eq 1998
+    expect(data.flatten.size).to eq 4
+    expect(data[0][:artist]).to eq 'Кино'
+    expect(data[0][:track]).to eq 'Мама, мы все сошли с ума'
+    expect(data[0][:album]).to eq 'Группа Крови'
+    expect(data[0][:label]).to eq 'Moroz Records'
+    expect(data[0][:year]).to eq 1998
 
-    data[0].should eq  data[1]
+    expect(data[0]).to eq data[1]
 
-    data[2][:artist].should eq 'Rammstein'
-    data[2][:track].should eq 'Frühling in Paris'
-    data[2][:album].should eq 'Liebe ist für alle da'
-    data[2][:label].should eq 'Vagrant'
-    data[2][:year].should eq 2009
+    expect(data[2][:artist]).to eq 'Rammstein'
+    expect(data[2][:track]).to eq 'Frühling in Paris'
+    expect(data[2][:album]).to eq 'Liebe ist für alle da'
+    expect(data[2][:label]).to eq 'Vagrant'
+    expect(data[2][:year]).to eq 2009
 
-    data[2].should eq  data[3]
+    expect(data[2]).to eq data[3]
   end
 
   it 'loads file with unicode strings, when forcing utf8' do
-    options = {:force_utf8 => true}
+    options = {force_utf8: true}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
-    data.flatten.size.should == 4
-    data[0][:artist].should eq 'Кино'
-    data[0][:track].should eq 'Мама, мы все сошли с ума'
-    data[0][:album].should eq 'Группа Крови'
-    data[0][:label].should eq 'Moroz Records'
-    data[0][:year].should eq 1998
+    expect(data.flatten.size).to eq 4
+    expect(data[0][:artist]).to eq 'Кино'
+    expect(data[0][:track]).to eq 'Мама, мы все сошли с ума'
+    expect(data[0][:album]).to eq 'Группа Крови'
+    expect(data[0][:label]).to eq 'Moroz Records'
+    expect(data[0][:year]).to eq 1998
 
-    data[0].should eq  data[1]
+    expect(data[0]).to eq data[1]
 
-    data[2][:artist].should eq 'Rammstein'
-    data[2][:track].should eq 'Frühling in Paris'
-    data[2][:album].should eq 'Liebe ist für alle da'
-    data[2][:label].should eq 'Vagrant'
-    data[2][:year].should eq 2009
+    expect(data[2][:artist]).to eq 'Rammstein'
+    expect(data[2][:track]).to eq 'Frühling in Paris'
+    expect(data[2][:album]).to eq 'Liebe ist für alle da'
+    expect(data[2][:label]).to eq 'Vagrant'
+    expect(data[2][:year]).to eq 2009
 
-    data[2].should eq  data[3]
+    expect(data[2]).to eq data[3]
   end
 
-
-
   it 'loads file with unicode strings, when loading from binary input' do
-    options = {:file_encoding => 'binary'}
+    options = {file_encoding: 'binary'}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
-    data.flatten.size.should == 4
-    data[0][:artist].should eq 'Кино'
-    data[0][:track].should eq 'Мама, мы все сошли с ума'
-    data[0][:album].should eq 'Группа Крови'
-    data[0][:label].should eq 'Moroz Records'
-    data[0][:year].should eq 1998
+    expect(data.flatten.size).to eq 4
+    expect(data[0][:artist]).to eq 'Кино'
+    expect(data[0][:track]).to eq 'Мама, мы все сошли с ума'
+    expect(data[0][:album]).to eq 'Группа Крови'
+    expect(data[0][:label]).to eq 'Moroz Records'
+    expect(data[0][:year]).to eq 1998
 
-    data[0].should eq  data[1]
+    expect(data[0]).to eq data[1]
 
-    data[2][:artist].should eq 'Rammstein'
-    data[2][:track].should eq 'Frühling in Paris'
-    data[2][:album].should eq 'Liebe ist für alle da'
-    data[2][:label].should eq 'Vagrant'
-    data[2][:year].should eq 2009
+    expect(data[2][:artist]).to eq 'Rammstein'
+    expect(data[2][:track]).to eq 'Frühling in Paris'
+    expect(data[2][:album]).to eq 'Liebe ist für alle da'
+    expect(data[2][:label]).to eq 'Vagrant'
+    expect(data[2][:year]).to eq 2009
 
-    data[2].should eq  data[3]
+    expect(data[2]).to eq data[3]
   end
 
   it 'loads file with unicode strings, when forcing utf8 with binary input' do
-    options = {:file_encoding => 'binary', :force_utf8 => true}
+    options = {file_encoding: 'binary', force_utf8: true}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)
-    data.flatten.size.should == 4
-    data[0][:artist].should eq 'Кино'
-    data[0][:track].should eq 'Мама, мы все сошли с ума'
-    data[0][:album].should eq 'Группа Крови'
-    data[0][:label].should eq 'Moroz Records'
-    data[0][:year].should eq 1998
+    expect(data.flatten.size).to eq 4
+    expect(data[0][:artist]).to eq 'Кино'
+    expect(data[0][:track]).to eq 'Мама, мы все сошли с ума'
+    expect(data[0][:album]).to eq 'Группа Крови'
+    expect(data[0][:label]).to eq 'Moroz Records'
+    expect(data[0][:year]).to eq 1998
 
-    data[0].should eq  data[1]
+    expect(data[0]).to eq data[1]
 
-    data[2][:artist].should eq 'Rammstein'
-    data[2][:track].should eq 'Frühling in Paris'
-    data[2][:album].should eq 'Liebe ist für alle da'
-    data[2][:label].should eq 'Vagrant'
-    data[2][:year].should eq 2009
+    expect(data[2][:artist]).to eq 'Rammstein'
+    expect(data[2][:track]).to eq 'Frühling in Paris'
+    expect(data[2][:album]).to eq 'Liebe ist für alle da'
+    expect(data[2][:label]).to eq 'Vagrant'
+    expect(data[2][:year]).to eq 2009
 
-    data[2].should eq  data[3]
+    expect(data[2]).to eq data[3]
   end
-
 end

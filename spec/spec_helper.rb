@@ -1,21 +1,37 @@
+# frozen_string_literal: true
+
 require 'rubygems'
 require 'bundler/setup'
+require 'pry'
 
-Bundler.require(:default)
+Fixnum = Integer unless defined?(Fixnum) # HACK: to allow Ruby 3.2 without having to rewrite the tests
 
-require 'smarter_csv'
-
-
-RSpec.configure do |config|
-  config.treat_symbols_as_metadata_keys_with_true_values = true
-  config.filter_run :focus => true
-  config.run_all_when_everything_filtered = true
-#  config.fixture_path = 'spec/fixtures'
-
-#  config.mock_with :rr
-#  config.before(:each) do
-#    Project.delete_all
-#    Category.delete_all
-#  end
+require 'simplecov'
+SimpleCov.start do
+  add_filter "/spec/"
 end
 
+if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
+  require 'codecov'
+  SimpleCov.formatter = SimpleCov::Formatter::Codecov
+end
+
+Bundler.require(:default)
+require 'smarter_csv'
+
+# $LOAD_PATH.unshift File.expand_path('../ext/smarter_cvs', __FILE__)
+
+RSpec.configure do |config|
+  config.expect_with :rspec do |c|
+    c.syntax = :expect
+  end
+
+  # Enable flags like --only-failures and --next-failure
+  config.example_status_persistence_file_path = ".rspec_status"
+
+  # Disable RSpec exposing methods globally on `Module` and `main`
+  # config.disable_monkey_patching!
+
+  config.filter_run focus: true
+  config.run_all_when_everything_filtered = true
+end

@@ -1,19 +1,21 @@
-#!/usr/bin/env rake
+# frozen_string_literal: true
+
 require "bundler/gem_tasks"
-require 'rubygems'
-require 'rake'
 require 'rspec/core/rake_task'
 
-task :default => :spec
+RSpec::Core::RakeTask.new(:spec)
 
-desc "Run RSpec"
-RSpec::Core::RakeTask.new do |t|
-  # t.verbose = false
+require "rubocop/rake_task"
+
+RuboCop::RakeTask.new
+
+require "rake/extensiontask"
+
+task build: :compile
+
+Rake::ExtensionTask.new("smarter_csv") do |ext|
+  ext.ext_dir = "ext/smarter_csv"
 end
 
-desc 'Run spec with coverage'
-task :coverage do
-  ENV['COVERAGE'] = 'true'
-  Rake::Task['spec'].execute
-  `open coverage/index.html`
-end
+# task default: %i[clobber compile spec rubocop]
+task default: %i[clobber compile spec]

@@ -1,25 +1,24 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
-  it 'remove_values_matching' do 
-    options = {:remove_zero_values => true, :key_mapping => {:first_name => :vorname, :last_name => :nachname, :fish => nil} }
+  it 'remove_values_matching' do
+    options = {remove_zero_values: true, key_mapping: {first_name: :vorname, last_name: :nachname, fish: nil} }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
-    data.size.should == 5
-    # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
+    expect(data.size).to eq 5
 
-    data.each do |hash| 
-      hash.keys.each do |key|
-        [:vorname, :nachname, :dogs, :cats, :birds].should include( key )
+    data.each do |hash|
+      hash.each_key do |key|
+        expect(key.class).to eq Symbol # all the keys should be symbols
+
+        expect(%i[vorname nachname dogs cats birds]).to include(key)
       end
-      hash.values.should_not include( 0 )
-    end
+      expect(hash.values).to_not include(0)
 
-    data.each do |h|
-      h.size.should <= 6
+      expect(hash.size).to be <= 6
     end
   end
-
 end

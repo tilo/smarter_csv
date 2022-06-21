@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -9,37 +11,37 @@ describe 'handling of additional trailing column separators' do
     let(:data) { SmarterCSV.process(file) }
 
     it 'reads all lines' do
-      data.size.should eq 5
+      expect(data.size).to eq 5
     end
 
     it 'reads regular lines' do
       item = data[0]
-      item[:col1].should == 'eins'
-      item[:col2].should == 'zwei'
+      expect(item[:col1]).to eq 'eins'
+      expect(item[:col2]).to eq 'zwei'
     end
 
     it 'strips single trailing col_sep character' do
       item = data[1]
-      item[:col1].should == 'uno'
-      item[:col2].should == 'dos'
+      expect(item[:col1]).to eq 'uno'
+      expect(item[:col2]).to eq 'dos'
     end
 
     it 'strips multiple trailing col_sep characters' do
       item = data[2]
-      item[:col1].should == 'one'
-      item[:col2].should == 'two'
+      expect(item[:col1]).to eq 'one'
+      expect(item[:col2]).to eq 'two'
     end
 
     it 'strips multiple trailing col_sep chars' do
       item = data[3]
-      item[:col1].should == 'ichi'
-      item[:col2].should == nil
+      expect(item[:col1]).to eq 'ichi'
+      expect(item[:col2]).to eq nil
     end
 
     it 'strips multiple trailing col_sep chars' do
       item = data[4]
-      item[:col1].should == 'un'
-      item[:col2].should == nil
+      expect(item[:col1]).to eq 'un'
+      expect(item[:col2]).to eq nil
     end
   end
 end
