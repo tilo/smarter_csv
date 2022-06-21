@@ -15,10 +15,9 @@ if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
 end
 
 Bundler.require(:default)
-
-$LOAD_PATH.unshift File.expand_path('../ext', __FILE__)
-
 require 'smarter_csv'
+
+# $LOAD_PATH.unshift File.expand_path('../ext/smarter_cvs', __FILE__)
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -27,7 +26,6 @@ RSpec.configure do |config|
   # Disable RSpec exposing methods globally on `Module` and `main`
   # config.disable_monkey_patching!
 
-  config.treat_symbols_as_metadata_keys_with_true_values = true
   config.filter_run :focus => true
   config.run_all_when_everything_filtered = true
 end

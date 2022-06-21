@@ -96,8 +96,8 @@ Style/SymbolProc: # old Ruby versions can't do this
 Style/TrailingCommaInHashLiteral:
   Enabled: false
 
-Style/UnlessModifier:
-  Enabled: false
+# Style/UnlessModifier:
+#   Enabled: false
 
 Style/ZeroLengthPredicate:
   Enabled: false
