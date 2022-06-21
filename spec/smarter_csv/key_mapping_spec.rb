@@ -16,11 +16,10 @@ describe 'be_able_to' do
 
         expect(%i[vorname nachname dogs cats birds fish]).to include(key)
       end
-      expect(hash.values).not_to include(0)
-    end
 
-    data.each do |h|
-      expect(h.size).to be <= 6
+      expect(hash.values).not_to include(0)
+
+      expect(hash.size).to be <= 6
     end
   end
 
