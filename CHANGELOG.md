@@ -3,11 +3,12 @@
 
 ## 1.7.0.pre5 (2022-06-20)
   * fixed compiling
+  * rubocop changes
   * published pre-release 
 
 ## 1.7.0.pre1 (2022-05-23)
   * added native code to accellerate line parsing by >10x over 1.6.0
-  * added option `accelleration`, defaulting to `true`, to enable native code.
+  * added option `acceleration`, defaulting to `true`, to enable native code.
     Disable this option to use the ruby code for line parsing.
   * increased test coverage to 100%
 
