@@ -29,7 +29,7 @@ module SmarterCSV
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
       # auto-detect the row separator
-      options[:row_sep] = SmarterCSV.guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+      options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
       # attempt to auto-detect column separator
       options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
 
@@ -108,7 +108,7 @@ module SmarterCSV
         if options[:convert_values_to_numeric]
           hash.each do |k, v|
             # deal with the :only / :except options to :convert_values_to_numeric
-            next if SmarterCSV.only_or_except_limit_execution(options, :convert_values_to_numeric, k)
+            next if only_or_except_limit_execution(options, :convert_values_to_numeric, k)
 
             # convert if it's a numeric value:
             case v
@@ -184,19 +184,18 @@ module SmarterCSV
     end
   end
 
-  def self.has_acceleration?
-    @has_acceleration ||= !!defined?(parse_csv_line_c)
-  end
-
-  def self.raw_header
-    @raw_header
-  end
-
-  def self.headers
-    @headers
-  end
-
   class << self
+    def has_acceleration?
+      @has_acceleration ||= !!defined?(parse_csv_line_c)
+    end
+
+    def raw_header
+      @raw_header
+    end
+
+    def headers
+      @headers
+    end
 
     protected
 
