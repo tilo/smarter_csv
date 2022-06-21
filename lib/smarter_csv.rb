@@ -188,6 +188,14 @@ module SmarterCSV
     @has_acceleration ||= !!defined?(parse_csv_line_c)
   end
 
+  def self.raw_header
+    @raw_header
+  end
+
+  def self.headers
+    @headers
+  end
+
   private
 
   # NOTE: this is not called when "parse" methods are tested by themselves
@@ -410,17 +418,9 @@ module SmarterCSV
     filehandle.rewind
 
     counts["\r"] += 1 if last_char == "\r"
-    # find the key/value pair with the largest counter:
+    # find the most frequent key/value pair:
     k, _ = counts.max_by{|_, v| v}
-    return k                    # the most frequent one is it
-  end
-
-  def self.raw_header
-    @raw_header
-  end
-
-  def self.headers
-    @headers
+    return k
   end
 
   def self.process_headers(filehandle, options)

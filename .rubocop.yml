@@ -34,6 +34,9 @@ Metrics/ModuleLength:
 Metrics/PerceivedComplexity: # BS rule
   Enabled: false
 
+Naming/PredicateName:
+  Enabled: false
+
 Naming/VariableName:
   Enabled: false
 
@@ -44,6 +47,9 @@ Style/ClassEqualityComparison:
   Enabled: false
 
 Style/ConditionalAssignment:
+  Enabled: false
+
+Style/CommentedKeyword:
   Enabled: false
 
 Style/Documentation:
@@ -71,6 +77,12 @@ Style/GuardClause:
   Enabled: false
 
 Style/IfInsideElse:
+  Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
+
+Style/NestedTernaryOperator:
   Enabled: false
 
 Style/PreferredHashMethods:
