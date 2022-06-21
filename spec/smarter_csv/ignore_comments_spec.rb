@@ -12,9 +12,9 @@ describe 'be_able_to' do
     data.size.should eq 8
 
     # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.is_a?(Symbol).should be_truthy}}
+    data.each{|item| item.each_key{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
-      h.keys.each do |key|
+      h.each_key do |key|
         %i[not_a_comment#first_name last_name dogs cats birds fish].should include(key)
       end
     end
@@ -27,9 +27,9 @@ describe 'be_able_to' do
     data.size.should eq 5
 
     # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.is_a?(Symbol).should be_truthy}}
+    data.each{|item| item.each_key{|x| x.is_a?(Symbol).should be_truthy}}
     data.each do |h|
-      h.keys.each do |key|
+      h.each_key do |key|
         %i[not_a_comment#first_name last_name dogs cats birds fish].should include(key)
       end
     end

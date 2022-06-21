@@ -12,7 +12,7 @@ describe 'be_able_to' do
     data.each do |item|
       item.keys.should eq [:user_id]
     end
-    data.first[:user_id].should eq 34194955
-    data.last[:user_id].should eq 3019053
+    data.first[:user_id].should eq 34_194_955
+    data.last[:user_id].should eq 3_019_053
   end
 end

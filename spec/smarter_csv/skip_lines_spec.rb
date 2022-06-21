@@ -11,7 +11,7 @@ describe 'be_able_to' do
     data.size.should == 4
 
     data.each do |item|
-      item.keys.each do |key|
+      item.each_key do |key|
         %i[first_name last_name dogs cats birds fish].should include(key)
       end
     end
@@ -23,7 +23,7 @@ describe 'be_able_to' do
     data.size.should == 4
 
     data.each do |item|
-      item.keys.each do |key|
+      item.each_key do |key|
         %i[a b c d e f].should include(key)
       end
     end

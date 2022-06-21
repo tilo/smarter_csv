@@ -14,7 +14,7 @@ describe 'loads simple file format' do
     data.flatten.size.should eq 2
     data.each do |item|
       # all keys should be symbols when using v1.x backwards compatible mode
-      item.keys.each{|x| x.class.should eq Symbol}
+      item.each_key{|x| x.class.should eq Symbol}
       item[:account_id].class.should eq Fixnum
       item[:options_trader].class.should eq String
       item[:stock_symbol].class.should eq String

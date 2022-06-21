@@ -15,7 +15,7 @@ describe 'no header in file' do
 
   it 'uses given symbols for all records' do
     data.each do |item|
-      item.keys.each do |key|
+      item.each_key do |key|
         %i[a b c d e f].should include(key)
       end
     end

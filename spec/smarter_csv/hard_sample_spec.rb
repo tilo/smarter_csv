@@ -13,7 +13,7 @@ describe 'can handle the difficult CSV file' do
     item[:name].should == '#MR1220817'
     item[:shipping_method].should == 'Livraison Standard GRATUITE, 2-5 jours avec suivi'
     item[:lineitem_name].should == 'Cire Épilation Nacrée'
-    item[:phone].should == 3366012111111
+    item[:phone].should == 3_366_012_111_111
   end
 
   # the main problem is the data line starting with a # character, but not being a comment

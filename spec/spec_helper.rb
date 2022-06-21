@@ -4,7 +4,7 @@ require 'rubygems'
 require 'bundler/setup'
 require 'pry'
 
-Fixnum = Integer unless defined?(Fixnum) # HACK to allow Ruby 3.2 without having to rewrite the tests
+Fixnum = Integer unless defined?(Fixnum) # HACK: to allow Ruby 3.2 without having to rewrite the tests
 
 require 'simplecov'
 SimpleCov.start do

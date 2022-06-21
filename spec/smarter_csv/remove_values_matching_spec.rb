@@ -10,13 +10,13 @@ describe 'be_able_to' do
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     data.size.should == 5
     # all the keys should be symbols
-    data.each{|item| item.keys.each{|x| x.class.should be == Symbol}}
+    data.each{|item| item.each_key{|x| x.class.should be == Symbol}}
 
     data.each do |hash|
-      hash.keys.each do |key|
+      hash.each_key do |key|
         %i[first_name last_name].should include(key)
       end
-      hash.values.each{|x| x.class.should be == String}
+      hash.each_value{|x| x.class.should be == String}
       hash.values.should_not include(0)
     end
 

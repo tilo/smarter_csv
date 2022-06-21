@@ -15,8 +15,8 @@ describe 'be_able_to' do
     data.flatten.size.should == 8
     data.each do |item|
       # all keys should be symbols
-      item.keys.each{|x| x.class.should be == Symbol}
-      item[:timestamp].should == 1381388409
+      item.each_key{|x| x.class.should be == Symbol}
+      item[:timestamp].should == 1_381_388_409
       item[:item_id].class.should be == Fixnum
       item[:name].size.should be > 0
     end

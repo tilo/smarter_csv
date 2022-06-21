@@ -16,7 +16,7 @@ describe 'loading file with UTF-8 characters in the header' do
   it 'loads the file with strings as keys' do
     options = {
       file_encoding: 'iso-8859-1:UTF-8', # important!
-      col_sep:  ";", strings_as_keys: true,
+      col_sep: ";", strings_as_keys: true,
     }
     data = SmarterCSV.process("#{fixture_path}/problematic.csv", options)
 
