@@ -69,7 +69,7 @@ require 'spec_helper'
       end
 
       it 'mixed quotes' do
-        line = %Q{Ten Thousand,10000, 2710 ,,"10,000","It's ""10 Grand"", baby",10K}
+        line = %{Ten Thousand,10000, 2710 ,,"10,000","It's ""10 Grand"", baby",10K}
         array, _array_size = SmarterCSV.send(:parse, line, options)
         expect(array).to eq ["Ten Thousand", "10000", " 2710 ", "", "10,000", "It's \"10 Grand\", baby", "10K"]
       end
