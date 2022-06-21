@@ -3,10 +3,13 @@
 *old
 *.bak
 *.gem
+*.back
 *.bundle
 *.o
 Makefile
 Gemfile.lock
 pkg/*
+tmp/*
 coverage/*
+.rspec_status
 .DS_Store
