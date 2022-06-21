@@ -56,7 +56,7 @@ module SmarterCSV
       end
 
       # now on to processing all the rest of the lines in the CSV file:
-      while !fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
+      until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = readline_with_counts(fh, options)
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
