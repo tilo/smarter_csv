@@ -21,10 +21,9 @@
 
 #### SmarterCSV 1.x
 
-`smarter_csv` is now 10 years old, and still kicking! 🎉🎉🎉
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, parallel processing, or kicking-off batch jobs with Sidekiq.
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with Mongoid or ActiveRecord,
-and parallel processing with Resque or Sidekiq.
+To create high-quality output, some options are enabled as a default. Please make sure to check the output and tweak the options accordingly.
 
 One `smarter_csv` user wrote:
 

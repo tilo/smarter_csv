@@ -1,6 +1,13 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.0 (2022-06-26)
+  * added native code to accellerate line parsing by >10x over 1.6.0
+  * added option `acceleration`, defaulting to `true`, to enable native code.
+    Disable this option to use the ruby code for line parsing.
+  * increased test coverage to 100%
+  * rubocop changes
+
 ## 1.7.0.pre5 (2022-06-20)
   * fixed compiling
   * rubocop changes
