@@ -2,7 +2,7 @@
 
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
-require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+require_relative "smarter_csv/smarter_csv" # unless ENV['CI'] # does not compile/link in CI?
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
