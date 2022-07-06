@@ -346,8 +346,10 @@ Or install it yourself as:
 
 Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if you have feedback, new feature requests, or want to report a bug. Thank you!
 
-  * please include a small sample CSV file
-  * please mention your version of SmarterCSV, Ruby, Rails
+For reporting issues, please:
+  * include a small sample CSV file
+  * open a pull-request adding a test that demonstrates the issue
+  * mention your version of SmarterCSV, Ruby, Rails
 
 ## [A Special Thanks to all Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
 
