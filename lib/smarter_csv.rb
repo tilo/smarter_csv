@@ -97,9 +97,7 @@ module SmarterCSV
         eval('hash.delete(:"")') if RUBY_VERSION.to_f > 1.8
 
         if options[:remove_empty_values] == true
-          return hash.delete_if{|_k, v| v.blank?} if has_rails
-
-          hash.delete_if{|_k, v| blank?(v)}
+          hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
         end
 
         hash.delete_if{|_k, v| !v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values] # values are typically Strings!

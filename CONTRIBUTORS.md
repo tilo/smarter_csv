@@ -45,3 +45,6 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Sp6](https://github.com/sp6)
  * [Joel Fouse](https://github.com/jfouse)
  * [John Dell](https://github.com/spovich)
+ * [Viacheslav Markin](https://github.com/KXEinc)
+ * [Nicolas Rodriguez](https://github.com/n-rodriguez)
+ * [Hirotaka Mizutani ](https://github.com/hirotaka)
