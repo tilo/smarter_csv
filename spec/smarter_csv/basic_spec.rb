@@ -31,6 +31,22 @@ fixture_path = 'spec/fixtures'
         end
       end
 
+      it 'loads_basic_csv_file from Rails' do
+        stub_const('Rails', true)
+        data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
+        expect(data.size).to eq 5
+
+        data.each do |h|
+          h.each_key do |key|
+            # all the keys should be symbols
+            expect(key.class).to eq Symbol
+
+            expect(%i[first_name last_name dogs cats birds fish]).to include(key)
+          end
+          expect(h.size).to be <= 6
+        end
+      end
+
       context 'with full user_provided_headers' do
         let(:options) { super().merge({user_provided_headers: %i[a b c d e f]}) }
 
