@@ -6,7 +6,7 @@ fixture_path = 'spec/fixtures'
 
 [true, false].each do |bool|
   describe "fulfills basic tests with#{bool ? ' C-' : 'out '}acceleration" do
-    let(:options) { { acceleration: bool } }
+    let(:options) { { acceleration: bool, col_sep: :auto} }
 
     describe 'basic CSV processing' do
       # works only when testing locally
