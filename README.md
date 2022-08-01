@@ -132,7 +132,21 @@ and how the `process` method returns the number of chunks when called with a blo
 
      => returns number of chunks / rows we processed
 ```
-#### Example 4: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
+
+#### Example 4: Reading a CSV-like File, and Processing it with Sidekiq:
+```ruby
+    filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
+    options = {
+      :col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
+      :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre}
+    }
+    n = SmarterCSV.process(filename, options) do |chunk|
+        SidekiqWorkerClass.process_async(chunk ) # pass an array of hashes to Sidekiq workers for parallel processing
+    end
+    => returns number of chunks
+```
+
+#### Example 5: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 ```ruby
     # using chunks:
     filename = '/tmp/some.csv'
@@ -146,18 +160,6 @@ and how the `process` method returns the number of chunks when called with a blo
      => returns number of chunks we processed
 ```
 
-#### Example 5: Reading a CSV-like File, and Processing it with Resque:
-```ruby
-    filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
-    options = {
-      :col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
-      :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre}
-    }
-    n = SmarterCSV.process(filename, options) do |chunk|
-        Resque.enque( ResqueWorkerClass, chunk ) # pass chunks of CSV-data to Resque workers for parallel processing
-    end
-    => returns number of chunks
-```
 #### Example 6: Using Value Converters
 
 NOTE: If you use `key_mappings` and `value_converters`, make sure that the value converters has references the keys based on the final mapped name, not the original name in the CSV file.

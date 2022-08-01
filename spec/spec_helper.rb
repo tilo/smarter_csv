@@ -8,7 +8,8 @@ Fixnum = Integer unless defined?(Fixnum) # HACK: to allow Ruby 3.2 without havin
 
 require 'simplecov'
 SimpleCov.start do
-  add_filter "/spec/"
+  add_filter '/spec/'
+  add_filter "/pkg/"
 end
 
 if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
