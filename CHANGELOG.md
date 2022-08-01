@@ -4,7 +4,7 @@
 ## 1.7.1 (2022-07-31)
   * bugfix for issue #195 #197 #200 which only appeared when called from Rails (thanks to Viacheslav Markin, Nicolas Rodriguez)
 
-## 1.7.0 (2022-06-26)
+## 1.7.0 (2022-06-26) (replaced by 1.7.1)
   * added native code to accellerate line parsing by >10x over 1.6.0
   * added option `acceleration`, defaulting to `true`, to enable native code.
     Disable this option to use the ruby code for line parsing.
