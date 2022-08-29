@@ -240,6 +240,7 @@ The options and the block are optional.
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs or all empty values  |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
+     | :with_line_numbers          |   false  | add :csv_line_number to heach data hash                                              |
      ---------------------------------------------------------------------------------------------------------------------------------
 
 #### Deprecated 1.x Options: to be replaced in 2.0

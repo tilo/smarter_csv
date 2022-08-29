@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.2 (2022-08-29)
+  * new option :with_line_numbers; if set to true, it adds :csv_line_number to each data hash (issue #130)
+  
 ## 1.7.1 (2022-07-31)
   * bugfix for issue #195 #197 #200 which only appeared when called from Rails (thanks to Viacheslav Markin, Nicolas Rodriguez)
 
