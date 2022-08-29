@@ -7,10 +7,10 @@ require 'pry'
 Fixnum = Integer unless defined?(Fixnum) # HACK: to allow Ruby 3.2 without having to rewrite the tests
 
 require 'simplecov'
-SimpleCov.start do
-  add_filter '/spec/'
-  add_filter "/pkg/"
-end
+# SimpleCov.start do
+#   add_filter '/spec/'
+#   add_filter "/pkg/"
+# end
 
 if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
   require 'codecov'
