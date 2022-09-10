@@ -250,7 +250,11 @@ module SmarterCSV
     # Why: https://github.com/tilo/smarter_csv/issues/142
     # How: https://stackoverflow.com/questions/5011504/is-there-a-way-to-remove-the-bom-from-a-utf-8-encoded-file/7780531#7780531
     def rewind_filehandle(filehandle)
-      filehandle.pos = @fh_initial_pos # will not skip BOM character
+      if @file_needs_open
+        filehandle.pos = @fh_initial_pos # will not skip BOM character
+      else
+        filehandle.rewind
+      end
     end
 
     ###
