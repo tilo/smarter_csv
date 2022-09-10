@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.3 (2022-09-10)
+  * fixed bug correctly rewinding file with BOM character (issue #142, thanks to Kevin Coleman!)
+    
 ## 1.7.2 (2022-08-29)
   * new option :with_line_numbers; if set to true, it adds :csv_line_number to each data hash (issue #130)
   

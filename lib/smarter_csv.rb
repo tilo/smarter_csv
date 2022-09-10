@@ -27,8 +27,10 @@ module SmarterCSV
     @file_line_count = 0
     @csv_line_count = 0
     has_rails = !!defined?(Rails)
+    @file_needs_open = input.respond_to?(:readline)
     begin
-      fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+      fh = @file_needs_open ? input : File.open(input, "r:#{options[:file_encoding]}")
+      @fh_initial_pos = fh
 
       # auto-detect the row separator
       options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
@@ -245,6 +247,12 @@ module SmarterCSV
       line
     end
 
+    # Why: https://github.com/tilo/smarter_csv/issues/142
+    # How: https://stackoverflow.com/questions/5011504/is-there-a-way-to-remove-the-bom-from-a-utf-8-encoded-file/7780531#7780531
+    def rewind_filehandle(filehandle)
+      filehandle.pos = @fh_initial_pos # will not skip BOM character
+    end
+
     ###
     ### Thin wrapper around C-extension
     ###
@@ -387,7 +395,7 @@ module SmarterCSV
         break
       end
 
-      filehandle.rewind
+      rewind_filehandle(filehandle)
       raise SmarterCSV::NoColSepDetected if n.values.max == 0
 
       col_sep = n.key(n.values.max)
@@ -419,7 +427,7 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      filehandle.rewind
+      rewind_filehandle(filehandle)
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
