@@ -1,4 +1,4 @@
-Year|Make|Model|Length
-1997|Ford|E350|2,34
-2000|Mercury|Cougar|2,38
-2013|Tesla|Model S|4,97
+Year|Make|Model|Length|Trap
+1997|Ford|E350|2,34|a,b,c,d,e,f,g
+2000|Mercury|Cougar|2,38|a,b,c,d,e,f,g
+2013|Tesla|Model S|4,97|a,b,c,d,e,f,g
