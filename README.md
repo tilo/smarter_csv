@@ -240,7 +240,7 @@ The options and the block are optional.
      |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs or all empty values  |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
-     | :with_line_numbers          |   false  | add :csv_line_number to heach data hash                                              |
+     | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
      ---------------------------------------------------------------------------------------------------------------------------------
 
 #### Deprecated 1.x Options: to be replaced in 2.0
@@ -253,7 +253,8 @@ And header and data validations will also be supported in 2.x
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
-     | :required_headers           |   nil    | An array. Eacn of the given headers must be present after header manipulation,       |
+     | :silence_missing_key        |   false  | ignore missing keys in `key_mapping` if true                                         |
+     | :required_headers           |   nil    | An array. Each of the given headers must be present after header manipulation,       |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
