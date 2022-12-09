@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.3 (2022-12-05)
+  * new option :silence_missing_keys; if set to true, it ignores missing keys in `key_mapping`
+
 ## 1.7.2 (2022-08-29)
   * new option :with_line_numbers; if set to true, it adds :csv_line_number to each data hash (issue #130)
   

@@ -227,6 +227,7 @@ module SmarterCSV
         remove_zero_values: false,
         required_headers: nil,
         row_sep: $/,
+        silence_missing_keys: false,
         skip_lines: nil,
         strings_as_keys: false,
         strip_chars_from_headers: nil,
@@ -479,9 +480,11 @@ module SmarterCSV
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-          # we can't map keys that are not there
-          missing_keys = key_mappingH.keys - headerA
-          puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
+          unless options[:silence_missing_keys]
+            # if silence_missing_keys are not set, raise error if missing header
+            missing_keys = key_mappingH.keys - headerA
+            puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
+          end
 
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
         end
