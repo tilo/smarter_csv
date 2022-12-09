@@ -48,3 +48,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Viacheslav Markin](https://github.com/KXEinc)
  * [Nicolas Rodriguez](https://github.com/n-rodriguez)
  * [Hirotaka Mizutani ](https://github.com/hirotaka)
+ * [Rahul Chaudhary](https://github.com/rahulch95)
