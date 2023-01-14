@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.4 (2022-01-13)
+  * improved guessing of the column separator, thanks to Alessandro Fazzi
+
 ## 1.7.3 (2022-12-05)
   * new option :silence_missing_keys; if set to true, it ignores missing keys in `key_mapping`
 

@@ -49,3 +49,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Nicolas Rodriguez](https://github.com/n-rodriguez)
  * [Hirotaka Mizutani ](https://github.com/hirotaka)
  * [Rahul Chaudhary](https://github.com/rahulch95)
+ * [Alessandro Fazzi](https://github.com/pioneerskies)
