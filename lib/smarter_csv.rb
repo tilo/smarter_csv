@@ -374,24 +374,21 @@ module SmarterCSV
       return false
     end
 
-    # raise exception if none is found
+    # If file has headers, then guesses column separator from headers.
+    # Otherwise guesses column separator from contents.
+    # Raises exception if none is found.
     def guess_column_separator(filehandle, options)
-      del = [',', "\t", ';', ':', '|']
-      n = Hash.new(0)
+      possible_delimiters = [',', "\t", ';', ':', '|']
 
-      5.times do
-        line = filehandle.readline(options[:row_sep])
-        del.each do |d|
-          n[d] += line.scan(d).count
-        end
-      rescue EOFError # short files
-        break
-      end
+      candidates = if options.fetch(:headers_in_file)
+                     candidated_column_separators_from_headers(filehandle, options, possible_delimiters)
+                   else
+                     candidated_column_separators_from_contents(filehandle, options, possible_delimiters)
+                   end
 
-      filehandle.rewind
-      raise SmarterCSV::NoColSepDetected if n.values.max == 0
+      raise SmarterCSV::NoColSepDetected if candidates.values.max == 0
 
-      col_sep = n.key(n.values.max)
+      candidates.key(candidates.values.max)
     end
 
     # limitation: this currently reads the whole file in before making a decision
@@ -524,6 +521,38 @@ module SmarterCSV
         end
       end
       result
+    end
+
+    private
+
+    def candidated_column_separators_from_headers(filehandle, options, delimiters)
+      candidates = Hash.new(0)
+      line = filehandle.readline(options[:row_sep])
+
+      delimiters.each do |d|
+        candidates[d] += line.scan(d).count
+      end
+
+      filehandle.rewind
+
+      candidates
+    end
+
+    def candidated_column_separators_from_contents(filehandle, options, delimiters)
+      candidates = Hash.new(0)
+
+      5.times do
+        line = filehandle.readline(options[:row_sep])
+        delimiters.each do |d|
+          candidates[d] += line.scan(d).count
+        end
+      rescue EOFError # short files
+        break
+      end
+
+      filehandle.rewind
+
+      candidates
     end
   end
 end
