@@ -10,6 +10,7 @@ module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
+  class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
@@ -21,6 +22,7 @@ module SmarterCSV
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
+    raise ValidationError unless options_valid?(options)
 
     headerA = []
     result = []
@@ -237,6 +239,15 @@ module SmarterCSV
         verbose: false,
         with_line_numbers: false,
       }
+    end
+
+    def options_valid?(options)
+      keys = options.keys
+      errors = []
+      errors << "invalid row_sep" unless keys.include?(:row_sep) && options[:row_sep].is_a?(String)
+      errors << "invalid col_sep" unless keys.include?(:col_sep) && options[:col_sep].is_a?(String)
+      errors << "invalid quote_char" unless keys.include?(:quote_char) && options[:quote_char].is_a?(String)
+      errors.any?
     end
 
     def readline_with_counts(filehandle, options)
@@ -542,12 +553,14 @@ module SmarterCSV
       candidates = Hash.new(0)
 
       5.times do
-        line = filehandle.readline(options[:row_sep])
-        delimiters.each do |d|
-          candidates[d] += line.scan(d).count
+        begin # keep this for backwards-compatibility to Ruby 2.4
+          line = filehandle.readline(options[:row_sep])
+          delimiters.each do |d|
+            candidates[d] += line.scan(d).count
+          end
+        rescue EOFError # short files
+          break
         end
-      rescue EOFError # short files
-        break
       end
 
       filehandle.rewind

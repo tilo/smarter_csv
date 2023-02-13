@@ -1,6 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.7.5 (2022-02-13)
+  * adding validations for :row_sep, :col_sep, :quote_char
+  * re-enabling Ruby 2.4 for now
+
 ## 1.7.4 (2022-01-13)
   * improved guessing of the column separator, thanks to Alessandro Fazzi
 
