@@ -14,6 +14,8 @@ describe 'be_able_to' do
       expect(data.size).to eq 2
       expect(data[0][:some_id]).to eq true # untreated BOM issue would taint first column's symbol with the BOM
       expect(data[0].keys.sort).to eq [:fuzzboxes, :type, :some_id]
+      expect[data[0][:some_id]].to eq 42766805
+      expect[data[1][:some_id]].to eq 38759150
     end
   end
 
