@@ -4,8 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-
+describe 'BOM Tests' do
   context 'when given CSV file with BOM issue' do
     let(:file) { "#{fixture_path}/bom_issue.csv" }
 

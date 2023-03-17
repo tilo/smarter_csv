@@ -434,6 +434,7 @@ module SmarterCSV
         header = readline_with_counts(filehandle, options)
         @raw_header = header
 
+        header = remove_bom(header)
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
         header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
         header = header.chomp(options[:row_sep])
@@ -524,6 +525,23 @@ module SmarterCSV
     end
 
     private
+
+    # List of known BOMs in hexadecimal notation
+
+    UTF_8_BOM = [0xEF, 0xBB, 0xBF].pack("C*").force_encoding("UTF-8").freeze             # UTF-8 with BOM: EF BB BF
+    UTF_16_BOM = [0xEF, 0xFF].pack("C*").force_encoding("UTF-16").freeze                 # UTF-16BE (big-endian): FE FF
+    UTF_16LE_BOM = [0xFF, 0xFE].pack("C*").force_encoding("UTF-16LE").freeze             # UTF-16LE (little-endian): FF FE
+    UTF_32_BOM = [0x00, 0x00, 0xFE, 0xFF].pack("C*").force_encoding("UTF-32").freeze     # UTF-32BE (big-endian): 00 00 FE FF
+    UTF_32LE_BOM = [0xFF, 0xFE, 0x00, 0x00].pack("C*").force_encoding("UTF-32LE").freeze # UTF-32LE (little-endian): FF FE 00 00
+
+    BYTE_ORDER_MARKERS = [UTF_8_BOM, UTF_16_BOM, UTF_16LE_BOM, UTF_32_BOM, UTF_32LE_BOM].freeze
+
+    def remove_bom(str)
+      BYTE_ORDER_MARKERS.each do |bom|
+        return str.delete_prefix(bom) if str.start_with(bom)
+      end
+      str
+    end
 
     def candidated_column_separators_from_headers(filehandle, options, delimiters)
       candidates = Hash.new(0)
