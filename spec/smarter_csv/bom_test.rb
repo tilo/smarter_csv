@@ -5,6 +5,19 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe 'be_able_to' do
+
+  context 'when given CSV file with BOM issue' do
+    let(:file) { "#{fixture_path}/bom_issue.csv" }
+
+    it 'loads the file with the correct headers' do
+      data = SmarterCSV.process(file)
+      expect(data.size).to eq 2
+      expect(data[0][:some_id]).to eq true # untreated BOM issue would taint first column's symbol with the BOM
+      expect(data[0].keys.sort).to eq [:fuzzboxes, :type, :some_id]
+    end
+  end
+
+  # this was the old test
   it 'loads CSV file with BOM character' do
     options = {col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/}
     data = SmarterCSV.process("#{fixture_path}/bom_test.csv", options)
