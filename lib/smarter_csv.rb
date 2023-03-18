@@ -3,8 +3,8 @@
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
 
-require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
-# require 'smarter_csv.bundle' unless ENV['CI'] # does not compile/link in CI?
+# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+require 'smarter_csv.bundle' unless ENV['CI'] # does not compile/link in CI?
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
@@ -433,8 +433,8 @@ module SmarterCSV
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = readline_with_counts(filehandle, options)
         @raw_header = header
-
         header = remove_bom(header)
+
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
         header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
         header = header.chomp(options[:row_sep])
@@ -526,20 +526,22 @@ module SmarterCSV
 
     private
 
-    # List of known BOMs in hexadecimal notation
-
-    UTF_8_BOM = [0xEF, 0xBB, 0xBF].pack("C*").force_encoding("UTF-8").freeze             # UTF-8 with BOM: EF BB BF
-    UTF_16_BOM = [0xEF, 0xFF].pack("C*").force_encoding("UTF-16").freeze                 # UTF-16BE (big-endian): FE FF
-    UTF_16LE_BOM = [0xFF, 0xFE].pack("C*").force_encoding("UTF-16LE").freeze             # UTF-16LE (little-endian): FF FE
-    UTF_32_BOM = [0x00, 0x00, 0xFE, 0xFF].pack("C*").force_encoding("UTF-32").freeze     # UTF-32BE (big-endian): 00 00 FE FF
-    UTF_32LE_BOM = [0xFF, 0xFE, 0x00, 0x00].pack("C*").force_encoding("UTF-32LE").freeze # UTF-32LE (little-endian): FF FE 00 00
-
-    BYTE_ORDER_MARKERS = [UTF_8_BOM, UTF_16_BOM, UTF_16LE_BOM, UTF_32_BOM, UTF_32LE_BOM].freeze
+    UTF_32_BOM = %w[00 00 fe ff]
+    UTF_32LE_BOM = %w[ff fe 00 00]
+    UTF_8_BOM = %w[ef bb bf]
+    UTF_16_BOM = %w[ef ff]
+    UTF_16LE_BOM = %w[ff ef]
 
     def remove_bom(str)
-      BYTE_ORDER_MARKERS.each do |bom|
-        return str.delete_prefix(bom) if str.start_with(bom)
-      end
+      str_as_hex = str.bytes.map{|x| x.to_s(16)}
+      # if string does not start with one of the bytes above, there is no BOM
+      return str unless ['ef', 'ff', '00'].include?(str_as_hex[0])
+
+      return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
+      return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
+      return str.byteslice(2..-1) if [UTF_16_BOM, UTF_16LE_BOM].include?(str_as_hex[0..1])
+
+      puts "SmarterCSV found unhandled BOM! #{str.cars[0..7].inspect}"
       str
     end
 
