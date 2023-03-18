@@ -243,6 +243,7 @@ module SmarterCSV
       line = filehandle.readline(options[:row_sep])
       @file_line_count += 1
       @csv_line_count += 1
+      line = remove_bom(line) if @file_line_count == 1
       line
     end
 
@@ -433,7 +434,6 @@ module SmarterCSV
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header = readline_with_counts(filehandle, options)
         @raw_header = header
-        header = remove_bom(header)
 
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
         header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
