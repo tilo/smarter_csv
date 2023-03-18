@@ -474,13 +474,13 @@ module SmarterCSV
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
-
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           unless options[:silence_missing_keys]
             # if silence_missing_keys are not set, raise error if missing header
             missing_keys = key_mappingH.keys - headerA
+
             puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
           end
 
@@ -526,16 +526,16 @@ module SmarterCSV
 
     private
 
-    UTF_32_BOM = %w[00 00 fe ff]
-    UTF_32LE_BOM = %w[ff fe 00 00]
-    UTF_8_BOM = %w[ef bb bf]
-    UTF_16_BOM = %w[ef ff]
-    UTF_16LE_BOM = %w[ff ef]
+    UTF_32_BOM = %w[00 00 fe ff].freeze
+    UTF_32LE_BOM = %w[ff fe 00 00].freeze
+    UTF_8_BOM = %w[ef bb bf].freeze
+    UTF_16_BOM = %w[ef ff].freeze
+    UTF_16LE_BOM = %w[ff ef].freeze
 
     def remove_bom(str)
       str_as_hex = str.bytes.map{|x| x.to_s(16)}
       # if string does not start with one of the bytes above, there is no BOM
-      return str unless ['ef', 'ff', '00'].include?(str_as_hex[0])
+      return str unless %w[ef ff 00].include?(str_as_hex[0])
 
       return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
       return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
