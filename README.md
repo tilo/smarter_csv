@@ -55,9 +55,9 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
 
-Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options.
-But this could be slow if we would analyze the whole CSV file first (previous to 1.1.5 the whole file was analyzed).
-To speed things up, you can setting the option `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500; nil or 0 will check the whole file).
+By default (since version 1.8.0), detection of the column and row separators is set to automatic `row_sep: :auto`, `col_sep: :auto`. This should make it easier to process any CSV files without having to examine the line endings or column separators.
+
+To speed things up, you can setting the option `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); nil or 0 will check the whole file).
 You can also set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
 
 
@@ -222,10 +222,10 @@ The options and the block are optional.
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :col_sep                    |   ','    | column separator, can be set to :auto                                                |
+     | :col_sep                    |   :auto   | column separator (default was ',')                                           |
      | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
-     | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
+     | :row_sep                    |  :auto   | row separator or record separator (previous default was system's $/ , which defaulted to "\n") |
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
