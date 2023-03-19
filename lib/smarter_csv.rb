@@ -3,24 +3,25 @@
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
 
-# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
-require 'smarter_csv.bundle' unless ENV['CI'] # does not compile/link in CI?
+require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+# require 'smarter_csv.bundle' unless ENV['CI'] # local testing
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
+  class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
-  class KeyMappingError < SmarterCSVException; end
-  class MalformedCSVError < SmarterCSVException; end
+  class KeyMappingError < SmarterCSVException; end # CURRENTLY UNUSED -> version 1.9.0
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options = {}, &block)
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
+    validate_options!(options)
 
     headerA = []
     result = []
@@ -214,7 +215,7 @@ module SmarterCSV
         headers_in_file: true,
         invalid_byte_sequence: '',
         keep_original_headers: false,
-        key_mapping_hash: nil,
+        key_mapping: nil,
         quote_char: '"',
         remove_empty_hashes: true,
         remove_empty_values: true,
@@ -222,6 +223,7 @@ module SmarterCSV
         remove_values_matching: nil,
         remove_zero_values: false,
         required_headers: nil,
+        required_keys: nil,
         row_sep: :auto, # was: $/,
         silence_missing_keys: false,
         skip_lines: nil,
@@ -486,13 +488,13 @@ module SmarterCSV
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
+
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           unless options[:silence_missing_keys]
             # if silence_missing_keys are not set, raise error if missing header
             missing_keys = key_mappingH.keys - headerA
-
             puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
           end
 
@@ -510,12 +512,21 @@ module SmarterCSV
         raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
       end
 
-      if options[:required_headers] && options[:required_headers].is_a?(Array)
-        missing_headers = []
-        options[:required_headers].each do |k|
-          missing_headers << k unless headerA.include?(k)
+      # deprecate required_headers
+      if !options[:required_headers].nil?
+        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required headers'"
+        if options[:required_keys].nil?
+          options[:required_keys] = options[:required_headers]
+          options[:required_headers] = nil
         end
-        raise SmarterCSV::MissingHeaders, "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
+      end
+
+      if options[:required_keys] && options[:required_keys].is_a?(Array)
+        missing_keys = []
+        options[:required_keys].each do |k|
+          missing_keys << k unless headerA.include?(k)
+        end
+        raise SmarterCSV::MissingHeaders, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
 
       @headers = headerA
@@ -546,7 +557,7 @@ module SmarterCSV
 
     def remove_bom(str)
       str_as_hex = str.bytes.map{|x| x.to_s(16)}
-      # if string does not start with one of the bytes above, there is no BOM
+      # if string does not start with one of the bytes, there is no BOM
       return str unless %w[ef fe ff 0].include?(str_as_hex[0])
 
       return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
@@ -555,6 +566,21 @@ module SmarterCSV
 
       puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
       str
+    end
+
+    def validate_options!(options)
+      keys = options.keys
+      errors = []
+      errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
+      errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
+      errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+      raise SmarterCSV::ValidationError, errors.inspect if errors.any?
+    end
+
+    def option_valid?(str)
+      return true if str.is_a?(Symbol) && str == :auto
+      return true if str.is_a?(String) && !str.empty?
+      false
     end
 
     def candidated_column_separators_from_headers(filehandle, options, delimiters)

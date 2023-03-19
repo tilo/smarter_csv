@@ -73,6 +73,12 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
 ```
 
+### Examples
+
+Here are some examples to demonstrate the versatility of SmarterCSV.
+
+By default SmarterCSV determines the `row_sep` and `col_sep` values automatically.
+In rare cases you may have to manually set these values, after going through the troubleshooting procedure described above.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
@@ -267,7 +273,8 @@ And header and data validations will also be supported in 2.x
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :silence_missing_key        |   false  | ignore missing keys in `key_mapping` if true                                         |
-     | :required_headers           |   nil    | An array. Each of the given headers must be present after header manipulation,       |
+     | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                  |
+     | :required_headers           |   nil    | (DEPRECATED / renamed) Use `required_keys` instead                          |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
