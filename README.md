@@ -73,6 +73,12 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
 ```
 
+### Examples
+
+Here are some examples to demonstrate the versatility of SmarterCSV.
+
+By default SmarterCSV determines the `row_sep` and `col_sep` values automatically.
+In rare cases you may have to manually set these values, after going through the troubleshooting procedure described above.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.

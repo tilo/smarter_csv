@@ -27,7 +27,6 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     long col_sep_len = RSTRING_LEN(col_sep);
 
     char *quoteP = RSTRING_PTR(quote_char);
-    long quote_len = RSTRING_LEN(quote_char);
     long quote_count = 0;
 
     bool col_sep_found = true;

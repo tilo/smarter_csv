@@ -10,6 +10,7 @@ module SmarterCSV
   class SmarterCSVException < StandardError; end
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
+  class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
@@ -21,6 +22,7 @@ module SmarterCSV
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
+    validate_options!(options)
 
     headerA = []
     result = []
@@ -546,7 +548,7 @@ module SmarterCSV
 
     def remove_bom(str)
       str_as_hex = str.bytes.map{|x| x.to_s(16)}
-      # if string does not start with one of the bytes above, there is no BOM
+      # if string does not start with one of the bytes, there is no BOM
       return str unless %w[ef fe ff 0].include?(str_as_hex[0])
 
       return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
@@ -555,6 +557,21 @@ module SmarterCSV
 
       puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
       str
+    end
+
+    def validate_options!(options)
+      keys = options.keys
+      errors = []
+      errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
+      errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
+      errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+      raise SmarterCSV::ValidationError, errors.inspect if errors.any?
+    end
+
+    def option_valid?(str)
+      return true if str.is_a?(Symbol) && str == :auto
+      return true if str.is_a?(String) && !str.empty?
+      false
     end
 
     def candidated_column_separators_from_headers(filehandle, options, delimiters)
