@@ -39,11 +39,7 @@ module SmarterCSV
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
-      if options[:skip_lines].to_i > 0
-        options[:skip_lines].to_i.times do
-          readline_with_counts(fh, options)
-        end
-      end
+      skip_lines(fh, options)
 
       headerA, header_size = process_headers(fh, options)
 
@@ -207,7 +203,7 @@ module SmarterCSV
         acceleration: true,
         auto_row_sep_chars: 500,
         chunk_size: nil,
-        col_sep: ',',
+        col_sep: :auto, # was: ',',
         comment_regexp: nil, # was: /\A#/,
         convert_values_to_numeric: true,
         downcase_header: true,
@@ -226,7 +222,7 @@ module SmarterCSV
         remove_values_matching: nil,
         remove_zero_values: false,
         required_headers: nil,
-        row_sep: $/,
+        row_sep: :auto, # was: $/,
         silence_missing_keys: false,
         skip_lines: nil,
         strings_as_keys: false,
@@ -245,6 +241,20 @@ module SmarterCSV
       @csv_line_count += 1
       line = remove_bom(line) if @csv_line_count == 1
       line
+    end
+
+    def skip_lines(filehandle, options)
+      return unless options[:skip_lines].to_i > 0
+
+      options[:skip_lines].to_i.times do
+        readline_with_counts(filehandle, options)
+      end
+    end
+
+    def rewind(filehandle)
+      @file_line_count = 0
+      @csv_line_count = 0
+      filehandle.rewind
     end
 
     ###
@@ -379,6 +389,8 @@ module SmarterCSV
     # Otherwise guesses column separator from contents.
     # Raises exception if none is found.
     def guess_column_separator(filehandle, options)
+      skip_lines(filehandle, options)
+
       possible_delimiters = [',', "\t", ';', ':', '|']
 
       candidates = if options.fetch(:headers_in_file)
@@ -418,7 +430,7 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      filehandle.rewind
+      rewind(filehandle)
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
@@ -547,13 +559,13 @@ module SmarterCSV
 
     def candidated_column_separators_from_headers(filehandle, options, delimiters)
       candidates = Hash.new(0)
-      line = filehandle.readline(options[:row_sep])
+      line = readline_with_counts(filehandle, options.slice(:row_sep))
 
       delimiters.each do |d|
         candidates[d] += line.scan(d).count
       end
 
-      filehandle.rewind
+      rewind(filehandle)
 
       candidates
     end
@@ -562,7 +574,7 @@ module SmarterCSV
       candidates = Hash.new(0)
 
       5.times do
-        line = filehandle.readline(options[:row_sep])
+        line = readline_with_counts(filehandle, options.slice(:row_sep))
         delimiters.each do |d|
           candidates[d] += line.scan(d).count
         end
@@ -570,7 +582,7 @@ module SmarterCSV
         break
       end
 
-      filehandle.rewind
+      rewind(filehandle)
 
       candidates
     end
