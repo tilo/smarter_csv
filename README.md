@@ -273,7 +273,7 @@ And header and data validations will also be supported in 2.x
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
      | :silence_missing_key        |   false  | ignore missing keys in `key_mapping` if true                                         |
-     | :required_headers           |   nil    | An array. Each of the given headers must be present after header manipulation,       |
+     | :required_headers           |   nil    | An array. Specify the required names AFTER header transformation.                  |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |
