@@ -2,7 +2,7 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.8.1 (2023-03-19)
-  * protection against invalid values for :col_sep, :row_sep, :quote_char (issue #216)
+  * added validation against invalid values for :col_sep, :row_sep, :quote_char (issue #216)
   * deprecating `required_headers` and replace with `required_keys` (issue #140)
   * fixed issue with require statement
 
