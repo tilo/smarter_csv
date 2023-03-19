@@ -3,8 +3,8 @@
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
 
-require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
-# require 'smarter_csv.bundle' unless ENV['CI'] # does not compile/link in CI?
+# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+require 'smarter_csv.bundle' unless ENV['CI'] # does not compile/link in CI?
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
@@ -41,11 +41,7 @@ module SmarterCSV
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
-      if options[:skip_lines].to_i > 0
-        options[:skip_lines].to_i.times do
-          readline_with_counts(fh, options)
-        end
-      end
+      skip_lines(fh, options)
 
       headerA, header_size = process_headers(fh, options)
 
@@ -209,7 +205,7 @@ module SmarterCSV
         acceleration: true,
         auto_row_sep_chars: 500,
         chunk_size: nil,
-        col_sep: ',',
+        col_sep: :auto, # was: ',',
         comment_regexp: nil, # was: /\A#/,
         convert_values_to_numeric: true,
         downcase_header: true,
@@ -228,7 +224,7 @@ module SmarterCSV
         remove_values_matching: nil,
         remove_zero_values: false,
         required_headers: nil,
-        row_sep: $/,
+        row_sep: :auto, # was: $/,
         silence_missing_keys: false,
         skip_lines: nil,
         strings_as_keys: false,
@@ -254,7 +250,22 @@ module SmarterCSV
       line = filehandle.readline(options[:row_sep])
       @file_line_count += 1
       @csv_line_count += 1
+      line = remove_bom(line) if @csv_line_count == 1
       line
+    end
+
+    def skip_lines(filehandle, options)
+      return unless options[:skip_lines].to_i > 0
+
+      options[:skip_lines].to_i.times do
+        readline_with_counts(filehandle, options)
+      end
+    end
+
+    def rewind(filehandle)
+      @file_line_count = 0
+      @csv_line_count = 0
+      filehandle.rewind
     end
 
     ###
@@ -389,6 +400,8 @@ module SmarterCSV
     # Otherwise guesses column separator from contents.
     # Raises exception if none is found.
     def guess_column_separator(filehandle, options)
+      skip_lines(filehandle, options)
+
       possible_delimiters = [',', "\t", ';', ':', '|']
 
       candidates = if options.fetch(:headers_in_file)
@@ -428,7 +441,7 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      filehandle.rewind
+      rewind(filehandle)
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
@@ -484,13 +497,13 @@ module SmarterCSV
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
-
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           unless options[:silence_missing_keys]
             # if silence_missing_keys are not set, raise error if missing header
             missing_keys = key_mappingH.keys - headerA
+
             puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
           end
 
@@ -536,15 +549,34 @@ module SmarterCSV
 
     private
 
+    UTF_32_BOM = %w[0 0 fe ff].freeze
+    UTF_32LE_BOM = %w[ff fe 0 0].freeze
+    UTF_8_BOM = %w[ef bb bf].freeze
+    UTF_16_BOM = %w[fe ff].freeze
+    UTF_16LE_BOM = %w[ff fe].freeze
+
+    def remove_bom(str)
+      str_as_hex = str.bytes.map{|x| x.to_s(16)}
+      # if string does not start with one of the bytes above, there is no BOM
+      return str unless %w[ef fe ff 0].include?(str_as_hex[0])
+
+      return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
+      return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
+      return str.byteslice(2..-1) if [UTF_16_BOM, UTF_16LE_BOM].include?(str_as_hex[0..1])
+
+      puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
+      str
+    end
+
     def candidated_column_separators_from_headers(filehandle, options, delimiters)
       candidates = Hash.new(0)
-      line = filehandle.readline(options[:row_sep])
+      line = readline_with_counts(filehandle, options.slice(:row_sep))
 
       delimiters.each do |d|
         candidates[d] += line.scan(d).count
       end
 
-      filehandle.rewind
+      rewind(filehandle)
 
       candidates
     end
@@ -553,17 +585,13 @@ module SmarterCSV
       candidates = Hash.new(0)
 
       5.times do
-        begin # keep this for backwards-compatibility to Ruby 2.4
-          line = filehandle.readline(options[:row_sep])
-          delimiters.each do |d|
-            candidates[d] += line.scan(d).count
-          end
-        rescue EOFError # short files
-          break
+        line = readline_with_counts(filehandle, options.slice(:row_sep))
+        delimiters.each do |d|
+          candidates[d] += line.scan(d).count
         end
       end
 
-      filehandle.rewind
+      rewind(filehandle)
 
       candidates
     end
