@@ -14,8 +14,7 @@ module SmarterCSV
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
-  class KeyMappingError < SmarterCSVException; end
-  class MalformedCSVError < SmarterCSVException; end
+  class KeyMappingError < SmarterCSVException; end # CURRENTLY UNUSED -> version 1.9.0
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options = {}, &block)
