@@ -4,7 +4,24 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
+describe 'key_mapping' do
+  describe 'exception for missing keys / header names' do
+    let(:options) { {} }
+    subject(:data) { SmarterCSV.process("#{fixture_path}/basic.csv", options) }
+
+    it 'complains about the original header name when source of key_mapping is missing' do
+      options[:key_mapping] = {missing_key: :something_new}
+      expect(SmarterCSV).to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
+      data
+    end
+
+    # slated for version 1.9.0
+    xit 'raises exception because source of key_mapping is missing' do
+      options[:key_mapping] = {missing_key: :something_new}
+      expect{ data }.to raise_exception(SmarterCSV::KeyMappingError)
+    end
+  end
+
   it 'remove_values_matching' do
     options = {remove_zero_values: true, key_mapping: {first_name: :vorname, last_name: :nachname} }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)

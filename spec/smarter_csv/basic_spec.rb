@@ -65,7 +65,7 @@ fixture_path = 'spec/fixtures'
         it 'raises an exception if the number of user_provided_headers is incorrect' do
           expect do
             SmarterCSV.process("#{fixture_path}/basic.csv", options)
-          end.to raise_error(SmarterCSV::HeaderSizeMismatch)
+          end.to raise_exception(SmarterCSV::HeaderSizeMismatch)
         end
       end
     end
