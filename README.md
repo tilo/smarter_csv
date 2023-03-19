@@ -60,6 +60,19 @@ By default (since version 1.8.0), detection of the column and row separators is 
 You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); nil or 0 will check the whole file).
 You can also set the `:row_sep` manually! Checkout Example 4 for unusual `:row_sep` and `:col_sep`.
 
+### Troubleshooting
+
+In case your CSV file is not being parsed correctly, try to examine it in a text editor. For closer inspection  a tool like `hexdump` can help find otherwise hidden control character or byte sequences like [BOMs](https://en.wikipedia.org/wiki/Byte_order_mark).
+
+```
+$ hexdump -C spec/fixtures/bom_test_feff.csv
+00000000  fe ff 73 6f 6d 65 5f 69  64 2c 74 79 70 65 2c 66  |..some_id,type,f|
+00000010  75 7a 7a 62 6f 78 65 73  0d 0a 34 32 37 36 36 38  |uzzboxes..427668|
+00000020  30 35 2c 7a 69 7a 7a 6c  65 73 2c 31 32 33 34 0d  |05,zizzles,1234.|
+00000030  0a 33 38 37 35 39 31 35  30 2c 71 75 69 7a 7a 65  |.38759150,quizze|
+00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
+```
+
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
