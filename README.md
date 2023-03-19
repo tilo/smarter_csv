@@ -55,10 +55,23 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
 
-Tip: If you are uncertain about what line endings a CSV-file uses, try specifying `:row_sep => :auto` as part of the options.
-But this could be slow if we would analyze the whole CSV file first (previous to 1.1.5 the whole file was analyzed).
-To speed things up, you can setting the option `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500; nil or 0 will check the whole file).
-You can also set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
+By default (since version 1.8.0), detection of the column and row separators is set to automatic `row_sep: :auto`, `col_sep: :auto`. This should make it easier to process any CSV files without having to examine the line endings or column separators.
+
+You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); nil or 0 will check the whole file).
+You can also set the `:row_sep` manually! Checkout Example 4 for unusual `:row_sep` and `:col_sep`.
+
+### Troubleshooting
+
+In case your CSV file is not being parsed correctly, try to examine it in a text editor. For closer inspection  a tool like `hexdump` can help find otherwise hidden control character or byte sequences like [BOMs](https://en.wikipedia.org/wiki/Byte_order_mark).
+
+```
+$ hexdump -C spec/fixtures/bom_test_feff.csv
+00000000  fe ff 73 6f 6d 65 5f 69  64 2c 74 79 70 65 2c 66  |..some_id,type,f|
+00000010  75 7a 7a 62 6f 78 65 73  0d 0a 34 32 37 36 36 38  |uzzboxes..427668|
+00000020  30 35 2c 7a 69 7a 7a 6c  65 73 2c 31 32 33 34 0d  |05,zizzles,1234.|
+00000030  0a 33 38 37 35 39 31 35  30 2c 71 75 69 7a 7a 65  |.38759150,quizze|
+00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
+```
 
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
@@ -222,10 +235,10 @@ The options and the block are optional.
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :col_sep                    |   ','    | column separator, can be set to :auto                                                |
+     | :col_sep                    |   :auto   | column separator (default was ',')                                           |
      | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
-     | :row_sep                    | $/ ,"\n" | row separator or record separator , defaults to system's $/ , which defaults to "\n" |
+     | :row_sep                    |  :auto   | row separator or record separator (previous default was system's $/ , which defaulted to "\n") |
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
