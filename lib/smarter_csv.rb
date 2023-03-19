@@ -216,7 +216,7 @@ module SmarterCSV
         headers_in_file: true,
         invalid_byte_sequence: '',
         keep_original_headers: false,
-        key_mapping_hash: nil,
+        key_mapping: nil,
         quote_char: '"',
         remove_empty_hashes: true,
         remove_empty_values: true,
@@ -224,6 +224,7 @@ module SmarterCSV
         remove_values_matching: nil,
         remove_zero_values: false,
         required_headers: nil,
+        required_keys: nil,
         row_sep: :auto, # was: $/,
         silence_missing_keys: false,
         skip_lines: nil,
@@ -488,13 +489,13 @@ module SmarterCSV
 
       unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
         key_mappingH = options[:key_mapping]
+
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
           unless options[:silence_missing_keys]
             # if silence_missing_keys are not set, raise error if missing header
             missing_keys = key_mappingH.keys - headerA
-
             puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
           end
 
@@ -512,12 +513,21 @@ module SmarterCSV
         raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
       end
 
-      if options[:required_headers] && options[:required_headers].is_a?(Array)
-        missing_headers = []
-        options[:required_headers].each do |k|
-          missing_headers << k unless headerA.include?(k)
+      # deprecate required_headers
+      if !options[:required_headers].nil?
+        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required headers'"
+        if options[:required_keys].nil?
+          options[:required_keys] = options[:required_headers]
+          options[:required_headers] = nil
         end
-        raise SmarterCSV::MissingHeaders, "ERROR: missing headers: #{missing_headers.join(',')}" unless missing_headers.empty?
+      end
+
+      if options[:required_keys] && options[:required_keys].is_a?(Array)
+        missing_keys = []
+        options[:required_keys].each do |k|
+          missing_keys << k unless headerA.include?(k)
+        end
+        raise SmarterCSV::MissingHeaders, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
 
       @headers = headerA

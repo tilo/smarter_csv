@@ -3,6 +3,7 @@
 
 ## 1.8.1 (2023-03-20)
   * protection against invalid values for :col_sep, :row_sep, :quote_char (issue #216)
+  * deprecating `required_headers` and replace with `required_keys` (issue #140)
 
 ## 1.8.0 (2023-03-18)
   * NEW DEFAULTS: `col_sep: :auto`, `row_sep: :auto`. Fully automatic detection by default.
