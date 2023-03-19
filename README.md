@@ -57,8 +57,8 @@ The two main choices you have in terms of how to call `SmarterCSV.process` are:
 
 By default (since version 1.8.0), detection of the column and row separators is set to automatic `row_sep: :auto`, `col_sep: :auto`. This should make it easier to process any CSV files without having to examine the line endings or column separators.
 
-To speed things up, you can setting the option `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); nil or 0 will check the whole file).
-You can also set the `:row_sep` manually! Checkout Example 5 for unusual `:row_sep` and `:col_sep`.
+You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); nil or 0 will check the whole file).
+You can also set the `:row_sep` manually! Checkout Example 4 for unusual `:row_sep` and `:col_sep`.
 
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
