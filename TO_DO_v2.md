@@ -1,10 +1,9 @@
 # SmarterCSV v2.0 TO DO List
 
-* add enumerable to speed up parallel processing [issue #66](https://github.com/tilo/smarter_csv/issues/66), [issue #32](https://github.com/tilo/smarter_csv/issues/32
-* )
+* add enumerable to speed up parallel processing [issue #66](https://github.com/tilo/smarter_csv/issues/66), [issue #32](https://github.com/tilo/smarter_csv/issues/32)
 * use Procs for validations and transformatoins [issue #118](https://github.com/tilo/smarter_csv/issues/118)
 * make @errors and @warnings work [issue #118](https://github.com/tilo/smarter_csv/issues/118)
-* skip file opening, allow reading from CSV string, e.g. reading from S3 file [issue #120](https://github.com/tilo/smarter_csv/issues/120)
+* skip file opening, allow reading from CSV string, e.g. reading from S3 file [issue #120](https://github.com/tilo/smarter_csv/issues/120).
   Or stream large file from S3 (linked in the issue)
 * Collect all Errors, before surfacing them. Avoid throwing an exception on the first error [issue #133](https://github.com/tilo/smarter_csv/issues/133)
 * Don't call rewind on filehandle
