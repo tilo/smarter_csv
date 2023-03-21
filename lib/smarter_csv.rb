@@ -395,7 +395,7 @@ module SmarterCSV
 
       delimiters = [',', "\t", ';', ':', '|']
 
-      line = ''
+      line = nil
       has_header = options[:headers_in_file]
       candidates = Hash.new(0)
       count = has_header ? 1 : 5
@@ -409,10 +409,12 @@ module SmarterCSV
       end
       rewind(filehandle)
 
-      # if the header only contains
-      # return ',' if has_header && line =~ /^\w$/
+      if candidates.values.max == 0
+        # if the header only contains
+        return ',' if line =~ /^\w+$/
 
-      raise SmarterCSV::NoColSepDetected if candidates.values.max == 0
+        raise SmarterCSV::NoColSepDetected
+      end
 
       candidates.key(candidates.values.max)
     end
