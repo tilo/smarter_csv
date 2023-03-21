@@ -393,7 +393,7 @@ module SmarterCSV
     def guess_column_separator(filehandle, options)
       skip_lines(filehandle, options)
 
-      possible_delimiters = [',', "\t", ';', ':', '|']
+      delimiters = [',', "\t", ';', ':', '|']
 
       line = ''
       has_header = options[:headers_in_file]
