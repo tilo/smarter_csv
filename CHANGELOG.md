@@ -8,6 +8,7 @@
 
 ## 1.8.0 (2023-03-18)
   * NEW DEFAULTS: `col_sep: :auto`, `row_sep: :auto`. Fully automatic detection by default.
+    MAKE SURE TO capture `NoColSepDetected` if your CSV files can have unexpected formats.
   * ignore Byte Order Marker (BOM) in first line in file (issues #27, #219)
 
 ## 1.7.4 (2023-01-13)
