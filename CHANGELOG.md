@@ -2,7 +2,8 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.8.2 (2023-03-21)
-  * bugfix: do not raise `NoColSepDetected` for CSV files with only one column in most cases.
+  * bugfix: do not raise `NoColSepDetected` for CSV files with only one column in most cases (issue #222)
+            If the first lines contain non-ASCII characters, and no col_sep is detected, it will still raise `NoColSepDetected`
 
 ## 1.8.1 (2023-03-19)
   * added validation against invalid values for :col_sep, :row_sep, :quote_char (issue #216)
