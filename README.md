@@ -77,7 +77,10 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 
 Here are some examples to demonstrate the versatility of SmarterCSV.
 
-By default SmarterCSV determines the `row_sep` and `col_sep` values automatically.
+**It is generally recommended to rescue `SmarterCSVException` or it's sub-classes.**
+
+By default SmarterCSV determines the `row_sep` and `col_sep` values automatically. In cases where the automatic detection fails, an exception will be raised, e.g. `NoColSepDetected`. Rescuing from these exceptions will make sure that you don't miss processing CSV files, in case users upload CSV files with unexpected formats.
+
 In rare cases you may have to manually set these values, after going through the troubleshooting procedure described above.
 
 #### Example 1a: How SmarterCSV processes CSV-files as array of hashes:

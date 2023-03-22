@@ -393,15 +393,28 @@ module SmarterCSV
     def guess_column_separator(filehandle, options)
       skip_lines(filehandle, options)
 
-      possible_delimiters = [',', "\t", ';', ':', '|']
+      delimiters = [',', "\t", ';', ':', '|']
 
-      candidates = if options.fetch(:headers_in_file)
-                     candidated_column_separators_from_headers(filehandle, options, possible_delimiters)
-                   else
-                     candidated_column_separators_from_contents(filehandle, options, possible_delimiters)
-                   end
+      line = nil
+      has_header = options[:headers_in_file]
+      candidates = Hash.new(0)
+      count = has_header ? 1 : 5
+      count.times do
+        line = readline_with_counts(filehandle, options)
+        delimiters.each do |d|
+          candidates[d] += line.scan(d).count
+        end
+      rescue EOFError # short files
+        break
+      end
+      rewind(filehandle)
 
-      raise SmarterCSV::NoColSepDetected if candidates.values.max == 0
+      if candidates.values.max == 0
+        # if the header only contains
+        return ',' if line =~ /^\w+$/
+
+        raise SmarterCSV::NoColSepDetected
+      end
 
       candidates.key(candidates.values.max)
     end
@@ -581,36 +594,6 @@ module SmarterCSV
       return true if str.is_a?(Symbol) && str == :auto
       return true if str.is_a?(String) && !str.empty?
       false
-    end
-
-    def candidated_column_separators_from_headers(filehandle, options, delimiters)
-      candidates = Hash.new(0)
-      line = readline_with_counts(filehandle, options.slice(:row_sep))
-
-      delimiters.each do |d|
-        candidates[d] += line.scan(d).count
-      end
-
-      rewind(filehandle)
-
-      candidates
-    end
-
-    def candidated_column_separators_from_contents(filehandle, options, delimiters)
-      candidates = Hash.new(0)
-
-      5.times do
-        line = readline_with_counts(filehandle, options.slice(:row_sep))
-        delimiters.each do |d|
-          candidates[d] += line.scan(d).count
-        end
-      rescue EOFError # short files
-        break
-      end
-
-      rewind(filehandle)
-
-      candidates
     end
   end
 end

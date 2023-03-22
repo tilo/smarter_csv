@@ -1,14 +1,21 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.8.2 (2023-03-21)
+  * bugfix: do not raise `NoColSepDetected` for CSV files with only one column in most cases (issue #222)
+            If the first lines contain non-ASCII characters, and no col_sep is detected, it will still raise `NoColSepDetected`
+
 ## 1.8.1 (2023-03-19)
   * added validation against invalid values for :col_sep, :row_sep, :quote_char (issue #216)
   * deprecating `required_headers` and replace with `required_keys` (issue #140)
   * fixed issue with require statement
 
-## 1.8.0 (2023-03-18)
+## 1.8.0 (2023-03-18) BREAKING
   * NEW DEFAULTS: `col_sep: :auto`, `row_sep: :auto`. Fully automatic detection by default.
-    MAKE SURE TO capture `NoColSepDetected` if your CSV files can have unexpected formats.
+    
+    MAKE SURE to rescue `NoColSepDetected` if your CSV files can have unexpected formats, 
+              e.g. from users uploading them to a service, and handle those cases.
+
   * ignore Byte Order Marker (BOM) in first line in file (issues #27, #219)
 
 ## 1.7.4 (2023-01-13)
