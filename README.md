@@ -3,26 +3,33 @@
 
  [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
  
+#### Development Branches
+
+* default branch is `main` for 1.x development
+* 2.x development is on `2.0-development` (check this branch for 2.0 documentation)
+
 #### Work towards Future Version 2.0
 
 * Work towards SmarterCSV 2.0 is still ongoing, with improved features, and more streamlined options, but consider it as experimental at this time.
   Please check the [2.0-develop branch](https://github.com/tilo/smarter_csv/tree/2.0-develop), open any issues and pull requests with mention of tag v2.0.
 
-* New versions of SmarterCSV 1.x will soon print a deprecation warning if you set :verbose to true
-  See below for list of deprecated options.
-
-#### Restructured Branches
-
-* default branch is `main` for 1.x development
-* 2.x development is on `2.0-development`
-
 ---------------
 
 #### SmarterCSV 1.x [Current Version]
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, parallel processing, or kicking-off batch jobs with Sidekiq.
+`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, parallel processing, kicking-off batch jobs with Sidekiq, or oploading data to S3.
 
-To create high-quality output, some options are enabled as a default. Please make sure to check the output and tweak the options accordingly.
+The goals for SmarterCSV are: 
+  * ease of use for handling most common CSV files without having to tweak options
+  * improve robustness of your code when you have no control over the quality of the CSV files which are processed
+  * formatting each row of data as a hash, in order to allow easy processing with ActiveRecord, parallel processing, kicking-off batch jobs with Sidekiq, or oploading data to S3.
+
+#### Rescue from Exceptions
+While SmarterCSV uses sensible defaults to process the most common CSV files, it will raise exceptions if it can not auto-detect `col_sep`, `row_sep`, or if it encounters other problems. Therefore, when calling `SmarterCSV.process`, please rescue from `SmarterCSVException`, and handle outliers according to your requirements.
+
+If you encounter unusual CSV files, please follow the tips in the Troubleshooting section below. You can use the options below to accomodate for unusual formats.
+
+#### Features
 
 One `smarter_csv` user wrote:
 
