@@ -38,7 +38,6 @@ describe 'test exceptions for invalid headers' do
     end.not_to raise_exception
   end
 
-
   # TO BE FIXED:
   #
   # this raises:  SmarterCSV::MissingHeaders: RROR: missing attributes: middle_name
