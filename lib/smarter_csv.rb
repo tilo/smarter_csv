@@ -18,7 +18,6 @@ module SmarterCSV
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options = {}, &block)
-    puts 1
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
@@ -83,7 +82,7 @@ module SmarterCSV
 
         dataA, _data_size = parse(line, options, header_size)
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
-        puts dataA, _data_size, line
+
         dataA.map!{|x|
         x = nil if x.match("[+|=|@|-|\t|\x0A|\x0D].*")
         x
