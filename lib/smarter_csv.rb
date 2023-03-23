@@ -18,6 +18,7 @@ module SmarterCSV
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options = {}, &block)
+    puts 1
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
@@ -81,8 +82,12 @@ module SmarterCSV
         line.chomp!(options[:row_sep])
 
         dataA, _data_size = parse(line, options, header_size)
-
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
+        puts dataA, _data_size, line
+        dataA.map!{|x|
+        x = nil if x.match("[+|=|@|-|\t|\x0A|\x0D].*")
+        x
+        } if options[:prevent_csv_injection]
 
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
@@ -230,6 +235,7 @@ module SmarterCSV
         strings_as_keys: false,
         strip_chars_from_headers: nil,
         strip_whitespace: true,
+        prevent_csv_injection: false,
         user_provided_headers: nil,
         value_converters: nil,
         verbose: false,
