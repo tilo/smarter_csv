@@ -21,7 +21,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     rb_raise(rb_eTypeError, "ERROR in SmarterCSV.parse_line: line has to be a string or nil");
   }
 
-  if (RSTRING_LEN(line) > NUM2INT(1000000)) {
+  if (RSTRING_LEN(line) > NUM2INT(1048576)) {
     rb_raise(rb_eTypeError, "ERROR in SmarterCSV.parse_line: line is too long");
   }
 
