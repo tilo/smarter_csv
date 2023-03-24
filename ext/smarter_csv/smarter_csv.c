@@ -18,7 +18,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   }
 
   if (RB_TYPE_P(line, T_STRING) != 1) {
-    return rb_ary_new();
+    rb_raise(rb_eTypeError, "ERROR in SmarterCSV.parse_line: line has to be a string or nil");
   }
 
   if RSTRING_LEN(line) > 1000000 {
