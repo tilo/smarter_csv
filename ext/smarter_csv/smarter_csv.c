@@ -17,7 +17,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     return rb_ary_new();
   }
 
-  if (RB_TYPE_P(line, T_STRING) == 0) {
+  if (RB_TYPE_P(line, T_STRING) != 1) {
     return rb_ary_new();
   }
 
