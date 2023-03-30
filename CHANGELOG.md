@@ -1,6 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.8.3 (2023-03-30)
+  * bugfix: windows one-column files were raising NoColSepDetected (issue #229)
+    
+
 ## 1.8.2 (2023-03-21)
   * bugfix: do not raise `NoColSepDetected` for CSV files with only one column in most cases (issue #222)
             If the first lines contain non-ASCII characters, and no col_sep is detected, it will still raise `NoColSepDetected`
