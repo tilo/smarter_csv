@@ -414,7 +414,7 @@ module SmarterCSV
 
       if candidates.values.max == 0
         # if the header only contains
-        return ',' if line =~ /^\w+$/
+        return ',' if line.chomp =~ /^\w+$/
 
         raise SmarterCSV::NoColSepDetected
       end
