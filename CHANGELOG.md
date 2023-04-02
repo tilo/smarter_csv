@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.8.4 (2023-04-01)
+  * fix gem loading issue (issue #232, #234)
+  
 ## 1.8.3 (2023-03-30)
   * bugfix: windows one-column files were raising NoColSepDetected (issue #229)
     

@@ -3,11 +3,8 @@
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
 
-if `uname -s`.chomp == 'Darwin'
-  require 'smarter_csv.bundle' unless ENV['CI'] # local testing
-else
-  require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
-end
+require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+# require 'smarter_csv.bundle' unless ENV['CI'] # local testing
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
