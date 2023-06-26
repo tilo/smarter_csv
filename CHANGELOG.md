@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.8.5 (2023-06-25)
+  * fix parsing of escaped quote characters (thanks to JP Camara)
+    
 ## 1.8.4 (2023-04-01)
   * fix gem loading issue (issue #232, #234)
   
