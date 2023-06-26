@@ -39,6 +39,8 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   VALUE field;
   long i;
 
+  char prev_char = '\0'; // Store the previous character for comparison against an escape character
+
   while (p < endP) {
     /* does the remaining string start with col_sep ? */
     col_sep_found = true;
@@ -59,11 +61,13 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
         startP = p;
       }
     } else {
-      if (*p == *quoteP) {
+      if (*p == *quoteP && prev_char != '\\') {
         quote_count += 1;
       }
       p++;
     }
+
+    prev_char = *(p - 1); // Update the previous character
   } /* while */
 
   /* check if the last part of the line needs to be processed */

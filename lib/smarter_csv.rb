@@ -69,8 +69,8 @@ module SmarterCSV
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
 
-        multiline = line.count(options[:quote_char]).odd? # should handle quote_char nil
-        while line.count(options[:quote_char]).odd? # should handle quote_char nil
+        multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
+        while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
@@ -196,6 +196,21 @@ module SmarterCSV
       @headers
     end
 
+    # Counts the number of quote characters in a line, excluding escaped quotes.
+    def count_quote_chars(line, quote_char)
+      return 0 if line.nil? || quote_char.nil?
+
+      count = 0
+      previous_char = ''
+
+      line.each_char do |char|
+        count += 1 if char == quote_char && previous_char != '\\'
+        previous_char = char
+      end
+
+      count
+    end
+
     protected
 
     # NOTE: this is not called when "parse" methods are tested by themselves
@@ -310,15 +325,18 @@ module SmarterCSV
       start = 0
       i = 0
 
+      previous_char = ''
       while i < line_size
         if line[i...i+col_sep_size] == col_sep && quote_count.even?
           break if !header_size.nil? && elements.size >= header_size
 
           elements << cleanup_quotes(line[start...i], quote)
+          previous_char = line[i]
           i += col_sep.size
           start = i
         else
-          quote_count += 1 if line[i] == quote
+          quote_count += 1 if line[i] == quote && previous_char != '\\'
+          previous_char = line[i]
           i += 1
         end
       end
