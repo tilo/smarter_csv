@@ -9,9 +9,6 @@
   #define true  ((bool)1)
 #endif
 
-/*
-   max_size: pass nil if no limit is specified
- */
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
@@ -24,7 +21,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   rb_encoding *encoding = rb_enc_get(line); /* get the encoding from the input line */
   char *startP = RSTRING_PTR(line); /* may not be null terminated */
   long line_len = RSTRING_LEN(line);
-  char *endP = startP + line_len ; /* points behind the string */
+  char *endP = startP + line_len; /* points behind the string */
   char *p = startP;
 
   char *col_sepP = RSTRING_PTR(col_sep);
@@ -39,35 +36,48 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   VALUE field;
   long i;
 
-  char prev_char = '\0'; // Store the previous character for comparison against an escape character
-
   while (p < endP) {
-    /* does the remaining string start with col_sep ? */
-    col_sep_found = true;
-    for(i=0; (i < col_sep_len) && (p+i < endP) ; i++) {
-      col_sep_found = col_sep_found && (*(p+i) == *(col_sepP+i));
-    }
-    /* if col_sep was found and we have even quotes */
-    if (col_sep_found && (quote_count % 2 == 0)) {
-      /* if max_size != nil && lements.size >= header_size */
-      if ((max_size != Qnil) && RARRAY_LEN(elements) >= NUM2INT(max_size)) {
-        break;
-      } else {
-        /* push that field with original encoding onto the results */
-        field = rb_enc_str_new(startP, p - startP, encoding);
-        rb_ary_push(elements, field);
+    // Bounds check to ensure we don't read beyond the line buffer
+    if (endP - p >= col_sep_len) {
+      // Does the remaining string start with col_sep ?
+      col_sep_found = true;
+      for (i = 0; i < col_sep_len; i++) {
+        col_sep_found = col_sep_found && (*(p + i) == *(col_sepP + i));
+      }
+      // If col_sep was found and we have even quotes
+      if (col_sep_found && (quote_count % 2 == 0)) {
+        if ((max_size != Qnil) && RARRAY_LEN(elements) >= NUM2INT(max_size)) {
+          break;
+        } else {
+          /* push that field with original encoding onto the results */
+          field = rb_enc_str_new(startP, p - startP, encoding);
+          rb_ary_push(elements, field);
 
-        p += col_sep_len;
-        startP = p;
+          p += col_sep_len;
+          startP = p;
+        }
+      } else if (*p == *quoteP) {
+        // Check for escaped quote characters
+        bool is_escaped = false;
+        char *prevP = p - 1;
+        while (prevP >= startP && *prevP == '\\') {
+          is_escaped = !is_escaped;
+          prevP--;
+        }
+
+        if (!is_escaped) {
+          quote_count += 1;
+        }
+        p++;
+      } else {
+        p++;
       }
     } else {
-      if (*p == *quoteP && prev_char != '\\') {
-        quote_count += 1;
-      }
-      p++;
+      // If there is not enough space for col_sep, we assume it's the last field
+      field = rb_enc_str_new(startP, endP - startP, encoding);
+      rb_ary_push(elements, field);
+      break;
     }
-
-    prev_char = *(p - 1); // Update the previous character
   } /* while */
 
   /* check if the last part of the line needs to be processed */
@@ -84,6 +94,5 @@ VALUE SmarterCSV = Qnil;
 
 void Init_smarter_csv(void) {
   VALUE SmarterCSV = rb_define_module("SmarterCSV");
-
   rb_define_module_function(SmarterCSV, "parse_csv_line_c", rb_parse_csv_line, 4);
 }
