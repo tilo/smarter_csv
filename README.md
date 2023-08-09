@@ -161,7 +161,22 @@ and how the `process` method returns the number of chunks when called with a blo
      => returns number of chunks / rows we processed
 ```
 
-#### Example 4: Reading a CSV-like File, and Processing it with Sidekiq:
+#### Example 4: Processing a CSV File, and inserting batch jobs in Sidekiq:
+```ruby
+    filename = '/tmp/input.csv' # CSV file containing ids or data to process
+    options = { :chunk_size => 100 }
+    n = SmarterCSV.process(filename, options) do |chunk|
+      Sidekiq::Client.push_bulk(
+        'class' => SidekiqIndividualWorkerClass,
+        'args' => chunk,
+      )
+      # OR:
+      # SidekiqBatchWorkerClass.process_async(chunk ) # pass an array of hashes to Sidekiq workers for parallel processing
+    end
+    => returns number of chunks
+```
+
+#### Example 4b: Reading a CSV-like File, and Processing it with Sidekiq:
 ```ruby
     filename = '/tmp/strange_db_dump'   # a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
     options = {
@@ -173,7 +188,6 @@ and how the `process` method returns the number of chunks when called with a blo
     end
     => returns number of chunks
 ```
-
 #### Example 5: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 ```ruby
     # using chunks:
