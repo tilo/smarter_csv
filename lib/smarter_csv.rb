@@ -490,6 +490,7 @@ module SmarterCSV
 
         file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
         file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
+
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+|-+/, '_')}
           file_headerA.map!{|x| x.downcase} if options[:downcase_header]
@@ -523,10 +524,13 @@ module SmarterCSV
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-          unless options[:silence_missing_keys]
-            # if silence_missing_keys are not set, raise error if missing header
-            missing_keys = key_mappingH.keys - headerA
-            puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
+          # if silence_missing_keys are not set, raise error if missing header
+          missing_keys = key_mappingH.keys - headerA
+          # if the user passes a list of speciffic mapped keys that are optional
+          missing_keys -= options[:silence_missing_keys] if options[:silence_missing_keys].is_a?(Array)
+
+          unless missing_keys.empty? || options[:silence_missing_keys] == true
+            raise  SmarterCSV::KeyMappingError,  "ERROR: can not map headers: #{missing_keys.join(', ')}"
           end
 
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
@@ -545,7 +549,7 @@ module SmarterCSV
 
       # deprecate required_headers
       unless options[:required_headers].nil?
-        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required headers'"
+        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required_headers'"
         if options[:required_keys].nil?
           options[:required_keys] = options[:required_headers]
           options[:required_headers] = nil

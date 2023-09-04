@@ -11,14 +11,10 @@ describe 'key_mapping' do
 
     it 'complains about the original header name when source of key_mapping is missing' do
       options[:key_mapping] = {missing_key: :something_new}
-      expect(SmarterCSV).to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
-      data
-    end
-
-    # slated for version 1.9.0
-    xit 'raises exception because source of key_mapping is missing' do
-      options[:key_mapping] = {missing_key: :something_new}
-      expect{ data }.to raise_exception(SmarterCSV::KeyMappingError)
+      expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
+      expect { data }.to raise_exception(
+        SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
+      )
     end
   end
 
