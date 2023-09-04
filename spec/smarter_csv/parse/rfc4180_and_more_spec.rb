@@ -2,8 +2,6 @@
 
 require 'spec_helper'
 
-fixture_path = 'spec/fixtures'
-
 [true, false].each do |bool|
   describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
     let(:options) { {col_sep: ',', row_sep: $INPUT_RECORD_SEPARATOR, quote_char: '"', acceleration: bool } }

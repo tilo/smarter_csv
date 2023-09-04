@@ -17,7 +17,7 @@ module SmarterCSV
   class KeyMappingError < SmarterCSVException; end # CURRENTLY UNUSED -> version 1.9.0
 
   # first parameter: filename or input object which responds to readline method
-  def SmarterCSV.process(input, options = {}, &block)
+  def SmarterCSV.process(input, options = {}, &block) # rubocop:disable Lint/UnusedMethodArgument
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
@@ -99,7 +99,7 @@ module SmarterCSV
           hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
         end
 
-        hash.delete_if{|_k, v| !v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values] # values are typically Strings!
+        hash.delete_if{|_k, v| !v.nil? && v =~ /^(0+|0+\.0+)$/} if options[:remove_zero_values] # values are Strings
         hash.delete_if{|_k, v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
 
         if options[:convert_values_to_numeric]
@@ -171,15 +171,15 @@ module SmarterCSV
           result << chunk # not sure yet, why anybody would want to do this without a block
         end
         chunk_count += 1
-        chunk = [] # initialize for next chunk of data
+        # chunk = [] # initialize for next chunk of data
       end
     ensure
       fh.close if fh.respond_to?(:close)
     end
     if block_given?
-      return chunk_count # when we do processing through a block we only care how many chunks we processed
+      chunk_count # when we do processing through a block we only care how many chunks we processed
     else
-      return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
+      result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end
   end
 
@@ -285,11 +285,11 @@ module SmarterCSV
         has_quotes = line =~ /#{options[:quote_char]}/
         elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
         elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
-        return [elements, elements.size]
+        [elements, elements.size]
         # :nocov:
       else
         # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
-        return parse_csv_line_ruby(line, options, header_size)
+        parse_csv_line_ruby(line, options, header_size)
       end
     end
 
@@ -402,7 +402,7 @@ module SmarterCSV
           return true unless Array(options[option_name][:only]).include?(key)
         end
       end
-      return false
+      false
     end
 
     # If file has headers, then guesses column separator from headers.
@@ -467,8 +467,8 @@ module SmarterCSV
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
-      k, _ = counts.max_by{|_, v| v}
-      return k
+      most_frequent_key, _count = counts.max_by{|_, v| v}
+      most_frequent_key
     end
 
     def process_headers(filehandle, options)
@@ -544,7 +544,7 @@ module SmarterCSV
       end
 
       # deprecate required_headers
-      if !options[:required_headers].nil?
+      unless options[:required_headers].nil?
         puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required headers'"
         if options[:required_keys].nil?
           options[:required_keys] = options[:required_headers]
@@ -611,6 +611,7 @@ module SmarterCSV
     def option_valid?(str)
       return true if str.is_a?(Symbol) && str == :auto
       return true if str.is_a?(String) && !str.empty?
+
       false
     end
   end

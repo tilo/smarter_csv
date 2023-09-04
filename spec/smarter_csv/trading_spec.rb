@@ -18,10 +18,10 @@ describe 'loads simple file format' do
         expect(key.class).to eq Symbol
       end
 
-      expect(hash[:account_id].class).to eq Fixnum
+      expect(hash[:account_id].class).to eq Integer
       expect(hash[:options_trader].class).to eq String
       expect(hash[:stock_symbol].class).to eq String
-      expect(hash[:shares_issued].class).to eq Fixnum
+      expect(hash[:shares_issued].class).to eq Integer
       expect(hash[:purchase_date].class).to eq String
     end
   end

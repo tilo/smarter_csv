@@ -15,7 +15,7 @@ class Processor
 end
 
 describe 'chunked processing' do
-  (0..13).each do |chunk_size|
+  14.times do |chunk_size|
     it "loads all content from CSV file with chunk_size #{chunk_size}" do
       options = { chunk_size: chunk_size }
       data = SmarterCSV.process("#{fixture_path}/chunked.csv", options)
@@ -24,7 +24,7 @@ describe 'chunked processing' do
   end
 
   context 'process chunks with a block' do
-    (0..13).each do |chunk_size|
+    14.times do |chunk_size|
       it "processes with chunk size #{chunk_size}" do
         expect(Processor).to receive(:process).exactly(12).times
 
