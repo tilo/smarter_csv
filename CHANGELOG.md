@@ -4,6 +4,8 @@
 ## 1.9.0 (2023-09-04)
   * fixed issue #139
 
+  * Error `SmarterCSV::MissingHeaders` was renamed to `SmarterCSV::MissingKeys`
+    
   * CHANGED BEHAVIOR:
     When `key_mapping` option is used. (issue #139)
     Previous versions just printed an error message when a CSV header was missing during key mapping.

@@ -37,7 +37,7 @@ describe 'test exceptions for invalid headers' do
         options = {required_keys: %i[lastname email employee_id firstname manager_email]} # order does not matter
         SmarterCSV.process("#{fixture_path}/user_import.csv", options)
       end.to raise_exception(
-        SmarterCSV::MissingHeaders, "ERROR: missing attributes: employee_id"
+        SmarterCSV::MissingKeys, "ERROR: missing attributes: employee_id"
       )
     end
 
@@ -46,14 +46,14 @@ describe 'test exceptions for invalid headers' do
       expect do
         SmarterCSV.process("#{fixture_path}/user_import.csv", options)
       end.to raise_exception(
-        SmarterCSV::MissingHeaders, "ERROR: missing attributes: email" # it was mapped, and is now missing
+        SmarterCSV::MissingKeys, "ERROR: missing attributes: email" # it was mapped, and is now missing
       )
     end
   end
 
   # TO BE FIXED:
   #
-  # this raises:  SmarterCSV::MissingHeaders: RROR: missing attributes: middle_name
+  # this raises:  SmarterCSV::MissingKeys: RROR: missing attributes: middle_name
   # but instead, the printed WARNING message for missing_keys should raise KeyMappingError
   # See: Issue 139 https://github.com/tilo/smarter_csv/issues/139
   #
@@ -71,7 +71,7 @@ describe 'test exceptions for invalid headers' do
     it 'does not raise about the mapped header name when source of key_mapping is missing' do
       expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
       expect{ process_file }.not_to raise_exception(
-        SmarterCSV::MissingHeaders, "ERROR: missing attributes: middle_name"
+        SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
       )
     end
 

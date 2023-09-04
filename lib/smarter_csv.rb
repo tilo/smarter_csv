@@ -12,9 +12,9 @@ module SmarterCSV
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
-  class MissingHeaders < SmarterCSVException; end
+  class MissingKeys < SmarterCSVException; end # previously known as MissingHeaders
   class NoColSepDetected < SmarterCSVException; end
-  class KeyMappingError < SmarterCSVException; end # CURRENTLY UNUSED -> version 1.9.0
+  class KeyMappingError < SmarterCSVException; end
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, options = {}, &block) # rubocop:disable Lint/UnusedMethodArgument
@@ -561,7 +561,7 @@ module SmarterCSV
         options[:required_keys].each do |k|
           missing_keys << k unless headerA.include?(k)
         end
-        raise SmarterCSV::MissingHeaders, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
+        raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
 
       @headers = headerA
