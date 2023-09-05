@@ -26,7 +26,7 @@ describe 'required_headers -> required_keys' do
 
     it 'raises an exception if the raw header name is used' do
       options[:required_headers] = [:name]
-      expect{ data }.to raise_exception(SmarterCSV::MissingHeaders)
+      expect{ data }.to raise_exception(SmarterCSV::MissingKeys)
     end
 
     it 'prints a deprecation warning when required_headers is used' do
@@ -49,7 +49,7 @@ describe 'required_headers -> required_keys' do
 
     it 'raises an exception if the raw header name is used' do
       options[:required_keys] = [:name]
-      expect{ data }.to raise_exception(SmarterCSV::MissingHeaders)
+      expect{ data }.to raise_exception(SmarterCSV::MissingKeys)
     end
 
     it 'does not print a deprecation warning when required_keys is used' do

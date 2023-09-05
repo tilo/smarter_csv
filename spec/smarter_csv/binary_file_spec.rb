@@ -20,7 +20,7 @@ describe 'be_able_to' do
         expect(key.class).to eq Symbol
       end
       expect(item[:timestamp]).to eq 1_381_388_409
-      expect(item[:item_id].class).to eq Fixnum
+      expect(item[:item_id].class).to eq Integer
       expect(item[:name].size).to be > 0
     end
   end

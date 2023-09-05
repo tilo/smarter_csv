@@ -27,7 +27,7 @@ describe 'duplicate headers' do
 
     it 'raises error on duplicate headers, when attempting to do key_mapping' do
       # the mapping is right, but the underlying csv file is bad
-      options = {key_mapping: {email: :a, firstname: :b, lastname: :c, manager_email: :d, age: :e} }
+      options = {key_mapping: {email: :a, firstname: :b, lastname: :c, age: :e} }
       expect do
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
       end.to raise_exception(SmarterCSV::DuplicateHeaders)

@@ -12,12 +12,12 @@ module SmarterCSV
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
-  class MissingHeaders < SmarterCSVException; end
+  class MissingKeys < SmarterCSVException; end # previously known as MissingHeaders
   class NoColSepDetected < SmarterCSVException; end
-  class KeyMappingError < SmarterCSVException; end # CURRENTLY UNUSED -> version 1.9.0
+  class KeyMappingError < SmarterCSVException; end
 
   # first parameter: filename or input object which responds to readline method
-  def SmarterCSV.process(input, options = {}, &block)
+  def SmarterCSV.process(input, options = {}, &block) # rubocop:disable Lint/UnusedMethodArgument
     options = default_options.merge(options)
     options[:invalid_byte_sequence] = '' if options[:invalid_byte_sequence].nil?
     puts "SmarterCSV OPTIONS: #{options.inspect}" if options[:verbose]
@@ -99,7 +99,7 @@ module SmarterCSV
           hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
         end
 
-        hash.delete_if{|_k, v| !v.nil? && v =~ /^(\d+|\d+\.\d+)$/ && v.to_f == 0} if options[:remove_zero_values] # values are typically Strings!
+        hash.delete_if{|_k, v| !v.nil? && v =~ /^(0+|0+\.0+)$/} if options[:remove_zero_values] # values are Strings
         hash.delete_if{|_k, v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
 
         if options[:convert_values_to_numeric]
@@ -171,15 +171,15 @@ module SmarterCSV
           result << chunk # not sure yet, why anybody would want to do this without a block
         end
         chunk_count += 1
-        chunk = [] # initialize for next chunk of data
+        # chunk = [] # initialize for next chunk of data
       end
     ensure
       fh.close if fh.respond_to?(:close)
     end
     if block_given?
-      return chunk_count # when we do processing through a block we only care how many chunks we processed
+      chunk_count # when we do processing through a block we only care how many chunks we processed
     else
-      return result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
+      result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
     end
   end
 
@@ -285,11 +285,11 @@ module SmarterCSV
         has_quotes = line =~ /#{options[:quote_char]}/
         elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
         elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
-        return [elements, elements.size]
+        [elements, elements.size]
         # :nocov:
       else
         # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
-        return parse_csv_line_ruby(line, options, header_size)
+        parse_csv_line_ruby(line, options, header_size)
       end
     end
 
@@ -402,7 +402,7 @@ module SmarterCSV
           return true unless Array(options[option_name][:only]).include?(key)
         end
       end
-      return false
+      false
     end
 
     # If file has headers, then guesses column separator from headers.
@@ -467,8 +467,8 @@ module SmarterCSV
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
-      k, _ = counts.max_by{|_, v| v}
-      return k
+      most_frequent_key, _count = counts.max_by{|_, v| v}
+      most_frequent_key
     end
 
     def process_headers(filehandle, options)
@@ -490,6 +490,7 @@ module SmarterCSV
 
         file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
         file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
+
         unless options[:keep_original_headers]
           file_headerA.map!{|x| x.gsub(/\s+|-+/, '_')}
           file_headerA.map!{|x| x.downcase} if options[:downcase_header]
@@ -523,10 +524,13 @@ module SmarterCSV
         # do some key mapping on the keys in the file header
         #   if you want to completely delete a key, then map it to nil or to ''
         if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-          unless options[:silence_missing_keys]
-            # if silence_missing_keys are not set, raise error if missing header
-            missing_keys = key_mappingH.keys - headerA
-            puts "WARNING: missing header(s): #{missing_keys.join(",")}" unless missing_keys.empty?
+          # if silence_missing_keys are not set, raise error if missing header
+          missing_keys = key_mappingH.keys - headerA
+          # if the user passes a list of speciffic mapped keys that are optional
+          missing_keys -= options[:silence_missing_keys] if options[:silence_missing_keys].is_a?(Array)
+
+          unless missing_keys.empty? || options[:silence_missing_keys] == true
+            raise  SmarterCSV::KeyMappingError,  "ERROR: can not map headers: #{missing_keys.join(', ')}"
           end
 
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
@@ -544,8 +548,8 @@ module SmarterCSV
       end
 
       # deprecate required_headers
-      if !options[:required_headers].nil?
-        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required headers'"
+      unless options[:required_headers].nil?
+        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required_headers'"
         if options[:required_keys].nil?
           options[:required_keys] = options[:required_headers]
           options[:required_headers] = nil
@@ -557,7 +561,7 @@ module SmarterCSV
         options[:required_keys].each do |k|
           missing_keys << k unless headerA.include?(k)
         end
-        raise SmarterCSV::MissingHeaders, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
+        raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
 
       @headers = headerA
@@ -611,6 +615,7 @@ module SmarterCSV
     def option_valid?(str)
       return true if str.is_a?(Symbol) && str == :auto
       return true if str.is_a?(String) && !str.empty?
+
       false
     end
   end

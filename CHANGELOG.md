@@ -1,6 +1,27 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.9.0 (2023-09-04)
+  * fixed issue #139
+
+  * Error `SmarterCSV::MissingHeaders` was renamed to `SmarterCSV::MissingKeys`
+    
+  * CHANGED BEHAVIOR:
+    When `key_mapping` option is used. (issue #139)
+    Previous versions just printed an error message when a CSV header was missing during key mapping.
+    Versions >= 1.9 will throw `SmarterCSV::MissingHeaders` listing all headers that were missing during mapping.
+
+  * Notable details for `key_mapping` and `required_headers`:
+
+    * `key_mapping` is applied to the headers early on during `SmarterCSV.process`, and raises an error if a header in the input CSV file is missing, and we can not map that header to its desired name.
+
+    Mapping errors can be surpressed by using:
+    * `silence_missing_keys` set to `true`, which silence all such errors, making all headers for mapping optional.
+    * `silence_missing_keys` given an Array with the specific header keys that are optional
+    The use case is that some header fields are optional, but we still want them renamed if they are present.
+
+    * `required_headers` checks which headers are present **after** `key_mapping` was applied.
+
 ## 1.8.5 (2023-06-25)
   * fix parsing of escaped quote characters (thanks to JP Camara)
     

@@ -22,6 +22,9 @@ Metrics/BlockLength:
 Metrics/BlockNesting:
   Enabled: false
 
+Metrics/ClassLength:
+  Enabled: false
+
 Metrics/CyclomaticComplexity: # BS rule
   Enabled: false
 
@@ -44,6 +47,9 @@ Naming/VariableNumber:
   Enabled: false
 
 Style/ClassEqualityComparison:
+  Enabled: false
+
+Style/ClassMethods:
   Enabled: false
 
 Style/ConditionalAssignment:
@@ -114,6 +120,9 @@ Style/StringLiteralsInInterpolation:
   Enabled: false
   EnforcedStyle: double_quotes
 
+Style/SymbolArray:
+  Enabled: false
+
 Style/SymbolProc: # old Ruby versions can't do this
   Enabled: false
 
@@ -123,6 +132,9 @@ Style/TrailingCommaInHashLiteral:
 Style/TrailingUnderscoreVariable:
   Enabled: false
 
+Style/TrivialAccessors:
+  Enabled: false
+
 # Style/UnlessModifier:
 #   Enabled: false
 
@@ -130,4 +142,4 @@ Style/ZeroLengthPredicate:
   Enabled: false
 
 Layout/LineLength:
-  Max: 240
+  Max: 256

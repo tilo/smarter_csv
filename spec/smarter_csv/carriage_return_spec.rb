@@ -104,7 +104,7 @@ describe 'process files with line endings explicitly pre-specified' do
     let(:options) { { row_sep: :auto } }
 
     it 'should process a file with more quoted text carriage return characters (\r) than line ending characters (\n)' do
-      row_sep = "\n"
+      # row_sep = "\n"
       text_sep = "\r"
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_quoted.csv", options)
       expect(data.flatten.size).to eq 2
