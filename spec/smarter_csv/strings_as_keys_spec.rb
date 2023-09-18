@@ -26,7 +26,7 @@ describe 'strings as keys' do
     data.each do |item|
       item.each_key do |key|
         key.class.should eq String
-        ["first_name", "last_name", "dogs", "cats", "birds", "fish"].should include(key)
+        %w[first_name last_name dogs cats birds fish].should include(key)
       end
     end
 

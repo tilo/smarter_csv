@@ -14,9 +14,9 @@ module SmarterCSV
     @@unique_headers.call(array)
   end
 
-  def self.required_headers(array, required=[])
-    @@required_headers ||= proc {|headers, required=[]|
-      raise(SmarterCSV::IncorrectOption , "ERROR: required_headers validation needs an array argument") unless required.is_a?(Array)
+  def self.required_headers(array, required = [])
+    @@required_headers ||= proc {|headers, required = []|
+      raise(SmarterCSV::IncorrectOption, "ERROR: required_headers validation needs an array argument") unless required.is_a?(Array)
       missing = required.each_with_object([]){ |x, a| a << x unless headers.include?(x) }
       missing.empty? ? nil : raise(SmarterCSV::MissingHeaders, "Missing Headers in CSV: #{missing.inspect}")
     }

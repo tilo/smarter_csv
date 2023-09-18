@@ -10,7 +10,7 @@ describe 'hash validations' do
 
     data.size.should eq 5
     SmarterCSV.errors.keys.size.should eq 0
-    SmarterCSV.errors.should eq Hash.new
+    SmarterCSV.errors.should eq({})
     SmarterCSV.warnings.should eq({4=>["No data in line 4"], 8=>["No data in line 8"]})
   end
 
@@ -23,12 +23,12 @@ describe 'hash validations' do
     data.size.should eq 0 # no line passes validation
     SmarterCSV.errors.keys.size.should eq 5
     SmarterCSV.errors.should eq({
-      2 => ["Missing required field `:cats` in CSV line 2", "Missing required field `:fish` in CSV line 2"],
+                                  2 => ["Missing required field `:cats` in CSV line 2", "Missing required field `:fish` in CSV line 2"],
       3 => ["Missing required field `:fish` in CSV line 3"],
       5 => ["Missing required field `:cats` in CSV line 5"],
       6 => ["Missing required field `:cats` in CSV line 6", "Missing required field `:fish` in CSV line 6"],
       7 => ["Missing required field `:cats` in CSV line 7", "Missing required field `:fish` in CSV line 7"]
-    })
+                                })
     SmarterCSV.warnings.should eq({4=>["No data in line 4"], 8=>["No data in line 8"]})
   end
 
@@ -49,9 +49,9 @@ describe 'hash validations' do
     data.size.should eq 3
     SmarterCSV.errors.keys.size.should eq 2
     SmarterCSV.errors.should eq({
-      2 => ["Field `:manager_email` in CSV line 2: `tom@blubb.com` did not match /\\A\\w+@bla.com\\z/"],
+                                  2 => ["Field `:manager_email` in CSV line 2: `tom@blubb.com` did not match /\\A\\w+@bla.com\\z/"],
       5 => ["Field `:employee_id` in CSV line 5: `17` did not match /\\A0+\\d+\\z/", "Field `:email` in CSV line 5: `danny.0000@bla.com` did not match /\\A\\w+@bla.com\\z/"]
-    })
-    SmarterCSV.warnings.should eq Hash.new
+                                })
+    SmarterCSV.warnings.should eq({})
   end
 end

@@ -13,6 +13,10 @@ Layout/SpaceInsideHashLiteralBraces:
 Layout/SpaceAroundOperators:
   Enabled: false
 
+Lint/Void:
+  Exclude:
+    - 'spec/**/*'
+
 Metrics/AbcSize:
   Enabled: false
 

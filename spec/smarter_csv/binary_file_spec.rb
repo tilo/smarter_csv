@@ -63,9 +63,9 @@ describe 'loads binary file format with comments' do
     # new default is to have symbols as keys, so nothing to do for that
 
     options = {
-      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/ ,
+      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/,
       header_transformations: [:none, :keys_as_strings],
-      hash_transformations: [convert_values_to_numeric: ['timestamp', 'item_id', 'parent_id']]
+      hash_transformations: [convert_values_to_numeric: %w[timestamp item_id parent_id]]
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 
@@ -95,7 +95,7 @@ describe 'loads binary file format with comments' do
     options = {
       col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/,
       header_transformations: [:none, :keys_as_symbols],
-      hash_transformations: [:remove_blank_values, convert_values_to_numeric: [:timestamp, :item_id, :parent_id]]
+      hash_transformations: [:remove_blank_values, {convert_values_to_numeric: [:timestamp, :item_id, :parent_id]}]
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 

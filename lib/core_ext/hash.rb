@@ -4,6 +4,6 @@
 
 class Hash
   def self.zip(keys, values) # from Facets of Ruby library
-    (keys.zip(values)).to_h
+    keys.zip(values).to_h
   end
 end

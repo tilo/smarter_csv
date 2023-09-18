@@ -23,7 +23,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil
@@ -48,7 +48,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil
@@ -73,7 +73,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil
@@ -116,7 +116,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil
@@ -141,7 +141,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil
@@ -166,7 +166,7 @@ describe 'process files' do
       data[3][:city].should eq ["Newcastle-upon-tyne ", "Tyne and Wear"].join(sep)
       data[4][:name].should eq ["White Hart Lane", "(The Lane)"].join(sep)
       data[4][:street].should eq ["Bill Nicholson Way ", "748 High Rd"].join(sep)
-      data[4][:city].should eq ["Tottenham", "London"].join(sep)
+      data[4][:city].should eq %w[Tottenham London].join(sep)
       data[5][:name].should eq "Stamford Bridge"
       data[5][:street].should eq ["Fulham Road", "London"].join(sep)
       data[5][:city].should be_nil

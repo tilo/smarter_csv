@@ -22,9 +22,9 @@ module SmarterCSV
 
   # this is a convenience function for supporting v1 feature parity
 
-  def self.key_mapping(array, mapping={})
-    @@key_mapping ||= proc {|headers, mapping={}|
-      raise(SmarterCSV::IncorrectOption , "ERROR: key_mapping header transformation needs a hash argument") unless mapping.is_a?(Hash)
+  def self.key_mapping(array, mapping = {})
+    @@key_mapping ||= proc {|headers, mapping = {}|
+      raise(SmarterCSV::IncorrectOption, "ERROR: key_mapping header transformation needs a hash argument") unless mapping.is_a?(Hash)
       new_headers = []
       headers.each do |key|
         new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!

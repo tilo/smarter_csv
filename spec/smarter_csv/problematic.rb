@@ -21,14 +21,14 @@ describe 'loading file with UTF-8 characters in the header' do
     data = SmarterCSV.process("#{fixture_path}/problematic.csv", options)
 
     data.length.should eq 7
-    data.first.keys.sort.should eq [
-      "compte",
-      "date_de_comptabilisation",
-      "date_opération",
-      "date_valeur",
-      "libellé",
-      "montant",
-      "référence"
+    data.first.keys.sort.should eq %w[
+      compte
+      date_de_comptabilisation
+      date_opération
+      date_valeur
+      libellé
+      montant
+      référence
     ]
   end
 end

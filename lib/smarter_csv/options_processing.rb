@@ -2,11 +2,11 @@
 
 module SmarterCSV
 
-# do we REALLY need a way to be v1.x backwards-compatible??
+  # do we REALLY need a way to be v1.x backwards-compatible??
 
-# TODO: we need to provide printing out all the currently used options in verbose mode, so people can check what their transformations/validations look like.
+  # TODO: we need to provide printing out all the currently used options in verbose mode, so people can check what their transformations/validations look like.
 
-# Bye bye hash rocket! Ruby 1.9 introduced the new hash syntax. Ruby 1.8 was EOL 30 Jun 2013 .. no need to support it anymore
+  # Bye bye hash rocket! Ruby 1.9 introduced the new hash syntax. Ruby 1.8 was EOL 30 Jun 2013 .. no need to support it anymore
 
   # The default options for validations / transformations are needed for smooth operation of the gem.
   # User defined validations / transformations are added after these defaults.
@@ -55,7 +55,7 @@ module SmarterCSV
   DEFAULT_OPTIONS = {
     verbose: false, headers_in_file: true, user_provided_headers: nil,
     file_encoding: 'utf-8', invalid_byte_sequence: '', force_utf8: false, skip_lines: nil, comment_regexp: /^#/,
-    col_sep: ',', force_simple_split: false, row_sep: $/ , auto_row_sep_chars: 500, quote_char: '"',
+    col_sep: ',', force_simple_split: false, row_sep: $/, auto_row_sep_chars: 500, quote_char: '"',
     chunk_size: nil, remove_empty_hashes: true,
   }
 
@@ -69,7 +69,7 @@ module SmarterCSV
   }
 
   V1_TRANSFORMATIONS = {
-     header_transformations: [:keys_as_symbols],
+    header_transformations: [:keys_as_symbols],
      header_validations: [:unique_headers],
      data_transformations: [:replace_blank_with_nil],
      data_validations: [],
@@ -77,8 +77,7 @@ module SmarterCSV
      hash_validations: []
   }
 
-  def self.process_options(options={})
-
+  def self.process_options(options = {})
     puts "User provided options:\n#{pp(options)}\n" if options[:verbose]
 
     # warn about obsolete options
@@ -111,7 +110,7 @@ module SmarterCSV
     default_options[:hash_transformations] = [] if ['none', nil].include?(requested_hash_transformations.to_s) || !requested_hash_transformations.nil? && requested_hash_transformations.first.to_s == 'none'
     default_options[:hash_validations] = [] if ['none', nil].include?(requested_hash_validations.to_s) || !requested_hash_validations.nil? && requested_hash_validations.first.to_s == 'none'
 
-    if ['no_procs', 'none'].include?(options[:defaults].to_s) # you can disable all default transformations / validations
+    if %w[no_procs none].include?(options[:defaults].to_s) # you can disable all default transformations / validations
       default_options[:header_transformations] = []
       default_options[:header_validations] = []
       default_options[:data_transformations] = []
@@ -168,7 +167,7 @@ module SmarterCSV
     puts "Computed options:\n#{pp(options)}\n" if options[:verbose]
 
     @options = options.clone
-    return @options
+    @options
   end
 
   private
