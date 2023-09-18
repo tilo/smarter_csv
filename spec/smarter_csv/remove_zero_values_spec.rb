@@ -11,7 +11,7 @@ describe 'remove zero values' do
 
     data.each do |hash|
       hash.each_key do |key|
-        key.class.should eq Symbol  # all the keys should be symbols
+        key.class.should eq Symbol # all the keys should be symbols
         [:first_name, :last_name, :dogs, :cats, :birds, :fish].should include(key)
       end
       hash.each_value do |val|

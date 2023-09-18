@@ -48,11 +48,7 @@ describe 'loading file with quoted fields' do
     data[2][:description].should be_nil
     data.each do |h|
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
-      if 0.class == Integer
-        h[:year].class.should eq Integer
-      else
-        h[:year].class.should eq Integer
-      end
+      h[:year].class.should eq Integer
       h[:make].should_not be_nil
       h[:model].should_not be_nil
       h[:price].class.should eq Float

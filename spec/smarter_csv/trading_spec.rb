@@ -17,13 +17,8 @@ describe 'loads simple file format' do
       item.each_key{|x| x.class.should eq Symbol}
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
-      if 0.class == Integer
-        item[:account_id].class.should eq Integer
-        item[:shares_issued].class.should eq Integer
-      else
-        item[:account_id].class.should eq Integer
-        item[:shares_issued].class.should eq Integer
-      end
+      item[:account_id].class.should eq Integer
+      item[:shares_issued].class.should eq Integer
       item[:options_trader].class.should eq String
       item[:stock_symbol].class.should eq String
       item[:purchase_date].class.should eq String

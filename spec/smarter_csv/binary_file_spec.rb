@@ -26,11 +26,7 @@ describe 'loads binary file format with comments' do
       item[:timestamp].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
-      if 0.class == Integer
-        item[:item_id].class.should eq Integer
-      else
-        item[:item_id].class.should eq Integer
-      end
+      item[:item_id].class.should eq Integer
 
       item[:name].size.should be > 0
     end
@@ -76,11 +72,7 @@ describe 'loads binary file format with comments' do
       item['timestamp'].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
-      if 0.class == Integer
-        item['item_id'].class.should eq Integer
-      else
-        item['item_id'].class.should eq Integer
-      end
+      item['item_id'].class.should eq Integer
 
       item['name'].size.should be > 0
     end
@@ -106,11 +98,7 @@ describe 'loads binary file format with comments' do
       item[:timestamp].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
-      if 0.class == Integer
-        item[:item_id].class.should eq Integer
-      else
-        item[:item_id].class.should eq Integer
-      end
+      item[:item_id].class.should eq Integer
 
       item[:name].size.should be > 0
     end

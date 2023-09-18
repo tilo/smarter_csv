@@ -177,7 +177,7 @@ describe 'process files' do
     end
 
     it 'should process a file with more quoted text carriage return characters (\r) than line ending characters (\n)' do
-      row_sep = "\n"
+      # row_sep = "\n"
       text_sep = "\r"
       options.merge!({ row_sep: :auto })
 

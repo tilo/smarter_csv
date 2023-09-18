@@ -18,9 +18,9 @@ describe 'strip spaces from headers' do
   end
 
   it 'strips whitespace from headers with user-defined Proc' do
-    strip_space = proc {|headers|
-      headers.map{ |x| y = x.gsub(/\s+/, '') }
-    }
+    strip_space = proc do |headers|
+      headers.map { |x| x.gsub(/\s+/, '') }
+    end
 
     options = {
       header_transformations: [:none, strip_space, :keys_as_symbols]

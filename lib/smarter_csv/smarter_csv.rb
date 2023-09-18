@@ -55,7 +55,7 @@ module SmarterCSV
       end
 
       if options[:row_sep].to_s == 'auto'
-        options[:row_sep] = line_ending = SmarterCSV.guess_line_ending(f, options)
+        options[:row_sep] = SmarterCSV.guess_line_ending(f, options)
         f.rewind
       end
       $/ = options[:row_sep]
@@ -82,7 +82,7 @@ module SmarterCSV
         if (header =~ %r{#{options[:quote_char]}}) && (!options[:force_simple_split])
           file_headerA = begin
             CSV.parse(header, **csv_options).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
-          rescue CSV::MalformedCSVError => e
+          rescue CSV::MalformedCSVError => _e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
@@ -198,7 +198,7 @@ module SmarterCSV
         if (line =~ %r{#{options[:quote_char]}}) && (!options[:force_simple_split])
           dataA = begin
             CSV.parse(line, **csv_options).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
-          rescue CSV::MalformedCSVError => e
+          rescue CSV::MalformedCSVError => _e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
@@ -260,7 +260,8 @@ module SmarterCSV
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
         # e.g. if any keys which are mapped to nil or an empty string
         # Note: Ruby < 1.9 doesn't allow empty symbol literals!
-        hash.delete(nil); hash.delete('');
+        hash.delete(nil)
+        hash.delete('')
         if RUBY_VERSION.to_f > 1.8
           eval('hash.delete(:"")')
         end
@@ -347,7 +348,7 @@ module SmarterCSV
           result << chunk # not sure yet, why anybody would want to do this without a block
         end
         chunk_count += 1
-        chunk = [] # initialize for next chunk of data
+        # chunk = [] # initialize for next chunk of data
       end
     ensure
       $/ = old_row_sep # make sure this stupid global variable is always reset to it's previous value after we're done!

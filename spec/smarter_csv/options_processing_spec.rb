@@ -2,8 +2,6 @@
 
 require 'spec_helper'
 
-fixture_path = 'spec/fixtures'
-
 describe 'options processing' do
   SmarterCSV::OBSOLETE_OPTIONS.each do |key, value|
     it "raises an error if option #{key} is given" do
