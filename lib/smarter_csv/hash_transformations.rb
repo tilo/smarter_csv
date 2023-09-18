@@ -95,5 +95,4 @@ module SmarterCSV
     }
     @@convert_to_float.call(hash, args)
   end
-
 end

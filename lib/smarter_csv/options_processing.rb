@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-
   # do we REALLY need a way to be v1.x backwards-compatible??
 
   # TODO: we need to provide printing out all the currently used options in verbose mode, so people can check what their transformations/validations look like.

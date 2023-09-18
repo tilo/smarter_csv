@@ -33,5 +33,4 @@ module SmarterCSV
     }
     @@key_mapping.call(array, mapping)
   end
-
 end
