@@ -23,7 +23,7 @@ describe 'loads binary file format with comments' do
     data.each do |item|
       # all keys should be symbols when using v1.x backwards compatible mode
       item.each_key{|x| x.class.should eq Symbol}
-      item[:timestamp].should eq 1381388409
+      item[:timestamp].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
       if 0.class == Integer
@@ -73,7 +73,7 @@ describe 'loads binary file format with comments' do
     data.each do |item|
       # all keys should be strings
       item.each_key{|x| x.class.should eq String}
-      item['timestamp'].should eq 1381388409
+      item['timestamp'].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
       if 0.class == Integer
@@ -103,7 +103,7 @@ describe 'loads binary file format with comments' do
     data.each do |item|
       # all keys should be symbols
       item.each_key{|x| x.class.should eq Symbol}
-      item[:timestamp].should eq 1381388409
+      item[:timestamp].should eq 1_381_388_409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
       if 0.class == Integer

@@ -8,14 +8,14 @@ module SmarterCSV
 
   def self.keys_as_symbols(array)
     @@keys_as_symbols ||= proc {|headers|
-      headers.map{|x| x.strip.downcase.gsub(%r{#{@options[:quote_char]}}, '').gsub(/(\s|\-)+/, '_').to_sym }
+      headers.map{|x| x.strip.downcase.gsub(%r{#{@options[:quote_char]}}, '').gsub(/(\s|-)+/, '_').to_sym }
     }
     @@keys_as_symbols.call(array)
   end
 
   def self.keys_as_strings(array)
     @@keys_as_strings ||= proc {|headers|
-      headers.map{|x| x.strip.gsub(%r{#{@options[:quote_char]}}, '').downcase.gsub(/(\s|\-)+/, '_') }
+      headers.map{|x| x.strip.gsub(%r{#{@options[:quote_char]}}, '').downcase.gsub(/(\s|-)+/, '_') }
     }
     @@keys_as_strings.call(array)
   end
