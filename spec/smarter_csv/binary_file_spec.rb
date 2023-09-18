@@ -29,7 +29,7 @@ describe 'loads binary file format with comments' do
       if 0.class == Integer
         item[:item_id].class.should eq Integer
       else
-        item[:item_id].class.should eq Fixnum
+        item[:item_id].class.should eq Integer
       end
 
       item[:name].size.should be > 0
@@ -79,7 +79,7 @@ describe 'loads binary file format with comments' do
       if 0.class == Integer
         item['item_id'].class.should eq Integer
       else
-        item['item_id'].class.should eq Fixnum
+        item['item_id'].class.should eq Integer
       end
 
       item['name'].size.should be > 0
@@ -109,7 +109,7 @@ describe 'loads binary file format with comments' do
       if 0.class == Integer
         item[:item_id].class.should eq Integer
       else
-        item[:item_id].class.should eq Fixnum
+        item[:item_id].class.should eq Integer
       end
 
       item[:name].size.should be > 0

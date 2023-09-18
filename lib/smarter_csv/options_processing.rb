@@ -70,11 +70,11 @@ module SmarterCSV
 
   V1_TRANSFORMATIONS = {
     header_transformations: [:keys_as_symbols],
-     header_validations: [:unique_headers],
-     data_transformations: [:replace_blank_with_nil],
-     data_validations: [],
-     hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric],
-     hash_validations: []
+    header_validations: [:unique_headers],
+    data_transformations: [:replace_blank_with_nil],
+    data_validations: [],
+    hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric],
+    hash_validations: []
   }
 
   def self.process_options(options = {})

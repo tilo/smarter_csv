@@ -136,6 +136,9 @@ Style/TrailingCommaInHashLiteral:
 Style/TrailingUnderscoreVariable:
   Enabled: false
 
+Style/TernaryParentheses:
+  Enabled: false
+
 Style/TrivialAccessors:
   Enabled: false
 

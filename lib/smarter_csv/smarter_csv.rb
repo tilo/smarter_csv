@@ -11,6 +11,7 @@ module SmarterCSV
   def self.errors
     @errors
   end
+
   def self.errors=(value)
     @errors = value
   end
@@ -18,6 +19,7 @@ module SmarterCSV
   def self.warnings
     @warnings
   end
+
   def self.warnings=(value)
     @warnings = value
   end
@@ -222,8 +224,8 @@ module SmarterCSV
 
         # if a row in the CSV does not contain any data, we'll ignore it, but issue a warning:
         if dataA.empty?
-          @warnings[ @file_line_count ] ||= []
-          @warnings[ @file_line_count ] << "No data in line #{@file_line_count}"
+          @warnings[@file_line_count] ||= []
+          @warnings[@file_line_count] << "No data in line #{@file_line_count}"
           next
         end
 

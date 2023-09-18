@@ -21,8 +21,8 @@ describe 'loads simple file format' do
         item[:account_id].class.should eq Integer
         item[:shares_issued].class.should eq Integer
       else
-        item[:account_id].class.should eq Fixnum
-        item[:shares_issued].class.should eq Fixnum
+        item[:account_id].class.should eq Integer
+        item[:shares_issued].class.should eq Integer
       end
       item[:options_trader].class.should eq String
       item[:stock_symbol].class.should eq String

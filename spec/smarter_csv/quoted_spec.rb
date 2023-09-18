@@ -51,7 +51,7 @@ describe 'loading file with quoted fields' do
       if 0.class == Integer
         h[:year].class.should eq Integer
       else
-        h[:year].class.should eq Fixnum
+        h[:year].class.should eq Integer
       end
       h[:make].should_not be_nil
       h[:model].should_not be_nil

@@ -14,8 +14,8 @@ module SmarterCSV
       count = 0
       required.each do |x|
         if !hash.keys.include?(x) || hash[x].nil? || hash[x] =~ /\A\s+\z/ || hash[x] =~ /\A0\z/
-          @errors[ @file_line_count ] ||= []
-          @errors[ @file_line_count ] << "Missing required field `#{x.inspect}` in CSV line #{@file_line_count}"
+          @errors[@file_line_count] ||= []
+          @errors[@file_line_count] << "Missing required field `#{x.inspect}` in CSV line #{@file_line_count}"
           count += 1
         end
       end
@@ -34,8 +34,8 @@ module SmarterCSV
       count = 0
       requirements_hash.each do |key, regex|
         if !hash.keys.include?(key) || hash[key] !~ regex
-          @errors[ @file_line_count ] ||= []
-          @errors[ @file_line_count ] << "Field `#{key.inspect}` in CSV line #{@file_line_count}: `#{hash[key]}` did not match #{regex.inspect}"
+          @errors[@file_line_count] ||= []
+          @errors[@file_line_count] << "Field `#{key.inspect}` in CSV line #{@file_line_count}: `#{hash[key]}` did not match #{regex.inspect}"
           count += 1
         end
       end
