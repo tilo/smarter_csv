@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'csv'
 require "smarter_csv/version"
 require "core_ext/hash"

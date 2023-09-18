@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
@@ -21,7 +22,7 @@ module SmarterCSV
     @warnings = value
   end
 
-  def self.process(input, given_options={}, &block)   # first parameter: filename or input object with readline method
+  def self.process(input, given_options={}, &block) # first parameter: filename or input object with readline method
     # @errors is  where validation errors get accumulated into - similar to ActiveRecord validations, but with additional keys
     # @errors[ file_line_no ] << 'invalid value for :employee_id in line 17'
     # @errors[ file_line_no ] << 'missing required field :email in line 193'
@@ -35,7 +36,7 @@ module SmarterCSV
 
     options = process_options(given_options)
 
-    csv_options = options.select{|k,v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
+    csv_options = options.select{|k, v| [:col_sep, :row_sep, :quote_char].include?(k)} # options.slice(:col_sep, :row_sep, :quote_char)
 
     headerA = []
     result = []
@@ -47,12 +48,12 @@ module SmarterCSV
     begin
       f = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
-      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && ( f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8') )
+      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (f.respond_to?(:external_encoding) && f.external_encoding != Encoding.find('UTF-8') || f.respond_to?(:encoding) && f.encoding != Encoding.find('UTF-8'))
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
       if options[:row_sep].to_s == 'auto'
-        options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
+        options[:row_sep] = line_ending = SmarterCSV.guess_line_ending(f, options)
         f.rewind
       end
       $/ = options[:row_sep]
@@ -74,16 +75,16 @@ module SmarterCSV
         @file_line_count += 1
         @csv_line_count += 1
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-        header = header.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = header.sub(options[:comment_regexp], '').chomp(options[:row_sep])
 
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = begin
-            CSV.parse( header, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse(header, **csv_options).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
-          file_headerA =  header.split(options[:col_sep])
+          file_headerA = header.split(options[:col_sep])
         end
 
         puts "Split headers:\n#{pp(file_headerA)}\n" if options[:verbose]
@@ -92,15 +93,15 @@ module SmarterCSV
         if options[:header_transformations]
           options[:header_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
-              file_headerA = self.public_send( transformation, file_headerA )
+              file_headerA = self.public_send(transformation, file_headerA)
             elsif transformation.is_a?(Hash)
               trans, args = transformation.first
-              file_headerA = self.public_send( trans, file_headerA, args )
+              file_headerA = self.public_send(trans, file_headerA, args)
             elsif transformation.is_a?(Array)
               trans, args = transformation
-              file_headerA = self.public_send( trans, file_headerA, args )
+              file_headerA = self.public_send(trans, file_headerA, args)
             else
-              file_headerA = transformation.call( file_headerA )
+              file_headerA = transformation.call(file_headerA)
             end
           end
         end
@@ -138,15 +139,15 @@ module SmarterCSV
       if options[:header_validations]
         options[:header_validations].each do |validation|
           if validation.is_a?(Symbol)
-            self.public_send( validation, headerA )
+            self.public_send(validation, headerA)
           elsif validation.is_a?(Hash)
             val, args = validation.first
-            self.public_send( val, headerA, args )
+            self.public_send(val, headerA, args)
           elsif validation.is_a?(Array)
             val, args = validation
-            self.public_send( val, headerA, args )
+            self.public_send(val, headerA, args)
           else
-            validation.call( headerA ) unless validation.nil?
+            validation.call(headerA) unless validation.nil?
           end
         end
       end
@@ -166,8 +167,8 @@ module SmarterCSV
 
       # instead of readline, which accumulates the lines in an array, we should use `open.each_line` for large files, which only returns one line at a time
 
-      while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+      while ! f.eof? # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
+        line = f.readline # read one line.. this uses the input_record_separator $/ which we set previously!
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
@@ -176,8 +177,6 @@ module SmarterCSV
         @csv_line_count += 1
         print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
         next if line =~ options[:comment_regexp] # ignore all comment lines if there are any
-
-
 
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
@@ -191,32 +190,32 @@ module SmarterCSV
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
 
-        line.chomp!    # will use $/ which is set to options[:col_sep]
+        line.chomp! # will use $/ which is set to options[:col_sep]
         next if line.empty? || line =~ /\A\s*\z/
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           dataA = begin
-            CSV.parse( line, **csv_options ).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
+            CSV.parse(line, **csv_options).flatten.collect!{|x| x.nil? ? '' : x} # to deal with nil values from CSV.parse
           rescue CSV::MalformedCSVError => e
             raise $!, "#{$!} [SmarterCSV: csv line #{@csv_line_count}]", $!.backtrace
           end
         else
-          dataA =  line.split(options[:col_sep])
+          dataA = line.split(options[:col_sep])
         end
 
         # do the data transformations the user requested:
         if options[:data_transformations]
           options[:data_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
-              dataA = self.public_send( transformation, dataA )
+              dataA = self.public_send(transformation, dataA)
             elsif transformation.is_a?(Hash)
               trans, args = transformation.first
-              dataA = self.public_send( trans, dataA, args )
+              dataA = self.public_send(trans, dataA, args)
             elsif transformation.is_a?(Array)
               trans, args = transformation
-              dataA = self.public_send( trans, dataA, args )
+              dataA = self.public_send(trans, dataA, args)
             else
-              dataA = transformation.call( dataA )
+              dataA = transformation.call(dataA)
             end
           end
         end
@@ -238,15 +237,15 @@ module SmarterCSV
         if options[:data_validations]
           options[:data_validations].each do |validation|
             if validation.is_a?(Symbol)
-              data_validation_errors += self.public_send( validation, dataA )
+              data_validation_errors += self.public_send(validation, dataA)
             elsif validation.is_a?(Hash)
               trans, args = validation.first
-              data_validation_errors += self.public_send( trans, dataA, args )
+              data_validation_errors += self.public_send(trans, dataA, args)
             elsif validation.is_a?(Array)
               trans, args = validation
-              data_validation_errors += self.public_send( trans, dataA, args )
+              data_validation_errors += self.public_send(trans, dataA, args)
             else
-              data_validation_errors += validation.call( dataA )
+              data_validation_errors += validation.call(dataA)
             end
           end
         end
@@ -254,8 +253,7 @@ module SmarterCSV
         #
         # ^^^ THIS LOOKS TO BE REDUNDANT -----------------------------------------------
 
-
-        hash = Hash.zip(headerA,dataA)  # from Facets of Ruby library
+        hash = Hash.zip(headerA, dataA) # from Facets of Ruby library
 
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
         # e.g. if any keys which are mapped to nil or an empty string
@@ -269,15 +267,15 @@ module SmarterCSV
         if options[:hash_transformations]
           options[:hash_transformations].each do |transformation|
             if transformation.is_a?(Symbol)
-              hash = self.public_send( transformation, hash )
+              hash = self.public_send(transformation, hash)
             elsif transformation.is_a?(Hash)
               trans, args = transformation.first
-              hash = self.public_send( trans, hash, args )
+              hash = self.public_send(trans, hash, args)
             elsif transformation.is_a?(Array)
               trans, args = transformation
-              hash = self.public_send( trans, hash, args )
+              hash = self.public_send(trans, hash, args)
             else
-              hash = transformation.call( hash )
+              hash = transformation.call(hash)
             end
           end
         end
@@ -287,15 +285,15 @@ module SmarterCSV
         if options[:hash_validations]
           options[:hash_validations].each do |validation|
             if validation.is_a?(Symbol)
-              hash_validation_errors += self.public_send( validation, hash )
+              hash_validation_errors += self.public_send(validation, hash)
             elsif validation.is_a?(Hash)
               trans, args = validation.first
-              hash_validation_errors += self.public_send( trans, hash, args )
+              hash_validation_errors += self.public_send(trans, hash, args)
             elsif validation.is_a?(Array)
               trans, args = validation
-              hash_validation_errors += self.public_send( trans, hash, args )
+              hash_validation_errors += self.public_send(trans, hash, args)
             else
-              hash_validation_errors += validation.call( hash )
+              hash_validation_errors += validation.call(hash)
             end
           end
         end
@@ -303,22 +301,22 @@ module SmarterCSV
 
         puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose]
 
-        next if hash.empty? if options[:remove_empty_hashes]
+        next if options[:remove_empty_hashes] && hash.empty?
 
         # process the chunks or the resulting hash
 
         if use_chunks
-          chunk << hash  # append temp result to chunk
+          chunk << hash # append temp result to chunk
 
-          if chunk.size >= chunk_size || f.eof?   # if chunk if full, or EOF reached = last chunk
+          if chunk.size >= chunk_size || f.eof? # if chunk if full, or EOF reached = last chunk
             # do something with the chunk
             if block_given?
-              yield chunk  # do something with the hashes in the chunk in the block
+              yield chunk # do something with the hashes in the chunk in the block
             else
-              result << chunk  # not sure yet, why anybody would want to do this without a block - not a good idea to accumulate an array
+              result << chunk # not sure yet, why anybody would want to do this without a block - not a good idea to accumulate an array
             end
             chunk_count += 1
-            chunk = []  # initialize for next chunk of data
+            chunk = [] # initialize for next chunk of data
 
           else
             # keep accumulating lines for the chunk
@@ -328,7 +326,7 @@ module SmarterCSV
 
         else # no chunk handling
           if block_given?
-            yield [hash]  # do something with the hash in the block (better to use chunking here)
+            yield [hash] # do something with the hash in the block (better to use chunking here)
           else
             result << hash
           end
@@ -342,15 +340,15 @@ module SmarterCSV
       if ! chunk.nil? && chunk.size > 0
         # do something with the chunk
         if block_given?
-          yield chunk  # do something with the hashes in the chunk in the block
+          yield chunk # do something with the hashes in the chunk in the block
         else
-          result << chunk  # not sure yet, why anybody would want to do this without a block
+          result << chunk # not sure yet, why anybody would want to do this without a block
         end
         chunk_count += 1
-        chunk = []  # initialize for next chunk of data
+        chunk = [] # initialize for next chunk of data
       end
     ensure
-      $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
+      $/ = old_row_sep # make sure this stupid global variable is always reset to it's previous value after we're done!
       f.close
     end
 
@@ -363,11 +361,10 @@ module SmarterCSV
     end
   end
 
-
   private
 
   # limitation: this currently reads the whole file in before making a decision
-  def self.guess_line_ending( filehandle, options )
+  def self.guess_line_ending(filehandle, options)
     counts = {"\n" => 0 , "\r" => 0, "\r\n" => 0}
     quoted_char = false
 
@@ -381,9 +378,9 @@ module SmarterCSV
 
       if last_char == "\r"
         if c == "\n"
-          counts["\r\n"] +=  1
+          counts["\r\n"] += 1
         else
-          counts["\r"] += 1  # \r are counted after they appeared, we might
+          counts["\r"] += 1 # \r are counted after they appeared, we might
         end
       elsif c == "\n"
         counts["\n"] += 1
@@ -394,7 +391,7 @@ module SmarterCSV
     end
     counts["\r"] += 1 if last_char == "\r"
     # find the key/value pair with the largest counter:
-    k,_ = counts.max_by{|_,v| v}
+    k, _ = counts.max_by{|_, v| v}
     return k                    # the most frequent one is it
   end
 end

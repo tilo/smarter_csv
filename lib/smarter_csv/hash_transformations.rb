@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module SmarterCSV
   # these are some pre-defined data hash transformations which can be used
   # all these take the data hash as the input
@@ -5,8 +7,8 @@ module SmarterCSV
   # the computed options can be accessed via @options
 
   def self.strip_spaces(hash, args=nil)
-    @@strip_spaces ||= Proc.new {|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@strip_spaces ||= proc {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key].strip! unless hash[key].nil? } # &. syntax was introduced in Ruby 2.3 - need to stay backwards compatible
       hash
@@ -15,8 +17,8 @@ module SmarterCSV
   end
 
   def self.remove_blank_values(hash, args=nil)
-    @@remove_blank_values ||= Proc.new {|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@remove_blank_values ||= proc {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash.delete(key) if hash[key].nil? || hash[key].is_a?(String) && hash[key] !~ /[^[:space:]]/ }
       hash
@@ -25,8 +27,8 @@ module SmarterCSV
   end
 
   def self.remove_zero_values(hash, args=nil)
-    @@remove_zero_values ||= Proc.new {|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@remove_zero_values ||= proc {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash.delete(key) if hash[key].is_a?(Numeric) && hash[key].zero? }
       hash
@@ -35,34 +37,34 @@ module SmarterCSV
   end
 
   def self.convert_values_to_numeric(hash, args=nil)
-    @@convert_values_to_numeric ||= Proc.new {|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@convert_values_to_numeric ||= proc {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
-      keys.each {|k|
+      keys.each do |k|
         case hash[k]
         when /^[+-]?\d+\.\d+$/
           hash[k] = hash[k].to_f
         when /^[+-]?\d+$/
           hash[k] = hash[k].to_i
         end
-      }
+      end
       hash
     }
     @@convert_values_to_numeric.call(hash)
   end
 
   def self.convert_values_to_numeric_unless_leading_zeroes(hash, args=nil)
-    @@convert_values_to_numeric_unless_leading_zeroes ||= Proc.new {|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@convert_values_to_numeric_unless_leading_zeroes ||= proc {|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
-      keys.each {|k|
+      keys.each do |k|
         case hash[k]
         when /^[+-]?[1-9]\d*\.\d+$/
           hash[k] = hash[k].to_f
         when /^[+-]?[1-9]\d*$/
           hash[k] = hash[k].to_i
         end
-      }
+      end
       hash
     }
     @@convert_values_to_numeric_unless_leading_zeroes.call(hash)
@@ -75,8 +77,8 @@ module SmarterCSV
   # you should first try to use convert_values_to_numeric or convert_values_to_numeric_unless_leading_zeroes
   #
   def self.convert_to_integer(hash, args=nil)
-    @@convert_to_integer ||= Proc.new{|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@convert_to_integer ||= proc{|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key] = hash[key].to_i }
       hash
@@ -85,8 +87,8 @@ module SmarterCSV
   end
 
   def self.convert_to_float(hash, args=nil)
-    @@convert_to_integer ||= Proc.new{|hash, args=nil|
-      keys = (args.nil? || args.empty?) ? hash.keys : ( args.is_a?(Array) ? args : [ args ] )
+    @@convert_to_integer ||= proc{|hash, args=nil|
+      keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key] = hash[key].to_f }
       hash

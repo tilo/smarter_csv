@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -13,13 +15,13 @@ describe 'process files with line endings explicitly pre-specified' do
     options = {row_sep: "\r"}
     data = SmarterCSV.process("#{fixture_path}/line_endings_r.csv", options)
     data.size.should eq 3
-   end
+  end
 
   it 'reads file with \r\n line endings' do
     options = {row_sep: "\r\n"}
     data = SmarterCSV.process("#{fixture_path}/line_endings_rn.csv", options)
     data.size.should eq 3
-   end
+  end
 end
 
 describe 'process files with line endings in automatic mode' do
@@ -33,11 +35,11 @@ describe 'process files with line endings in automatic mode' do
     options = {row_sep: :auto}
     data = SmarterCSV.process("#{fixture_path}/line_endings_r.csv", options)
     data.size.should eq 3
-   end
+  end
 
   it 'reads file with \r\n line endings' do
     options = {row_sep: :auto}
     data = SmarterCSV.process("#{fixture_path}/line_endings_rn.csv", options)
     data.size.should eq 3
-   end
+  end
 end

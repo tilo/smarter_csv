@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'remove nil values' do
-
   # when the CSV data is used to update a DB record,
   # there is a difference between setting an attribute to nil,
   # and not modifying the attribute because it's not handed to the update call
@@ -12,7 +13,7 @@ describe 'remove nil values' do
 
   it 'should not remove nil values by default' do
     options = {
-      row_sep: :auto,  header_transformations: [ :none  ]
+      row_sep: :auto,  header_transformations: [:none]
     }
     data = SmarterCSV.process("#{fixture_path}/empty.csv", options)
 
@@ -22,7 +23,7 @@ describe 'remove nil values' do
 
   it 'should work when specifically asked' do
     options = {
-      row_sep: :auto,  header_transformations: [ :none ]
+      row_sep: :auto,  header_transformations: [:none]
     }
     data = SmarterCSV.process("#{fixture_path}/empty.csv", options)
 

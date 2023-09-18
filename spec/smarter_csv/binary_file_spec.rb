@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
@@ -7,7 +9,6 @@ fixture_path = 'spec/fixtures'
 # contains a comment section which is commented our by a leading # character
 
 describe 'loads binary file format with comments' do
-
   it 'with symbols as keys when using v1 defaults' do
     # old default is to have symbols as keys
     # old default is to automatically remove blank values
@@ -21,7 +22,7 @@ describe 'loads binary file format with comments' do
     data.flatten.size.should eq 8
     data.each do |item|
       # all keys should be symbols when using v1.x backwards compatible mode
-      item.keys.each{|x| x.class.should eq Symbol}
+      item.each_key{|x| x.class.should eq Symbol}
       item[:timestamp].should eq 1381388409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
@@ -49,7 +50,7 @@ describe 'loads binary file format with comments' do
     data.flatten.size.should eq 8
     data.each do |item|
       # all keys should be symbols when using v1.x backwards compatible mode
-      item.keys.each{|x| x.class.should eq Symbol}
+      item.each_key{|x| x.class.should eq Symbol}
       item[:timestamp].should eq '1381388409'
       item[:item_id].class.should eq String
       item[:name].size.should be > 0
@@ -58,21 +59,20 @@ describe 'loads binary file format with comments' do
     data[4][:parent_id].should be_nil
   end
 
-
   it 'loads binary file with strings as keys' do
     # new default is to have symbols as keys, so nothing to do for that
 
     options = {
       col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/ ,
       header_transformations: [:none, :keys_as_strings],
-      hash_transformations: [ convert_values_to_numeric: ['timestamp','item_id','parent_id'] ]
+      hash_transformations: [convert_values_to_numeric: ['timestamp', 'item_id', 'parent_id']]
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 
     data.flatten.size.should eq 8
     data.each do |item|
       # all keys should be strings
-      item.keys.each{|x| x.class.should eq String}
+      item.each_key{|x| x.class.should eq String}
       item['timestamp'].should eq 1381388409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.
@@ -88,22 +88,21 @@ describe 'loads binary file format with comments' do
     data[4]['parent_id'].should be_nil
   end
 
-
   it 'with symbols as keys when requested' do
     # new default is to have symbols as keys, so we have to specifically enable this
     # we have to remove blank values explicitly
 
     options = {
-      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
-      :header_transformations => [ :none, :keys_as_symbols ],
-      :hash_transformations => [ :remove_blank_values, convert_values_to_numeric: [:timestamp,:item_id,:parent_id] ]
+      col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/,
+      header_transformations: [:none, :keys_as_symbols],
+      hash_transformations: [:remove_blank_values, convert_values_to_numeric: [:timestamp, :item_id, :parent_id]]
     }
     data = SmarterCSV.process("#{fixture_path}/binary.csv", options)
 
     data.flatten.size.should eq 8
     data.each do |item|
       # all keys should be symbols
-      item.keys.each{|x| x.class.should eq Symbol}
+      item.each_key{|x| x.class.should eq Symbol}
       item[:timestamp].should eq 1381388409
 
       # Ruby 2.4+ unifies Fixnum & Bignum into Integer.

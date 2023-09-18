@@ -1,16 +1,16 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
 describe 'process files' do
-
   let!(:options) {{}}
 
   describe 'with line endings explicitly pre-specified' do
-
     it 'should process a file with \n for line endings and within data fields' do
       sep = "\n"
-      options.merge!( { row_sep: sep } )
+      options.merge!({ row_sep: sep })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_n.csv", options)
 
@@ -35,7 +35,7 @@ describe 'process files' do
 
     it 'should process a file with \r for line endings and within data fields' do
       sep = "\r"
-      options.merge!( { row_sep: sep } )
+      options.merge!({ row_sep: sep })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_r.csv", options)
 
@@ -60,7 +60,7 @@ describe 'process files' do
 
     it 'should process a file with \r\n for line endings and within data fields' do
       sep = "\r\n"
-      options.merge!( { row_sep: sep } )
+      options.merge!({ row_sep: sep })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", options)
 
@@ -86,7 +86,7 @@ describe 'process files' do
     it 'should process a file with more quoted text carriage return characters (\r) than line ending characters (\n)' do
       row_sep = "\n"
       text_sep = "\r"
-      options.merge!( { row_sep: row_sep } )
+      options.merge!({ row_sep: row_sep })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_quoted.csv", options)
 
@@ -98,14 +98,12 @@ describe 'process files' do
       data[1][:members].should eq ["Jimmy Page", "Robert Plant", "John Bonham", "John Paul Jones"].join(text_sep)
       data[1][:albums].should eq ["Led Zeppelin", "Led Zeppelin II", "Led Zeppelin III", "Led Zeppelin IV"].join(text_sep)
     end
-
   end
 
   describe 'with line endings in automatic mode' do
-
     it 'should process a file with \n for line endings and within data fields' do
       sep = "\n"
-      options.merge!( { row_sep: :auto } )
+      options.merge!({ row_sep: :auto })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_n.csv", options)
 
@@ -130,7 +128,7 @@ describe 'process files' do
 
     it 'should process a file with \r for line endings and within data fields' do
       sep = "\r"
-      options.merge!( { row_sep: :auto } )
+      options.merge!({ row_sep: :auto })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_r.csv", options)
 
@@ -155,7 +153,7 @@ describe 'process files' do
 
     it 'should process a file with \r\n for line endings and within data fields' do
       sep = "\r\n"
-      options.merge!( { row_sep: :auto } )
+      options.merge!({ row_sep: :auto })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_rn.csv", options)
 
@@ -181,7 +179,7 @@ describe 'process files' do
     it 'should process a file with more quoted text carriage return characters (\r) than line ending characters (\n)' do
       row_sep = "\n"
       text_sep = "\r"
-      options.merge!( { row_sep: :auto } )
+      options.merge!({ row_sep: :auto })
 
       data = SmarterCSV.process("#{fixture_path}/carriage_returns_quoted.csv", options)
 

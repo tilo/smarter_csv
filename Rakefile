@@ -1,10 +1,12 @@
 #!/usr/bin/env rake
+# frozen_string_literal: true
+
 require "bundler/gem_tasks"
 require 'rubygems'
 require 'rake'
 require 'rspec/core/rake_task'
 
-task :default => :spec
+task default: :spec
 
 desc "Run RSpec"
 RSpec::Core::RakeTask.new do |t|
