@@ -73,4 +73,3 @@ describe 'numeric conversion of values' do
     end
   end
 end
-

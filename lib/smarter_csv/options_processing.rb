@@ -47,8 +47,8 @@ module SmarterCSV
   # If you want to completely replace the default values, use `defaults: :none`, and you have full control.
 
   OBSOLETE_OPTIONS = [:remove_empty_values, :remove_zero_values, :remove_values_matching, :strip_whitespace,
-    :convert_values_to_numeric, :strip_chars_from_headers, :key_mapping_hash, :downcase_header, :strings_as_keys,
-    :remove_unmapped_keys, :keep_original_headers, :value_converters, :required_headers
+                      :convert_values_to_numeric, :strip_chars_from_headers, :key_mapping_hash, :downcase_header, :strings_as_keys,
+                      :remove_unmapped_keys, :keep_original_headers, :value_converters, :required_headers
   ]
 
   DEFAULT_OPTIONS = {

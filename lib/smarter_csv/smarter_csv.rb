@@ -94,12 +94,13 @@ module SmarterCSV
         # do the header transformations the user requested:
         if options[:header_transformations]
           options[:header_transformations].each do |transformation|
-            if transformation.is_a?(Symbol)
+            case transformation
+            when Symbol
               file_headerA = public_send(transformation, file_headerA)
-            elsif transformation.is_a?(Hash)
+            when Hash
               trans, args = transformation.first
               file_headerA = public_send(trans, file_headerA, args)
-            elsif transformation.is_a?(Array)
+            when Array
               trans, args = transformation
               file_headerA = public_send(trans, file_headerA, args)
             else
@@ -169,7 +170,7 @@ module SmarterCSV
 
       # instead of readline, which accumulates the lines in an array, we should use `open.each_line` for large files, which only returns one line at a time
 
-      while !f.eof? # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
+      until f.eof? # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = f.readline # read one line.. this uses the input_record_separator $/ which we set previously!
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
@@ -183,8 +184,8 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        multiline = line.count(options[:quote_char])%2 == 1
-        while line.count(options[:quote_char])%2 == 1
+        multiline = line.count(options[:quote_char]).odd?
+        while line.count(options[:quote_char]).odd?
           next_line = f.readline
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
@@ -208,12 +209,13 @@ module SmarterCSV
         # do the data transformations the user requested:
         if options[:data_transformations]
           options[:data_transformations].each do |transformation|
-            if transformation.is_a?(Symbol)
+            case transformation
+            when Symbol
               dataA = public_send(transformation, dataA)
-            elsif transformation.is_a?(Hash)
+            when Hash
               trans, args = transformation.first
               dataA = public_send(trans, dataA, args)
-            elsif transformation.is_a?(Array)
+            when Array
               trans, args = transformation
               dataA = public_send(trans, dataA, args)
             else
@@ -238,12 +240,13 @@ module SmarterCSV
         data_validation_errors = 0
         if options[:data_validations]
           options[:data_validations].each do |validation|
-            if validation.is_a?(Symbol)
+            case validation
+            when Symbol
               data_validation_errors += public_send(validation, dataA)
-            elsif validation.is_a?(Hash)
+            when Hash
               trans, args = validation.first
               data_validation_errors += public_send(trans, dataA, args)
-            elsif validation.is_a?(Array)
+            when Array
               trans, args = validation
               data_validation_errors += public_send(trans, dataA, args)
             else
@@ -252,6 +255,7 @@ module SmarterCSV
           end
         end
         next if data_validation_errors > 0 # ignore lines with data_validation errors
+
         #
         # ^^^ THIS LOOKS TO BE REDUNDANT -----------------------------------------------
 
@@ -269,12 +273,13 @@ module SmarterCSV
         # do the hash transformations the user requested:
         if options[:hash_transformations]
           options[:hash_transformations].each do |transformation|
-            if transformation.is_a?(Symbol)
+            case transformation
+            when Symbol
               hash = public_send(transformation, hash)
-            elsif transformation.is_a?(Hash)
+            when Hash
               trans, args = transformation.first
               hash = public_send(trans, hash, args)
-            elsif transformation.is_a?(Array)
+            when Array
               trans, args = transformation
               hash = public_send(trans, hash, args)
             else
@@ -287,12 +292,13 @@ module SmarterCSV
         hash_validation_errors = 0
         if options[:hash_validations]
           options[:hash_validations].each do |validation|
-            if validation.is_a?(Symbol)
+            case validation
+            when Symbol
               hash_validation_errors += public_send(validation, hash)
-            elsif validation.is_a?(Hash)
+            when Hash
               trans, args = validation.first
               hash_validation_errors += public_send(trans, hash, args)
-            elsif validation.is_a?(Array)
+            when Array
               trans, args = validation
               hash_validation_errors += public_send(trans, hash, args)
             else

@@ -5,39 +5,46 @@ module SmarterCSV
   # all these take the data hash as the input
   #
   # the computed options can be accessed via @options
+  @strip_spaces = nil
 
   def self.strip_spaces(hash, args = nil)
-    @@strip_spaces ||= proc {|hash, args = nil|
+    @strip_spaces ||= proc {|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key].strip! unless hash[key].nil? } # &. syntax was introduced in Ruby 2.3 - need to stay backwards compatible
       hash
     }
-    @@strip_spaces.call(hash)
+    @strip_spaces.call(hash)
   end
 
+  @remove_blank_values = nil
+
   def self.remove_blank_values(hash, args = nil)
-    @@remove_blank_values ||= proc {|hash, args = nil|
+    @remove_blank_values ||= proc {|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash.delete(key) if hash[key].nil? || hash[key].is_a?(String) && hash[key] !~ /[^[:space:]]/ }
       hash
     }
-    @@remove_blank_values.call(hash)
+    @remove_blank_values.call(hash)
   end
 
+  @remove_zero_values = nil
+
   def self.remove_zero_values(hash, args = nil)
-    @@remove_zero_values ||= proc {|hash, args = nil|
+    @remove_zero_values ||= proc {|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash.delete(key) if hash[key].is_a?(Numeric) && hash[key].zero? }
       hash
     }
-    @@remove_zero_values.call(hash)
+    @remove_zero_values.call(hash)
   end
 
+  @convert_values_to_numeric = nil
+
   def self.convert_values_to_numeric(hash, args = nil)
-    @@convert_values_to_numeric ||= proc {|hash, args = nil|
+    @convert_values_to_numeric ||= proc {|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each do |k|
@@ -50,11 +57,13 @@ module SmarterCSV
       end
       hash
     }
-    @@convert_values_to_numeric.call(hash)
+    @convert_values_to_numeric.call(hash)
   end
 
+  @convert_values_to_numeric_unless_leading_zeroes = nil
+
   def self.convert_values_to_numeric_unless_leading_zeroes(hash, args = nil)
-    @@convert_values_to_numeric_unless_leading_zeroes ||= proc {|hash, args = nil|
+    @convert_values_to_numeric_unless_leading_zeroes ||= proc {|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each do |k|
@@ -67,7 +76,7 @@ module SmarterCSV
       end
       hash
     }
-    @@convert_values_to_numeric_unless_leading_zeroes.call(hash)
+    @convert_values_to_numeric_unless_leading_zeroes.call(hash)
   end
 
   # IMPORTANT NOTE:
@@ -76,23 +85,27 @@ module SmarterCSV
   #
   # you should first try to use convert_values_to_numeric or convert_values_to_numeric_unless_leading_zeroes
   #
+  @convert_to_integer = nil
+
   def self.convert_to_integer(hash, args = nil)
-    @@convert_to_integer ||= proc{|hash, args = nil|
+    @convert_to_integer ||= proc{|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key] = hash[key].to_i }
       hash
     }
-    @@convert_to_integer.call(hash, args)
+    @convert_to_integer.call(hash, args)
   end
 
+  @convert_to_float = nil
+
   def self.convert_to_float(hash, args = nil)
-    @@convert_to_integer ||= proc{|hash, args = nil|
+    @convert_to_float ||= proc{|hash, args = nil|
       keys = (args.nil? || args.empty?) ? hash.keys : (args.is_a?(Array) ? args : [args])
 
       keys.each {|key| hash[key] = hash[key].to_f }
       hash
     }
-    @@convert_to_float.call(hash, args)
+    @convert_to_float.call(hash, args)
   end
 end
