@@ -3,8 +3,8 @@
 require_relative "extensions/hash"
 require_relative "smarter_csv/version"
 
-require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
-# require 'smarter_csv.bundle' unless ENV['CI'] # local testing
+# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+require 'smarter_csv.bundle' unless ENV['CI'] # local testing
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
@@ -370,10 +370,10 @@ module SmarterCSV
         true
 
       when Array
-        value.empty? || value.inject(true){|result, x| result &&= elem_blank?(x)}
+        value.empty? || value.inject(true){|result, x| result && elem_blank?(x)}
 
       when Hash
-        value.empty? || value.values.inject(true){|result, x| result &&= elem_blank?(x)}
+        value.empty? || value.values.inject(true){|result, x| result && elem_blank?(x)}
 
       else
         false
@@ -530,7 +530,7 @@ module SmarterCSV
           missing_keys -= options[:silence_missing_keys] if options[:silence_missing_keys].is_a?(Array)
 
           unless missing_keys.empty? || options[:silence_missing_keys] == true
-            raise  SmarterCSV::KeyMappingError,  "ERROR: can not map headers: #{missing_keys.join(', ')}"
+            raise SmarterCSV::KeyMappingError, "ERROR: can not map headers: #{missing_keys.join(', ')}"
           end
 
           headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
