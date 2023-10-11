@@ -39,7 +39,6 @@ module SmarterCSV
 
     headerA = []
     result = []
-    old_row_sep = $/
     @file_line_count = 0
     @csv_line_count = 0
     @has_rails = !! defined?(Rails)
@@ -55,11 +54,12 @@ module SmarterCSV
         options[:row_sep] = line_ending = SmarterCSV.guess_line_ending( f, options )
         f.rewind
       end
-      $/ = options[:row_sep]
+
+      row_sep = options.fetch(:row_sep, $/)
 
       if options[:skip_lines].to_i > 0
         options[:skip_lines].to_i.times do
-          f.readline
+          f.readline(row_sep)
           @file_line_count += 1
         end
       end
@@ -69,12 +69,12 @@ module SmarterCSV
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header = f.readline
+        header = f.readline(row_sep)
         puts "Raw headers:\n#{header}\n" if options[:verbose]
         @file_line_count += 1
         @csv_line_count += 1
         header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-        header = header.sub(options[:comment_regexp],'').chomp(options[:row_sep])
+        header = header.sub(options[:comment_regexp],'').chomp(row_sep)
 
         if (header =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
           file_headerA = begin
@@ -167,7 +167,7 @@ module SmarterCSV
       # instead of readline, which accumulates the lines in an array, we should use `open.each_line` for large files, which only returns one line at a time
 
       while ! f.eof?    # we can't use f.readlines() here, because this would read the whole file into memory at once, and eof => true
-        line = f.readline  # read one line.. this uses the input_record_separator $/ which we set previously!
+        line = f.readline(row_sep)  # read one line
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
         line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
@@ -184,14 +184,14 @@ module SmarterCSV
         # by detecting the existence of an uneven number of quote characters
         multiline = line.count(options[:quote_char])%2 == 1
         while line.count(options[:quote_char])%2 == 1
-          next_line = f.readline
+          next_line = f.readline(row_sep)
           next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
           line += next_line
           @file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
 
-        line.chomp!    # will use $/ which is set to options[:col_sep]
+        line.chomp!(row_sep)
         next if line.empty? || line =~ /\A\s*\z/
 
         if (line =~ %r{#{options[:quote_char]}}) and (! options[:force_simple_split])
@@ -350,7 +350,6 @@ module SmarterCSV
         chunk = []  # initialize for next chunk of data
       end
     ensure
-      $/ = old_row_sep   # make sure this stupid global variable is always reset to it's previous value after we're done!
       f.close
     end
 
