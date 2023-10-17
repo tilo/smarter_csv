@@ -43,3 +43,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Olle Jonsson](https://github.com/olleolleolle)
  * [Nicolas Guillemain](https://github.com/Viiruus)
  * [Sp6](https://github.com/sp6)
+ * [meagar](https://github.com/meagar)

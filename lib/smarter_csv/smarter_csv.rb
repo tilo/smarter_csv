@@ -261,12 +261,9 @@ module SmarterCSV
 
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete..
         # e.g. if any keys which are mapped to nil or an empty string
-        # Note: Ruby < 1.9 doesn't allow empty symbol literals!
         hash.delete(nil)
         hash.delete('')
-        if RUBY_VERSION.to_f > 1.8
-          eval('hash.delete(:"")')
-        end
+        hash.delete(:"") # Ruby < 1.9 doesn't allow empty symbol literals!
 
         # do the hash transformations the user requested:
         if options[:hash_transformations]
