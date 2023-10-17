@@ -263,7 +263,7 @@ module SmarterCSV
         # e.g. if any keys which are mapped to nil or an empty string
         hash.delete(nil)
         hash.delete('')
-        hash.delete(:"") # Ruby < 1.9 doesn't allow empty symbol literals!
+        hash.delete(:"")
 
         # do the hash transformations the user requested:
         if options[:hash_transformations]
