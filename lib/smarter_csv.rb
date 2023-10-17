@@ -90,10 +90,9 @@ module SmarterCSV
         hash = Hash.zip(headerA, dataA) # from Facets of Ruby library
 
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
-        # Note: Ruby < 1.9 doesn't allow empty symbol literals!
         hash.delete(nil)
         hash.delete('')
-        eval('hash.delete(:"")') if RUBY_VERSION.to_f > 1.8
+        hash.delete(:"")
 
         if options[:remove_empty_values] == true
           hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
