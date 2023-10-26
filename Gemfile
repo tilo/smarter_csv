@@ -7,8 +7,8 @@ gemspec
 
 gem "awesome_print"
 gem "pry"
-gem "rake", "< 11"
+gem "rake"
 
 group :test do
-  gem "rspec", "~> 2.99"
+  gem "rspec"
 end

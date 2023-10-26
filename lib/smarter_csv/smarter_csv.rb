@@ -7,6 +7,7 @@ module SmarterCSV
   class DuplicateHeaders < SmarterCSVException; end
   class MissingHeaders < SmarterCSVException; end
   class ObsoleteOptions < SmarterCSVException; end
+  class MalformedCSVError < SmarterCSVException; end
 
   def self.errors
     @errors

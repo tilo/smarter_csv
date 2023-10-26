@@ -46,16 +46,38 @@ module SmarterCSV
   #
   # If you want to completely replace the default values, use `defaults: :none`, and you have full control.
 
-  OBSOLETE_OPTIONS = [:remove_empty_values, :remove_zero_values, :remove_values_matching, :strip_whitespace,
-                      :convert_values_to_numeric, :strip_chars_from_headers, :key_mapping_hash, :downcase_header, :strings_as_keys,
-                      :remove_unmapped_keys, :keep_original_headers, :value_converters, :required_headers
-  ]
+  OBSOLETE_OPTIONS = [
+    :convert_values_to_numeric,
+    :downcase_header,
+    :keep_original_headers,
+    :key_mapping_hash,
+    :remove_empty_values,
+    :remove_unmapped_keys,
+    :remove_values_matching,
+    :remove_zero_values,
+    :required_headers,
+    :strings_as_keys,
+    :strip_chars_from_headers,
+    :strip_whitespace,
+    :value_converters,
+  ].freeze
 
   DEFAULT_OPTIONS = {
-    verbose: false, headers_in_file: true, user_provided_headers: nil,
-    file_encoding: 'utf-8', invalid_byte_sequence: '', force_utf8: false, skip_lines: nil, comment_regexp: /^#/,
-    col_sep: ',', force_simple_split: false, row_sep: $/, auto_row_sep_chars: 500, quote_char: '"',
-    chunk_size: nil, remove_empty_hashes: true,
+    auto_row_sep_chars: 500,
+    chunk_size: nil,
+    col_sep: ',',
+    comment_regexp: /\A#/, # newer versions: nil
+    file_encoding: 'utf-8',
+    force_simple_split: false,
+    force_utf8: false,
+    headers_in_file: true,
+    invalid_byte_sequence: '',
+    quote_char: '"',
+    remove_empty_hashes: true,
+    row_sep: $/,
+    skip_lines: nil,
+    user_provided_headers: nil,
+    verbose: false,
   }
 
   BASE_TRANSFORMATIONS = {
@@ -65,7 +87,7 @@ module SmarterCSV
     data_validations: [],
     hash_transformations: [:strip_spaces, :remove_blank_values],
     hash_validations: []
-  }
+  }.freeze
 
   V1_TRANSFORMATIONS = {
     header_transformations: [:keys_as_symbols],
@@ -74,7 +96,7 @@ module SmarterCSV
     data_validations: [],
     hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric],
     hash_validations: []
-  }
+  }.freeze
 
   def self.process_options(options = {})
     puts "User provided options:\n#{pp(options)}\n" if options[:verbose]
