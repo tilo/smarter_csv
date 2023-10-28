@@ -21,7 +21,10 @@ if RUBY_ENGINE == 'ruby'
   end
 
   require 'smarter_csv/smarter_csv'
-  #
+
+elsif RUBY_ENGINE == 'truffleruby' && (RUBY_ENGINE_VERSION.split('.').map(&:to_i) <=> [20, 1, 0]) >= 0
+  require 'truffleruby/smarter_csv'
+  require 'smarter_csv/smarter_csv'
 else
   # Remove the smarter_csv gem dir from the load path, then reload the internal smarter_csv implementation
   $LOAD_PATH.delete(File.dirname(__FILE__))
