@@ -15,9 +15,9 @@ if RUBY_ENGINE == 'ruby'
 
     rescue Exception => e
 
-      puts "\n\n BAM BAM BAM \n\n #{e.inspect}"
+      puts "\n\n BAM BAM BAM - we're not on a Mac \n\n #{e.inspect}"
 
-      require 'smarter_csv.bundle'
+      # require 'smarter_csv/smarter_csv'
   end
 
   require 'smarter_csv/smarter_csv'
