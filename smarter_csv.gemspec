@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
   spec.test_files = spec.files.grep(%r{^(test|spec|features)/})
 
   spec.executables   = spec.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
-  spec.require_paths = ["lib"] # add ext here?
+  spec.require_paths = %w[lib ext/smarter_csv]
   spec.extensions = ["ext/smarter_csv/extconf.rb"]
 
   spec.add_development_dependency "awesome_print"

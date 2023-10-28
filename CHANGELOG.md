@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## WIP
+  * refactored directory structure
+
 ## 1.9.0 (2023-09-04)
   * fixed issue #139
 
