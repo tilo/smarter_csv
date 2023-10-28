@@ -21,11 +21,17 @@ RuboCop::RakeTask.new
 
 require "rake/extensiontask"
 
-task build: :compile
+if RUBY_ENGINE == 'jruby'
 
-Rake::ExtensionTask.new("smarter_csv") do |ext|
-  ext.ext_dir = "ext/smarter_csv"
+  task default: %i[spec]
+
+else
+  task build: :compile
+
+  Rake::ExtensionTask.new("smarter_csv") do |ext|
+    ext.ext_dir = "ext/smarter_csv"
+  end
+
+  # task default: %i[clobber compile spec rubocop]
+  task default: %i[clobber compile spec]
 end
-
-# task default: %i[clobber compile spec rubocop]
-task default: %i[clobber compile spec]
