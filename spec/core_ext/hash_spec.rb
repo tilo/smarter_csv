@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require './lib/extensions/hash'
+require_relative '../../lib/core_ext/hash'
 
 describe 'hash extensions' do
   let(:keys) { %i[a b] }

@@ -1,6 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
+## WIP (2023-10-29)
+  * refactored directory structure
+  * re-added JRuby and TruffleRuby
+  * no C-accelleration for JRuby
+
 ## 1.9.0 (2023-09-04)
   * fixed issue #139
 
