@@ -3,6 +3,7 @@
 require "core_ext/hash"
 
 require "smarter_csv/version"
+require "smarter_csv/options_processing"
 require "smarter_csv/smarter_csv"
 
 if RUBY_ENGINE == 'ruby'

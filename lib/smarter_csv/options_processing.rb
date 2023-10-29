@@ -1,0 +1,84 @@
+# frozen_string_literal: true
+
+module SmarterCSV
+  DEFAULT_OPTIONS = {
+    acceleration: true,
+    auto_row_sep_chars: 500,
+    chunk_size: nil,
+    col_sep: :auto, # was: ',',
+    comment_regexp: nil, # was: /\A#/,
+    convert_values_to_numeric: true,
+    downcase_header: true,
+    duplicate_header_suffix: nil,
+    file_encoding: 'utf-8',
+    force_simple_split: false,
+    force_utf8: false,
+    headers_in_file: true,
+    invalid_byte_sequence: '',
+    keep_original_headers: false,
+    key_mapping: nil,
+    quote_char: '"',
+    remove_empty_hashes: true,
+    remove_empty_values: true,
+    remove_unmapped_keys: false,
+    remove_values_matching: nil,
+    remove_zero_values: false,
+    required_headers: nil,
+    required_keys: nil,
+    row_sep: :auto, # was: $/,
+    silence_missing_keys: false,
+    skip_lines: nil,
+    strings_as_keys: false,
+    strip_chars_from_headers: nil,
+    strip_whitespace: true,
+    user_provided_headers: nil,
+    value_converters: nil,
+    verbose: false,
+    with_line_numbers: false,
+  }.freeze
+
+  class << self
+    # NOTE: this is not called when "parse" methods are tested by themselves
+    def process_options(given_options = {})
+      puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
+
+      # fix invalid input
+      given_options[:invalid_byte_sequence] = '' if given_options[:invalid_byte_sequence].nil?
+
+      @options = DEFAULT_OPTIONS.dup.merge!(given_options)
+      puts "Computed options:\n#{pp(@options)}\n" if given_options[:verbose]
+
+      validate_options!(@options)
+      @options
+    end
+
+    # NOTE: this is not called when "parse" methods are tested by themselves
+    #
+    # ONLY FOR BACKWARDS-COMPATIBILITY
+    def default_options
+      DEFAULT_OPTIONS
+    end
+
+    private
+
+    def validate_options!(options)
+      keys = options.keys
+      errors = []
+      errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
+      errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
+      errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+      raise SmarterCSV::ValidationError, errors.inspect if errors.any?
+    end
+
+    def option_valid?(str)
+      return true if str.is_a?(Symbol) && str == :auto
+      return true if str.is_a?(String) && !str.empty?
+
+      false
+    end
+
+    def pp(value)
+      defined?(AwesomePrint) ? value.awesome_inspect(index: nil) : value.inspect
+    end
+  end
+end
