@@ -4,13 +4,20 @@ require "core_ext/hash"
 
 require "smarter_csv/version"
 require "smarter_csv/options_processing"
-require "smarter_csv/smarter_csv"
+# require "smarter_csv/smarter_csv"
+
+
+# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+require 'smarter_csv.bundle' unless ENV['CI'] # local testing
+# require_relative "smarter_csv/smarter_csv" unless ENV['CI'] # does not compile/link in CI?
+# require 'smarter_csv.bundle' unless ENV['CI'] # local testing
 
 if RUBY_ENGINE == 'ruby'
   path = `find tmp -name smarter_csv`.chomp
   if path.empty?
     # :nocov:
     puts "\n\nCOULD NOT DETERMINE PATH\n\n"
+    require_relative "smarter_csv/smarter_csv"
     # :nocov:
   else
 
