@@ -1,9 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
-## WIP (2023-10-29)
+## 1.9.1 (2023-10-30)
+  * no functional changes
   * refactored directory structure
-  * re-added JRuby and TruffleRuby
+  * re-added JRuby and TruffleRuby to CI tests
   * no C-accelleration for JRuby
   * refactored options parsing
   * code coverage / rubocop
