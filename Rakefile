@@ -35,3 +35,10 @@ else
   # task default: %i[clobber compile spec rubocop]
   task default: %i[clobber compile spec]
 end
+
+desc 'Run spec with coverage'
+task :coverage do
+  ENV['COVERAGE'] = 'true'
+  Rake::Task['spec'].execute
+  `open coverage/index.html`
+end

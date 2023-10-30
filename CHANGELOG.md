@@ -6,6 +6,7 @@
   * re-added JRuby and TruffleRuby
   * no C-accelleration for JRuby
   * refactored options parsing
+  * code coverage / rubocop
 
 ## 1.9.0 (2023-09-04)
   * fixed issue #139

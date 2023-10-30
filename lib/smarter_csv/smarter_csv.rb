@@ -550,8 +550,10 @@ module SmarterCSV
       return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
       return str.byteslice(2..-1) if [UTF_16_BOM, UTF_16LE_BOM].include?(str_as_hex[0..1])
 
+      # :nocov:
       puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
       str
+      # :nocov:
     end
   end
 end

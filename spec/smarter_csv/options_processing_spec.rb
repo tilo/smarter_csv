@@ -58,4 +58,10 @@ describe 'options processing' do
       end.to raise_exception(SmarterCSV::ValidationError, '["invalid quote_char"]')
     end
   end
+
+  describe '#default_options' do
+    it 'surfaces the DEFAULT_OPTIONS hash' do
+      expect(SmarterCSV.default_options).to eq SmarterCSV::DEFAULT_OPTIONS
+    end
+  end
 end

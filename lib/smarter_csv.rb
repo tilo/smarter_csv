@@ -9,7 +9,9 @@ require "smarter_csv/smarter_csv"
 if RUBY_ENGINE == 'ruby'
   path = `find tmp -name smarter_csv`.chomp
   if path.empty?
+    # :nocov:
     puts "\n\nCOULD NOT DETERMINE PATH\n\n"
+    # :nocov:
   else
 
     object_path = "#{path}/#{RUBY_VERSION}/smarter_csv"
@@ -18,7 +20,7 @@ if RUBY_ENGINE == 'ruby'
   end
 
   require 'smarter_csv/smarter_csv'
-
+# :nocov:
 elsif RUBY_ENGINE == 'truffleruby'
   puts "\n\n truffleruby case in the load path | RUBY_ENGINE: #{RUBY_ENGINE} , #{RUBY_VERSION}\n\n"
   # this might not work - if you encounter problems, please contribute and create a PR
@@ -38,3 +40,4 @@ else
 
   BLOCK_COMMENT
 end
+# :nocov:
