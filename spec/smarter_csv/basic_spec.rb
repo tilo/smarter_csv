@@ -56,6 +56,7 @@ fixture_path = 'spec/fixtures'
 
           expect(SmarterCSV.raw_header).to eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
           expect(SmarterCSV.headers).to eq %i[a b c d e f]
+          expect(SmarterCSV.headers_count).to eq 6
         end
       end
 

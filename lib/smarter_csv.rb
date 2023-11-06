@@ -43,4 +43,3 @@ else
 end
 # :nocov:
 require "smarter_csv/smarter_csv"
-

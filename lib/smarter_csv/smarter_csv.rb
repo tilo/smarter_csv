@@ -186,6 +186,10 @@ module SmarterCSV
       @headers
     end
 
+    def headers_count
+      @headers_count
+    end
+
     # Counts the number of quote characters in a line, excluding escaped quotes.
     def count_quote_chars(line, quote_char)
       return 0 if line.nil? || quote_char.nil?
@@ -425,6 +429,7 @@ module SmarterCSV
     def process_headers(filehandle, options)
       @raw_header = nil
       @headers = nil
+      @headers_count = nil
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
@@ -516,6 +521,7 @@ module SmarterCSV
       end
 
       @headers = headerA
+      @headers_count = header_size
       [headerA, header_size]
     end
 
