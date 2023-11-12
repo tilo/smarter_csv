@@ -8,7 +8,11 @@ require "smarter_csv/options_processing"
 case RUBY_ENGINE
 when 'ruby'
   begin
-    require 'smarter_csv.bundle'
+    if `uname -s`.chomp == 'Darwin'
+      require 'smarter_csv/smarter_csv.bundle'
+    else
+      require_relative "smarter_csv/smarter_csv"
+    end
   rescue Exception
   #  require_relative 'smarter_csv/smarter_csv'
   end

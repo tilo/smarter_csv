@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.9.2.pre1 (2023-11-01)
+## 1.9.2.pre01 (2023-11-11)
   * fixed bug with '\\' at end of line (issue #252)
   * fixed require statements
     
