@@ -14,7 +14,7 @@ when 'ruby'
       require_relative "smarter_csv/smarter_csv"
     end
   rescue Exception
-  #  require_relative 'smarter_csv/smarter_csv'
+    #  require_relative 'smarter_csv/smarter_csv'
   end
 # :nocov:
 # when 'truffleruby'
@@ -36,4 +36,3 @@ else
 end
 # :nocov:
 require "smarter_csv/smarter_csv"
-
