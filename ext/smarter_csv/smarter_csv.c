@@ -40,6 +40,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   long i;
 
   char prev_char = '\0'; // Store the previous character for comparison against an escape character
+  long backslash_count = 0; // to count consecutive backslash characters
 
   while (p < endP) {
     /* does the remaining string start with col_sep ? */
@@ -61,8 +62,13 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
         startP = p;
       }
     } else {
-      if (*p == *quoteP && prev_char != '\\') {
-        quote_count += 1;
+      if (*p == '\\') {
+        backslash_count++;
+      } else {
+        if (*p == *quoteP && (backslash_count % 2 == 0)) {
+          quote_count++;
+        }
+        backslash_count = 0; // no more consecutive backslash characters
       }
       p++;
     }

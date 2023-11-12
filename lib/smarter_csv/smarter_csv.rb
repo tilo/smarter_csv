@@ -186,19 +186,16 @@ module SmarterCSV
       @headers
     end
 
-    # Counts the number of quote characters in a line, excluding escaped quotes.
+    # * the `scan` method iterates through the string and finds all occurrences of the pattern
+    # * The reqular expression:
+    #   - (?<!\\) : Negative lookbehind to ensure the quote character is not preceded by an unescaped backslash.
+    #   - (?:\\\\)* : Non-capturing group for an even number of backslashes (escaped backslashes).
+    #                 This allows for any number of escaped backslashes before the quote character.
+    #   - #{Regexp.escape(quote_char)} : Dynamically inserts the quote_char into the regex,
+    #                                    ensuring it's properly escaped for use in the regex.
+    #
     def count_quote_chars(line, quote_char)
-      return 0 if line.nil? || quote_char.nil?
-
-      count = 0
-      previous_char = ''
-
-      line.each_char do |char|
-        count += 1 if char == quote_char && previous_char != '\\'
-        previous_char = char
-      end
-
-      count
+      line.scan(/(?<!\\)(?:\\\\)*#{Regexp.escape(quote_char)}/).count
     end
 
     protected

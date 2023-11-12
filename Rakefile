@@ -29,7 +29,9 @@ else
   task build: :compile
 
   Rake::ExtensionTask.new("smarter_csv") do |ext|
+    ext.lib_dir = "lib/smarter_csv"
     ext.ext_dir = "ext/smarter_csv"
+    ext.source_pattern = "*.{c,h}"
   end
 
   # task default: %i[clobber compile spec rubocop]
