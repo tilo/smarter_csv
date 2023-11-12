@@ -7,27 +7,16 @@ require "smarter_csv/options_processing"
 
 case RUBY_ENGINE
 when 'ruby'
-  path = `find tmp -name smarter_csv`.chomp
-
   begin
-    object_path = "#{path}/#{RUBY_VERSION}/smarter_csv"
-    require_relative "../#{object_path}"
+    require 'smarter_csv.bundle'
   rescue Exception
-    # :nocov:
-    case `uname -s`.chomp
-    when 'Darwin'
-      require 'smarter_csv.bundle'
-    else
-      require_relative 'smarter_csv/smarter_csv'
-    end
-    # :nocov:
+  #  require_relative 'smarter_csv/smarter_csv'
   end
 # :nocov:
-# elsif RUBY_ENGINE == 'truffleruby'
+# when 'truffleruby'
 #   puts "\n\n truffleruby case in the load path | RUBY_ENGINE: #{RUBY_ENGINE} , #{RUBY_VERSION}\n\n"
 #   # this might not work - if you encounter problems, please contribute and create a PR
 #   # require 'truffleruby/smarter_csv'
-
 else
   puts <<-BLOCK_COMMENT
 

@@ -1,7 +1,12 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.9.1 (2023-10-30)
+## 1.9.2.pre1 (2023-11-01)
+  * fixed bug with '\\' at end of line (issue #252)
+  * fixed require statements
+    
+## 1.9.1 (2023-10-30) (YANKED)
+  * yanked
   * no functional changes
   * refactored directory structure
   * re-added JRuby and TruffleRuby to CI tests

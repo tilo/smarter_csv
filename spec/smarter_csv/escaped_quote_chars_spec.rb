@@ -30,7 +30,28 @@ fixture_path = 'spec/fixtures'
         expect(data[1]).to eq(
           content: 'Some content',
           escapedname: "O\\\"heard",
+          othercontent: "Some More Content\\\\"
+        )
+        expect(data.size).to eq 2
+      end
+    end
+
+    context 'when it is a strangely delimited file' do
+      let(:file) { "#{fixture_path}/escaped_quote_char_2.csv" }
+      let(:options) do
+        { quote_char: "!" }
+      end
+
+      it 'loads the csv file without issues' do
+        expect(data[0]).to eq(
+          content: 'Some content',
+          escapedname: "D\\\!Angelos",
           othercontent: "Some More Content"
+        )
+        expect(data[1]).to eq(
+          content: 'Some content',
+          escapedname: "O\\\!heard",
+          othercontent: "Some More Content\\\\"
         )
         expect(data.size).to eq 2
       end
@@ -55,21 +76,21 @@ fixture_path = 'spec/fixtures'
     end
 
     context 'when it is a strangely delimited file' do
-      let(:file) { "#{fixture_path}/escaped_quote_char_2.csv" }
+      let(:file) { "#{fixture_path}/escaped_quote_char_4.csv" }
       let(:options) do
-        { quote_char: "!" }
+        { quote_char: "'" }
       end
 
       it 'loads the csv file without issues' do
         expect(data[0]).to eq(
-          content: 'Some content',
-          escapedname: "D\\\!Angelos",
-          othercontent: "Some More Content"
+          content: "\\'Some content\\'",
+          escapedname: "D\\\'Angelos",
+          othercontent: "\\'Some More Content\\'"
         )
         expect(data[1]).to eq(
-          content: 'Some content',
-          escapedname: "O\\\!heard",
-          othercontent: "Some More Content"
+          content: "\\'Some content\\'",
+          escapedname: "O\\\'heard",
+          othercontent: "Some \\\\ More \\\\ Content\\\\"
         )
         expect(data.size).to eq 2
       end

@@ -46,7 +46,11 @@ One `smarter_csv` user wrote:
  * able to ignore "columns" in the input (delete columns)
  * able to eliminate nil or empty fields from the result hashes (default)
 
-NOTE; This Gem is only for importing CSV files - writing of CSV files is not supported at this time.
+#### Assumptions / Limitations
+* It is assumed that the escape character is `\`, as on UNIX and Windows systems.
+* It is assumed that quote charcters around fields are balanced, e.g. valid: `"field"`, invalid: `"field\"`
+  e.g. an escaped `quote_char` does not denote the end of a field.
+* This Gem is only for importing CSV files - writing of CSV files is not supported at this time.
 
 ### Why?
 
