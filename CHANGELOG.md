@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.9.1 (2023-10-30)
+## 1.9.1 (2023-10-30) (YANKED)
   * no functional changes
   * refactored directory structure
   * re-added JRuby and TruffleRuby to CI tests
