@@ -300,7 +300,7 @@ And header and data validations will also be supported in 2.x
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
-     | :silence_missing_key        |   false  | ignore missing keys in `key_mapping`                                   | 
+     | :silence_missing_keys        |   false  | ignore missing keys in `key_mapping`                                   |
      |                             |          | if set to true: makes all mapped keys optional                         |
      |                             |          | if given an array, makes only the keys listed in it optional                         |
      | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                  |
