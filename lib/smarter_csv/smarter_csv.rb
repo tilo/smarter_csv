@@ -36,7 +36,7 @@ module SmarterCSV
       headerA, header_size = process_headers(fh, options)
 
       # in case we use chunking.. we'll need to set it up..
-      if !options[:chunk_size].nil? && options[:chunk_size].to_i > 0
+      if options[:chunk_size].to_i > 0
         use_chunks = true
         chunk_size = options[:chunk_size].to_i
         chunk_count = 0
@@ -209,8 +209,6 @@ module SmarterCSV
     end
 
     def skip_lines(filehandle, options)
-      return unless options[:skip_lines].to_i > 0
-
       options[:skip_lines].to_i.times do
         readline_with_counts(filehandle, options)
       end
