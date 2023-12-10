@@ -4,6 +4,8 @@ require "core_ext/hash"
 
 require "smarter_csv/version"
 require "smarter_csv/options_processing"
+require "smarter_csv/variables"
+require "smarter_csv/headers"
 
 case RUBY_ENGINE
 when 'ruby'
