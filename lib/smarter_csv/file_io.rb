@@ -23,5 +23,28 @@ module SmarterCSV
       @csv_line_count = 0
       filehandle.rewind
     end
+
+    private
+
+    UTF_32_BOM = %w[0 0 fe ff].freeze
+    UTF_32LE_BOM = %w[ff fe 0 0].freeze
+    UTF_8_BOM = %w[ef bb bf].freeze
+    UTF_16_BOM = %w[fe ff].freeze
+    UTF_16LE_BOM = %w[ff fe].freeze
+
+    def remove_bom(str)
+      str_as_hex = str.bytes.map{|x| x.to_s(16)}
+      # if string does not start with one of the bytes, there is no BOM
+      return str unless %w[ef fe ff 0].include?(str_as_hex[0])
+
+      return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
+      return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
+      return str.byteslice(2..-1) if [UTF_16_BOM, UTF_16LE_BOM].include?(str_as_hex[0..1])
+
+      # :nocov:
+      puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
+      str
+      # :nocov:
+    end
   end
 end
