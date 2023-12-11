@@ -16,9 +16,11 @@ module SmarterCSV
       @warnings = {}
     end
 
+    # :nocov:
     def headerA
       warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
       @headerA
     end
+    # :nocov:
   end
 end

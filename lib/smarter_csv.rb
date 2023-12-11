@@ -13,7 +13,9 @@ when 'ruby'
     if `uname -s`.chomp == 'Darwin'
       require 'smarter_csv/smarter_csv.bundle'
     else
+      # :nocov:
       require_relative "smarter_csv/smarter_csv"
+      # :nocov:
     end
   rescue Exception
     #  require_relative 'smarter_csv/smarter_csv'
