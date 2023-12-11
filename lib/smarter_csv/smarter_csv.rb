@@ -77,7 +77,7 @@ module SmarterCSV
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
-        hash = Hash.zip(@headers, dataA) # from Facets of Ruby library
+        hash = @headers.zip(dataA).to_h
 
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil)
@@ -165,6 +165,7 @@ module SmarterCSV
     ensure
       fh.close if fh.respond_to?(:close)
     end
+
     if block_given?
       @chunk_count # when we do processing through a block we only care how many chunks we processed
     else
@@ -190,26 +191,6 @@ module SmarterCSV
     end
 
     protected
-
-    def readline_with_counts(filehandle, options)
-      line = filehandle.readline(options[:row_sep])
-      @file_line_count += 1
-      @csv_line_count += 1
-      line = remove_bom(line) if @csv_line_count == 1
-      line
-    end
-
-    def skip_lines(filehandle, options)
-      options[:skip_lines].to_i.times do
-        readline_with_counts(filehandle, options)
-      end
-    end
-
-    def rewind(filehandle)
-      @file_line_count = 0
-      @csv_line_count = 0
-      filehandle.rewind
-    end
 
     # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
@@ -257,95 +238,6 @@ module SmarterCSV
         end
       end
       false
-    end
-
-    # If file has headers, then guesses column separator from headers.
-    # Otherwise guesses column separator from contents.
-    # Raises exception if none is found.
-    def guess_column_separator(filehandle, options)
-      skip_lines(filehandle, options)
-
-      delimiters = [',', "\t", ';', ':', '|']
-
-      line = nil
-      has_header = options[:headers_in_file]
-      candidates = Hash.new(0)
-      count = has_header ? 1 : 5
-      count.times do
-        line = readline_with_counts(filehandle, options)
-        delimiters.each do |d|
-          candidates[d] += line.scan(d).count
-        end
-      rescue EOFError # short files
-        break
-      end
-      rewind(filehandle)
-
-      if candidates.values.max == 0
-        # if the header only contains
-        return ',' if line.chomp(options[:row_sep]) =~ /^\w+$/
-
-        raise SmarterCSV::NoColSepDetected
-      end
-
-      candidates.key(candidates.values.max)
-    end
-
-    # limitation: this currently reads the whole file in before making a decision
-    def guess_line_ending(filehandle, options)
-      counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
-      quoted_char = false
-
-      # count how many of the pre-defined line-endings we find
-      # ignoring those contained within quote characters
-      last_char = nil
-      lines = 0
-      filehandle.each_char do |c|
-        quoted_char = !quoted_char if c == options[:quote_char]
-        next if quoted_char
-
-        if last_char == "\r"
-          if c == "\n"
-            counts["\r\n"] += 1
-          else
-            counts["\r"] += 1 # \r are counted after they appeared
-          end
-        elsif c == "\n"
-          counts["\n"] += 1
-        end
-        last_char = c
-        lines += 1
-        break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
-      end
-      rewind(filehandle)
-
-      counts["\r"] += 1 if last_char == "\r"
-      # find the most frequent key/value pair:
-      most_frequent_key, _count = counts.max_by{|_, v| v}
-      most_frequent_key
-    end
-
-    private
-
-    UTF_32_BOM = %w[0 0 fe ff].freeze
-    UTF_32LE_BOM = %w[ff fe 0 0].freeze
-    UTF_8_BOM = %w[ef bb bf].freeze
-    UTF_16_BOM = %w[fe ff].freeze
-    UTF_16LE_BOM = %w[ff fe].freeze
-
-    def remove_bom(str)
-      str_as_hex = str.bytes.map{|x| x.to_s(16)}
-      # if string does not start with one of the bytes, there is no BOM
-      return str unless %w[ef fe ff 0].include?(str_as_hex[0])
-
-      return str.byteslice(4..-1) if [UTF_32_BOM, UTF_32LE_BOM].include?(str_as_hex[0..3])
-      return str.byteslice(3..-1) if str_as_hex[0..2] == UTF_8_BOM
-      return str.byteslice(2..-1) if [UTF_16_BOM, UTF_16LE_BOM].include?(str_as_hex[0..1])
-
-      # :nocov:
-      puts "SmarterCSV found unhandled BOM! #{str.chars[0..7].inspect}"
-      str
-      # :nocov:
     end
   end
 end
