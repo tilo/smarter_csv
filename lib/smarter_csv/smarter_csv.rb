@@ -77,7 +77,7 @@ module SmarterCSV
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
-        hash = Hash.zip(@headers, dataA) # from Facets of Ruby library
+        hash = @headers.zip(dataA).to_h
 
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil)
