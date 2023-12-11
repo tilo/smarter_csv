@@ -91,7 +91,7 @@ module SmarterCSV
     def remap_headers(headers, options)
       key_mapping = options[:key_mapping]
       if key_mapping.empty? || !key_mapping.is_a?(Hash) || key_mapping.keys.empty?
-        raise(SmarterCSV::IncorrectOption, "Error: incorrect format for key_mapping! Expecting hash with from -> to mappings")
+        raise(SmarterCSV::IncorrectOption, "ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings")
       end
 
       key_mapping = options[:key_mapping]

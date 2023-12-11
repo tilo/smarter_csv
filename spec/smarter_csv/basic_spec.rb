@@ -68,6 +68,26 @@ fixture_path = 'spec/fixtures'
           end.to raise_exception(SmarterCSV::HeaderSizeMismatch)
         end
       end
+
+      context 'with empty user_provided_headers' do
+        let(:options) { super().merge({user_provided_headers: []}) }
+
+        it 'raises an exception if the user_provided_headers is empty' do
+          expect do
+            SmarterCSV.process("#{fixture_path}/basic.csv", options)
+          end.to raise_exception(SmarterCSV::IncorrectOption, /ERROR: incorrect format for user_provided_headers! Expecting array with headers/)
+        end
+      end
+
+      context 'with incorrect user_provided_headers' do
+        let(:options) { super().merge({user_provided_headers: {}}) }
+
+        it 'raises an exception if the user_provided_headers is of incorrect type' do
+          expect do
+            SmarterCSV.process("#{fixture_path}/basic.csv", options)
+          end.to raise_exception(SmarterCSV::IncorrectOption, /ERROR: incorrect format for user_provided_headers! Expecting array with headers/)
+        end
+      end
     end
   end
 end

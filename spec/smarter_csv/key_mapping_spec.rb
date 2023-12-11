@@ -18,6 +18,32 @@ describe 'key_mapping' do
     end
   end
 
+  context 'with empty key_mapping' do
+    let(:options) { {key_mapping: {}} }
+
+    it 'raises an exception if the key_mapping is empty' do
+      expect do
+        SmarterCSV.process("#{fixture_path}/basic.csv", options)
+      end.to raise_exception(
+        SmarterCSV::IncorrectOption,
+        /ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings/
+      )
+    end
+  end
+
+  context 'with incorrect key_mapping' do
+    let(:options) { {key_mapping: []} }
+
+    it 'raises an exception if the key_mapping is of incorrect type' do
+      expect do
+        SmarterCSV.process("#{fixture_path}/basic.csv", options)
+      end.to raise_exception(
+        SmarterCSV::IncorrectOption,
+        /ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings/
+      )
+    end
+  end
+
   it 'remove_values_matching' do
     options = {remove_zero_values: true, key_mapping: {first_name: :vorname, last_name: :nachname} }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
