@@ -6,6 +6,7 @@ require "smarter_csv/version"
 require "smarter_csv/options_processing"
 require "smarter_csv/variables"
 require "smarter_csv/headers"
+require "smarter_csv/parse"
 
 case RUBY_ENGINE
 when 'ruby'
