@@ -4,80 +4,123 @@ module SmarterCSV
   class << self
     def process_headers(filehandle, options)
       @raw_header = nil # header as it appears in the file
-      @headers = nil
-      headerA = []
+      @headers = nil # the processed headers
+      header_array = []
+      file_header_size = nil
 
+      # if headers_in_file, get the headers -> We get the number of columns, even when user provided headers
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header = readline_with_counts(filehandle, options)
-        @raw_header = header
-
-        header = header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-        header = header.sub(options[:comment_regexp], '') if options[:comment_regexp]
-        header = header.chomp(options[:row_sep])
-
-        header = header.gsub(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-
-        file_headerA, file_header_size = parse(header, options)
-
-        file_headerA.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
-        file_headerA.map!{|x| x.strip} if options[:strip_whitespace]
-
-        unless options[:keep_original_headers]
-          file_headerA.map!{|x| x.gsub(/\s+|-+/, '_')}
-          file_headerA.map!{|x| x.downcase} if options[:downcase_header]
-        end
+        header_line = @raw_header = readline_with_counts(filehandle, options)
+        header_line = preprocess_header_line(header_line, options)
+        file_header_array, file_header_size = parse_and_modify_headers(header_line, options)
       else
         unless options[:user_provided_headers]
           raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers"
         end
       end
 
-      if options[:user_provided_headers] && options[:user_provided_headers].class == Array && !options[:user_provided_headers].empty?
+      if options[:user_provided_headers]
+        unless options[:user_provided_headers].is_a?(Array) && !options[:user_provided_headers].empty?
+          raise(SmarterCSV::IncorrectOption, "ERROR: incorrect format for user_provided_headers! Expecting array with headers.")
+        end
+
         # use user-provided headers
-        headerA = options[:user_provided_headers]
+        user_header_array = options[:user_provided_headers]
+        # user_provided_headers: their count should match the headers_in_file if any
         if defined?(file_header_size) && !file_header_size.nil?
-          if headerA.size != file_header_size
-            raise SmarterCSV::HeaderSizeMismatch, "ERROR: :user_provided_headers defines #{headerA.size} headers !=  CSV-file has #{file_header_size} headers"
+          if user_header_array.size != file_header_size
+            raise SmarterCSV::HeaderSizeMismatch, "ERROR: :user_provided_headers defines #{user_header_array.size} headers !=  CSV-file has #{file_header_size} headers"
           else
-            # we could print out the mapping of file_headerA to headerA here
+            # we could print out the mapping of file_header_array to header_array here
           end
         end
+        header_array = user_header_array
       else
-        # raise  SmarterCSV::IncorrectOption, "ERROR: WTF!"
-        headerA = file_headerA
+        header_array = file_header_array
       end
 
       # detect duplicate headers and disambiguate
-      headerA = process_duplicate_headers(headerA, options) if options[:duplicate_header_suffix]
-      header_size = headerA.size # used for splitting lines
+      header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
 
-      headerA.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+      # symbolize headers
+      header_array.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
 
-      unless options[:user_provided_headers] # wouldn't make sense to re-map user provided headers
-        key_mappingH = options[:key_mapping]
+      # wouldn't make sense to re-map user provided headers
+      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
 
-        # do some key mapping on the keys in the file header
-        #   if you want to completely delete a key, then map it to nil or to ''
-        if !key_mappingH.nil? && key_mappingH.class == Hash && key_mappingH.keys.size > 0
-          # if silence_missing_keys are not set, raise error if missing header
-          missing_keys = key_mappingH.keys - headerA
-          # if the user passes a list of speciffic mapped keys that are optional
-          missing_keys -= options[:silence_missing_keys] if options[:silence_missing_keys].is_a?(Array)
+      validate_and_deprecate_headers(header_array, options)
 
-          unless missing_keys.empty? || options[:silence_missing_keys] == true
-            raise SmarterCSV::KeyMappingError, "ERROR: can not map headers: #{missing_keys.join(', ')}"
-          end
+      [header_array, header_array.size]
+    end
 
-          headerA.map!{|x| key_mappingH.has_key?(x) ? (key_mappingH[x].nil? ? nil : key_mappingH[x]) : (options[:remove_unmapped_keys] ? nil : x)}
-        end
+    private
+
+    def preprocess_header_line(header_line, options)
+      header_line = enforce_utf8_encoding(header_line, options)
+      header_line = remove_comments_from_header(header_line, options)
+      header_line = header_line.chomp(options[:row_sep])
+      header_line.gsub!(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
+      header_line
+    end
+
+    def parse_and_modify_headers(header_line, options)
+      file_header_array, file_header_size = parse(header_line, options)
+
+      file_header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
+      file_header_array.map!{|x| x.strip} if options[:strip_whitespace]
+
+      unless options[:keep_original_headers]
+        file_header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
+        file_header_array.map!{|x| x.downcase} if options[:downcase_header]
+      end
+      [file_header_array, file_header_size]
+    end
+
+    def disambiguate_headers(headers, options)
+      counts = Hash.new(0)
+      headers.map do |header|
+        counts[header] += 1
+        counts[header] > 1 ? "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}" : header
+      end
+    end
+
+    # do some key mapping on the keys in the file header
+    # if you want to completely delete a key, then map it to nil or to ''
+    def remap_headers(headers, options)
+      key_mapping = options[:key_mapping]
+      if key_mapping.empty? || !key_mapping.is_a?(Hash) || key_mapping.keys.empty?
+        raise(SmarterCSV::IncorrectOption, "Error: incorrect format for key_mapping! Expecting hash with from -> to mappings")
       end
 
-      # header_validations
+      key_mapping = options[:key_mapping]
+      # if silence_missing_keys are not set, raise error if missing header
+      missing_keys = key_mapping.keys - headers
+      # if the user passes a list of speciffic mapped keys that are optional
+      missing_keys -= options[:silence_missing_keys] if options[:silence_missing_keys].is_a?(Array)
+
+      unless missing_keys.empty? || options[:silence_missing_keys] == true
+        raise SmarterCSV::KeyMappingError, "ERROR: can not map headers: #{missing_keys.join(', ')}"
+      end
+
+      headers.map! do |header|
+        if key_mapping.has_key?(header)
+          key_mapping[header].nil? ? nil : key_mapping[header]
+        elsif options[:remove_unmapped_keys]
+          nil
+        else
+          header
+        end
+      end
+      headers
+    end
+
+    # header_validations
+    def validate_and_deprecate_headers(headers, options)
       duplicate_headers = []
-      headerA.compact.each do |k|
-        duplicate_headers << k if headerA.select{|x| x == k}.size > 1
+      headers.compact.each do |k|
+        duplicate_headers << k if headers.select{|x| x == k}.size > 1
       end
 
       unless options[:user_provided_headers] || duplicate_headers.empty?
@@ -96,26 +139,22 @@ module SmarterCSV
       if options[:required_keys] && options[:required_keys].is_a?(Array)
         missing_keys = []
         options[:required_keys].each do |k|
-          missing_keys << k unless headerA.include?(k)
+          missing_keys << k unless headers.include?(k)
         end
         raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
-
-      [headerA, header_size]
     end
 
-    def process_duplicate_headers(headers, options)
-      counts = Hash.new(0)
-      result = []
-      headers.each do |key|
-        counts[key] += 1
-        if counts[key] == 1
-          result << key
-        else
-          result << [key, options[:duplicate_header_suffix], counts[key]].join
-        end
-      end
-      result
+    def enforce_utf8_encoding(header, options)
+      return header unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+
+      header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+    end
+
+    def remove_comments_from_header(header, options)
+      return header unless options[:comment_regexp]
+
+      header.sub(options[:comment_regexp], '')
     end
   end
 end
