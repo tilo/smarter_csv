@@ -14,7 +14,14 @@ module SmarterCSV
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
         header_line = @raw_header = readline_with_counts(filehandle, options)
         header_line = preprocess_header_line(header_line, options)
-        file_header_array, file_header_size = parse_and_modify_headers(header_line, options)
+
+        file_header_array, file_header_size = parse(header_line, options)
+
+        # header transformations:
+        file_header_array = transform_headers(file_header_array, options)
+
+        # currently this is, but should not be called on user_provided headers
+        file_header_array = legacy_header_transformations(file_header_array, options)
       else
         unless options[:user_provided_headers]
           raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers"
@@ -36,21 +43,19 @@ module SmarterCSV
             # we could print out the mapping of file_header_array to header_array here
           end
         end
+
         header_array = user_header_array
+
+        # these 3 steps should only be part of the header transformation when headers_in_file:
+        # -> breaking change when we move this to transform_headers()
+        #    see details in legacy_header_transformations()
+        #
+        header_array = legacy_header_transformations(header_array, options)
       else
         header_array = file_header_array
       end
 
-      # detect duplicate headers and disambiguate
-      header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
-
-      # symbolize headers
-      header_array.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
-
-      # wouldn't make sense to re-map user provided headers
-      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
-
-      validate_and_deprecate_headers(header_array, options)
+      validate_headers(header_array, options)
 
       [header_array, header_array.size]
     end
@@ -65,17 +70,29 @@ module SmarterCSV
       header_line
     end
 
-    def parse_and_modify_headers(header_line, options)
-      file_header_array, file_header_size = parse(header_line, options)
-
-      file_header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
-      file_header_array.map!{|x| x.strip} if options[:strip_whitespace]
+    # transform the headers that were in the file:
+    def transform_headers(header_array, options)
+      header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
+      header_array.map!{|x| x.strip} if options[:strip_whitespace]
 
       unless options[:keep_original_headers]
-        file_header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
-        file_header_array.map!{|x| x.downcase} if options[:downcase_header]
+        header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
+        header_array.map!{|x| x.downcase} if options[:downcase_header]
       end
-      [file_header_array, file_header_size]
+
+      header_array
+    end
+
+    def legacy_header_transformations(header_array, options)
+      # detect duplicate headers and disambiguate
+      #   -> user_provided_headers should not have duplicates!
+      header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
+      # symbolize headers
+      #   -> user_provided_headers should already be symbols or strings as needed
+      header_array = header_array.map{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+      # doesn't make sense to re-map when we have user_provided_headers
+      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
+      header_array
     end
 
     def disambiguate_headers(headers, options)
@@ -117,7 +134,7 @@ module SmarterCSV
     end
 
     # header_validations
-    def validate_and_deprecate_headers(headers, options)
+    def validate_headers(headers, options)
       duplicate_headers = []
       headers.compact.each do |k|
         duplicate_headers << k if headers.select{|x| x == k}.size > 1
@@ -125,15 +142,6 @@ module SmarterCSV
 
       unless options[:user_provided_headers] || duplicate_headers.empty?
         raise SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{duplicate_headers.join(',')}"
-      end
-
-      # deprecate required_headers
-      unless options[:required_headers].nil?
-        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required_headers'"
-        if options[:required_keys].nil?
-          options[:required_keys] = options[:required_headers]
-          options[:required_headers] = nil
-        end
       end
 
       if options[:required_keys] && options[:required_keys].is_a?(Array)
