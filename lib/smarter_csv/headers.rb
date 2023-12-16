@@ -20,6 +20,7 @@ module SmarterCSV
         # header transformations:
         file_header_array = transform_headers(file_header_array, options)
 
+        # currently this is, but should not be called on user_provided headers
         file_header_array = legacy_header_transformations(file_header_array, options)
       else
         unless options[:user_provided_headers]
@@ -47,6 +48,8 @@ module SmarterCSV
 
         # these 3 steps should only be part of the header transformation when headers_in_file:
         # -> breaking change when we move this to transform_headers()
+        #    see details in legacy_header_transformations()
+        #
         header_array = legacy_header_transformations(header_array, options)
       else
         header_array = file_header_array
@@ -81,8 +84,13 @@ module SmarterCSV
     end
 
     def legacy_header_transformations(header_array, options)
+      # detect duplicate headers and disambiguate
+      #   -> user_provided_headers should not have duplicates!
       header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
+      # symbolize headers
+      #   -> user_provided_headers should already be symbols or strings as needed
       header_array = header_array.map{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+      # doesn't make sense to re-map when we have user_provided_headers
       header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
       header_array
     end
