@@ -1,6 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.9.3 (2023-12-16)
+  * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty
+  * code refactor / no functional changes
+  * added test cases
+
 ## 1.9.2 (2023-11-12)
   * fixed bug with '\\' at end of line (issue #252, thanks to averycrespi-moz)
   * fixed require statements (issue #249, thanks to PikachuEXE, courtsimas)
