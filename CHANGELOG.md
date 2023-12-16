@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.10.0 (2023-12-17) BREAKING
+## 1.10.0 (2023-12-18) BREAKING
 
   * BREAKING CHANGE:
     

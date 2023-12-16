@@ -73,13 +73,11 @@ module SmarterCSV
       end
 
       # detect duplicate headers and disambiguate
-      #   -> user_provided_headers should not have duplicates!
       header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
       # symbolize headers
-      #   -> user_provided_headers should already be symbols or strings as needed
       header_array = header_array.map{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
       # doesn't make sense to re-map when we have user_provided_headers
-      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
+      header_array = remap_headers(header_array, options) if options[:key_mapping]
 
       header_array
     end
