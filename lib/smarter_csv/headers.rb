@@ -19,6 +19,8 @@ module SmarterCSV
 
         # header transformations:
         file_header_array = transform_headers(file_header_array, options)
+
+        file_header_array = legacy_header_transformations(file_header_array, options)
       else
         unless options[:user_provided_headers]
           raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers"
@@ -40,24 +42,15 @@ module SmarterCSV
             # we could print out the mapping of file_header_array to header_array here
           end
         end
+
         header_array = user_header_array
+
+        # these 3 steps should only be part of the header transformation when headers_in_file:
+        # -> breaking change when we move this to transform_headers()
+        header_array = legacy_header_transformations(header_array, options)
       else
         header_array = file_header_array
       end
-
-      # ---------------------------------------------------------------------
-      # these 3 steps should only be part of the header transformation when headers_in_file:
-      # -> breaking change
-      #
-      # detect duplicate headers and disambiguate
-      header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
-
-      # symbolize headers
-      header_array.map!{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
-
-      # wouldn't make sense to re-map user provided headers
-      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
-      # ---------------------------------------------------------------------
 
       validate_headers(header_array, options)
 
@@ -74,19 +67,24 @@ module SmarterCSV
       header_line
     end
 
-    def transform_headers(file_header_array, options)
-      file_header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
-      file_header_array.map!{|x| x.strip} if options[:strip_whitespace]
+    # transform the headers that were in the file:
+    def transform_headers(header_array, options)
+      header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
+      header_array.map!{|x| x.strip} if options[:strip_whitespace]
 
       unless options[:keep_original_headers]
-        file_header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
-        file_header_array.map!{|x| x.downcase} if options[:downcase_header]
+        header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
+        header_array.map!{|x| x.downcase} if options[:downcase_header]
       end
 
-      # file_header_array = disambiguate_headers(file_header_array, options) if options[:duplicate_header_suffix]
-      # file_header_array = file_header_array.map{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
-      # file_header_array = remap_headers(file_header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
-      file_header_array
+      header_array
+    end
+
+    def legacy_header_transformations(header_array, options)
+      header_array = disambiguate_headers(header_array, options) if options[:duplicate_header_suffix]
+      header_array = header_array.map{|x| x.to_sym } unless options[:strings_as_keys] || options[:keep_original_headers]
+      header_array = remap_headers(header_array, options) if options[:key_mapping] && !options[:user_provided_headers]
+      header_array
     end
 
     def disambiguate_headers(headers, options)
