@@ -18,11 +18,11 @@ describe 'duplicate headers' do
       end.not_to raise_exception
     end
 
-    it 'does not raise error when user_provided_headers are given' do
+    it 'raises error when user_provided_headers with duplicates are given' do
       expect do
         options = {user_provided_headers: %i[a b c d a]}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      end.not_to raise_exception
+      end.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
 
     it 'raises error on duplicate headers, when attempting to do key_mapping' do
@@ -48,10 +48,11 @@ describe 'duplicate headers' do
         expect(data.first.keys).to eq %i[email firstname lastname email_2 age]
       end
 
-      it 'enumerates when duplicate headers are given' do
+      it 'raises when duplicate headers are given' do
         options.merge!({user_provided_headers: %i[a b c a a]})
-        data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        expect(data.first.keys).to eq %i[a b c a_2 a_3]
+        expect do
+          SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders)
       end
 
       it 'can remap duplicated headers' do
@@ -74,10 +75,11 @@ describe 'duplicate headers' do
         expect(data.first.keys).to eq %i[email firstname lastname email2 age]
       end
 
-      it 'enumerates when duplicate headers are given' do
+      it 'raises when duplicate headers are given' do
         options.merge!({user_provided_headers: %i[a b c a a]})
-        data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        expect(data.first.keys).to eq %i[a b c a2 a3]
+        expect do
+          SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders)
       end
     end
   end

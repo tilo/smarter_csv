@@ -7,8 +7,16 @@
 #### LATEST CHANGES
 
 * Version 1.10.0 has BREAKING CHANGES when `user_provided_headers` are used
-  
-  -> check the CHANGELOG.md
+      
+    BREAKING CHANGE:
+    
+    The new behavior:
+     + when `user_provided_headers` are provided:
+       * if they are not unique, an exception will be raised
+       * they are taken as-is, no transformations can be applied
+       * when they are given as strings or as symbols, it is assumed that this is the desired format
+       * the value of the `strings_as_keys` options is ignored 
+
 
 #### Development Branches
 

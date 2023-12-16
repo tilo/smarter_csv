@@ -1,6 +1,17 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.10.0 (2023-12-17) BREAKING
+
+  * BREAKING CHANGE:
+    
+    The new behavior:
+     + when `user_provided_headers` are provided:
+       * if they are not unique, an exception will be raised
+       * they are taken "as is", no header transformations can be applied
+       * when they are given as strings or as symbols, it is assumed that this is the desired format
+       * the value of the `strings_as_keys` options is ignored 
+
 ## 1.9.3 (2023-12-16)
   * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty
   * code refactor / no functional changes
