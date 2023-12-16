@@ -62,6 +62,15 @@ module SmarterCSV
     private
 
     def validate_options!(options)
+      # deprecate required_headers
+      unless options[:required_headers].nil?
+        puts "DEPRECATION WARNING: please use 'required_keys' instead of 'required_headers'"
+        if options[:required_keys].nil?
+          options[:required_keys] = options[:required_headers]
+          options[:required_headers] = nil
+        end
+      end
+
       keys = options.keys
       errors = []
       errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])

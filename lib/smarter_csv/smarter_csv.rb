@@ -12,22 +12,23 @@ module SmarterCSV
 
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, given_options = {}, &block) # rubocop:disable Lint/UnusedMethodArgument
-    options = process_options(given_options)
-
     initialize_variables
 
+    options = process_options(given_options)
+
     has_rails = !!defined?(Rails)
+
     begin
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+
+      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
+        puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+      end
 
       # auto-detect the row separator
       options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
       # attempt to auto-detect column separator
       options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
-
-      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
-        puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
-      end
 
       skip_lines(fh, options)
 
