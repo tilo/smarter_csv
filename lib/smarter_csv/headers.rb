@@ -83,6 +83,7 @@ module SmarterCSV
       header_array
     end
 
+    # this should be moved inside transform_headers(), but would cause breaking changes
     def legacy_header_transformations(header_array, options)
       # detect duplicate headers and disambiguate
       #   -> user_provided_headers should not have duplicates!
