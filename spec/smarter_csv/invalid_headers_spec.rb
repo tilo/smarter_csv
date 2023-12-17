@@ -60,27 +60,25 @@ describe 'test exceptions for invalid headers' do
   context 'mapping_keys: exception for missing keys / header names' do
     subject(:process_file) { SmarterCSV.process("#{fixture_path}/user_import.csv", options) }
 
-    let(:options) do
-      {
-        required_keys: [:middle_name],
-        key_mapping: { missing_key: :middle_name},
-      }
-    end
+    context 'when one key_mapping key is missing' do
+      let(:options) do
+        {
+          required_keys: [:middle_name],
+          key_mapping: { missing_key: :middle_name},
+        }
+      end
 
-    # we do not expect version 1.8 behavior:
-    it 'does not raise about the mapped header name when source of key_mapping is missing' do
-      expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
-      expect{ process_file }.not_to raise_exception(
-        SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
-      )
-    end
-
-    # we expect version 1.9 behavior:
-    it 'raises exception that the header for the key mapping is missing in the file' do
-      expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
-      expect{ process_file }.to raise_exception(
-        SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
-      )
+      it 'raises exception that header for the key mapping is missing in file' do
+        expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
+        # we do not expect version 1.8 behavior:
+        expect{ process_file }.not_to raise_exception(
+          SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
+        )
+        # we expect version 1.9 behavior:
+        expect{ process_file }.to raise_exception(
+          SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
+        )
+      end
     end
 
     context "when multiple keys are missing" do
@@ -100,6 +98,13 @@ describe 'test exceptions for invalid headers' do
     end
 
     context "when slience_missing_keys is used" do
+      let(:options) do
+        {
+          required_keys: [:middle_name],
+          key_mapping: { missing_key: :middle_name},
+        }
+      end
+
       it "does not raise an exception when :silence_missing_keys is true" do
         options[:silence_missing_keys] = true
         expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
