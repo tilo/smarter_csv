@@ -5,6 +5,8 @@ require "smarter_csv/file_io"
 require "smarter_csv/options_processing"
 require "smarter_csv/auto_detection"
 require "smarter_csv/variables"
+require 'smarter_csv/header_transformations'
+require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
 require "smarter_csv/parse"
 
