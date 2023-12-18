@@ -6,7 +6,7 @@
 
 #### LATEST CHANGES
 
-* Version 1.10.0 has BREAKING CHANGES when `user_provided_headers` are used
+* Version 1.10.0 has BREAKING CHANGES:
 
     Changed behavior:
      + when `user_provided_headers` are provided:
