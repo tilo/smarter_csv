@@ -17,8 +17,7 @@ module SmarterCSV
 
         file_header_array, file_header_size = parse(header_line, options)
 
-        # header transformations:
-        file_header_array = transform_headers(file_header_array, options)
+        file_header_array = header_transformations(file_header_array, options)
 
       else
         unless options[:user_provided_headers]
@@ -47,7 +46,7 @@ module SmarterCSV
         header_array = file_header_array
       end
 
-      validate_headers(header_array, options)
+      header_validations(header_array, options)
 
       [header_array, header_array.size]
     end
@@ -62,8 +61,20 @@ module SmarterCSV
       header_line
     end
 
+    def enforce_utf8_encoding(header, options)
+      return header unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+
+      header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+    end
+
+    def remove_comments_from_header(header, options)
+      return header unless options[:comment_regexp]
+
+      header.sub(options[:comment_regexp], '')
+    end
+
     # transform the headers that were in the file:
-    def transform_headers(header_array, options)
+    def header_transformations(header_array, options)
       header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
       header_array.map!{|x| x.strip} if options[:strip_whitespace]
 
@@ -120,8 +131,7 @@ module SmarterCSV
       headers
     end
 
-    # header_validations
-    def validate_headers(headers, options)
+    def header_validations(headers, options)
       duplicate_headers = []
       headers.compact.each do |k|
         duplicate_headers << k if headers.select{|x| x == k}.size > 1
@@ -138,18 +148,6 @@ module SmarterCSV
         end
         raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}" unless missing_keys.empty?
       end
-    end
-
-    def enforce_utf8_encoding(header, options)
-      return header unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-
-      header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
-    end
-
-    def remove_comments_from_header(header, options)
-      return header unless options[:comment_regexp]
-
-      header.sub(options[:comment_regexp], '')
     end
   end
 end
