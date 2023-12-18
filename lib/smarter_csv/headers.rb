@@ -61,12 +61,6 @@ module SmarterCSV
       header_line
     end
 
-    def enforce_utf8_encoding(header, options)
-      return header unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-
-      header.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
-    end
-
     def remove_comments_from_header(header, options)
       return header unless options[:comment_regexp]
 

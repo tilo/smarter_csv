@@ -50,7 +50,7 @@ module SmarterCSV
         line = readline_with_counts(fh, options)
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        line = enforce_utf8_encoding(line, options)
 
         print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
 
@@ -63,7 +63,7 @@ module SmarterCSV
         multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
         while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
-          next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+          next_line = enforce_utf8_encoding(next_line, options)
           line += next_line
           @file_line_count += 1
         end
@@ -239,6 +239,14 @@ module SmarterCSV
       else
         false
       end
+    end
+
+    private
+
+    def enforce_utf8_encoding(line, options)
+      return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+
+      line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
     end
   end
 end
