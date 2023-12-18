@@ -113,6 +113,7 @@ describe 'test exceptions for invalid headers' do
           options[:silence_missing_keys] = true
           expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
           expect{ process_file }.not_to raise_exception SmarterCSV::KeyMappingError
+          # still raises an error because :middle_name is required
           expect{ process_file }.to raise_exception(
             SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
           )
@@ -123,8 +124,9 @@ describe 'test exceptions for invalid headers' do
         options[:silence_missing_keys] = [:missing_key, :other_optional_key]
         expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
         expect{ process_file }.not_to raise_exception(
-          SmarterCSV::KeyMappingError,  "ERROR: can not map headers: missing_key"
+          SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
         )
+        # still raises an error because :middle_name is required
         expect{ process_file }.to raise_exception(
           SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
         )
@@ -133,8 +135,9 @@ describe 'test exceptions for invalid headers' do
       it "raises an exception when :silence_missing_keys is an array but does not contain the missing key" do
         options[:silence_missing_keys] = [:other_optional_key]
         expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
+        # raises KeyMappingError because :missing_key is required:
         expect{ process_file }.to raise_exception(
-          SmarterCSV::KeyMappingError,  "ERROR: can not map headers: missing_key"
+          SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
         )
       end
     end
