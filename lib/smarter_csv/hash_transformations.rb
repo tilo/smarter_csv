@@ -10,7 +10,7 @@ module SmarterCSV
       hash.delete(:"")
 
       if options[:remove_empty_values] == true
-        hash.delete_if{|_k, v| @has_rails ? v.blank? : blank?(v)}
+        hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
       end
 
       hash.delete_if{|_k, v| !v.nil? && v =~ /^(0+|0+\.0+)$/} if options[:remove_zero_values] # values are Strings
