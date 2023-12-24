@@ -10,10 +10,15 @@ require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
 require "smarter_csv/parse"
 
+# load the C-extension:
 case RUBY_ENGINE
 when 'ruby'
   begin
     if `uname -s`.chomp == 'Darwin'
+      #
+      # Please report if you see cases where the rake-compiler is building x86_64 code on arm64 cpus:
+      # https://github.com/rake-compiler/rake-compiler/issues/231
+      #
       require 'smarter_csv/smarter_csv.bundle'
     else
       # :nocov:

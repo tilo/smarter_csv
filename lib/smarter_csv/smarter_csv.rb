@@ -46,6 +46,7 @@ module SmarterCSV
       end
 
       # now on to processing all the rest of the lines in the CSV file:
+      # fh.each_line |line|
       until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = readline_with_counts(fh, options)
 
@@ -59,7 +60,6 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-
         multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
         while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
@@ -68,9 +68,9 @@ module SmarterCSV
           @file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
-
         line.chomp!(options[:row_sep])
 
+        # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
         dataA, _data_size = parse(line, options, header_size)
 
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
@@ -78,8 +78,10 @@ module SmarterCSV
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
+        # --- HASH TRANSFORMATIONS ------------------------------------------------------------
         hash = @headers.zip(dataA).to_h
 
+        # there may be unmapped keys, or keys purposedly mapped to nil or an empty key..
         # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
         hash.delete(nil)
         hash.delete('')
@@ -116,9 +118,19 @@ module SmarterCSV
           end
         end
 
+        # --- HASH VALIDATIONS ----------------------------------------------------------------
+        # will go here, and be able to:
+        #  - validate correct format of the values for fields
+        #  - required fields to be non-empty
+        #  - ...
+        # -------------------------------------------------------------------------------------
+
         next if options[:remove_empty_hashes] && hash.empty?
 
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose] == '2'
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
+
+        # process the chunks or the resulting hash
 
         if use_chunks
           chunk << hash # append temp result to chunk
