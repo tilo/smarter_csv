@@ -16,8 +16,6 @@ module SmarterCSV
 
     options = process_options(given_options)
 
-    @has_rails = !!defined?(Rails)
-
     begin
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
