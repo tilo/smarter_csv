@@ -90,11 +90,11 @@ module SmarterCSV
 
         next if options[:remove_empty_hashes] && hash.empty?
 
-        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose] == '2'
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose] == '2' # very verbose setting
+        # optional adding of csv_line_number to the hash to help debugging
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
 
         # process the chunks or the resulting hash
-
         if use_chunks
           chunk << hash # append temp result to chunk
 
@@ -108,11 +108,8 @@ module SmarterCSV
             @chunk_count += 1
             chunk = [] # initialize for next chunk of data
           else
-
-            # the last chunk may contain partial data, which also needs to be returned (BUG / ISSUE-18)
-
+            # the last chunk may contain partial data, which is handled below
           end
-
           # while a chunk is being filled up we don't need to do anything else here
 
         else # no chunk handling
@@ -127,7 +124,7 @@ module SmarterCSV
       # print new line to retain last processing line message
       print "\n" if options[:verbose]
 
-      # last chunk:
+      # handling of last chunk:
       if !chunk.nil? && chunk.size > 0
         # do something with the chunk
         if block_given?

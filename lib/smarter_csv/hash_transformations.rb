@@ -39,6 +39,7 @@ module SmarterCSV
           hash[k] = converter.convert(v)
         end
       end
+
       hash
     end
   end
