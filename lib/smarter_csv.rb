@@ -8,6 +8,7 @@ require "smarter_csv/variables"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
+require "smarter_csv/hash_transformations"
 require "smarter_csv/parse"
 
 # load the C-extension:

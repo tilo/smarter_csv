@@ -1,9 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.10.0 (2023-12-18) BREAKING
-
-  * BREAKING CHANGE:
+## 1.10.0 (2023-12-24) ⚡ BREAKING ⚡
+n
+  * BREAKING CHANGES:
     
     Changed behavior:
      + when `user_provided_headers` are provided:
@@ -15,7 +15,8 @@
      + option `duplicate_header_suffix` now defaults to `''` instead of `nil`.
        * this allows processing of CSV files with duplicate headers with automatic disambiguation, by appending a number
        * explicitly set this option to `nil` to get the behavior from previous versions.
-    
+       
+  * code refactor
 
 ## 1.9.3 (2023-12-16)
   * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty
