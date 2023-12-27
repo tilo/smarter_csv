@@ -83,7 +83,10 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 00000030  0a 33 38 37 35 39 31 35  30 2c 71 75 69 7a 7a 65  |.38759150,quizze|
 00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
 ```
-
+### Articles
+* [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
+* [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
+  
 ### Examples
 
 Here are some examples to demonstrate the versatility of SmarterCSV.
@@ -243,8 +246,6 @@ NOTE: If you use `key_mappings` and `value_converters`, make sure that the value
     data[0][:price].class
       => Float
 ```
-## Parallel Processing
-[Jack](https://github.com/xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
 
 ## Documentation
 
