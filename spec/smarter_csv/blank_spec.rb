@@ -77,5 +77,3 @@ describe 'blank?' do
     end
   end
 end
-
-
