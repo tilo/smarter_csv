@@ -4,7 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'validations' do
+describe 'option validations' do
   let(:options) { {} }
 
   it 'loads basic csv file without issues' do
