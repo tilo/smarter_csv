@@ -6,12 +6,6 @@ fixture_path = 'spec/fixtures'
 
 describe 'duplicate headers' do
   describe 'without special handling / default behavior' do
-    it 'raises error on duplicate headers' do
-      expect do
-        SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", {})
-      end.to raise_exception(SmarterCSV::DuplicateHeaders)
-    end
-
     it 'does not raise error when duplicate_header_suffix is given' do
       expect do
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", {duplicate_header_suffix: ''})
@@ -25,16 +19,24 @@ describe 'duplicate headers' do
       end.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
 
-    it 'raises error on duplicate headers, when attempting to do key_mapping' do
-      # the mapping is right, but the underlying csv file is bad
-      options = {key_mapping: {email: :a, firstname: :b, lastname: :c, age: :e} }
-      expect do
-        SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      end.to raise_exception(SmarterCSV::DuplicateHeaders)
+    it 'can remap duplicated headers' do
+      options ={key_mapping: {email: :a, firstname: :b, lastname: :c, email2: :d, age: :e}}
+      data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
+      expect(data.first).to eq({a: 'tom@bla.com', b: 'Tom', c: 'Sawyer', d: 'mike@bla.com', e: 34})
     end
   end
 
   describe 'with special handling' do
+    context 'when suffix is set to nil' do
+      let(:options) { {duplicate_header_suffix: nil} }
+
+      it 'raises error on duplicate headers in the input file' do
+        expect do
+          SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders)
+      end
+    end
+
     context 'with given suffix' do
       let(:options) { {duplicate_header_suffix: '_'} }
 
@@ -62,8 +64,8 @@ describe 'duplicate headers' do
       end
     end
 
-    context 'with empty suffix' do
-      let(:options) { {duplicate_header_suffix: ''} }
+    context 'with different suffix' do
+      let(:options) { {duplicate_header_suffix: ':'} }
 
       it 'reads whole file' do
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
@@ -72,7 +74,7 @@ describe 'duplicate headers' do
 
       it 'generates the correct keys' do
         data = SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        expect(data.first.keys).to eq %i[email firstname lastname email2 age]
+        expect(data.first.keys).to eq %i[email firstname lastname email:2 age]
       end
 
       it 'raises when duplicate headers are given' do

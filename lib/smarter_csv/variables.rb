@@ -2,9 +2,10 @@
 
 module SmarterCSV
   class << self
-    attr_reader :csv_line_count, :chunk_count, :errors, :file_line_count, :headers, :raw_header, :result, :warnings
+    attr_reader :has_rails, :csv_line_count, :chunk_count, :errors, :file_line_count, :headers, :raw_header, :result, :warnings
 
     def initialize_variables
+      @has_rails = !!defined?(Rails)
       @csv_line_count = 0
       @chunk_count = 0
       @errors = {}

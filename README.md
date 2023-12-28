@@ -6,17 +6,19 @@
 
 #### LATEST CHANGES
 
-* Version 1.10.0 has BREAKING CHANGES when `user_provided_headers` are used
-      
-    BREAKING CHANGE:
-    
-    The new behavior:
+* Version 1.10.0 has BREAKING CHANGES:
+
+    Changed behavior:
      + when `user_provided_headers` are provided:
        * if they are not unique, an exception will be raised
-       * they are taken as-is, no transformations can be applied
+       * they are taken "as is", no header transformations can be applied
        * when they are given as strings or as symbols, it is assumed that this is the desired format
-       * the value of the `strings_as_keys` options is ignored 
-
+       * the value of the `strings_as_keys` options is ignored
+         
+     + option `duplicate_header_suffix` now defaults to `''` instead of `nil`.
+       * this allows processing of CSV files with duplicate headers with automatic disambiguation, by appending a number
+       * explicitly set this option to `nil` to get the behavior from previous versions.
+    
 
 #### Development Branches
 
@@ -100,6 +102,10 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 00000030  0a 33 38 37 35 39 31 35  30 2c 71 75 69 7a 7a 65  |.38759150,quizze|
 00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
 ```
+
+### Articles
+* [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
+* [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
 
 ### Examples
 
@@ -260,8 +266,6 @@ NOTE: If you use `key_mappings` and `value_converters`, make sure that the value
     data[0][:price].class
       => Float
 ```
-## Parallel Processing
-[Jack](https://github.com/xjlin0) wrote an interesting article about [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
 
 ## Documentation
 
@@ -297,7 +301,8 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
-     | :duplicate_header_suffix    |   nil    | If set, adds numbers to duplicated headers and separates them by the given suffix    |
+     | :duplicate_header_suffix    |   ''     | Adds numbers to duplicated headers and separates them by the given suffix.           |
+     |                             |          | Set this to nil to raise `DuplicateHeaders` error instead (previous behavior)        |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |

@@ -16,8 +16,6 @@ module SmarterCSV
 
     options = process_options(given_options)
 
-    has_rails = !!defined?(Rails)
-
     begin
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
@@ -46,11 +44,12 @@ module SmarterCSV
       end
 
       # now on to processing all the rest of the lines in the CSV file:
+      # fh.each_line |line|
       until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = readline_with_counts(fh, options)
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        line = enforce_utf8_encoding(line, options)
 
         print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
 
@@ -59,18 +58,17 @@ module SmarterCSV
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-
         multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
         while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
           next_line = fh.readline(options[:row_sep])
-          next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+          next_line = enforce_utf8_encoding(next_line, options)
           line += next_line
           @file_line_count += 1
         end
         print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
-
         line.chomp!(options[:row_sep])
 
+        # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
         dataA, _data_size = parse(line, options, header_size)
 
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
@@ -78,48 +76,25 @@ module SmarterCSV
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
+        # --- HASH TRANSFORMATIONS ------------------------------------------------------------
         hash = @headers.zip(dataA).to_h
 
-        # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
-        hash.delete(nil)
-        hash.delete('')
-        hash.delete(:"")
+        hash = hash_transformations(hash, options)
 
-        if options[:remove_empty_values] == true
-          hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
-        end
-
-        hash.delete_if{|_k, v| !v.nil? && v =~ /^(0+|0+\.0+)$/} if options[:remove_zero_values] # values are Strings
-        hash.delete_if{|_k, v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
-
-        if options[:convert_values_to_numeric]
-          hash.each do |k, v|
-            # deal with the :only / :except options to :convert_values_to_numeric
-            next if limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-
-            # convert if it's a numeric value:
-            case v
-            when /^[+-]?\d+\.\d+$/
-              hash[k] = v.to_f
-            when /^[+-]?\d+$/
-              hash[k] = v.to_i
-            end
-          end
-        end
-
-        if options[:value_converters]
-          hash.each do |k, v|
-            converter = options[:value_converters][k]
-            next unless converter
-
-            hash[k] = converter.convert(v)
-          end
-        end
+        # --- HASH VALIDATIONS ----------------------------------------------------------------
+        # will go here, and be able to:
+        #  - validate correct format of the values for fields
+        #  - required fields to be non-empty
+        #  - ...
+        # -------------------------------------------------------------------------------------
 
         next if options[:remove_empty_hashes] && hash.empty?
 
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose] == '2' # very verbose setting
+        # optional adding of csv_line_number to the hash to help debugging
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
 
+        # process the chunks or the resulting hash
         if use_chunks
           chunk << hash # append temp result to chunk
 
@@ -133,11 +108,8 @@ module SmarterCSV
             @chunk_count += 1
             chunk = [] # initialize for next chunk of data
           else
-
-            # the last chunk may contain partial data, which also needs to be returned (BUG / ISSUE-18)
-
+            # the last chunk may contain partial data, which is handled below
           end
-
           # while a chunk is being filled up we don't need to do anything else here
 
         else # no chunk handling
@@ -152,7 +124,7 @@ module SmarterCSV
       # print new line to retain last processing line message
       print "\n" if options[:verbose]
 
-      # last chunk:
+      # handling of last chunk:
       if !chunk.nil? && chunk.size > 0
         # do something with the chunk
         if block_given?
@@ -239,6 +211,14 @@ module SmarterCSV
       else
         false
       end
+    end
+
+    private
+
+    def enforce_utf8_encoding(line, options)
+      return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+
+      line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
     end
   end
 end
