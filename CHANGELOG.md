@@ -1,21 +1,21 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.10.0 (2023-12-24) ⚡ BREAKING ⚡
-n
+## 1.10.0 (2023-12-28) ⚡ BREAKING ⚡
+
   * BREAKING CHANGES:
     
     Changed behavior:
      + when `user_provided_headers` are provided:
-       * if they are not unique, an exception will be raised
+       * if they are not unique, an exception will now be raised
        * they are taken "as is", no header transformations can be applied
        * when they are given as strings or as symbols, it is assumed that this is the desired format
-       * the value of the `strings_as_keys` options is ignored
+       * the value of the `strings_as_keys` options will be ignored
          
      + option `duplicate_header_suffix` now defaults to `''` instead of `nil`.
-       * this allows processing of CSV files with duplicate headers with automatic disambiguation, by appending a number
+       * this allows automatic disambiguation when processing of CSV files with duplicate headers, by appending a number
        * explicitly set this option to `nil` to get the behavior from previous versions.
-       
+
   * code refactor
 
 ## 1.9.3 (2023-12-16)
