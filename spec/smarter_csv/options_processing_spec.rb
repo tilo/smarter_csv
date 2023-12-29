@@ -31,31 +31,29 @@ describe 'options processing' do
   end
 
   describe '#validate_options!' do
-    it 'raises an exception for row_sep' do
-      expect do
-        invalid_options = {
-          row_sep: nil,
-        }
-        SmarterCSV.process_options(invalid_options)
-      end.to raise_exception(SmarterCSV::ValidationError, '["invalid row_sep"]')
-    end
+    [:row_sep, :col_sep, :quote_char].each do |opt|
+      # empty values
+      [nil, ''].each do |val|
+        context "with invalid value #{val}" do
+          it "raises an exception for #{opt} set #{val}" do
+            expect do
+              invalid_options = {
+                opt => val,
+              }
+              SmarterCSV.process_options(invalid_options)
+            end.to raise_exception(SmarterCSV::ValidationError, "[\"invalid #{opt}\"]")
+          end
+        end
+      end
 
-    it 'raises an exception for col_sep' do
-      expect do
-        invalid_options = {
-          col_sep: nil,
-        }
-        SmarterCSV.process_options(invalid_options)
-      end.to raise_exception(SmarterCSV::ValidationError, '["invalid col_sep"]')
-    end
-
-    it 'raises an exception for quote_char' do
-      expect do
-        invalid_options = {
-          quote_char: nil,
-        }
-        SmarterCSV.process_options(invalid_options)
-      end.to raise_exception(SmarterCSV::ValidationError, '["invalid quote_char"]')
+      it "does not raise an exception for #{opt} set non-empty" do
+        expect do
+          invalid_options = {
+            opt => ' ',
+          }
+          SmarterCSV.process_options(invalid_options)
+        end.not_to raise_exception
+      end
     end
   end
 
