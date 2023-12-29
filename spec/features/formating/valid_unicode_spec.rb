@@ -4,7 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
+describe 'valid unicode' do
   it 'loads file with unicode strings' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/valid_unicode.csv", options)

@@ -4,7 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
+describe ':skip_lines option' do
   it 'loads_csv_file_skipping_lines' do
     options = {skip_lines: 3}
     data = SmarterCSV.process("#{fixture_path}/skip_lines.csv", options)

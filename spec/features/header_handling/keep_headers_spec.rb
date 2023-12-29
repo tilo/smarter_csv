@@ -4,7 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
+describe ':keep_original_headers option' do
   it 'not_downcase_headers' do
     options = {keep_original_headers: true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)

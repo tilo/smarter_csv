@@ -4,8 +4,8 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'use_strings_as_keys' do
+describe ':strings_as_keys option' do
+  it 'uses strings as hash keys' do
     options = {strings_as_keys: true}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5

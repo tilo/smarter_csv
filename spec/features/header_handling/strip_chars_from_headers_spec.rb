@@ -4,8 +4,8 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'strip_whitespace_from_headers' do
+describe ':strip_chars_from_headers option' do
+  it 'strips whitespece from headers' do
     options = {strip_chars_from_headers: ' '}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5
