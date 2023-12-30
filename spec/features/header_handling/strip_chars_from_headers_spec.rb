@@ -4,17 +4,17 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'use_strings_as_keys' do
-    options = {strings_as_keys: true}
+describe ':strip_chars_from_headers option' do
+  it 'strips whitespece from headers' do
+    options = {strip_chars_from_headers: ' '}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5
 
     data.each do |hash|
       hash.each_key do |key|
-        expect(key.class).to eq String # all the keys should be symbols
+        expect(key.class).to eq Symbol # all the keys should be symbols
 
-        expect(%w[first_name last_name dogs cats birds fish]).to include(key)
+        expect(%i[firstname lastname dogs cats birds fish]).to include(key)
       end
 
       expect(hash.size).to be <= 6

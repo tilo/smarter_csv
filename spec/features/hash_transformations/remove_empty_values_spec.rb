@@ -4,8 +4,8 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'remove_empty_values' do
+describe ':remove_empty_values option' do
+  it 'removes empty values' do
     options = {row_sep: :auto, remove_empty_values: true}
     data = SmarterCSV.process("#{fixture_path}/empty.csv", options)
     expect(data.size).to eq 1

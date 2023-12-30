@@ -4,7 +4,7 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
+describe ':comment_regexp option' do
   it 'by default does not ignore comments in CSV files' do
     options = {}
     data = SmarterCSV.process("#{fixture_path}/ignore_comments.csv", options)

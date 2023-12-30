@@ -5,4 +5,6 @@ when testing `parse` methods:
   
 * make sure to always pass all options to the 'parse' methods, incl. acceleration
 
-* always wrap tests, so that both accelerated and un-accelerated code-paths are run
+* always wrap tests, so that both accelerated and un-accelerated code-paths are run, 
+  because the purpose of these tests is to ensure that both accelerated and unaccelerated 
+  code paths are behaving identically.

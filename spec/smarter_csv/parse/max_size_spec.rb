@@ -1,5 +1,17 @@
 # frozen_string_literal: true
 
+# ------------------------------------------------------------------------------------------
+# when testing `parse` methods:
+#
+# * SmarterCSV.default_options are not loaded when testing `parse` methods by themselves
+#
+# * make sure to always pass all options to the 'parse' methods, incl. acceleration
+#
+# * always wrap tests, so that both accelerated and un-accelerated code-paths are run,
+#   because the purpose of these tests is to ensure that both accelerated and unaccelerated
+#   code paths are behaving identically.
+# ------------------------------------------------------------------------------------------
+
 require 'spec_helper'
 
 # the purpose of the max_size parameter is to handle a corner case where
