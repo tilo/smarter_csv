@@ -19,9 +19,10 @@ module SmarterCSV
 
         # deal with the :only / :except options to :convert_values_to_numeric
         if convert_to_numeric && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-          if v.is_a?(String)
-            v = v.to_f if v =~ /^[+-]?\d+\.\d+$/
-            v = v.to_i if v =~ /^[+-]?\d+$/
+          if v =~ /^[+-]?\d+\.\d+$/
+            v = v.to_f
+          elsif v =~ /^[+-]?\d+$/
+            v = v.to_i
           end
         end
 
