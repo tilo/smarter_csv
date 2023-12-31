@@ -77,9 +77,11 @@ module SmarterCSV
           multiline = count_quote_chars(line, options[:quote_char]).odd?
         end
 
+        # :nocov:
         if multiline && @verbose
           print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
         end
+        # :nocov:
 
         line.chomp!(options[:row_sep])
 
