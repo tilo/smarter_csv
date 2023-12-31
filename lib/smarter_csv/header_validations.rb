@@ -7,7 +7,7 @@ module SmarterCSV
       check_required_headers(headers, options)
     end
 
-    def check_duplicate_headers(headers, options)
+    def check_duplicate_headers(headers, _options)
       header_counts = Hash.new(0)
       headers.each { |header| header_counts[header] += 1 unless header.nil? }
 

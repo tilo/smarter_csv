@@ -26,9 +26,8 @@ module SmarterCSV
           end
         end
 
-        if value_converters && converter = value_converters[k]
-          v = converter.convert(v)
-        end
+        converter = value_converters[k] if value_converters
+        v = converter.convert(v) if converter
 
         new_hash[k] = v
       end

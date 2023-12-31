@@ -73,7 +73,8 @@ module SmarterCSV
           line += next_line
           @file_line_count += 1
 
-          break if fh.eof?  # Exit loop if end of file is reached
+          break if fh.eof? # Exit loop if end of file is reached
+
           multiline = count_quote_chars(line, options[:quote_char]).odd?
         end
 

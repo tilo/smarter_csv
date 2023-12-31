@@ -19,10 +19,12 @@ module SmarterCSV
     end
 
     # :nocov:
+    # rubocop:disable Naming/MethodName
     def headerA
       warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
       @headerA
     end
+    # rubocop:enable Naming/MethodName
     # :nocov:
   end
 end
