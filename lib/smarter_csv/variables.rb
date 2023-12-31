@@ -15,6 +15,7 @@ module SmarterCSV
       @raw_header = nil # header as it appears in the file
       @result = []
       @warnings = {}
+      @v2_mode = false
     end
 
     # :nocov:

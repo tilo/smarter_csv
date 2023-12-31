@@ -62,4 +62,15 @@ describe 'options processing' do
       expect(SmarterCSV.default_options).to eq SmarterCSV::DEFAULT_OPTIONS
     end
   end
+
+  describe 'v2_mode' do
+    it 'defaults to false, aka v1' do
+      expect(SmarterCSV.default_options[:v2_mode]).to eq false
+    end
+
+    it 'can be switched to v2_mode' do
+      parsed_options = SmarterCSV.process_options(v2_mode: true)
+      expect(parsed_options[:v2_mode]).to eq true
+    end
+  end
 end

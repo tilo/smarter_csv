@@ -2,8 +2,18 @@
 
 module SmarterCSV
   class << self
-    # transform the headers that were in the file:
+    # this is processing the headers from the input file
     def header_transformations(header_array, options)
+      if options[:v2_mode]
+        header_transformations_v2(header_array, options)
+      else
+        header_transformations_v1(header_array, options)
+      end
+    end
+
+    # ---- V1.x Version: transform the headers that were in the file: ------------------------------------------
+    #
+    def header_transformations_v1(header_array, options)
       header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}
       header_array.map!{|x| x.strip} if options[:strip_whitespace]
 
@@ -58,6 +68,92 @@ module SmarterCSV
         end
       end
       headers
+    end
+
+    # ---- V2.x Version: transform the headers that were in the file: ------------------------------------------
+    #
+    def header_transformations_v2(header_array, options)
+      return header_array if options[:header_transformations].nil? || options[:header_transformations].empty?
+
+      # do the header transformations the user requested:
+      if options[:header_transformations]
+
+        options[:header_transformations].each do |transformation|
+          # the .each will always treat a hash argument as an array 🤪
+          case transformation
+          when Symbol # this is used for pre-defined transformations that are defined in the SmarterCSV module
+            header_array = public_send(transformation, header_array, options)
+          # when Hash # this would never be called, because we iterate with .each
+          #   trans, *args = transformation.first # .first treats the hash first element as an array
+          #   header_array = apply_transformation(trans, header_array, args, options)
+          when Array # this can be used for passing additional arguments in to a proc
+            trans, *args = transformation
+            header_array = apply_transformation(trans, header_array, args, options)
+          else # this is used when a user-provided Proc is passed in
+            if transformation.respond_to?(:call)
+              header_array = transformation.call(header_array, options)
+            else
+              raise ArgumentError, "Invalid transformation type: #{transformation.class}"
+            end
+          end
+        end
+      end
+
+      header_array
+    end
+
+    def apply_transformation(transformation, header_array, args, options)
+      if transformation.respond_to?(:call)
+        # If transformation is a callable object (like a Proc)
+        transformation.call(header_array, args, options)
+      else
+        # If transformation is a symbol (method name)
+        public_send(transformation, header_array, args, options)
+      end
+    end
+
+    # pre-defined v2 header transformations:
+
+    # these are some pre-defined header transformations which can be used
+    # all these take the headers array as the input
+    #
+    # the computed options can be accessed via @options
+
+    @keys_as_symbols = nil
+    @keys_as_strings = nil
+    @key_mapping = nil
+
+    def keys_as_symbols(headers, options)
+      headers.map do |header|
+        header.strip.downcase.gsub(%r{#{options[:quote_char]}}, '').gsub(/(\s|-)+/, '_').to_sym
+      end
+    end
+
+    def keys_as_strings(headers, options)
+      headers.map do |header|
+        header.strip.gsub(%r{#{options[:quote_char]}}, '').downcase.gsub(/(\s|-)+/, '_')
+      end
+    end
+
+    def downcase_headers(headers, options)
+      headers.map do |header|
+        header.strip.downcase!
+      end
+    end
+
+    # this is a convenience function for supporting v1 feature parity
+
+    def key_mapping(array, mapping = {})
+      @key_mapping ||= proc {|headers, mapping = {}|
+        raise(SmarterCSV::IncorrectOption, "ERROR: key_mapping header transformation needs a hash argument") unless mapping.is_a?(Hash)
+
+        new_headers = []
+        headers.each do |key|
+          new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!
+        end
+        new_headers
+      }
+      @key_mapping.call(array, mapping)
     end
   end
 end

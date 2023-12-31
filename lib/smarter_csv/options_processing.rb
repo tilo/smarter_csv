@@ -35,6 +35,7 @@ module SmarterCSV
     value_converters: nil,
     verbose: false,
     with_line_numbers: false,
+    v2_mode: false,
   }.freeze
 
   class << self
@@ -44,6 +45,8 @@ module SmarterCSV
 
       # fix invalid input
       given_options[:invalid_byte_sequence] = '' if given_options[:invalid_byte_sequence].nil?
+
+      given_options = preprocess_v2_options(given_options)
 
       @options = DEFAULT_OPTIONS.dup.merge!(given_options)
       puts "Computed options:\n#{pp(@options)}\n" if given_options[:verbose]
@@ -88,6 +91,26 @@ module SmarterCSV
 
     def pp(value)
       defined?(AwesomePrint) ? value.awesome_inspect(index: nil) : value.inspect
+    end
+
+    # ---- V2 code ----------------------------------------------------------------------------------------
+
+    def preprocess_v2_options(options)
+      return options unless options[:v2_mode] || options[:header_transformations]
+
+      # We want to provide safe defaults for easy processing, that is why we have a special keyword :none
+      # to not do any header transformations..
+      #
+      # this is why we need to remove the 'none' here:
+      #
+      requested_header_transformations = options[:header_transformations]
+      if requested_header_transformations.to_s == 'none'
+        requested_header_transformations = []
+      else
+        requested_header_transformations = requested_header_transformations.reject {|x| x.to_s == 'none'} unless requested_header_transformations.nil?
+      end
+      options[:header_transformations] = requested_header_transformations || []
+      options
     end
   end
 end
