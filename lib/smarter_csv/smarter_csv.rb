@@ -16,10 +16,13 @@ module SmarterCSV
 
     options = process_options(given_options)
 
+    @enforce_utf8 = options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+    @verbose = options[:verbose]
+
     begin
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
-      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
+      if @enforce_utf8 && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
@@ -33,7 +36,7 @@ module SmarterCSV
       @headers, header_size = process_headers(fh, options)
       @headerA = @headers # @headerA is deprecated, use @headers
 
-      puts "Effective headers:\n#{pp(@headers)}\n" if options[:verbose]
+      puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
 
       header_validations(@headers, options)
 
@@ -53,23 +56,31 @@ module SmarterCSV
         line = readline_with_counts(fh, options)
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = enforce_utf8_encoding(line, options)
+        line = enforce_utf8_encoding(line, options) if @enforce_utf8
 
-        print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
+        print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose
 
         next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
-        multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
-        while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
+        multiline = count_quote_chars(line, options[:quote_char]).odd?
+
+        while multiline
           next_line = fh.readline(options[:row_sep])
-          next_line = enforce_utf8_encoding(next_line, options)
+          next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
           line += next_line
           @file_line_count += 1
+
+          break if fh.eof?  # Exit loop if end of file is reached
+          multiline = count_quote_chars(line, options[:quote_char]).odd?
         end
-        print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
+
+        if multiline && @verbose
+          print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
+        end
+
         line.chomp!(options[:row_sep])
 
         # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
@@ -94,7 +105,7 @@ module SmarterCSV
 
         next if options[:remove_empty_hashes] && hash.empty?
 
-        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if options[:verbose] == '2' # very verbose setting
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
         # optional adding of csv_line_number to the hash to help debugging
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
 
@@ -126,7 +137,7 @@ module SmarterCSV
       end
 
       # print new line to retain last processing line message
-      print "\n" if options[:verbose]
+      print "\n" if @verbose
 
       # handling of last chunk:
       if !chunk.nil? && chunk.size > 0
@@ -239,7 +250,7 @@ module SmarterCSV
     private
 
     def enforce_utf8_encoding(line, options)
-      return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+      # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
       line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
     end

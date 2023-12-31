@@ -15,6 +15,7 @@ module SmarterCSV
       @raw_header = nil # header as it appears in the file
       @result = []
       @warnings = {}
+      @enforce_utf8 = false # only set to true if needed (after options parsing)
     end
 
     # :nocov:
