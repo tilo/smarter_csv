@@ -4,6 +4,8 @@ module SmarterCSV
   class << self
 
     def hash_transformations(hash, options)
+      # there may be unmapped keys, or keys purposedly mapped to nil or an empty key..
+      # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
       remove_empty_values = options[:remove_empty_values] == true
       remove_zero_values = options[:remove_zero_values]
       remove_values_matching = options[:remove_values_matching]
@@ -13,9 +15,10 @@ module SmarterCSV
       hash.each_with_object({}) do |(k, v), new_hash|
         next if k.nil? || k == '' || k == :""
         next if remove_empty_values && (has_rails ? v.blank? : blank?(v))
-        next if remove_zero_values && v.is_a?(String) && v =~ /^(0+|0+\.0+)$/
+        next if remove_zero_values && v.is_a?(String) && v =~ /^(0+|0+\.0+)$/ # values are Strings
         next if remove_values_matching && v =~ remove_values_matching
 
+        # deal with the :only / :except options to :convert_values_to_numeric
         if convert_to_numeric && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
           v = v.to_f if v =~ /^[+-]?\d+\.\d+$/
           v = v.to_i if v =~ /^[+-]?\d+$/

@@ -162,19 +162,6 @@ module SmarterCSV
   end
 
   class << self
-    # * the `scan` method iterates through the string and finds all occurrences of the pattern
-    # * The reqular expression:
-    #   - (?<!\\) : Negative lookbehind to ensure the quote character is not preceded by an unescaped backslash.
-    #   - (?:\\\\)* : Non-capturing group for an even number of backslashes (escaped backslashes).
-    #                 This allows for any number of escaped backslashes before the quote character.
-    #   - #{Regexp.escape(quote_char)} : Dynamically inserts the quote_char into the regex,
-    #                                    ensuring it's properly escaped for use in the regex.
-    #
-    # def count_quote_chars_old(line, quote_char)
-    #   line.scan(/(?<!\\)(?:\\\\)*#{Regexp.escape(quote_char)}/).count
-    # end
-
-    # faster implementation:
     def count_quote_chars(line, quote_char)
       return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
@@ -218,30 +205,13 @@ module SmarterCSV
     def blank?(value)
       case value
       when String
-        value.empty? || BLANK_RE.match?(value)
-
+        BLANK_RE.match?(value)
       when NilClass
         true
-
       when Array
-        value.empty? || value.inject(true){|result, x| result && elem_blank?(x)}
-
+        value.all? { |elem| blank?(elem) }
       when Hash
-        value.empty? || value.values.inject(true){|result, x| result && elem_blank?(x)}
-
-      else
-        false
-      end
-    end
-
-    def elem_blank?(value)
-      case value
-      when String
-        value.empty? || BLANK_RE.match?(value)
-
-      when NilClass
-        true
-
+        value.all? { |key, elem| blank?(elem) }
       else
         false
       end
