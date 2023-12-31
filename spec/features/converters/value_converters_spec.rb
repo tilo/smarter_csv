@@ -13,11 +13,11 @@ end
 
 class CurrencyConverter
   def self.convert(value)
-    value.sub(/[$]/, '').to_f  # would be nice to add a computed column :currency => '€'
+    value.sub(/[$]/, '').to_f # would be nice to add a computed column :currency => '€'
   end
 end
 
-describe 'be_able_to' do
+describe ':value_converters option' do
   it 'convert date values into Date instances' do
     options = {value_converters: {date: DateConverter}}
     data = SmarterCSV.process("#{fixture_path}/with_dates.csv", options)

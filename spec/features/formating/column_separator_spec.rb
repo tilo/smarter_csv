@@ -171,14 +171,14 @@ describe 'can handle col_sep' do
           {
             col_sep: :auto,
             headers_in_file: false,
-            user_provided_headers: %w[Date1 Date2],
+            user_provided_headers: %w[Date1 Date2], # user provides strings
           }
         end
 
         it 'will fail to guess the separator' do
           data = SmarterCSV.process("#{fixture_path}/separator_comma_no_headers_will_fail.csv", options)
-          expect(data.first[:Date1]).to eq '2022-10-04 16' # Instead of 2022-10-04 16:00:47 UTC
-          expect(data.first[:Date2]).to eq 0 # Instead of 2022-10-04 16:00:47 UTC
+          expect(data.first['Date1']).to eq '2022-10-04 16' # Instead of 2022-10-04 16:00:47 UTC
+          expect(data.first['Date2']).to eq 0 # Instead of 2022-10-04 16:00:47 UTC
         end
       end
     end

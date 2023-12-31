@@ -16,12 +16,13 @@ module SmarterCSV
 
     options = process_options(given_options)
 
-    has_rails = !!defined?(Rails)
+    @enforce_utf8 = options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+    @verbose = options[:verbose]
 
     begin
       fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
-      if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
+      if @enforce_utf8 && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
         puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
       end
 
@@ -35,6 +36,10 @@ module SmarterCSV
       @headers, header_size = process_headers(fh, options)
       @headerA = @headers # @headerA is deprecated, use @headers
 
+      puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
+
+      header_validations(@headers, options)
+
       # in case we use chunking.. we'll need to set it up..
       if options[:chunk_size].to_i > 0
         use_chunks = true
@@ -46,31 +51,42 @@ module SmarterCSV
       end
 
       # now on to processing all the rest of the lines in the CSV file:
+      # fh.each_line |line|
       until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
         line = readline_with_counts(fh, options)
 
         # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-        line = line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+        line = enforce_utf8_encoding(line, options) if @enforce_utf8
 
-        print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if options[:verbose]
+        print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose
 
         next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
         # cater for the quoted csv data containing the row separator carriage return character
         # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
         # by detecting the existence of an uneven number of quote characters
+        multiline = count_quote_chars(line, options[:quote_char]).odd?
 
-        multiline = count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
-        while count_quote_chars(line, options[:quote_char]).odd? # should handle quote_char nil
+        while multiline
           next_line = fh.readline(options[:row_sep])
-          next_line = next_line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence]) if options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+          next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
           line += next_line
           @file_line_count += 1
+
+          break if fh.eof? # Exit loop if end of file is reached
+
+          multiline = count_quote_chars(line, options[:quote_char]).odd?
         end
-        print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count if options[:verbose] && multiline
+
+        # :nocov:
+        if multiline && @verbose
+          print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
+        end
+        # :nocov:
 
         line.chomp!(options[:row_sep])
 
+        # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
         dataA, _data_size = parse(line, options, header_size)
 
         dataA.map!{|x| x.strip} if options[:strip_whitespace]
@@ -78,48 +94,25 @@ module SmarterCSV
         # if all values are blank, then ignore this line
         next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
+        # --- HASH TRANSFORMATIONS ------------------------------------------------------------
         hash = @headers.zip(dataA).to_h
 
-        # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
-        hash.delete(nil)
-        hash.delete('')
-        hash.delete(:"")
+        hash = hash_transformations(hash, options)
 
-        if options[:remove_empty_values] == true
-          hash.delete_if{|_k, v| has_rails ? v.blank? : blank?(v)}
-        end
-
-        hash.delete_if{|_k, v| !v.nil? && v =~ /^(0+|0+\.0+)$/} if options[:remove_zero_values] # values are Strings
-        hash.delete_if{|_k, v| v =~ options[:remove_values_matching]} if options[:remove_values_matching]
-
-        if options[:convert_values_to_numeric]
-          hash.each do |k, v|
-            # deal with the :only / :except options to :convert_values_to_numeric
-            next if limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-
-            # convert if it's a numeric value:
-            case v
-            when /^[+-]?\d+\.\d+$/
-              hash[k] = v.to_f
-            when /^[+-]?\d+$/
-              hash[k] = v.to_i
-            end
-          end
-        end
-
-        if options[:value_converters]
-          hash.each do |k, v|
-            converter = options[:value_converters][k]
-            next unless converter
-
-            hash[k] = converter.convert(v)
-          end
-        end
+        # --- HASH VALIDATIONS ----------------------------------------------------------------
+        # will go here, and be able to:
+        #  - validate correct format of the values for fields
+        #  - required fields to be non-empty
+        #  - ...
+        # -------------------------------------------------------------------------------------
 
         next if options[:remove_empty_hashes] && hash.empty?
 
+        puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
+        # optional adding of csv_line_number to the hash to help debugging
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
 
+        # process the chunks or the resulting hash
         if use_chunks
           chunk << hash # append temp result to chunk
 
@@ -128,16 +121,13 @@ module SmarterCSV
             if block_given?
               yield chunk # do something with the hashes in the chunk in the block
             else
-              @result << chunk # not sure yet, why anybody would want to do this without a block
+              @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
             end
             @chunk_count += 1
-            chunk = [] # initialize for next chunk of data
+            chunk.clear # re-initialize for next chunk of data
           else
-
-            # the last chunk may contain partial data, which also needs to be returned (BUG / ISSUE-18)
-
+            # the last chunk may contain partial data, which is handled below
           end
-
           # while a chunk is being filled up we don't need to do anything else here
 
         else # no chunk handling
@@ -150,15 +140,15 @@ module SmarterCSV
       end
 
       # print new line to retain last processing line message
-      print "\n" if options[:verbose]
+      print "\n" if @verbose
 
-      # last chunk:
+      # handling of last chunk:
       if !chunk.nil? && chunk.size > 0
         # do something with the chunk
         if block_given?
           yield chunk # do something with the hashes in the chunk in the block
         else
-          @result << chunk # not sure yet, why anybody would want to do this without a block
+          @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
         end
         @chunk_count += 1
         # chunk = [] # initialize for next chunk of data
@@ -175,16 +165,22 @@ module SmarterCSV
   end
 
   class << self
-    # * the `scan` method iterates through the string and finds all occurrences of the pattern
-    # * The reqular expression:
-    #   - (?<!\\) : Negative lookbehind to ensure the quote character is not preceded by an unescaped backslash.
-    #   - (?:\\\\)* : Non-capturing group for an even number of backslashes (escaped backslashes).
-    #                 This allows for any number of escaped backslashes before the quote character.
-    #   - #{Regexp.escape(quote_char)} : Dynamically inserts the quote_char into the regex,
-    #                                    ensuring it's properly escaped for use in the regex.
-    #
     def count_quote_chars(line, quote_char)
-      line.scan(/(?<!\\)(?:\\\\)*#{Regexp.escape(quote_char)}/).count
+      return 0 if line.nil? || quote_char.nil? || quote_char.empty?
+
+      count = 0
+      escaped = false
+
+      line.each_char do |char|
+        if char == '\\' && !escaped
+          escaped = true
+        else
+          count += 1 if char == quote_char && !escaped
+          escaped = false
+        end
+      end
+
+      count
     end
 
     def has_acceleration?
@@ -193,18 +189,6 @@ module SmarterCSV
 
     protected
 
-    # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
-    def limit_execution_for_only_or_except(options, option_name, key)
-      if options[option_name].is_a?(Hash)
-        if options[option_name].has_key?(:except)
-          return true if Array(options[option_name][:except]).include?(key)
-        elsif options[option_name].has_key?(:only)
-          return true unless Array(options[option_name][:only]).include?(key)
-        end
-      end
-      false
-    end
-
     # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
     BLANK_RE = /\A\s*\z/.freeze
@@ -212,33 +196,24 @@ module SmarterCSV
     def blank?(value)
       case value
       when String
-        value.empty? || BLANK_RE.match?(value)
-
+        BLANK_RE.match?(value)
       when NilClass
         true
-
       when Array
-        value.empty? || value.inject(true){|result, x| result && elem_blank?(x)}
-
+        value.all? { |elem| blank?(elem) }
       when Hash
-        value.empty? || value.values.inject(true){|result, x| result && elem_blank?(x)}
-
+        value.values.all? { |elem| blank?(elem) } # Focus on values only
       else
         false
       end
     end
 
-    def elem_blank?(value)
-      case value
-      when String
-        value.empty? || BLANK_RE.match?(value)
+    private
 
-      when NilClass
-        true
+    def enforce_utf8_encoding(line, options)
+      # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
-      else
-        false
-      end
+      line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
     end
   end
 end

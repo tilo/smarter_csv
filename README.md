@@ -2,15 +2,33 @@
 # SmarterCSV
 
  [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
- 
+
+
+#### LATEST CHANGES
+
+* Version 1.10.0 has BREAKING CHANGES:
+
+    Changed behavior:
+     + when `user_provided_headers` are provided:
+       * if they are not unique, an exception will now be raised
+       * they are taken "as is", no header transformations can be applied
+       * when they are given as strings or as symbols, it is assumed that this is the desired format
+       * the value of the `strings_as_keys` options will be ignored
+         
+     + option `duplicate_header_suffix` now defaults to `''` instead of `nil`.
+       * this allows automatic disambiguation when processing of CSV files with duplicate headers, by appending a number
+       * explicitly set this option to `nil` to get the behavior from previous versions.
+
 #### Development Branches
 
 * default branch is `main` for 1.x development
-* 2.x development is on `2.0-development` (check this branch for 2.0 documentation)
+  
+* 2.x development is on `2.0-development` (check this branch for 2.0 documentation) 
+  - This is an EXPERIMENTAL branch - DO NOT USE in production
 
-#### Work towards Future Version 2.0
+#### Work towards Future Version 2.x
 
-* Work towards SmarterCSV 2.0 is still ongoing, with improved features, and more streamlined options, but consider it as experimental at this time.
+* Work towards SmarterCSV 2.x is still ongoing, with improved features, and more streamlined options, but consider it as experimental at this time.
   Please check the [2.0-develop branch](https://github.com/tilo/smarter_csv/tree/2.0-develop), open any issues and pull requests with mention of tag v2.0.
 
 ---------------
@@ -83,10 +101,11 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 00000030  0a 33 38 37 35 39 31 35  30 2c 71 75 69 7a 7a 65  |.38759150,quizze|
 00000040  73 2c 35 36 37 38 0d 0a                           |s,5678..|
 ```
+
 ### Articles
 * [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
 * [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
-  
+
 ### Examples
 
 Here are some examples to demonstrate the versatility of SmarterCSV.
@@ -281,7 +300,8 @@ The options and the block are optional.
      | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
      |                             |          | Important if the file does not contain headers,                                      |
      |                             |          | otherwise you would lose the first line of data.                                     |
-     | :duplicate_header_suffix    |   nil    | If set, adds numbers to duplicated headers and separates them by the given suffix    |
+     | :duplicate_header_suffix    |   ''     | Adds numbers to duplicated headers and separates them by the given suffix.           |
+     |                             |          | Set this to nil to raise `DuplicateHeaders` error instead (previous behavior)        |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
      |                             |          | user provided Array of header strings or symbols, to define                          |
      |                             |          | what headers should be used, overriding any in-file headers.                         |

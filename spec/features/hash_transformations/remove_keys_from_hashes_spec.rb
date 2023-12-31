@@ -4,8 +4,8 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'remove_values_matching' do
+describe ':remove_zero_values option' do
+  it 'removes zero values' do
     options = {remove_zero_values: true, key_mapping: {first_name: :vorname, last_name: :nachname, fish: nil} }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5
@@ -16,7 +16,8 @@ describe 'be_able_to' do
 
         expect(%i[vorname nachname dogs cats birds]).to include(key)
       end
-      expect(hash.values).to_not include(0)
+      expect(hash.keys).not_to include(:fish)
+      expect(hash.values).not_to include(0)
 
       expect(hash.size).to be <= 6
     end

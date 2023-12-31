@@ -20,8 +20,8 @@ describe 'loading file with quoted fields' do
       expect(data[3][:description]).to eq 'MUST SELL! air, moon roof, loaded'
       data.each do |h|
         expect(h[:year].class).to eq Integer
-        expect(h[:make]).to_not be_nil
-        expect(h[:model]).to_not be_nil
+        expect(h[:make]).not_to be_nil
+        expect(h[:model]).not_to be_nil
         expect(h[:price].class).to eq Float
       end
     end

@@ -9,7 +9,7 @@ module SmarterCSV
     comment_regexp: nil, # was: /\A#/,
     convert_values_to_numeric: true,
     downcase_header: true,
-    duplicate_header_suffix: nil,
+    duplicate_header_suffix: '', # was: nil,
     file_encoding: 'utf-8',
     force_simple_split: false,
     force_utf8: false,

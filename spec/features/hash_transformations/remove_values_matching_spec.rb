@@ -4,8 +4,8 @@ require 'spec_helper'
 
 fixture_path = 'spec/fixtures'
 
-describe 'be_able_to' do
-  it 'remove_values_matching' do
+describe ':remove_values_matching option' do
+  it 'removes values' do
     options = {remove_zero_values: true, remove_empty_values: true, remove_values_matching: /^\d+$/}
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5
@@ -21,7 +21,7 @@ describe 'be_able_to' do
         expect(val.class).to eq String # all the values should be strings
       end
 
-      expect(hash.values).to_not include(0)
+      expect(hash.values).not_to include(0)
 
       expect(hash.size).to be <= 6
     end
