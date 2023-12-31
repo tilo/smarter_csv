@@ -159,8 +159,27 @@ module SmarterCSV
     #   - #{Regexp.escape(quote_char)} : Dynamically inserts the quote_char into the regex,
     #                                    ensuring it's properly escaped for use in the regex.
     #
+    # def count_quote_chars_old(line, quote_char)
+    #   line.scan(/(?<!\\)(?:\\\\)*#{Regexp.escape(quote_char)}/).count
+    # end
+
+    # faster implementation:
     def count_quote_chars(line, quote_char)
-      line.scan(/(?<!\\)(?:\\\\)*#{Regexp.escape(quote_char)}/).count
+      return 0 if line.nil? || quote_char.nil? || quote_char.empty?
+
+      count = 0
+      escaped = false
+
+      line.each_char do |char|
+        if char == '\\' && !escaped
+          escaped = true
+        else
+          count += 1 if char == quote_char && !escaped
+          escaped = false
+        end
+      end
+
+      count
     end
 
     def has_acceleration?
