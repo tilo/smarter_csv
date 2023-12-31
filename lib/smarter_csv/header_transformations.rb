@@ -79,21 +79,20 @@ module SmarterCSV
       if options[:header_transformations]
 
         options[:header_transformations].each do |transformation|
-          # the .each will always treat a hash argument as an array 🤪
           case transformation
           when Symbol # this is used for pre-defined transformations that are defined in the SmarterCSV module
             header_array = public_send(transformation, header_array, options)
-          # when Hash # this would never be called, because we iterate with .each
-          #   trans, *args = transformation.first # .first treats the hash first element as an array
-          #   header_array = apply_transformation(trans, header_array, args, options)
-          when Array # this can be used for passing additional arguments in to a proc
+          when Hash # this is called for hash arguments, e.g. header_transformations
+            trans, args = transformation.first # .first treats the hash first element as an array
+            header_array = apply_transformation(trans, header_array, args, options)
+          when Array # this can be used for passing additional arguments in array form (e.g. into a Proc)
             trans, *args = transformation
             header_array = apply_transformation(trans, header_array, args, options)
           else # this is used when a user-provided Proc is passed in
             if transformation.respond_to?(:call)
               header_array = transformation.call(header_array, options)
             else
-              raise ArgumentError, "Invalid transformation type: #{transformation.class}"
+              raise SmarterCSV::IncorrectOption, "Invalid transformation type: #{transformation.class}"
             end
           end
         end
@@ -143,17 +142,17 @@ module SmarterCSV
 
     # this is a convenience function for supporting v1 feature parity
 
-    def key_mapping(array, mapping = {})
-      @key_mapping ||= proc {|headers, mapping = {}|
-        raise(SmarterCSV::IncorrectOption, "ERROR: key_mapping header transformation needs a hash argument") unless mapping.is_a?(Hash)
+    def key_mapping(headers, mapping = {}, options)
+      if mapping.empty? || !mapping.is_a?(Hash) || mapping.keys.empty?
+        raise(SmarterCSV::IncorrectOption, "ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings")
+      end
 
-        new_headers = []
-        headers.each do |key|
-          new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!
-        end
-        new_headers
-      }
-      @key_mapping.call(array, mapping)
+      new_headers = []
+      headers.each do |key|
+        new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!
+      end
+
+      new_headers
     end
   end
 end

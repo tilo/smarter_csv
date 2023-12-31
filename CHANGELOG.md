@@ -23,6 +23,21 @@
     - pre-processing for v2 options
     - implemented v2 `:header_transformations` (DO NOT USE YET!)
       + -> check if all v1 transformations are correctly done
+        How are we going to 
+        * disambiguate headers?
+
+
+        * do key_mapping? -> seems to work
+          - remove_unmapped_keys  ? 
+          - silence missing keys ... a missing mapped key should raise an exception, except when silenced
+          - required_keys needs to be a header-validation
+
+
+        * keep original headers? -> :none
+        * do strings_as_* ? -> either :keys_as_symbols, :keys_as_strings
+        * remove quote_chars? -> included in keys_as_*
+        * strip whitespace? -> included in keys_as_*
+
     -       
 
 
