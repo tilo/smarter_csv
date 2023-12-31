@@ -2,7 +2,6 @@
 
 module SmarterCSV
   class << self
-
     def hash_transformations(hash, options)
       # there may be unmapped keys, or keys purposedly mapped to nil or an empty key..
       # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
