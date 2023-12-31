@@ -118,10 +118,6 @@ module SmarterCSV
     #
     # the computed options can be accessed via @options
 
-    @keys_as_symbols = nil
-    @keys_as_strings = nil
-    @key_mapping = nil
-
     def keys_as_symbols(headers, options)
       headers.map do |header|
         header.strip.downcase.gsub(%r{#{options[:quote_char]}}, '').gsub(/(\s|-)+/, '_').to_sym
