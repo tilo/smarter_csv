@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.10.0 (2023-12-28) ⚡ BREAKING ⚡
+## 1.10.0 (2023-12-31) ⚡ BREAKING ⚡
 
   * BREAKING CHANGES:
     
@@ -16,8 +16,8 @@
        * this allows automatic disambiguation when processing of CSV files with duplicate headers, by appending a number
        * explicitly set this option to `nil` to get the behavior from previous versions.
 
+  * performance and memory improvements
   * code refactor
-  * some performance and memory improvements
 
 ## 1.9.3 (2023-12-16)
   * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty
