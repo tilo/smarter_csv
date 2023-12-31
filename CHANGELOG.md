@@ -17,6 +17,7 @@
        * explicitly set this option to `nil` to get the behavior from previous versions.
 
   * code refactor
+  * some performance and memory improvements
 
 ## 1.9.3 (2023-12-16)
   * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty

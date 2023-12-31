@@ -107,10 +107,10 @@ module SmarterCSV
             if block_given?
               yield chunk # do something with the hashes in the chunk in the block
             else
-              @result << chunk # not sure yet, why anybody would want to do this without a block
+              @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
             end
             @chunk_count += 1
-            chunk = [] # initialize for next chunk of data
+            chunk.clear # re-initialize for next chunk of data
           else
             # the last chunk may contain partial data, which is handled below
           end
@@ -134,7 +134,7 @@ module SmarterCSV
         if block_given?
           yield chunk # do something with the hashes in the chunk in the block
         else
-          @result << chunk # not sure yet, why anybody would want to do this without a block
+          @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
         end
         @chunk_count += 1
         # chunk = [] # initialize for next chunk of data
