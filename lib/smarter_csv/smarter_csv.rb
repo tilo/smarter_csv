@@ -33,6 +33,8 @@ module SmarterCSV
       @headers, header_size = process_headers(fh, options)
       @headerA = @headers # @headerA is deprecated, use @headers
 
+      header_validations(@headers, options)
+
       # in case we use chunking.. we'll need to set it up..
       if options[:chunk_size].to_i > 0
         use_chunks = true
