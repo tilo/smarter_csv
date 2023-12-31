@@ -188,18 +188,6 @@ module SmarterCSV
 
     protected
 
-    # acts as a road-block to limit processing when iterating over all k/v pairs of a CSV-hash:
-    def limit_execution_for_only_or_except(options, option_name, key)
-      if options[option_name].is_a?(Hash)
-        if options[option_name].has_key?(:except)
-          return true if Array(options[option_name][:except]).include?(key)
-        elsif options[option_name].has_key?(:only)
-          return true unless Array(options[option_name][:only]).include?(key)
-        end
-      end
-      false
-    end
-
     # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
     BLANK_RE = /\A\s*\z/.freeze
