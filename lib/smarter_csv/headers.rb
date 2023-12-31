@@ -45,7 +45,7 @@ module SmarterCSV
       else
         header_array = file_header_array
       end
-      puts "Effective headers:\n#{pp(header_array)}\n" if options[:verbose]
+      # puts "Effective headers:\n#{pp(header_array)}\n" if options[:verbose]
 
       # header_validations(header_array, options)
 
