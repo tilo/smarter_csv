@@ -201,7 +201,7 @@ module SmarterCSV
       when Array
         value.all? { |elem| blank?(elem) }
       when Hash
-        value.all? { |key, elem| blank?(elem) }
+        value.values.all? { |elem| blank?(elem) } # Focus on values only
       else
         false
       end
