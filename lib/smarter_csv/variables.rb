@@ -16,13 +16,16 @@ module SmarterCSV
       @result = []
       @warnings = {}
       @v2_mode = false
+      @enforce_utf8 = false # only set to true if needed (after options parsing)
     end
 
     # :nocov:
+    # rubocop:disable Naming/MethodName
     def headerA
       warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
       @headerA
     end
+    # rubocop:enable Naming/MethodName
     # :nocov:
   end
 end
