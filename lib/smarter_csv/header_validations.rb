@@ -44,26 +44,41 @@ module SmarterCSV
     # ---- V2.x Version: validate the headers -----------------------------------------------------------------
 
     def header_validations_v2(headers, options)
-      # do the header validations the user requested:
-      # Header validations typically raise errors directly
-      #
-      if options[:header_validations]
-        options[:header_validations].each do |validation|
-          case validation
-          when Symbol
-            public_send(validation, headers)
-          when Hash
-            val, args = validation.first
-            public_send(val, headers, args)
-          when Array
-            val, args = validation
-            public_send(val, headers, args)
-          else
-            validation.call(headers) unless validation.nil?
-          end
+      return unless options[:header_validations]
+
+      options[:header_validations].each do |validation|
+        if validation.respond_to?(:call)
+          # Directly call if it's a Proc or lambda
+          validation.call(headers)
+        else
+          # Handle Symbol, Hash, or Array
+          method_name, args = validation.is_a?(Symbol) ? [validation, []] : validation
+          public_send(method_name, headers, *Array(args))
         end
       end
     end
+
+    # def header_validations_v2_old(headers, options)
+    #   # do the header validations the user requested:
+    #   # Header validations typically raise errors directly
+    #   #
+    #   if options[:header_validations]
+    #     options[:header_validations].each do |validation|
+    #       case validation
+    #       when Symbol
+    #         public_send(validation, headers)
+    #       when Hash
+    #         val, args = validation.first
+    #         public_send(val, headers, args)
+    #       when Array
+    #         val, args = validation
+    #         public_send(val, headers, args)
+    #       else
+    #         validation.call(headers) unless validation.nil?
+    #       end
+    #     end
+    #   end
+    # end
 
     # these are some pre-defined header validations which can be used
     # all these take the headers array as the input
@@ -81,17 +96,6 @@ module SmarterCSV
       end
     end
 
-    # def unique_headers_old(array)
-    #   dupes = headers.each_with_object({}) do |x, h|
-    #      # when we remove fields we map them to nil - we don't count these as dupes
-    #      h[x] ||= 0
-    #      h[x] += 1
-    #    end.reject do |k, v|
-    #      k.nil? || v < 2
-    #    end
-    #    dupes.empty? ? nil : raise(SmarterCSV::DuplicateHeaders, "ERROR: duplicate headers: #{dupes.inspect}")
-    # end
-
     def required_headers(headers, required = [])
       raise(SmarterCSV::IncorrectOption, "ERROR: required_headers validation needs an array argument") unless required.is_a?(Array)
 
@@ -102,12 +106,5 @@ module SmarterCSV
         raise(SmarterCSV::MissingHeaders, "Missing Headers in CSV: #{missing.inspect}")
       end
     end
-
-    # def required_headers_old(array, required = [])
-    #   raise(SmarterCSV::IncorrectOption, "ERROR: required_headers validation needs an array argument") unless required.is_a?(Array)
-
-    #   missing = required.each_with_object([]){ |x, a| a << x unless headers.include?(x) }
-    #   missing.empty? ? nil : raise(SmarterCSV::MissingHeaders, "ERROR: missing headers: #{missing.inspect}")
-    # end
   end
 end
