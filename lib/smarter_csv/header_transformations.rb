@@ -136,19 +136,30 @@ module SmarterCSV
       end
     end
 
-    # this is a convenience function for supporting v1 feature parity
-
     def key_mapping(headers, mapping = {}, options)
-      if mapping.empty? || !mapping.is_a?(Hash) || mapping.keys.empty?
-        raise(SmarterCSV::IncorrectOption, "ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings")
-      end
+      raise(SmarterCSV::IncorrectOption, "ERROR: incorrect format for key_mapping! Expecting hash with from -> to mappings") if mapping.empty? || !mapping.is_a?(Hash)
 
-      new_headers = []
-      headers.each do |key|
-        new_headers << (mapping.keys.include?(key) ? mapping[key] : key) # we need to map to nil as well!
-      end
+      headers_set = headers.to_set
+      mapping_keys_set = mapping.keys.to_set
+      silence_keys_set = (options[:silence_missing_keys] || []).to_set
 
-      new_headers
+      # Check for missing keys
+      missing_keys = mapping_keys_set - headers_set - silence_keys_set
+      raise SmarterCSV::KeyMappingError, "ERROR: cannot map headers: #{missing_keys.to_a.join(', ')}" if missing_keys.any? && !options[:silence_missing_keys]
+
+      # Apply key mapping, retaining nils for explicitly mapped headers
+      headers.map do |header|
+        if mapping.key?(header)
+          # Maps the key according to the mapping, including nil mapping
+          mapping[header]
+        elsif options[:remove_unmapped_keys]
+          # Remove headers not specified in the mapping
+          nil
+        else
+          # Keep the original header if not specified in the mapping
+          header
+        end
+      end
     end
   end
 end

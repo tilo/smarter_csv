@@ -28,8 +28,6 @@ module SmarterCSV
       end
     end
 
-    require 'set'
-
     def check_required_headers_v1(headers, options)
       if options[:required_keys] && options[:required_keys].is_a?(Array)
         headers_set = headers.to_set

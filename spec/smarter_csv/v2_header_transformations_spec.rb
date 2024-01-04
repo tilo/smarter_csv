@@ -152,7 +152,7 @@ RSpec.describe SmarterCSV do
         expect(result).to eq(['mapped1', 'mapped2'])
       end
 
-      it 'can delete a column when mapped to nil' do
+      it 'can delete a column when mapped to nil, and map other columns' do
         mapping = {'header1' => nil, 'header2' => 'mapped2'}
         options = { v2_mode: true, header_transformations: [{key_mapping: mapping}] }
 
