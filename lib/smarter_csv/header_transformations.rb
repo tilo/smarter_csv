@@ -67,6 +67,7 @@ module SmarterCSV
           header
         end
       end
+
       headers
     end
 

@@ -162,6 +162,19 @@ RSpec.describe SmarterCSV do
 
         expect(result).to eq([nil, 'mapped2'])
       end
+
+      context 'when mapping only one key' do
+        let(:mapping) { {'header2' => 'mapped2'} }
+        let(:options) { { v2_mode: true, header_transformations: [{key_mapping: mapping}] } }
+
+        it 'removes unmapped keys' do
+          expect(SmarterCSV).to receive(:apply_transformation).with(:key_mapping, header_array, mapping, options).and_call_original
+
+          result = SmarterCSV.header_transformations_v2(header_array, options)
+
+          expect(result).to eq(['header1', 'mapped2'])
+        end
+      end
     end
 
     # Functional tests
