@@ -51,3 +51,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Rahul Chaudhary](https://github.com/rahulch95)
  * [Alessandro Fazzi](https://github.com/pioneerskies)
  * [JP Camara](https://github.com/jpcamara)
+ * [Hiro Watari](https://github.com/hirowatari)
