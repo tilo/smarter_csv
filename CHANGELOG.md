@@ -27,6 +27,9 @@
 
     -       
 
+## 1.10.1 (2024-01-07)
+  * fix incorrect warning about UTF-8 (issue #268, thanks hirowatari)
+
 ## 1.10.0 (2023-12-31) ⚡ BREAKING ⚡
 
   * BREAKING CHANGES:
