@@ -17,7 +17,7 @@ module SmarterCSV
       check_required_headers_v1(headers, options)
     end
 
-    def check_duplicate_headers_v1(headers, options)
+    def check_duplicate_headers_v1(headers, _options)
       header_counts = Hash.new(0)
       headers.each { |header| header_counts[header] += 1 unless header.nil? }
 
@@ -41,22 +41,50 @@ module SmarterCSV
 
     # ---- V2.x Version: validate the headers -----------------------------------------------------------------
 
+    # def header_validations_v2(headers, options)
+    #   return unless options[:header_validations]
+
+    #   options[:header_validations].each do |validation|
+    #     if validation.respond_to?(:call)
+    #       # Directly call if it's a Proc or lambda
+    #       validation.call(headers)
+    #     else
+    #       binding.pry
+    #       # Handle Symbol, Hash, or Array
+    #       method_name, args = validation.is_a?(Symbol) ? [validation, []] : validation
+    #       public_send(method_name, headers, *Array(args))
+    #     end
+    #   end
+    # end
+
     def header_validations_v2(headers, options)
       return unless options[:header_validations]
 
+      # do the header validations the user requested:
+      # Header validations typically raise errors directly
+      #
       options[:header_validations].each do |validation|
         if validation.respond_to?(:call)
           # Directly call if it's a Proc or lambda
           validation.call(headers)
         else
-          # Handle Symbol, Hash, or Array
-          method_name, args = validation.is_a?(Symbol) ? [validation, []] : validation
-          public_send(method_name, headers, *Array(args))
+          case validation
+          when Symbol
+            public_send(validation, headers)
+          when Hash
+            val, args = validation.first
+            public_send(val, headers, args)
+          when Array
+            val, *args = validation
+            public_send(val, headers, args)
+          else
+            raise SmarterCSV::IncorrectOption, "Invalid validation type: #{validation.class}"
+          end
         end
       end
     end
 
-    # def header_validations_v2_old(headers, options)
+    # def header_validations_v2_orig(headers, options)
     #   # do the header validations the user requested:
     #   # Header validations typically raise errors directly
     #   #
@@ -83,7 +111,7 @@ module SmarterCSV
     #
     # the computed options can be accessed via @options
 
-    def unique_headers(array)
+    def unique_headers(headers)
       header_counts = Hash.new(0)
       headers.each { |header| header_counts[header] += 1 unless header.nil? }
 
@@ -101,7 +129,7 @@ module SmarterCSV
       missing = required.select { |r| !headers_set.include?(r) }
 
       unless missing.empty?
-        raise(SmarterCSV::MissingHeaders, "Missing Headers in CSV: #{missing.inspect}")
+        raise(SmarterCSV::MissingKeys, "Missing Headers in CSV: #{missing.inspect}")
       end
     end
   end

@@ -25,7 +25,18 @@
         * remove quote_chars? -> included in keys_as_*
         * strip whitespace? -> included in keys_as_*
 
-    -       
+        TODO:
+        
+        - add tests for header_validations
+        
+        - modify options to handle v1 and v2 options
+        - add v1 defaults in v2 processing
+        - add tests for all options processing
+        - 100% backwards compatibility when working in v1 mode
+
+
+## 1.10.1 (2024-01-07)
+  * fix incorrect warning about UTF-8 (issue #268, thanks hirowatari)
 
 ## 1.10.1 (2024-01-07)
   * fix incorrect warning about UTF-8 (issue #268, thanks hirowatari)

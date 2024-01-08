@@ -88,10 +88,16 @@ Style/IfInsideElse:
 Style/IfUnlessModifier:
   Enabled: false
 
+Style/InverseMethods:
+  Enabled: false
+
 Style/NestedTernaryOperator:
   Enabled: false
 
 Style/PreferredHashMethods:
+  Enabled: false
+
+Style/Proc:
   Enabled: false
 
 Style/NumericPredicate:
@@ -137,6 +143,9 @@ Style/TrivialAccessors:
 
 # Style/UnlessModifier:
 #   Enabled: false
+
+Style/WordArray:
+  Enabled: false
 
 Style/ZeroLengthPredicate:
   Enabled: false

@@ -78,20 +78,19 @@ module SmarterCSV
 
       # do the header transformations the user requested:
       if options[:header_transformations]
-
         options[:header_transformations].each do |transformation|
-          case transformation
-          when Symbol # this is used for pre-defined transformations that are defined in the SmarterCSV module
-            header_array = public_send(transformation, header_array, options)
-          when Hash # this is called for hash arguments, e.g. header_transformations
-            trans, args = transformation.first # .first treats the hash first element as an array
-            header_array = apply_transformation(trans, header_array, args, options)
-          when Array # this can be used for passing additional arguments in array form (e.g. into a Proc)
-            trans, *args = transformation
-            header_array = apply_transformation(trans, header_array, args, options)
-          else # this is used when a user-provided Proc is passed in
-            if transformation.respond_to?(:call)
-              header_array = transformation.call(header_array, options)
+          if transformation.respond_to?(:call) # this is used when a user-provided Proc is passed in
+            header_array = transformation.call(header_array, options)
+          else
+            case transformation
+            when Symbol # this is used for pre-defined transformations that are defined in the SmarterCSV module
+              header_array = public_send(transformation, header_array, options)
+            when Hash # this is called for hash arguments, e.g. header_transformations
+              trans, args = transformation.first # .first treats the hash first element as an array
+              header_array = apply_transformation(trans, header_array, args, options)
+            when Array # this can be used for passing additional arguments in array form (e.g. into a Proc)
+              trans, *args = transformation
+              header_array = apply_transformation(trans, header_array, args, options)
             else
               raise SmarterCSV::IncorrectOption, "Invalid transformation type: #{transformation.class}"
             end
@@ -131,7 +130,7 @@ module SmarterCSV
       end
     end
 
-    def downcase_headers(headers, options)
+    def downcase_headers(headers, _options)
       headers.map do |header|
         header.strip.downcase!
       end

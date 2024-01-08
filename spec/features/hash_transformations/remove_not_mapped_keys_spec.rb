@@ -5,7 +5,6 @@ require 'spec_helper'
 fixture_path = 'spec/fixtures'
 
 describe ':remove_unmapped_keys option' do
-
   describe 'v1.x behavior' do
     let(:options) { { } }
 

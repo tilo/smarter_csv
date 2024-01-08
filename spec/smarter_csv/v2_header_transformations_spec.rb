@@ -74,7 +74,7 @@ RSpec.describe SmarterCSV do
     context 'when transformation with arguments is passed-in as a top-level hash' do
       context 'when using a Proc' do
         let(:custom_transformation) do
-          Proc.new do |headers, args, options|
+          Proc.new do |headers, args, _options|
             suffix = args.first
             headers.map { |header| "#{header}_#{suffix}" }
           end
@@ -95,7 +95,7 @@ RSpec.describe SmarterCSV do
     context 'when transformation with arguments is passed-in via hash' do
       context 'when using a Proc' do
         let(:custom_transformation) do
-          Proc.new do |headers, args, options|
+          Proc.new do |headers, args, _options|
             headers.map { |header| "#{header}_#{args}" } # no .first !
           end
         end
@@ -115,7 +115,7 @@ RSpec.describe SmarterCSV do
     context 'when transformation with arguments is passed-in an array' do
       context 'when using a Proc' do
         let(:apply_suffix) do
-          Proc.new do |headers, arg, options|
+          Proc.new do |headers, arg, _options|
             suffix = arg.first
             headers.map { |header| "#{header}_#{suffix}" }
           end
@@ -248,17 +248,17 @@ RSpec.describe SmarterCSV do
     context 'with provided transformations' do
       # user-provided custom transformation
       let(:camelcase) do
-        Proc.new {|headers, options|
+        Proc.new do |headers, _options|
           headers.map do |header|
-            header.strip.downcase.gsub(/(\s|\-)+/,'_').split('_').map(&:capitalize).join
+            header.strip.downcase.gsub(/(\s|-)+/, '_').split('_').map(&:capitalize).join
           end
-        }
+        end
       end
 
       it 'applies the custom transformation' do
         options = {
           v2_mode: true,
-          header_transformations: [:none, camelcase ],
+          header_transformations: [:none, camelcase],
         }
         data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
         expect(data.size).to eq 5
@@ -269,7 +269,7 @@ RSpec.describe SmarterCSV do
 
     context 'using transformations that have arguments' do
       let(:prefix_proc) do
-        Proc.new do |headers, args, options|
+        Proc.new do |headers, args, _options|
           headers.map { |header| "#{args.first}_#{header}" }
         end
       end
