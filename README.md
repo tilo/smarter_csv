@@ -8,9 +8,9 @@
 ---------------
 #### Service Announcement
 
-**You are looking at the 2.x documentation.**
+**You are looking at OUT-DATED 2.x documentation.**
 
-* Work towards SmarterCSV 2.0 is still on it's way, with much improved features, and more streamlined options. 🎉
+# Look for the new implementation [WIP] here: https://github.com/tilo/smarter_csv/pull/267
 
 * If you are looking for SmarterCSV 1.x, please check the [README on the `main` branch](https://github.com/tilo/smarter_csv/).
 
