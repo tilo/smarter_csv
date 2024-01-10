@@ -71,7 +71,7 @@ module SmarterCSV
     end
 
     #
-    # => these individual methods are nice building blocks, but not very efficient
+    # To handle v1-backward-compatible behavior, it is faster to roll all behavior into one method
     #
     def v1_backwards_compatibility(hash, options)
       hash.each_with_object({}) do |(k, v), new_hash|
@@ -92,24 +92,23 @@ module SmarterCSV
       end
     end
 
+    #
+    # Building Blocks in case you want to build your own flow:
+    #
     def strip_spaces(hash, _options)
       hash.each_key {|key| hash[key].strip! unless hash[key].nil? } # &. syntax was introduced in Ruby 2.3 - need to stay backwards compatible
-      hash
     end
 
     def remove_blank_values(hash, _options)
       hash.each_key {|key| hash.delete(key) if hash[key].nil? || hash[key].is_a?(String) && hash[key] !~ /[^[:space:]]/ }
-      hash
     end
 
     def remove_zero_values(hash, _options)
       hash.each_key {|key| hash.delete(key) if hash[key].is_a?(Numeric) && hash[key].zero? }
-      hash
     end
 
     def remove_empty_keys(hash, _options)
       hash.reject!{|key, _v| key.nil? || key.empty?}
-      hash
     end
 
     def convert_values_to_numeric(hash, _options)
@@ -121,7 +120,6 @@ module SmarterCSV
           hash[k] = hash[k].to_i
         end
       end
-      hash
     end
 
     def convert_values_to_numeric_unless_leading_zeroes(hash, _options)
@@ -133,7 +131,6 @@ module SmarterCSV
           hash[k] = hash[k].to_i
         end
       end
-      hash
     end
 
     # IMPORTANT NOTE:
@@ -142,15 +139,12 @@ module SmarterCSV
     #
     # you should first try to use convert_values_to_numeric or convert_values_to_numeric_unless_leading_zeroes
     #
-
     def convert_to_integer(hash, _options)
       hash.each_key {|key| hash[key] = hash[key].to_i }
-      hash
     end
 
     def convert_to_float(hash, _options)
       hash.each_key {|key| hash[key] = hash[key].to_f }
-      hash
     end
 
     protected

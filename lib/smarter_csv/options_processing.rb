@@ -109,7 +109,7 @@ module SmarterCSV
       if options[:v2_mode]
         raise(SmarterCSV::DeprecatedOptions, "ERROR: #{message}") unless used_deprecated_options.empty? || options[:silence_deprecations]
       else
-        puts "WARNING: #{message}" unless used_deprecated_options.empty? || options[:silence_deprecations]
+        puts "DEPRECATION WARNING: #{message}" unless used_deprecated_options.empty? || options[:silence_deprecations]
       end
     end
 
@@ -150,8 +150,8 @@ module SmarterCSV
       # ------------
       header_transformations: [:keys_as_symbols],
       header_validations: [:unique_headers],
-      data_transformations: [:replace_blank_with_nil],
-      data_validations: [],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
       hash_transformations: [:strip_spaces, :remove_blank_values],
       hash_validations: [],
       v2_mode: true,
@@ -160,8 +160,8 @@ module SmarterCSV
     V2_TRANSFORMATIONS = {
       header_transformations: [:keys_as_symbols],
       header_validations: [:unique_headers],
-      data_transformations: [:replace_blank_with_nil],
-      data_validations: [],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
       hash_transformations: [:v1_backwards_compatibility],
       # hash_transformations: [:remove_empty_keys, :strip_spaces, :remove_blank_values, :convert_values_to_numeric], # ??? :convert_values_to_numeric]
       hash_validations: [],
@@ -170,8 +170,8 @@ module SmarterCSV
     V1_TRANSFORMATIONS = {
       header_transformations: [:keys_as_symbols],
       header_validations: [:unique_headers],
-      data_transformations: [:replace_blank_with_nil],
-      data_validations: [],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
       hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric],
       hash_validations: [],
     }.freeze
