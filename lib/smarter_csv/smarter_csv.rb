@@ -2,6 +2,7 @@
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
+  class DeprecatedOptions < SmarterCSVException; end
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
@@ -107,6 +108,10 @@ module SmarterCSV
         # -------------------------------------------------------------------------------------
 
         next if options[:remove_empty_hashes] && hash.empty?
+
+        #
+        # should HASH VALIDATIONS go here instead?
+        #
 
         puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
         # optional adding of csv_line_number to the hash to help debugging

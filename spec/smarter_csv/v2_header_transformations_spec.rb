@@ -186,7 +186,6 @@ RSpec.describe SmarterCSV do
           header_transformations: [:none, :keys_as_strings],
         }
         data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
-
         expect(data.size).to eq 5
         expect(data[0]['first_name']).to eq 'Dan'
         expect(data[0]['last_name']).to eq 'McAllister'
