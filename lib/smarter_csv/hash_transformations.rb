@@ -95,6 +95,13 @@ module SmarterCSV
     #
     # Building Blocks in case you want to build your own flow:
     #
+
+    def value_converters(hash, _options)
+      #
+      # TO BE IMPLEMENTED
+      #
+    end
+
     def strip_spaces(hash, _options)
       hash.each_key {|key| hash[key].strip! unless hash[key].nil? } # &. syntax was introduced in Ruby 2.3 - need to stay backwards compatible
     end
