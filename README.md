@@ -10,7 +10,7 @@
 
 **You are looking at OUT-DATED 2.x documentation.**
 
-# Look for the new implementation [WIP] here: https://github.com/tilo/smarter_csv/pull/267
+# Look at the [new implementation](https://github.com/tilo/smarter_csv/pull/267) [WIP] 
 
 * If you are looking for SmarterCSV 1.x, please check the [README on the `main` branch](https://github.com/tilo/smarter_csv/).
 
