@@ -1,17 +1,17 @@
 # SmarterCSV 2.x
 
-# DO NOT USE THIS OUT-DATED EXPERIMENTAL BRANCH
-
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=2.0-develop)](http://travis-ci.org/tilo/smarter_csv)
 [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
+
+# DO NOT USE THIS OUT-DATED EXPERIMENTAL BRANCH
+
+# Look at the [new implementation](https://github.com/tilo/smarter_csv/pull/267) [WIP] 
 
 ---------------
 #### Service Announcement
 
 **You are looking at OUT-DATED 2.x documentation.**
-
-# Look at the [new implementation](https://github.com/tilo/smarter_csv/pull/267) [WIP] 
 
 * If you are looking for SmarterCSV 1.x, please check the [README on the `main` branch](https://github.com/tilo/smarter_csv/).
 
