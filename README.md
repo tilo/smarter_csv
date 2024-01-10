@@ -1,4 +1,7 @@
-# SmarterCSV 2
+# SmarterCSV 2 
+
+
+# DO NOT USE THIS OUT-DATED EXPERIMENTAL BRANCH
 
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=2.0-develop)](http://travis-ci.org/tilo/smarter_csv)
