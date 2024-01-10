@@ -1,5 +1,6 @@
 # SmarterCSV 2.x
 
+# DO NOT USE THIS OUT-DATED EXPERIMENTAL BRANCH
 
 [![Build Status](https://secure.travis-ci.org/tilo/smarter_csv.svg?branch=2.0-develop)](http://travis-ci.org/tilo/smarter_csv)
 [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
