@@ -170,22 +170,19 @@ module SmarterCSV
   end
 
   class << self
+    # Counts the number of quote characters in a line, excluding escaped quotes.
+    # FYI: using Ruby built-in regex processing to determine the number of quotes
     def count_quote_chars(line, quote_char)
       return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
-      count = 0
-      escaped = false
+      # Escaped quote character (e.g., if quote_char is ", then escaped is \")
+      escaped_quote = Regexp.escape(quote_char)
 
-      line.each_char do |char|
-        if char == '\\' && !escaped
-          escaped = true
-        else
-          count += 1 if char == quote_char && !escaped
-          escaped = false
-        end
-      end
+      # Pattern to match a quote character not preceded by a backslash
+      pattern = /(?<!\\)(?:\\\\)*#{escaped_quote}/
 
-      count
+      # Count occurrences
+      line.scan(pattern).count
     end
 
     def has_acceleration?
