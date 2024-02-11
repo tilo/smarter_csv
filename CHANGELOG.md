@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.10.2 (2024-02-11)
+  * improve error message for missing keys
+
 ## 1.10.1 (2024-01-07)
   * fix incorrect warning about UTF-8 (issue #268, thanks hirowatari)
 
