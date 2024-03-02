@@ -37,7 +37,7 @@ describe 'test exceptions for invalid headers' do
         options = {required_keys: %i[lastname email employee_id firstname manager_email]} # order does not matter
         SmarterCSV.process("#{fixture_path}/user_import.csv", options)
       end.to raise_exception(
-        SmarterCSV::MissingKeys, "ERROR: missing attributes: employee_id"
+        SmarterCSV::MissingKeys, "ERROR: missing attributes: employee_id. Check `SmarterCSV.headers` for original headers."
       )
     end
 
@@ -46,7 +46,7 @@ describe 'test exceptions for invalid headers' do
       expect do
         SmarterCSV.process("#{fixture_path}/user_import.csv", options)
       end.to raise_exception(
-        SmarterCSV::MissingKeys, "ERROR: missing attributes: email" # it was mapped, and is now missing
+        SmarterCSV::MissingKeys, /ERROR: missing attributes: email/ # it was mapped, and is now missing
       )
     end
   end
@@ -115,7 +115,7 @@ describe 'test exceptions for invalid headers' do
           expect{ process_file }.not_to raise_exception SmarterCSV::KeyMappingError
           # still raises an error because :middle_name is required
           expect{ process_file }.to raise_exception(
-            SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
+            SmarterCSV::MissingKeys, /ERROR: missing attributes: middle_name/
           )
         end
       end
@@ -128,7 +128,7 @@ describe 'test exceptions for invalid headers' do
         )
         # still raises an error because :middle_name is required
         expect{ process_file }.to raise_exception(
-          SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
+          SmarterCSV::MissingKeys, /ERROR: missing attributes: middle_name/
         )
       end
 

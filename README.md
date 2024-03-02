@@ -23,13 +23,8 @@
 
 * default branch is `main` for 1.x development
   
-* 2.x development is on `2.0-development` (check this branch for 2.0 documentation) 
-  - This is an EXPERIMENTAL branch - DO NOT USE in production
-
-#### Work towards Future Version 2.x
-
-* Work towards SmarterCSV 2.x is still ongoing, with improved features, and more streamlined options, but consider it as experimental at this time.
-  Please check the [2.0-develop branch](https://github.com/tilo/smarter_csv/tree/2.0-develop), open any issues and pull requests with mention of tag v2.0.
+* 2.x development is [MOVED TO THIS PR](https://github.com/tilo/smarter_csv/pull/267)
+  - 2.x behavior is still EXPERIMENTAL - DO NOT USE in production
 
 ---------------
 
