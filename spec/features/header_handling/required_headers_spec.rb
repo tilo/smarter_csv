@@ -31,7 +31,12 @@ describe 'required_headers -> required_keys' do
 
     it 'prints a deprecation warning when required_headers is used' do
       options[:required_headers] = [:first_name]
-      expect(SmarterCSV).to receive(:puts).with a_string_matching(/DEPRECATION WARNING/)
+      expect(SmarterCSV).to receive(:puts).with(
+        "DEPRECATION WARNING: please use 'required_keys' instead of 'required_headers'"
+      )
+      expect(SmarterCSV).to receive(:puts).with(
+        "DEPRECATION WARNING: SmarterCSV #{SmarterCSV::VERSION} DEPRECATED OPTIONS: [:key_mapping, :required_headers]"
+      )
       data
     end
   end
@@ -54,7 +59,9 @@ describe 'required_headers -> required_keys' do
 
     it 'does not print a deprecation warning when required_keys is used' do
       options[:required_keys] = [:first_name]
-      expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/DEPRECATION WARNING/)
+      expect(SmarterCSV).to receive(:puts).with(
+        "DEPRECATION WARNING: SmarterCSV #{SmarterCSV::VERSION} DEPRECATED OPTIONS: [:key_mapping, :required_keys]"
+      )
       data
     end
   end

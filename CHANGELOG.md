@@ -1,6 +1,39 @@
 
 # SmarterCSV 1.x Change Log
 
+## T.B.D.
+
+  * code refactor
+  
+  * NEW BEHAVIOR:
+    - hidden `:v2_mode` options (incomplete!)
+    - pre-processing for v2 options
+    - implemented v2 `:header_transformations` (DO NOT USE YET!)
+      + -> check if all v1 transformations are correctly done
+        How are we going to 
+        * disambiguate headers?
+
+
+        * do key_mapping? -> seems to work
+          - remove_unmapped_keys  ? 
+          - silence missing keys ... a missing mapped key should raise an exception, except when silenced
+          - required_keys needs to be a header-validation
+
+
+        * keep original headers? -> :none
+        * do strings_as_* ? -> either :keys_as_symbols, :keys_as_strings
+        * remove quote_chars? -> included in keys_as_*
+        * strip whitespace? -> included in keys_as_*
+
+        TODO:
+        
+        - add tests for header_validations
+        
+        - modify options to handle v1 and v2 options
+        - add v1 defaults in v2 processing
+        - add tests for all options processing
+        - 100% backwards compatibility when working in v1 mode
+
 ## 1.10.2 (2024-02-11)
   * improve error message for missing keys
 

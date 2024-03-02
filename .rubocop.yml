@@ -88,10 +88,16 @@ Style/IfInsideElse:
 Style/IfUnlessModifier:
   Enabled: false
 
+Style/InverseMethods:
+  Enabled: false
+
 Style/NestedTernaryOperator:
   Enabled: false
 
 Style/PreferredHashMethods:
+  Enabled: false
+
+Style/Proc:
   Enabled: false
 
 Style/NumericPredicate:
@@ -129,6 +135,9 @@ Style/SymbolProc: # old Ruby versions can't do this
 Style/TrailingCommaInHashLiteral:
   Enabled: false
 
+Style/TrailingCommaInArrayLiteral:
+  Enabled: false
+
 Style/TrailingUnderscoreVariable:
   Enabled: false
 
@@ -137,6 +146,9 @@ Style/TrivialAccessors:
 
 # Style/UnlessModifier:
 #   Enabled: false
+
+Style/WordArray:
+  Enabled: false
 
 Style/ZeroLengthPredicate:
   Enabled: false

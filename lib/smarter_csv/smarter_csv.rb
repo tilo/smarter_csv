@@ -2,6 +2,7 @@
 
 module SmarterCSV
   class SmarterCSVException < StandardError; end
+  class DeprecatedOptions < SmarterCSVException; end
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
@@ -108,6 +109,10 @@ module SmarterCSV
 
         next if options[:remove_empty_hashes] && hash.empty?
 
+        #
+        # should HASH VALIDATIONS go here instead?
+        #
+
         puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
         # optional adding of csv_line_number to the hash to help debugging
         hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
@@ -165,22 +170,19 @@ module SmarterCSV
   end
 
   class << self
+    # Counts the number of quote characters in a line, excluding escaped quotes.
+    # FYI: using Ruby built-in regex processing to determine the number of quotes
     def count_quote_chars(line, quote_char)
       return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
-      count = 0
-      escaped = false
+      # Escaped quote character (e.g., if quote_char is ", then escaped is \")
+      escaped_quote = Regexp.escape(quote_char)
 
-      line.each_char do |char|
-        if char == '\\' && !escaped
-          escaped = true
-        else
-          count += 1 if char == quote_char && !escaped
-          escaped = false
-        end
-      end
+      # Pattern to match a quote character not preceded by a backslash
+      pattern = /(?<!\\)(?:\\\\)*#{escaped_quote}/
 
-      count
+      # Count occurrences
+      line.scan(pattern).count
     end
 
     def has_acceleration?

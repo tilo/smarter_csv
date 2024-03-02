@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  DEFAULT_OPTIONS = {
+  COMMON_OPTIONS = {
     acceleration: true,
     auto_row_sep_chars: 500,
     chunk_size: nil,
@@ -15,27 +15,50 @@ module SmarterCSV
     force_utf8: false,
     headers_in_file: true,
     invalid_byte_sequence: '',
+    quote_char: '"',
+    remove_unmapped_keys: false,
+    row_sep: :auto, # was: $/,
+    silence_deprecations: false, # new in 1.11
+    silence_missing_keys: false,
+    skip_lines: nil,
+    user_provided_headers: nil,
+    verbose: false,
+    with_line_numbers: false,
+    v2_mode: false,
+  }.freeze
+
+  V1_DEFAULT_OPTIONS = {
     keep_original_headers: false,
     key_mapping: nil,
-    quote_char: '"',
     remove_empty_hashes: true,
     remove_empty_values: true,
-    remove_unmapped_keys: false,
     remove_values_matching: nil,
     remove_zero_values: false,
     required_headers: nil,
     required_keys: nil,
-    row_sep: :auto, # was: $/,
-    silence_missing_keys: false,
-    skip_lines: nil,
     strings_as_keys: false,
     strip_chars_from_headers: nil,
     strip_whitespace: true,
-    user_provided_headers: nil,
     value_converters: nil,
-    verbose: false,
-    with_line_numbers: false,
+    v2_mode: false,
   }.freeze
+
+  DEPRECATED_OPTIONS = [
+    :convert_values_to_numeric,
+    :downcase_headers,
+    :keep_original_headers,
+    :key_mapping,
+    :remove_empty_hashes,
+    :remove_empty_values,
+    :remove_values_matching,
+    :remove_zero_values,
+    :required_headers,
+    :required_keys,
+    :stirngs_as_keys,
+    :strip_cars_from_headers,
+    :strip_whitespace,
+    :value_converters,
+  ].freeze
 
   class << self
     # NOTE: this is not called when "parse" methods are tested by themselves
@@ -45,7 +68,12 @@ module SmarterCSV
       # fix invalid input
       given_options[:invalid_byte_sequence] = '' if given_options[:invalid_byte_sequence].nil?
 
-      @options = DEFAULT_OPTIONS.dup.merge!(given_options)
+      # warn about deprecated options / raises error for v2_mode
+      handle_deprecations(given_options)
+
+      given_options = preprocess_v2_options(given_options) if given_options[:v2_mode]
+
+      @options = compute_default_options(given_options).merge!(given_options)
       puts "Computed options:\n#{pp(@options)}\n" if given_options[:verbose]
 
       validate_options!(@options)
@@ -56,10 +84,34 @@ module SmarterCSV
     #
     # ONLY FOR BACKWARDS-COMPATIBILITY
     def default_options
-      DEFAULT_OPTIONS
+      COMMON_OPTIONS.merge(V1_DEFAULT_OPTIONS)
     end
 
     private
+
+    def compute_default_options(options = {})
+      return COMMON_OPTIONS.merge(V1_DEFAULT_OPTIONS) unless options[:v2_mode]
+
+      default_options = {}
+      if options[:defaults].to_s != 'none'
+        default_options = COMMON_OPTIONS.dup.merge(V2_DEFAULT_OPTIONS)
+        if options[:defaults].to_s == 'v1'
+          default_options.merge(V1_TRANSFORMATIONS)
+        else
+          default_options.merge(V2_TRANSFORMATIONS)
+        end
+      end
+    end
+
+    def handle_deprecations(options)
+      used_deprecated_options = DEPRECATED_OPTIONS & options.keys
+      message = "SmarterCSV #{VERSION} DEPRECATED OPTIONS: #{pp(used_deprecated_options)}"
+      if options[:v2_mode]
+        raise(SmarterCSV::DeprecatedOptions, "ERROR: #{message}") unless used_deprecated_options.empty? || options[:silence_deprecations]
+      else
+        puts "DEPRECATION WARNING: #{message}" unless used_deprecated_options.empty? || options[:silence_deprecations]
+      end
+    end
 
     def validate_options!(options)
       # deprecate required_headers
@@ -88,6 +140,58 @@ module SmarterCSV
 
     def pp(value)
       defined?(AwesomePrint) ? value.awesome_inspect(index: nil) : value.inspect
+    end
+
+    # ---- V2 code ----------------------------------------------------------------------------------------
+
+    V2_DEFAULT_OPTIONS = {
+      # These need to go to the COMMON_OPTIONS:
+      remove_empty_hashes: true, # this might need a transformation or move to common options
+      # ------------
+      header_transformations: [:keys_as_symbols],
+      header_validations: [:unique_headers],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
+      hash_transformations: [:strip_spaces, :remove_blank_values],
+      hash_validations: [],
+      v2_mode: true,
+    }.freeze
+
+    V2_TRANSFORMATIONS = {
+      header_transformations: [:keys_as_symbols],
+      header_validations: [:unique_headers],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
+      hash_transformations: [:v1_backwards_compatibility],
+      # hash_transformations: [:remove_empty_keys, :strip_spaces, :remove_blank_values, :convert_values_to_numeric], # ??? :convert_values_to_numeric]
+      hash_validations: [],
+    }.freeze
+
+    V1_TRANSFORMATIONS = {
+      header_transformations: [:keys_as_symbols],
+      header_validations: [:unique_headers],
+      # data_transformations: [:replace_blank_with_nil],
+      # data_validations: [],
+      hash_transformations: [:strip_spaces, :remove_blank_values, :convert_values_to_numeric],
+      hash_validations: [],
+    }.freeze
+
+    def preprocess_v2_options(options)
+      return options unless options[:v2_mode] || options[:header_transformations]
+
+      # We want to provide safe defaults for easy processing, that is why we have a special keyword :none
+      # to not do any header transformations..
+      #
+      # this is why we need to remove the 'none' here:
+      #
+      requested_header_transformations = options[:header_transformations]
+      if requested_header_transformations.to_s == 'none'
+        requested_header_transformations = []
+      else
+        requested_header_transformations = requested_header_transformations.reject {|x| x.to_s == 'none'} unless requested_header_transformations.nil?
+      end
+      options[:header_transformations] = requested_header_transformations || []
+      options
     end
   end
 end
