@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 
 # according to RFC-4180 quotes inside of "words" shouldbe doubled, but our parser is robust against that.

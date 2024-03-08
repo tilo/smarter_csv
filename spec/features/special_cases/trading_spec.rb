@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 
 # somebody reported that a column called 'options_trader' would be truncated to 'trader'

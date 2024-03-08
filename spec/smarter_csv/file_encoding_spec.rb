@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 RSpec.describe SmarterCSV do
   describe 'encoding warning message' do
     let(:file_path) { 'path/to/csvfile.csv' }

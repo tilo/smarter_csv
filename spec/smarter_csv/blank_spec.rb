@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 describe 'blank?' do
   it 'is true for nil' do
     expect(SmarterCSV.send(:blank?, nil)).to eq true
