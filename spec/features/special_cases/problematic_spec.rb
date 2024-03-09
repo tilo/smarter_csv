@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 
 describe 'loading file with UTF-8 characters in the header' do

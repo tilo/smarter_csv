@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 
 # this reads a binary database dump file, which is in structure like a CSV file

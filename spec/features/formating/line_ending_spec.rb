@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 
 describe 'process files with line endings explicitly pre-specified' do

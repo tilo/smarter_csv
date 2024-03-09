@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 describe 'options processing' do
   describe '#process_options' do
     it 'prints out given options in verbose mode' do
