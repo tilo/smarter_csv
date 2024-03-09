@@ -52,3 +52,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Alessandro Fazzi](https://github.com/pioneerskies)
  * [JP Camara](https://github.com/jpcamara)
  * [Kenton Hirowatari](https://github.com/hirowatari)
+ * [Daniel Pepper](https://github.com/dpep)
