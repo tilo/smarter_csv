@@ -28,6 +28,12 @@ describe 'options processing' do
       expect(generated_options).to eq options.merge(computed_default_options(options))
     end
 
+    it 'works with frozen options hash' do
+      options = {chunk_size: 1}.freeze
+      generated_options = SmarterCSV.process_options(options)
+      expect(generated_options[:chunk_size]).to eq 1
+    end
+
     it 'corrects :invalid_byte_sequence if nil is given' do
       generated_options = SmarterCSV.process_options(invalid_byte_sequence: nil)
       expect(generated_options[:invalid_byte_sequence]).to eq ''

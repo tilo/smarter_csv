@@ -65,15 +65,18 @@ module SmarterCSV
     def process_options(given_options = {})
       puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
 
-      # fix invalid input
-      given_options[:invalid_byte_sequence] = '' if given_options[:invalid_byte_sequence].nil?
+      @options = compute_default_options(given_options)
 
       # warn about deprecated options / raises error for v2_mode
       handle_deprecations(given_options)
 
       given_options = preprocess_v2_options(given_options) if given_options[:v2_mode]
 
-      @options = compute_default_options(given_options).merge!(given_options)
+      @options.merge!(given_options)
+
+      # fix invalid input
+      @options[:invalid_byte_sequence] ||= ''
+
       puts "Computed options:\n#{pp(@options)}\n" if given_options[:verbose]
 
       validate_options!(@options)
