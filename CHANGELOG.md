@@ -1,6 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.10.3 (2024-03-10)
+  * fixed issue when frozen options are handed in (thanks to Daniel Pepper)
+  * cleaned-up rspec tests (thanks to Daniel Pepper)
+  * fixed link in README (issue #251)
+
 ## 1.10.2 (2024-02-11)
   * improve error message for missing keys
 

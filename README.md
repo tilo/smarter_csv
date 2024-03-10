@@ -389,10 +389,9 @@ And header and data validations will also be supported in 2.x
  * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, use the `:force_simple_split => true` option in combination with `:strip_chars_from_headers => /[\-"]/` . This will also significantly speed up the import.
    If you would force a different :quote_char instead (setting it to a non-used character), then the import would be up to 5-times slower than using `:force_simple_split`.
 
-## See also:
+## The original post that started SmarterCSV:
 
-  http://www.unixgods.org/~tilo/Ruby/process_csv_as_hashes.html
-
+  http://www.unixgods.org/Ruby/process_csv_as_hashes.html
 
 
 ## Installation
