@@ -5,4 +5,4 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
-      time: "11:00" # UTC
+      time: "01:00" # UTC
