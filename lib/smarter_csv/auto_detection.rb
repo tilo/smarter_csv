@@ -19,7 +19,10 @@ module SmarterCSV
       count.times do
         line = readline_with_counts(filehandle, options)
         delimiters.each do |d|
-          candidates[d] += line.scan(d).count
+          # Count only non-quoted occurrences of the delimiter
+          non_quoted_text = line.split(/"[^"]*"|'[^']*'/).join
+
+          candidates[d] += non_quoted_text.scan(d).count
         end
       rescue EOFError # short files
         break
