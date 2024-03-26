@@ -19,8 +19,10 @@ module SmarterCSV
       count.times do
         line = readline_with_counts(filehandle, options)
         delimiters.each do |d|
+          escaped_quote = Regexp.escape(options[:quote_char])
+
           # Count only non-quoted occurrences of the delimiter
-          non_quoted_text = line.split(/"[^"]*"|'[^']*'/).join
+          non_quoted_text = line.split(/#{escaped_quote}[^#{escaped_quote}]*#{escaped_quote}/).join
 
           candidates[d] += non_quoted_text.scan(d).count
         end
