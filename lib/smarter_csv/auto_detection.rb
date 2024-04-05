@@ -7,8 +7,8 @@ module SmarterCSV
     # If file has headers, then guesses column separator from headers.
     # Otherwise guesses column separator from contents.
     # Raises exception if none is found.
-    def guess_column_separator(filehandle, options)
-      skip_lines(filehandle, options)
+    def guess_column_separator(instance, filehandle, options)
+      skip_lines(instance, filehandle, options)
 
       delimiters = [',', "\t", ';', ':', '|']
 
@@ -17,14 +17,14 @@ module SmarterCSV
       candidates = Hash.new(0)
       count = has_header ? 1 : 5
       count.times do
-        line = readline_with_counts(filehandle, options)
+        line = readline_with_counts(instance, filehandle, options)
         delimiters.each do |d|
           candidates[d] += line.scan(d).count
         end
       rescue EOFError # short files
         break
       end
-      rewind(filehandle)
+      rewind(instance, filehandle)
 
       if candidates.values.max == 0
         # if the header only contains
@@ -37,7 +37,7 @@ module SmarterCSV
     end
 
     # limitation: this currently reads the whole file in before making a decision
-    def guess_line_ending(filehandle, options)
+    def guess_line_ending(instance, filehandle, options)
       counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
       quoted_char = false
 
@@ -62,7 +62,7 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      rewind(filehandle)
+      rewind(instance, filehandle)
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:

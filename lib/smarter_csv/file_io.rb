@@ -4,23 +4,23 @@ module SmarterCSV
   class << self
     protected
 
-    def readline_with_counts(filehandle, options)
+    def readline_with_counts(instance, filehandle, options)
       line = filehandle.readline(options[:row_sep])
-      @file_line_count += 1
-      @csv_line_count += 1
-      line = remove_bom(line) if @csv_line_count == 1
+      instance.file_line_count += 1
+      instance.csv_line_count += 1
+      line = remove_bom(line) if instance.csv_line_count == 1
       line
     end
 
-    def skip_lines(filehandle, options)
+    def skip_lines(instance, filehandle, options)
       options[:skip_lines].to_i.times do
-        readline_with_counts(filehandle, options)
+        readline_with_counts(instance, filehandle, options)
       end
     end
 
-    def rewind(filehandle)
-      @file_line_count = 0
-      @csv_line_count = 0
+    def rewind(instance, filehandle)
+      instance.file_line_count = 0
+      instance.csv_line_count = 0
       filehandle.rewind
     end
 

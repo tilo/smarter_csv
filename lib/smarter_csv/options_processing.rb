@@ -42,15 +42,15 @@ module SmarterCSV
     def process_options(given_options = {})
       puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
 
-      @options = DEFAULT_OPTIONS.dup.merge!(given_options)
+      options = DEFAULT_OPTIONS.dup.merge!(given_options)
 
       # fix invalid input
-      @options[:invalid_byte_sequence] ||= ''
+      options[:invalid_byte_sequence] ||= ''
 
-      puts "Computed options:\n#{pp(@options)}\n" if @options[:verbose]
+      puts "Computed options:\n#{pp(options)}\n" if options[:verbose]
 
-      validate_options!(@options)
-      @options
+      validate_options!(options)
+      options
     end
 
     # NOTE: this is not called when "parse" methods are tested by themselves

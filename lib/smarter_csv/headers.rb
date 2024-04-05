@@ -2,9 +2,9 @@
 
 module SmarterCSV
   class << self
-    def process_headers(filehandle, options)
-      @raw_header = nil # header as it appears in the file
-      @headers = nil # the processed headers
+    def process_headers(instance, filehandle, options)
+      instance.raw_header = nil # header as it appears in the file
+      instance.headers = nil # the processed headers
       header_array = []
       file_header_size = nil
 
@@ -12,10 +12,10 @@ module SmarterCSV
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header_line = @raw_header = readline_with_counts(filehandle, options)
+        header_line = instance.raw_header = readline_with_counts(instance, filehandle, options)
         header_line = preprocess_header_line(header_line, options)
 
-        file_header_array, file_header_size = parse(header_line, options)
+        file_header_array, file_header_size = parse(instance, header_line, options)
 
         file_header_array = header_transformations(file_header_array, options)
 
