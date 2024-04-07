@@ -12,8 +12,6 @@
 #   code paths are behaving identically.
 # ------------------------------------------------------------------------------------------
 
-require 'spec_helper'
-
 [true, false].each do |bool|
   describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
     describe 'parse with col_sep' do

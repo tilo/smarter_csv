@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 require 'smarter_csv'
 require 'smarter_csv/header_validations'
 

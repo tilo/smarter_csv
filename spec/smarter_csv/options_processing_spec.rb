@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 def computed_default_options(options)
   SmarterCSV.send(:compute_default_options, options)
 end

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 fixture_path = 'spec/fixtures'
 RSpec.describe SmarterCSV do
   describe 'something .header_validations_v2' do
