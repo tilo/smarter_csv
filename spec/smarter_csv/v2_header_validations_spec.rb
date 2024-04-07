@@ -155,7 +155,7 @@ RSpec.describe SmarterCSV do
               expect{ process_file }.not_to raise_exception SmarterCSV::KeyMappingError
               # still raises an error because :middle_name is required
               expect{ process_file }.to raise_exception(
-                SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
+                SmarterCSV::MissingKeys, /ERROR: missing attributes: middle_name/
               )
             end
           end
@@ -164,11 +164,11 @@ RSpec.describe SmarterCSV do
             options[:silence_missing_keys] = [:missing_key, :other_optional_key]
             expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
             expect{ process_file }.not_to raise_exception(
-              SmarterCSV::KeyMappingError, "ERROR: can not map headers: missing_key"
+              SmarterCSV::KeyMappingError, /ERROR: can not map headers: missing_key/
             )
             # still raises an error because :middle_name is required
             expect{ process_file }.to raise_exception(
-              SmarterCSV::MissingKeys, "ERROR: missing attributes: middle_name"
+              SmarterCSV::MissingKeys, /ERROR: missing attributes: middle_name/
             )
           end
 
