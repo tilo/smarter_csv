@@ -12,6 +12,7 @@ module SmarterCSV
   class Generator
     def initialize(file_path, options = {})
       @options = options
+      @discover_headers = options.has_key?(:discover_headers) ? (options[:discover_headers] == true) : true
       @headers = options[:headers] || []
       @col_sep = options[:col_sep] || ','
       @force_quotes = options[:force_quotes]
