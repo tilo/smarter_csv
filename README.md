@@ -3,7 +3,13 @@
 
  [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [![Gem Version](https://badge.fury.io/rb/smarter_csv.svg)](http://badge.fury.io/rb/smarter_csv)
 
-This library provides a complete interface to CSV files and data. It offers tools to enable you to read and write to and from Strings or IO objects, as needed.
+SmarterCSV provides a complete interface to CSV files and data. It offers tools to enable you to read and write to and from Strings or IO objects, as needed.
+
+SmarterCSV focuses on representing the data for each row as a hash. 
+
+When reading CSV files, Using an array-of-hashes format makes it much easier to further process the data, or creating database records with it.
+
+When writing CSV data to file, it similarly takes arrays of hashes, and converts them to a CSV file.
 
 #### BREAKING CHANGES
 
