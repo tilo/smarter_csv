@@ -10,6 +10,7 @@ require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
 require "smarter_csv/hash_transformations"
 require "smarter_csv/parse"
+require "smarter_csv/writer"
 
 # load the C-extension:
 case RUBY_ENGINE

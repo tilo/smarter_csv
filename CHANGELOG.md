@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.11.0 (2024-07-02)
+  * added SmarterCSV::Writer to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))
+  
 ## 1.10.3 (2024-03-10)
   * fixed issue when frozen options are handed in (thanks to Daniel Pepper)
   * cleaned-up rspec tests (thanks to Daniel Pepper)
