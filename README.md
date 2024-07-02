@@ -5,9 +5,9 @@
 
 This library provides a complete interface to CSV files and data. It offers tools to enable you to read and write to and from Strings or IO objects, as needed.
 
-#### LATEST CHANGES
+#### BREAKING CHANGES
 
-* Version 1.10.0 has BREAKING CHANGES:
+* Version 1.10.0 had BREAKING CHANGES:
 
     Changed behavior:
      + when `user_provided_headers` are provided:

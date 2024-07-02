@@ -2,18 +2,33 @@
 
 module SmarterCSV
   #
-  # Generate CSV files from batches of array_of_hashes data
-  # - automatically generates the header on-the-fly
-  # - automatically quotes fields containing the col_sep
+  # Generate CSV files
   #
-  # Optionally headers can be passed-in via the options,
-  # If any new headers are fund in the data, they will be appended to the headers.
+  # Create an instance of the Writer class with the filename and options.
+  # call `<<` one or mulltiple times to append data to the file.
+  # call `finalize` to save the file.
   #
-  # col_sep : defaults to , but can be set to any other character
-  # row_sep : defaults to LF \n , but can be set to \r\n or \r or anything else
-  # quote_char : defaults to "
-  # discover_headers : defaults to true
-  # headers : defaults to []
+  # The `<<` method can take different arguments:
+  #  * a signle Hash
+  #  * an array of Hashes
+  #  * nested arrays of arrays of Hashes
+  #
+  # By default SmarterCSV::Writer automatically discovers all headers that are present
+  # in the data on-the-fly. This can be disabled, then only given headers are used.
+  # Disabling can be useful when you want to select attributes from hashes, or ActiveRecord instances.
+  #
+  # If `discover_headers` is enabled, and headers are given, any new headers that are found in the data will still be appended.
+  #
+  # The Writer automatically quotes fields containing the col_sep, row_sep, or the quote_char.
+  #
+  # Options:
+  #   col_sep : defaults to , but can be set to any other character
+  #   row_sep : defaults to LF \n , but can be set to \r\n or \r or anything else
+  #   quote_char : defaults to "
+  #   discover_headers : defaults to true
+  #   headers : defaults to []
+  #   force_quotes: defaults to false
+  #   map_headers: defaults to {}, can be a hash of key -> value mappings
 
   # IMPORTANT NOTES:
   #  * Data hashes could contain strings or symbols as keys.
@@ -28,10 +43,11 @@ module SmarterCSV
       @row_sep = options[:row_sep] || "\n" # RFC4180 "\r\n"
       @col_sep = options[:col_sep] || ','
       @quote_char = '"'
-      @force_quotes = options[:force_quotes]
+      @force_quotes = options[:force_quotes] == true
       @map_headers = options[:map_headers] || {}
-      @temp_file = Tempfile.new('tempfile', '/tmp')
       @output_file = File.open(file_path, 'w+')
+      # hidden state:
+      @temp_file = Tempfile.new('tempfile', '/tmp')
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
@@ -57,6 +73,7 @@ module SmarterCSV
       @output_file.write(@temp_file.read)
       @output_file.flush
       @output_file.close
+      @temp_file.delete
     end
 
     private
