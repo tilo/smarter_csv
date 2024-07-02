@@ -2,7 +2,8 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.11.0
-  * added feature to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))
+  * added SmarterCSV::Writer to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))
+  * added SmarterCSV::Reader to isolate parsing of CSV files
   
 ## 1.10.3 (2024-03-10)
   * fixed issue when frozen options are handed in (thanks to Daniel Pepper)

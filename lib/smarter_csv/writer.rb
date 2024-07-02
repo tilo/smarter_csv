@@ -9,7 +9,7 @@ module SmarterCSV
   # Optionally headers can be passed-in via the options,
   # If any new headers are fund in the data, they will be appended to the headers.
   #
-  class Generator
+  class Writer
     def initialize(file_path, options = {})
       @options = options
       @discover_headers = options.has_key?(:discover_headers) ? (options[:discover_headers] == true) : true
@@ -17,7 +17,8 @@ module SmarterCSV
       @col_sep = options[:col_sep] || ','
       @force_quotes = options[:force_quotes]
       @map_headers = options[:map_headers] || {}
-      @file = File.open(file_path, 'w+')
+      @temp_file = Tempfile.new('tempfile', '/tmp')
+      @output_file = File.open(file_path, 'w+')
     end
 
     def append(array_of_hashes)
@@ -29,7 +30,7 @@ module SmarterCSV
         # Reorder the hash to match the current headers order and fill missing fields
         ordered_row = @headers.map { |header| hash[header] || '' }
 
-        @file.puts ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep)
+        @temp_file.puts ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep)
       end
     end
 
@@ -37,17 +38,18 @@ module SmarterCSV
       # Map headers if :map_headers option is provided
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
 
-      # Rewind to the beginning of the file to write the headers
-      @file.rewind
-      @file.write(mapped_headers.join(@col_sep) + "\n")
-      @file.flush # Ensure all data is written to the file
-      @file.close
+      @temp_file.rewind
+      @output_file.write(mapped_headers.join(@col_sep) + "\n")
+      @output_file.write(@temp_file.read)
+      @output_file.flush
+      @output_file.close
     end
 
     private
 
+    SPECIAL_CHARS = /[,\"\n]/
     def escape_csv_field(field)
-      if @force_quotes || field.to_s.include?(@col_sep)
+      if @force_quotes || field.to_s.match(SPECIAL_CHARS)
         "\"#{field}\""
       else
         field.to_s
