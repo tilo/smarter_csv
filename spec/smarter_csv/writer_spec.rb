@@ -89,6 +89,21 @@ RSpec.describe SmarterCSV::Writer do
       expect(output).to include("Mike,35,Chicago,,IL\n")
       expect(output).to include("Alex,,,USA,\n")
     end
+
+    context "when discover_headers is turned off" do
+      let(:options) { {discover_headers: false, headers: [:name, :country]} }
+
+      it 'writes the given headers and data correctly' do
+        create_csv_file
+        output = File.read(file_path)
+
+        expect(output).to include("name,country\n")
+        expect(output).to include("John,\n")
+        expect(output).to include("Jane,USA\n")
+        expect(output).to include("Mike,\n")
+        expect(output).to include("Alex,USA\n")
+      end
+    end
   end
 
   context 'when headers are given in advance' do

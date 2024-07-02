@@ -16,10 +16,9 @@ module SmarterCSV
   # headers : defaults to []
 
   # IMPORTANT NOTES:
-  #  1) Data hashes could contain strings or symbols as keys.
-  #     Make sure to use the correct form when specifying headers manually,
-  #     in combination with the :discover_headers option
-  #  2)
+  #  * Data hashes could contain strings or symbols as keys.
+  #    Make sure to use the correct form when specifying headers manually,
+  #    in combination with the :discover_headers option
 
   class Writer
     def initialize(file_path, options = {})
@@ -63,9 +62,11 @@ module SmarterCSV
     private
 
     def process_hash(hash)
-      hash_keys = hash.keys
-      new_keys = hash_keys - @headers
-      @headers.concat(new_keys)
+      if @discover_headers
+        hash_keys = hash.keys
+        new_keys = hash_keys - @headers
+        @headers.concat(new_keys)
+      end
 
       # Reorder the hash to match the current headers order and fill missing fields
       ordered_row = @headers.map { |header| hash[header] || '' }
