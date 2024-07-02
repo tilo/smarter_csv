@@ -14,11 +14,14 @@ module SmarterCSV
       @options = options
       @discover_headers = options.has_key?(:discover_headers) ? (options[:discover_headers] == true) : true
       @headers = options[:headers] || []
+      @row_sep = options[:row_sep] || "\n" # RFC4180 "\r\n"
       @col_sep = options[:col_sep] || ','
+      @quote_char = '"'
       @force_quotes = options[:force_quotes]
       @map_headers = options[:map_headers] || {}
       @temp_file = Tempfile.new('tempfile', '/tmp')
       @output_file = File.open(file_path, 'w+')
+      @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
     def append(array_of_hashes)
@@ -30,7 +33,7 @@ module SmarterCSV
         # Reorder the hash to match the current headers order and fill missing fields
         ordered_row = @headers.map { |header| hash[header] || '' }
 
-        @temp_file.puts ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep)
+        @temp_file.write ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep) + @row_sep
       end
     end
 
@@ -39,7 +42,7 @@ module SmarterCSV
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
 
       @temp_file.rewind
-      @output_file.write(mapped_headers.join(@col_sep) + "\n")
+      @output_file.write(mapped_headers.join(@col_sep) + @row_sep)
       @output_file.write(@temp_file.read)
       @output_file.flush
       @output_file.close
@@ -47,9 +50,8 @@ module SmarterCSV
 
     private
 
-    SPECIAL_CHARS = /[,\"\n]/
     def escape_csv_field(field)
-      if @force_quotes || field.to_s.match(SPECIAL_CHARS)
+      if @force_quotes || field.to_s.match(@quote_regex)
         "\"#{field}\""
       else
         field.to_s
