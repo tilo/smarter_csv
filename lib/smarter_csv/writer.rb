@@ -9,6 +9,18 @@ module SmarterCSV
   # Optionally headers can be passed-in via the options,
   # If any new headers are fund in the data, they will be appended to the headers.
   #
+  # col_sep : defaults to , but can be set to any other character
+  # row_sep : defaults to LF \n , but can be set to \r\n or \r or anything else
+  # quote_char : defaults to "
+  # discover_headers : defaults to true
+  # headers : defaults to []
+
+  # IMPORTANT NOTES:
+  #  1) Data hashes could contain strings or symbols as keys.
+  #     Make sure to use the correct form when specifying headers manually,
+  #     in combination with the :discover_headers option
+  #  2)
+
   class Writer
     def initialize(file_path, options = {})
       @options = options
@@ -24,16 +36,16 @@ module SmarterCSV
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
-    def append(array_of_hashes)
-      array_of_hashes.each do |hash|
-        hash_keys = hash.keys
-        new_keys = hash_keys - @headers
-        @headers.concat(new_keys)
-
-        # Reorder the hash to match the current headers order and fill missing fields
-        ordered_row = @headers.map { |header| hash[header] || '' }
-
-        @temp_file.write ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep) + @row_sep
+    def <<(data)
+      case data
+      when Hash
+        process_hash(data)
+      when Array
+        data.each { |item| self << item }
+      when NilClass
+        # ignore
+      else
+        raise ArgumentError, "Invalid data type: #{data.class}. Must be a Hash or an Array."
       end
     end
 
@@ -49,6 +61,17 @@ module SmarterCSV
     end
 
     private
+
+    def process_hash(hash)
+      hash_keys = hash.keys
+      new_keys = hash_keys - @headers
+      @headers.concat(new_keys)
+
+      # Reorder the hash to match the current headers order and fill missing fields
+      ordered_row = @headers.map { |header| hash[header] || '' }
+
+      @temp_file.write ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep) + @row_sep
+    end
 
     def escape_csv_field(field)
       if @force_quotes || field.to_s.match(@quote_regex)
