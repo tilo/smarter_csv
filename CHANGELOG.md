@@ -4,8 +4,9 @@
 ## 1.12.0 (2024-07-04)
   * added SmarterCSV::Reader to process CSV files ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
   
-  * BREAKING CHANGES:
-    - replace `SmarterCSV.process(file_or_input, options, &block)` with: 
+  * POTENTIAL BREAKING CHANGE:
+    
+    This version replaces `SmarterCSV.process(file_or_input, options, &block)` with: 
       ```
         reader = SmarterCSV::Reader.new(file_or_input, options)
 
@@ -17,6 +18,14 @@
            # do something here
         end
       ```
+    There is some backwards-compatibility support for calling `SmarterCSV.process`,
+    but it no longer provides access to the internal state, e.g. raw_headers
+
+    Please update your code to create an instance of `SmarterCSV::Reader`.
+
+      `SmarterCSV.raw_headers` -> `reader.raw_headers`
+      `SmarterCSV.headers` -> `reader.headers`
+      ...
     
 ## 1.11.0 (2024-07-02)
   * added SmarterCSV::Writer to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))

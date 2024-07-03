@@ -15,13 +15,9 @@ When writing CSV data to file, it similarly takes arrays of hashes, and converts
 
 * Version 1.12.0 has BREAKING CHANGES:
 
-    Changed behavior:
-      while old code still works by calling `SmarterCSV.process`, 
-      please transition your code to create an instance of `SmarterCSV::Reader`, and then calling `process` on it.
-  
-      Expect the old behavior to be deprecated in an upcoming release.
-
-      Replace `SmarterCSV.process(file_or_input, options, &block)` with: 
+  POTENTIAL BREAKING CHANGE:
+    
+    This version replaces `SmarterCSV.process(file_or_input, options, &block)` with: 
       ```
         reader = SmarterCSV::Reader.new(file_or_input, options)
 
@@ -32,11 +28,15 @@ When writing CSV data to file, it similarly takes arrays of hashes, and converts
         data = reader.process do 
            # do something here
         end
-      ```      
+      ```
+    There is some backwards-compatibility support for calling `SmarterCSV.process`,
+    but it no longer provides access to the internal state, e.g. raw_headers
+
+    Please update your code to create an instance of `SmarterCSV::Reader`.
 
       `SmarterCSV.raw_headers` -> `reader.raw_headers`
       `SmarterCSV.headers` -> `reader.headers`
-
+      ...
       
 * Version 1.10.0 had BREAKING CHANGES:
 

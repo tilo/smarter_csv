@@ -25,7 +25,7 @@ Metrics/BlockNesting:
 Metrics/ClassLength:
   Enabled: false
 
-Metrics/CyclomaticComplexity: # BS rule
+Metrics/CyclomaticComplexity:
   Enabled: false
 
 Metrics/MethodLength:
@@ -34,7 +34,7 @@ Metrics/MethodLength:
 Metrics/ModuleLength:
   Enabled: false
 
-Metrics/PerceivedComplexity: # BS rule
+Metrics/PerceivedComplexity:
   Enabled: false
 
 Naming/PredicateName:
@@ -92,7 +92,7 @@ Style/IfUnlessModifier:
   Enabled: false
 
 Style/InverseMethods:
-  Enabled: false # stupid rule!
+  Enabled: false
 
 Style/NestedTernaryOperator:
   Enabled: false
