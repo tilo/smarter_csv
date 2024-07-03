@@ -35,7 +35,7 @@ describe 'test exceptions for invalid headers' do
         options = {required_keys: %i[lastname email employee_id firstname manager_email]} # order does not matter
         SmarterCSV.process("#{fixture_path}/user_import.csv", options)
       end.to raise_exception(
-        SmarterCSV::MissingKeys, "ERROR: missing attributes: employee_id. Check `SmarterCSV.headers` for original headers."
+        SmarterCSV::MissingKeys, "ERROR: missing attributes: employee_id. Check `reader.headers` for original headers."
       )
     end
 
