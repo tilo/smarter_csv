@@ -46,6 +46,9 @@ Naming/VariableName:
 Naming/VariableNumber:
   Enabled: false
 
+Style/AccessorGrouping: # not needed
+  Enabled: false
+
 Style/ClassEqualityComparison:
   Enabled: false
 
@@ -87,6 +90,9 @@ Style/IfInsideElse:
 
 Style/IfUnlessModifier:
   Enabled: false
+
+Style/InverseMethods:
+  Enabled: false # stupid rule!
 
 Style/NestedTernaryOperator:
   Enabled: false

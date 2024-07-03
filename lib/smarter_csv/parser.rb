@@ -3,6 +3,7 @@
 module SmarterCSV
   module Parser
     protected
+
     ###
     ### Thin wrapper around C-extension
     ###

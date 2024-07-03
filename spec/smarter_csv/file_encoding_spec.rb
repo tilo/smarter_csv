@@ -59,4 +59,3 @@ RSpec.describe SmarterCSV do
     end
   end
 end
-

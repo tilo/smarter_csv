@@ -25,10 +25,12 @@ RSpec.describe SmarterCSV::Reader do
     end
 
     it "sets options" do
-      reader = SmarterCSV::Reader.new(filename, {
-        col_sep: ";", row_sep: "\r\n", quote_char: "'",
-        accelleration: false,
-      })
+      reader = SmarterCSV::Reader.new(
+        filename, {
+          col_sep: ";", row_sep: "\r\n", quote_char: "'",
+          accelleration: false,
+        }
+      )
       expect(reader.options[:col_sep]).to eq ';'
       expect(reader.options[:row_sep]).to eq "\r\n"
       expect(reader.options[:quote_char]).to eq "'"
