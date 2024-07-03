@@ -54,9 +54,15 @@ end
 # :nocov:
 
 module SmarterCSV
-  # for backwards compatibility only
-  # while this works for most cases, you can't get access to the internal state any longer.
+  # For backwards compatibility only
+  # while `SmarterCSV.process` works for simple cases, you can't get access to the internal state any longer.
   # e.g. you need the instance of the Reader to access the original headers
+  #
+  # Please use this instead:
+  #
+  #   reader = SmarterCSV::Reader.new(input, options)
+  #   reader.process # with or without block
+  #
   def self.process(input, given_options = {}, &block)
     reader = Reader.new(input, given_options)
     reader.process(&block)
