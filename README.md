@@ -13,6 +13,31 @@ When writing CSV data to file, it similarly takes arrays of hashes, and converts
 
 #### BREAKING CHANGES
 
+* Version 1.12.0 has BREAKING CHANGES:
+
+    Changed behavior:
+      while old code still works by calling `SmarterCSV.process`, 
+      please transition your code to create an instance of `SmarterCSV::Reader`, and then calling `process` on it.
+  
+      Expect the old behavior to be deprecated in an upcoming release.
+
+      Replace `SmarterCSV.process(file_or_input, options, &block)` with: 
+      ```
+        reader = SmarterCSV::Reader.new(file_or_input, options)
+
+        # either simple one-liner:
+        data = reader.process
+
+        # or block format:
+        data = reader.process do 
+           # do something here
+        end
+      ```      
+
+      `SmarterCSV.raw_headers` -> `reader.raw_headers`
+      `SmarterCSV.headers` -> `reader.headers`
+
+      
 * Version 1.10.0 had BREAKING CHANGES:
 
     Changed behavior:

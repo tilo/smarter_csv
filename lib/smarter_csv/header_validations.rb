@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module HeaderValidations
     def header_validations(headers, options)
       check_duplicate_headers(headers, options)
       check_required_headers(headers, options)
@@ -26,7 +26,7 @@ module SmarterCSV
         missing_keys = options[:required_keys].select { |k| !headers_set.include?(k) }
 
         unless missing_keys.empty?
-          raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}. Check `SmarterCSV.headers` for original headers."
+          raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}. Check `reader.headers` for original headers."
         end
       end
     end

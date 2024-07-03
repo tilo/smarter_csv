@@ -1,6 +1,23 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.12.0 (2024-07-04)
+  * added SmarterCSV::Reader to process CSV files ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
+  
+  * BREAKING CHANGES:
+    - replace `SmarterCSV.process(file_or_input, options, &block)` with: 
+      ```
+        reader = SmarterCSV::Reader.new(file_or_input, options)
+
+        # either simple one-liner:
+        data = reader.process
+
+        # or block format:
+        data = reader.process do 
+           # do something here
+        end
+      ```
+    
 ## 1.11.0 (2024-07-02)
   * added SmarterCSV::Writer to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))
   

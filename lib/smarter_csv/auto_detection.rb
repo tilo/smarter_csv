@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module AutoDetection
     protected
 
     # If file has headers, then guesses column separator from headers.

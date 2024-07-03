@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module FileIO
     protected
 
     def readline_with_counts(filehandle, options)

@@ -293,6 +293,13 @@ RSpec.describe SmarterCSV::Writer do
   end
 
   context 'Error Handling' do
+    it 'raises an error for invalid input data' do
+      expect do
+        writer = SmarterCSV::Writer.new(file_path)
+        writer << "this is invalid"
+      end.to raise_error SmarterCSV::InvalidInputData
+    end
+
     it 'handles file access issues' do
       allow(File).to receive(:open).and_raise(Errno::EACCES)
 

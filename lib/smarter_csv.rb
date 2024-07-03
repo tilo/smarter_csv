@@ -1,16 +1,19 @@
 # frozen_string_literal: true
 
 require "smarter_csv/version"
+require "smarter_csv/errors"
+
 require "smarter_csv/file_io"
-require "smarter_csv/options_processing"
+require "smarter_csv/options"
 require "smarter_csv/auto_detection"
-require "smarter_csv/variables"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
 require "smarter_csv/hash_transformations"
-require "smarter_csv/parse"
+
+require "smarter_csv/parser"
 require "smarter_csv/writer"
+require "smarter_csv/reader"
 
 # load the C-extension:
 case RUBY_ENGINE
@@ -49,4 +52,13 @@ else
   BLOCK_COMMENT
 end
 # :nocov:
-require "smarter_csv/smarter_csv"
+
+module SmarterCSV
+  # for backwards compatibility only
+  # while this works for most cases, you can't get access to the internal state any longer.
+  # e.g. you need the instance of the Reader to access the original headers
+  def self.process(input, given_options = {}, &block)
+    reader = Reader.new(input, given_options)
+    reader.process(&block)
+  end
+end

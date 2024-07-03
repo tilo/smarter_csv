@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module HashTransformations
     def hash_transformations(hash, options)
       # there may be unmapped keys, or keys purposedly mapped to nil or an empty key..
       # make sure we delete any key/value pairs from the hash, which the user wanted to delete:

@@ -1,16 +1,15 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module Parser
     protected
-
     ###
     ### Thin wrapper around C-extension
     ###
     def parse(line, options, header_size = nil)
       # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
-      if options[:acceleration] && has_acceleration?
+      if options[:acceleration] && has_acceleration
         # :nocov:
         has_quotes = line =~ /#{options[:quote_char]}/
         elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)

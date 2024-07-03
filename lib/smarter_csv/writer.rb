@@ -51,6 +51,7 @@ module SmarterCSV
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
+    # this can be called many times in order to append lines to the csv file
     def <<(data)
       case data
       when Hash
@@ -60,7 +61,7 @@ module SmarterCSV
       when NilClass
         # ignore
       else
-        raise ArgumentError, "Invalid data type: #{data.class}. Must be a Hash or an Array."
+        raise InvalidInputData, "Invalid data type: #{data.class}. Must be a Hash or an Array."
       end
     end
 
