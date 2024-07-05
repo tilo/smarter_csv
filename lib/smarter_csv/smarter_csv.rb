@@ -1,15 +1,6 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class SmarterCSVException < StandardError; end
-  class HeaderSizeMismatch < SmarterCSVException; end
-  class IncorrectOption < SmarterCSVException; end
-  class ValidationError < SmarterCSVException; end
-  class DuplicateHeaders < SmarterCSVException; end
-  class MissingKeys < SmarterCSVException; end # previously known as MissingHeaders
-  class NoColSepDetected < SmarterCSVException; end
-  class KeyMappingError < SmarterCSVException; end
-
   # first parameter: filename or input object which responds to readline method
   def SmarterCSV.process(input, given_options = {}, &block) # rubocop:disable Lint/UnusedMethodArgument
     initialize_variables

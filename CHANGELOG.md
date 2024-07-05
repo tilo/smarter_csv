@@ -1,6 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.11.1 (2024-07-05)
+  * improved behavior of Writer class
+  * added SmarterCSV.generate shortcut for CSV writing
+    
 ## 1.11.0 (2024-07-02)
   * added SmarterCSV::Writer to output CSV files ([issue #44](https://github.com/tilo/smarter_csv/issues/44))
   
