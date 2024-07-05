@@ -67,4 +67,23 @@ module SmarterCSV
     reader = Reader.new(input, given_options)
     reader.process(&block)
   end
+
+  # SmarterCSV.generate(filename, options) do |csv_writer|
+  #   MyModel.find_in_batches(batch_size: 100) do |batch|
+  #    batch.pluck(:name, :description, :instructor).each do |record|
+  #       csv_writer << record
+  #     end
+  #   end
+  # end
+  #
+  # rubocop:disable Lint/UnusedMethodArgument
+  def self.generate(filename, options = {}, &block)
+    raise unless block_given?
+
+    writer = Writer.new(filename, options)
+    yield writer
+  ensure
+    writer.finalize
+  end
+  # rubocop:enable Lint/UnusedMethodArgument
 end

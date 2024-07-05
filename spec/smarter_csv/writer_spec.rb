@@ -90,14 +90,31 @@ RSpec.describe SmarterCSV::Writer do
       expect(output).to include("Alex,,,USA,\n")
     end
 
-    context "when discover_headers is turned off" do
-      let(:options) { {discover_headers: false, headers: [:name, :country]} }
+    context "when headers are given explicitly" do
+      let(:options) { {headers: [:country, :name]} }
 
       it 'writes the given headers and data correctly' do
         create_csv_file
+
         output = File.read(file_path)
 
-        expect(output).to include("name,country\n")
+        expect(output).to include("country,name\n")
+        expect(output).to include(",John\n")
+        expect(output).to include("USA,Jane\n")
+        expect(output).to include(",Mike\n")
+        expect(output).to include("USA,Alex\n")
+      end
+    end
+
+    context "when map_headers is given explicitly" do
+      let(:options) { {map_headers: {name: "Person", country: "Country"}} }
+
+      it 'writes the given headers and data correctly' do
+        create_csv_file
+
+        output = File.read(file_path)
+
+        expect(output).to include("Person,Country\n")
         expect(output).to include("John,\n")
         expect(output).to include("Jane,USA\n")
         expect(output).to include("Mike,\n")
@@ -106,18 +123,18 @@ RSpec.describe SmarterCSV::Writer do
     end
   end
 
-  context 'when headers are given in advance' do
+  context 'when headers are given explicitly' do
     let(:options) { { headers: %i[name age city] } }
 
     it 'writes the given headers and data correctly' do
       create_csv_file
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city,country,state\n")
+      expect(output).to include("name,age,city\n")
       expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,,USA\n")
-      expect(output).to include("Mike,35,Chicago,,IL\n")
-      expect(output).to include("Alex,,,USA,\n")
+      expect(output).to include("Jane,25,\n")
+      expect(output).to include("Mike,35,Chicago\n")
+      expect(output).to include("Alex,,\n")
     end
   end
 
@@ -142,20 +159,22 @@ RSpec.describe SmarterCSV::Writer do
           name: 'Full Name',
           age: 'Age',
           city: 'City',
-          country: 'Country',
           state: 'State',
+          country: 'Country',
         }
       }
     end
 
-    it 'writes the mapped headers and data correctly' do
+    it 'writes the mapped headers and data in the correct order' do
       create_csv_file
+
       output = File.read(file_path)
 
-      expect(output).to include("Full Name,Age,City,Country,State\n")
-      expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,,USA\n")
-      expect(output).to include("Mike,35,Chicago,,IL\n")
+      expect(output).to include("Full Name,Age,City,State,Country\n")
+      expect(output).to include("John,30,New York,,\n")
+      expect(output).to include("Jane,25,,,USA\n")
+      expect(output).to include("Mike,35,Chicago,IL,\n")
+      expect(output).to include("Alex,,,,USA\n")
     end
   end
 
@@ -192,15 +211,6 @@ RSpec.describe SmarterCSV::Writer do
       expect(output).to include("1,2\n")
       expect(output).to include(",,3\n")
       expect(output).to include("5,,,4\n")
-    end
-
-    it 'appends with existing headers' do
-      options = { headers: [:a] }
-      writer = SmarterCSV::Writer.new(file_path, options)
-      writer << [{ a: 1, b: 2 }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("a,b\n1,2\n")
     end
 
     it 'appends with missing fields' do

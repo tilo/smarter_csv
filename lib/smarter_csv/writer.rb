@@ -35,16 +35,28 @@ module SmarterCSV
   #    Make sure to use the correct form when specifying headers manually,
   #    in combination with the :discover_headers option
 
+  attr_reader :options, :row_sep, :col_sep, :quote_char, :force_quotes, :discover_headers, :headers, :map_headers, :output_file
+
   class Writer
     def initialize(file_path, options = {})
       @options = options
-      @discover_headers = options.has_key?(:discover_headers) ? (options[:discover_headers] == true) : true
-      @headers = options[:headers] || []
       @row_sep = options[:row_sep] || "\n" # RFC4180 "\r\n"
       @col_sep = options[:col_sep] || ','
-      @quote_char = '"'
+      @quote_char = options[:quote_char] || '"'
       @force_quotes = options[:force_quotes] == true
+      @discover_headers = true # defaults to true
+      if options.has_key?(:discover_headers)
+        # passing in the option overrides the default behavior
+        @discover_headers = options[:discover_headers] == true
+      else
+        # disable discover_headers when headers are given explicitly
+        @discover_headers = !(options.has_key?(:map_headers) || options.has_key?(:headers))
+      end
+      @headers = [] # start with empty headers
+      @headers = options[:headers] if options.has_key?(:headers) # unless explicitly given
+      @headers = options[:map_headers].keys if options.has_key?(:map_headers) && !options.has_key?(:headers)
       @map_headers = options[:map_headers] || {}
+
       @output_file = File.open(file_path, 'w+')
       # hidden state:
       @temp_file = Tempfile.new('tempfile', '/tmp')
