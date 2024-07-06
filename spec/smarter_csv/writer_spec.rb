@@ -90,6 +90,21 @@ RSpec.describe SmarterCSV::Writer do
       expect(output).to include("Alex,,,USA,\n")
     end
 
+    it 'works with the convenience module method' do
+      SmarterCSV.generate(file_path, options) do |csv|
+        data_batches.each do |data|
+          csv << data
+        end
+      end
+
+      output = File.read(file_path)
+      expect(output).to include("name,age,city,country,state\n")
+      expect(output).to include("John,30,New York\n")
+      expect(output).to include("Jane,25,,USA\n")
+      expect(output).to include("Mike,35,Chicago,,IL\n")
+      expect(output).to include("Alex,,,USA,\n")
+    end
+
     context "when headers are given explicitly" do
       let(:options) { {headers: [:country, :name]} }
 

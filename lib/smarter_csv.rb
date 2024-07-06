@@ -54,7 +54,8 @@ end
 # :nocov:
 
 module SmarterCSV
-  # For backwards compatibility only
+  # For backwards compatibility:
+  #
   # while `SmarterCSV.process` works for simple cases, you can't get access to the internal state any longer.
   # e.g. you need the instance of the Reader to access the original headers
   #
@@ -68,6 +69,8 @@ module SmarterCSV
     reader.process(&block)
   end
 
+  # Convenience method for generating CSV files:
+  #
   # SmarterCSV.generate(filename, options) do |csv_writer|
   #   MyModel.find_in_batches(batch_size: 100) do |batch|
   #    batch.pluck(:name, :description, :instructor).each do |record|
