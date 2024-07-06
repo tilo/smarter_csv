@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["tilo.sloboda@gmail.com"]
 
   spec.summary       = "CSV Reading and Writing"
-  spec.description   = "Ruby Gem for reading and writing: Smarter importing of CSV Files as Array(s) of Hashes, with lots of features for processing large files in parallel, embedded comments, unusual field- and record-separators, flexible mapping of CSV-headers to Hash-keys"
+  spec.description   = "Ruby Gem for convenient reading and writing: importing of CSV Files as Array(s) of Hashes, with lots of features for processing large files in parallel, embedded comments, unusual field- and record-separators, flexible mapping of CSV-headers to Hash-keys"
   spec.homepage      = "https://github.com/tilo/smarter_csv"
   spec.license       = 'MIT'
 

@@ -1,7 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.11.1 (2024-07-05)
+## 1.11.2 (2024-07-05)
+  * fixing missing errors definition
+    
+## 1.11.1 (2024-07-05) (YANKED)
   * improved behavior of Writer class
   * added SmarterCSV.generate shortcut for CSV writing
     
