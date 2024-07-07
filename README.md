@@ -15,8 +15,7 @@
 
 One user wrote:
 
-        *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
-   [...] Smarter CSV was a big part and helped clean up our code ALOT*
+  > *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes. [...] Smarter CSV was a big part and helped clean up our code ALOT*
 
 # Installation
 
@@ -72,24 +71,32 @@ The simplified API works in most cases, but if you need access to the internal s
 
       ```
         reader = SmarterCSV::Reader.new(file_or_input, options)
-
-        # either simple one-liner:
         data = reader.process
 
-        # or block format:
+        puts reader.raw_headers
+      ```
+It cal also be used with a block:
+
+      ```      
+        reader = SmarterCSV::Reader.new(file_or_input, options)
         data = reader.process do 
            # do something here
         end
+
+        puts reader.raw_headers
       ```
 
-This gives you access to the internal state of the `reader` instance.
+This allows you access to the internal state of the `reader` instance after processing.
 
 
 ## Interface for Writing CSV
 
+To generate a CSV file, we use the `<<` operator to append new data to the file.
+
 The input operator for adding data to a CSV file `<<` can handle single hashes, array-of-hashes, or array-of-arrays-of-hashes, and can be called one or multiple times for each file.
 
 One smart feature of writing CSV data is the discovery of headers. 
+
 If you have hashes of data, where each hash can have different keys, the `SmarterCSV::Reader` automatically discovers the superset of keys as the headers of the CSV file. This can be disabled by either providing one of the options `headers`, `map_headers`, or `discover_headers: false`.
 
 
