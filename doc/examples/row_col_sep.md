@@ -5,6 +5,9 @@ SmarterCSV defaults to automatically detecting row and column separators based o
 
 These options can be overridden. 
 
+You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); `nil` or `0` will check the whole file). Of course you can also set the `:row_sep` manually.
+
+
 # Column Separator
 
 The automatic detection of column separators considers: `',', "\t", ';', ':', '|'`.

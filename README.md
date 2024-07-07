@@ -35,14 +35,12 @@ Or install it yourself as:
 
 # API
 
-There is a simplified call for reading and writing, that wraps the underlying 
+Let's explore the APIs for reading and writing CSV files. There is a simplified API (backwards conpatible with previous SmarterCSV versions) and the full API, which allows you to access the internal state of the reader or writer instance after processing.
 
 ## Reading CSV
 
-Convenient default allow automatic detection of the column and row separators: `row_sep: :auto`, `col_sep: :auto`. This makes it easier to process any CSV files without having to examine the line endings or column separators, e.g. when users upload CSV files to your service.
-
-You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); `nil` or `0` will check the whole file). Of course you can also set the `:row_sep` manually.
-
+SmarterCSV has convenient defaults for automatically detecting row and column separators based on the given data. This provides more robust parsing of input files when you have no control over the data, e.g. when users upload CSV files.
+Learn more about this [in this section](docs/examples/row_col_sep.md).
 
 ### Simplified Interface
 
