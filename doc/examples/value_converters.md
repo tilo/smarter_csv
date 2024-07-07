@@ -1,0 +1,43 @@
+
+# Using Value Converters
+
+Value Converters allow you to do custom transformations specific rows, to help you massage the data so it fits the expectations of your down-stream process, such as creating a DB record.
+
+If you use `key_mappings` and `value_converters`, make sure that the value converters references the keys based on the final mapped name, not the original name in the CSV file.
+
+```ruby
+    $ cat spec/fixtures/with_dates.csv
+    first,last,date,price
+    Ben,Miller,10/30/1998,$44.50
+    Tom,Turner,2/1/2011,$15.99
+    Ken,Smith,01/09/2013,$199.99
+
+    $ irb
+    > require 'smarter_csv'
+    > require 'date'
+
+    # define a custom converter class, which implements self.convert(value)
+    class DateConverter
+      def self.convert(value)
+        Date.strptime( value, '%m/%d/%Y') # parses custom date format into Date instance
+      end
+    end
+
+    class DollarConverter
+      def self.convert(value)
+        value.sub('$','').to_f
+      end
+    end
+
+    options = {:value_converters => {:date => DateConverter, :price => DollarConverter}}
+    data = SmarterCSV.process("spec/fixtures/with_dates.csv", options)
+    first_record = data.first
+    first_record[:date]
+      => #<Date: 1998-10-30 ((2451117j,0s,0n),+0s,2299161j)>
+    first_record[:date].class
+      => Date
+    first_record[:price]
+      => 44.50
+    first_record[:price].class
+      => Float
+```
