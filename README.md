@@ -18,6 +18,21 @@ One user wrote:
         *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
    [...] Smarter CSV was a big part and helped clean up our code ALOT*
 
+# Installation
+
+Add this line to your application's Gemfile:
+```ruby
+    gem 'smarter_csv'
+```
+And then execute:
+```ruby
+    $ bundle
+```
+Or install it yourself as:
+```ruby
+    $ gem install smarter_csv
+```
+
 # API
 
 There is a simplified call for reading and writing, that wraps the underlying 
@@ -279,6 +294,7 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 ```
 
 -------------------------------------------------------------------------------------
+CONSTRUCTION  ZONE
 
 #### SmarterCSV 1.x [Current Version]
 
@@ -315,23 +331,10 @@ For processing large CSV files it is essential to process them in chunks, so the
 The two main choices you have in terms of how to call `SmarterCSV.process` are:
  * calling `process` with or without a block
  * passing a `:chunk_size` to the `process` method, and processing the CSV-file in chunks, rather than in one piece.
-
+   
+END OF CONSTRUCTION ZONE
 -------------------------------------------------------------------------------------
 
-# Installation
-
-Add this line to your application's Gemfile:
-```ruby
-    gem 'smarter_csv'
-```
-And then execute:
-```ruby
-    $ bundle
-```
-Or install it yourself as:
-```ruby
-    $ gem install smarter_csv
-```
 # [ChangeLog](./CHANGELOG.md)
 
 # Reporting Bugs / Feature Requests
