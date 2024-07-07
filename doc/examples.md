@@ -1,5 +1,5 @@
 
-### Examples
+# Examples
 
 Here are some examples to demonstrate the versatility of SmarterCSV.
 
@@ -9,7 +9,7 @@ By default SmarterCSV determines the `row_sep` and `col_sep` values automaticall
 
 In rare cases you may have to manually set these values, after going through the troubleshooting procedure described above.
 
-#### Example 1a: How SmarterCSV processes CSV-files as array of hashes:
+## Example 1a: How SmarterCSV processes CSV-files as array of hashes:
 Please note how each hash contains only the keys for columns with non-null values.
 
 ```ruby
@@ -31,7 +31,7 @@ Please note how each hash contains only the keys for columns with non-null value
 ```
 
 
-#### Example 3: Populate a MySQL or MongoDB Database with SmarterCSV:
+## Example 3: Populate a MySQL or MongoDB Database with SmarterCSV:
 ```ruby
     # without using chunks:
     filename = '/tmp/some.csv'
@@ -45,7 +45,7 @@ Please note how each hash contains only the keys for columns with non-null value
      => returns number of chunks / rows we processed
 ```
 
-#### Example 4: Processing a CSV File, and inserting batch jobs in Sidekiq:
+## Example 4: Processing a CSV File, and inserting batch jobs in Sidekiq:
 ```ruby
     filename = '/tmp/input.csv' # CSV file containing ids or data to process
     options = { :chunk_size => 100 }

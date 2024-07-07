@@ -15,7 +15,7 @@
 
 One user wrote:
 
-  *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
+        *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes.
    [...] Smarter CSV was a big part and helped clean up our code ALOT*
 
 # API

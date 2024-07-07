@@ -7,14 +7,14 @@ Besides custom values for `col_sep`, `row_sep`, some other customizations of CSV
 To handle these special cases, please use the following options.
 
 
-# Example 1:
+## Example 1:
 In this example, we use `skip_lines: 3` to skip and ignore the first 3 lines in the input
 
 
 
   
 
-# Example 2: reading an iTunes DB dump
+## Example 2: reading an iTunes DB dump
 
 In this example, we use `comment_regexp` to filter out and ignore any lines starting with `#`
 

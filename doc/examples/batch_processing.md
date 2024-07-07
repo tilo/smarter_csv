@@ -7,7 +7,7 @@ This can come in handy when you don't want to slow-down the CSV import of large 
 Setting the option `chunk_size` sets the max batch size.
 
 
-# Example 1: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
+## Example 1: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
 In case the number of rows is not cleanly divisible by `:chunk_size`, the last chunk contains fewer hashes.
 
@@ -18,7 +18,7 @@ In case the number of rows is not cleanly divisible by `:chunk_size`, the last c
           ]
 ```
 
-# Example 2: How SmarterCSV processes CSV-files as chunks, and passes arrays of hashes to a given block:
+## Example 2: How SmarterCSV processes CSV-files as chunks, and passes arrays of hashes to a given block:
 Please note how the given block is passed the data for each chunk as the parameter (array of hashes),
 and how the `process` method returns the number of chunks when called with a block
 
@@ -36,7 +36,7 @@ and how the `process` method returns the number of chunks when called with a blo
         => 2
 ```
 
-# Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
+## Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
 ```ruby
     # using chunks:
     filename = '/tmp/some.csv'

@@ -17,7 +17,8 @@ The automatic detection of row separators considers: `\n`, `\r\n`, `\r`.
 
 Some CSV files may contain an unusual row separqator, which could even be a control character.
 
-# Example 1: reading an iTunes DB dump
+# Examples
+## Example 1: reading an iTunes DB dump
 
 ```ruby
     # Consider a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
@@ -32,7 +33,7 @@ Some CSV files may contain an unusual row separqator, which could even be a cont
     => returns number of chunks
 ```
 
-# Example 2: Reading a CSV-File with custom col_sep, row_sep
+## Example 2: Reading a CSV-File with custom col_sep, row_sep
 
 ```ruby
     filename = '/tmp/input_file.txt'
