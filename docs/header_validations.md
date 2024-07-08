@@ -1,3 +1,6 @@
+PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Data Transformations](./data_transformations.md)
+----------------
+
 # Header Validations
 
 When you are importing data, it can be important to verify that all required data is present, to ensure consistent quality when importing data.
@@ -17,4 +20,5 @@ If these keys are not present, `SmarterCSV::MissingKeys` will be raised to infor
   => this will raise SmarterCSV::MissingKeys if any row does not contain these three keys
 ```
 
+----------------
 PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Data Transformations](./data_transformations.md)

@@ -1,3 +1,5 @@
+PREVIOUS [README](../README.md) | NEXT: [The Basic API](./basic_api.md)
+---------------
 
 # SmarterCSV Introduction
 
@@ -39,4 +41,5 @@ The CSV processing also needed to be robust against variations in the input data
 * Data Validations
   (planned feature)
 
+---------------
 PREVIOUS [README](../README.md) | NEXT: [The Basic API](./basic_api.md)

@@ -36,6 +36,7 @@ Or install it yourself as:
 
   * [Introduction](docs/_introduction.md)
   * [The Basic API](docs/basic_api.md)
+  * [Batch Processing](./docs/batch_processing.md)
   * [Configuration Options](docs/options.md)
   * [Row and Column Separators](docs/row_col_sep.md)
   * [Header Transformations](docs/header_transformations.md)

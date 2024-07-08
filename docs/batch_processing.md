@@ -1,3 +1,5 @@
+PREVIOUS: [The Basic API](./basic_api.md)  | NEXT: [Configuration Options](./options.md)
+----------------
 
 # Batch Processing
 
@@ -50,4 +52,5 @@ and how the `process` method returns the number of chunks when called with a blo
      => returns number of chunks we processed
 ```
 
-
+----------------
+PREVIOUS: [The Basic API](./basic_api.md)  | NEXT: [Configuration Options](./options.md)

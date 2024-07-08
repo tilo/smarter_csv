@@ -1,3 +1,5 @@
+PREVIOUS: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)
+--------------------
 
 # Using Value Converters
 
@@ -50,4 +52,5 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
       => Float
 ```
 
+--------------------
 PREVIOUS: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)

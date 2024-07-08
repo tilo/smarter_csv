@@ -1,3 +1,5 @@
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Batch Processing](./batch_processing.md)
+----------------
 
 # SmarterCSV API
 
@@ -139,4 +141,5 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
        end
 ```
 
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Configuration Options](./options.md)
+----------------
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Batch Processing](./batch_processing.md)
