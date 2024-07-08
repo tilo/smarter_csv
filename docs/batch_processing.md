@@ -58,7 +58,7 @@ and how the `process` method returns the number of chunks when called with a blo
     n = SmarterCSV.process(filename, options) do |chunk|
           # we're passing a block in, to process each resulting hash / row (block takes array of hashes)
           # when chunking is enabled, there are up to :chunk_size hashes in each chunk
-          MyModel.collection.insert( chunk )   # insert up to 100 records at a time
+          MyModel.insert_all( chunk )   # insert up to 100 records at a time
     end
 
      => returns number of chunks we processed
