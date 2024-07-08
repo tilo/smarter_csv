@@ -1,4 +1,18 @@
 
+### Contents
+
+  * [Introduction](docs/_introduction.md)
+  * [The Basic API](docs/basic_api.md)
+  * [Batch Processing](./docs/batch_processing.md)
+  * [Configuration Options](docs/options.md)
+  * [Row and Column Separators](docs/row_col_sep.md)
+  * [Header Transformations](docs/header_transformations.md)
+  * [Header Validations](docs/header_validations.md)
+  * [Data Transformations](docs/data_transformations.md)
+  * [Value Converters](docs/value_converters.md)
+    
+--------------    
+
 # Header Transformations
 
 By default SmarterCSV assumes that a CSV file has headers, and it automatically normalizes the headers and transforms them into Ruby symbols. You can completely customize or override this (see below).

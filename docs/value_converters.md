@@ -1,4 +1,18 @@
 
+### Contents
+
+  * [Introduction](docs/_introduction.md)
+  * [The Basic API](docs/basic_api.md)
+  * [Batch Processing](./docs/batch_processing.md)
+  * [Configuration Options](docs/options.md)
+  * [Row and Column Separators](docs/row_col_sep.md)
+  * [Header Transformations](docs/header_transformations.md)
+  * [Header Validations](docs/header_validations.md)
+  * [Data Transformations](docs/data_transformations.md)
+  * [Value Converters](docs/value_converters.md)
+    
+--------------    
+
 # Using Value Converters
 
 Value Converters allow you to do custom transformations specific rows, to help you massage the data so it fits the expectations of your down-stream process, such as creating a DB record.
