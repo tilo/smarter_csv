@@ -43,8 +43,6 @@ Or install it yourself as:
   * [Data Transformations](docs/data_transformations.md)
   * [Value Converters](docs/value_converters.md)
     
-  * [Notes](docs/notes.md)  <--- this info needs to be moved to individual pages
-
 # Articles
 * [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
 * [Speeding up CSV parsing with parallel processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing)
