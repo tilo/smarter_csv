@@ -15,8 +15,7 @@
 
 # SmarterCSV Introduction
 
-`smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, parallel processing, kicking-off batch jobs with Sidekiq, or oploading data to S3.
-
+`smarter_csv` is a Ruby Gem for convenient reading and writing of CSV files. It has intelligent defaults, and auto-discovery of column and row separators. It imports CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, kicking-off batch jobs with Sidekiq, parallel processing, or oploading data to S3. Similarly, writing CSV files takes Hashes, or Arrays of Hashes to create a CSV file.
 
 ## Why another CSV library?
 
