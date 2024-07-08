@@ -2,7 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
-  * [The Basic API](./basic_api.md)
+  * [**The Basic API**](./basic_api.md)
   * [Batch Processing](././batch_processing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
@@ -13,7 +13,7 @@
     
 --------------  
 
-# SmarterCSV API
+# SmarterCSV Basic API
 
 Let's explore the basic APIs for reading and writing CSV files. There is a simplified API (backwards conpatible with previous SmarterCSV versions) and the full API, which allows you to access the internal state of the reader or writer instance after processing.
 

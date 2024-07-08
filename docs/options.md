@@ -4,7 +4,7 @@
   * [Introduction](./_introduction.md)
   * [The Basic API](./basic_api.md)
   * [Batch Processing](././batch_processing.md)
-  * [Configuration Options](./options.md)
+  * [**Configuration Options**](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
@@ -13,7 +13,7 @@
     
 --------------   
 
-# SmarterCSV Options
+# Configuration Options
 
 ## CSV Writing
 

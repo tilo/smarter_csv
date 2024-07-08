@@ -1,7 +1,7 @@
 
 ### Contents
 
-  * [Introduction](./_introduction.md)
+  * [**Introduction**](./_introduction.md)
   * [The Basic API](./basic_api.md)
   * [Batch Processing](././batch_processing.md)
   * [Configuration Options](./options.md)

@@ -8,7 +8,7 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
-  * [Data Transformations](./data_transformations.md)
+  * [**Data Transformations**](./data_transformations.md)
   * [Value Converters](./value_converters.md)
     
 --------------    
