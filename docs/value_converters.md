@@ -49,3 +49,5 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
     first_record[:price].class
       => Float
 ```
+
+PREVIOUS: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)

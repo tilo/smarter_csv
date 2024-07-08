@@ -80,3 +80,7 @@ There have been a lot of 1-offs and feature creep around these options, and goin
      |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
      ---------------------------------------------------------------------------------------------------------------------------------
 
+
+PREVIOUS: [The Basic API](./basic_api.md) | NEXT: [Row and Column Separators](./row_col_sep.md)
+
+

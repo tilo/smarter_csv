@@ -138,3 +138,5 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
          data = SmarterCSV.process(f)
        end
 ```
+
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Configuration Options](./options.md)

@@ -30,3 +30,5 @@ It can happen that after all transformations, a row of the CSV file would produc
 By default SmarterCSV uses `remove_empty_hashes: true` to remove these empty hashes from the result.
 
 This can be set to `true`, to keep these empty hashes in the results.
+
+PREVIOUS: [Header Validations](./header_validations.md) | NEXT: [Value Converters](./value_converters.md)

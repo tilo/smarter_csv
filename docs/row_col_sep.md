@@ -85,3 +85,5 @@ In this example, we use `comment_regexp` to filter out and ignore any lines star
     end
     => returns number of chunks
 ```
+
+PREVIOUS: [Configuration Options](./options.md) | NEXT: [Header Transformations](./header_transformations.md)
