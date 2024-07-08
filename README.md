@@ -40,7 +40,7 @@ Or install it yourself as:
   * [Row and Column Separators](docs/row_col_sep.md)
   * [Header Transformations](docs/header_transformations.md)
   * [Header Validations](docs/header_validations.md)
-  * Data Transformations
+  * [Data Transformations](docs/data_transformations.md)
   * [Value Converters](docs/value_converters.md)
     
   * [Notes](docs/notes.md)  <--- this info needs to be moved to individual pages

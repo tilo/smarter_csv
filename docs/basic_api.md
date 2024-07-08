@@ -120,3 +120,21 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 * the escape character is `\`, as on UNIX and Windows systems.
 * quote charcters around fields are balanced, e.g. valid: `"field"`, invalid: `"field\"`
   e.g. an escaped `quote_char` does not denote the end of a field.
+
+
+## NOTES about File Encodings:
+ * if you have a CSV file which contains unicode characters, you can process it as follows:
+
+```ruby
+       File.open(filename, "r:bom|utf-8") do |f|
+         data = SmarterCSV.process(f);
+       end
+```
+* if the CSV file with unicode characters is in a remote location, similarly you need to give the encoding as an option to the `open` call:
+```ruby
+       require 'open-uri'
+       file_location = 'http://your.remote.org/sample.csv'
+       open(file_location, 'r:utf-8') do |f|   # don't forget to specify the UTF-8 encoding!!
+         data = SmarterCSV.process(f)
+       end
+```
