@@ -4,17 +4,16 @@ require "smarter_csv/version"
 require "smarter_csv/errors"
 
 require "smarter_csv/file_io"
-require "smarter_csv/options_processing"
+require "smarter_csv/options"
 require "smarter_csv/auto_detection"
-require "smarter_csv/variables"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
 require "smarter_csv/hash_transformations"
 
-require "smarter_csv/parse"
+require "smarter_csv/parser"
 require "smarter_csv/writer"
-require "smarter_csv/smarter_csv"
+require "smarter_csv/reader"
 
 # load the C-extension:
 case RUBY_ENGINE
@@ -55,6 +54,23 @@ end
 # :nocov:
 
 module SmarterCSV
+  # For backwards compatibility:
+  #
+  # while `SmarterCSV.process` works for simple cases, you can't get access to the internal state any longer.
+  # e.g. you need the instance of the Reader to access the original headers
+  #
+  # Please use this instead:
+  #
+  #   reader = SmarterCSV::Reader.new(input, options)
+  #   reader.process # with or without block
+  #
+  def self.process(input, given_options = {}, &block)
+    reader = Reader.new(input, given_options)
+    reader.process(&block)
+  end
+
+  # Convenience method for generating CSV files:
+  #
   # SmarterCSV.generate(filename, options) do |csv_writer|
   #   MyModel.find_in_batches(batch_size: 100) do |batch|
   #    batch.pluck(:name, :description, :instructor).each do |record|

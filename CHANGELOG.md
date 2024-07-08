@@ -1,6 +1,34 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.12.0 (2024-07-08)
+  * added SmarterCSV::Reader to process CSV files ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
+  * SmarterCSV::Writer changed default row separator to the system's row separator (`\n` on Linux, `\r\n` on Windows)
+  * added a lot of docs 
+  
+  * POTENTIAL ISSUE:
+    
+    Version 1.12.x has a change of the underlying implementation of `SmarterCSV.process(file_or_input, options, &block)`. 
+    Underneath it now uses this interface:
+      ```
+        reader = SmarterCSV::Reader.new(file_or_input, options)
+
+        # either simple one-liner:
+        data = reader.process
+
+        # or block format:
+        data = reader.process do 
+           # do something here
+        end
+      ```
+    It still supports calling `SmarterCSV.process` for backwards-compatibility, but it no longer provides access to the internal state, e.g. raw_headers.
+
+      `SmarterCSV.raw_headers` -> `reader.raw_headers`
+      `SmarterCSV.headers` -> `reader.headers`
+
+    If you need these features, please update your code to create an instance of `SmarterCSV::Reader` as shown above.
+
+
 ## 1.11.2 (2024-07-06)
   * fixing missing errors definition
     

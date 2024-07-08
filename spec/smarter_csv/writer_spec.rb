@@ -8,6 +8,7 @@ RSpec.describe SmarterCSV::Writer do
     writer.finalize
   end
   let(:file_path) { '/tmp/test_output.csv' }
+  let(:row_sep) { $/ } # system's row separator
 
   after(:each) do
     File.delete(file_path) if File.exist?(file_path)
@@ -38,8 +39,8 @@ RSpec.describe SmarterCSV::Writer do
       writer.finalize
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city\n")
-      expect(output).to include("John,30,New York\n")
+      expect(output).to include("name,age,city#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
     end
   end
 
@@ -56,10 +57,10 @@ RSpec.describe SmarterCSV::Writer do
       writer.finalize
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city,country,state\n")
-      expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,,USA\n")
-      expect(output).to include("Mike,35,Chicago,,IL\n")
+      expect(output).to include("name,age,city,country,state#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
+      expect(output).to include("Jane,25,,USA#{row_sep}")
+      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
     end
   end
 
@@ -83,11 +84,26 @@ RSpec.describe SmarterCSV::Writer do
       create_csv_file
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city,country,state\n")
-      expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,,USA\n")
-      expect(output).to include("Mike,35,Chicago,,IL\n")
-      expect(output).to include("Alex,,,USA,\n")
+      expect(output).to include("name,age,city,country,state#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
+      expect(output).to include("Jane,25,,USA#{row_sep}")
+      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+      expect(output).to include("Alex,,,USA,#{row_sep}")
+    end
+
+    it 'works with the convenience module method' do
+      SmarterCSV.generate(file_path, options) do |csv|
+        data_batches.each do |data|
+          csv << data
+        end
+      end
+
+      output = File.read(file_path)
+      expect(output).to include("name,age,city,country,state#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
+      expect(output).to include("Jane,25,,USA#{row_sep}")
+      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+      expect(output).to include("Alex,,,USA,#{row_sep}")
     end
 
     context "when headers are given explicitly" do
@@ -98,11 +114,11 @@ RSpec.describe SmarterCSV::Writer do
 
         output = File.read(file_path)
 
-        expect(output).to include("country,name\n")
-        expect(output).to include(",John\n")
-        expect(output).to include("USA,Jane\n")
-        expect(output).to include(",Mike\n")
-        expect(output).to include("USA,Alex\n")
+        expect(output).to include("country,name#{row_sep}")
+        expect(output).to include(",John#{row_sep}")
+        expect(output).to include("USA,Jane#{row_sep}")
+        expect(output).to include(",Mike#{row_sep}")
+        expect(output).to include("USA,Alex#{row_sep}")
       end
     end
 
@@ -114,11 +130,11 @@ RSpec.describe SmarterCSV::Writer do
 
         output = File.read(file_path)
 
-        expect(output).to include("Person,Country\n")
-        expect(output).to include("John,\n")
-        expect(output).to include("Jane,USA\n")
-        expect(output).to include("Mike,\n")
-        expect(output).to include("Alex,USA\n")
+        expect(output).to include("Person,Country#{row_sep}")
+        expect(output).to include("John,#{row_sep}")
+        expect(output).to include("Jane,USA#{row_sep}")
+        expect(output).to include("Mike,#{row_sep}")
+        expect(output).to include("Alex,USA#{row_sep}")
       end
     end
   end
@@ -130,11 +146,11 @@ RSpec.describe SmarterCSV::Writer do
       create_csv_file
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city\n")
-      expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,\n")
-      expect(output).to include("Mike,35,Chicago\n")
-      expect(output).to include("Alex,,\n")
+      expect(output).to include("name,age,city#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
+      expect(output).to include("Jane,25,#{row_sep}")
+      expect(output).to include("Mike,35,Chicago#{row_sep}")
+      expect(output).to include("Alex,,#{row_sep}")
     end
   end
 
@@ -145,10 +161,10 @@ RSpec.describe SmarterCSV::Writer do
       create_csv_file
       output = File.read(file_path)
 
-      expect(output).to include("name,age,city,country,state\n")
-      expect(output).to include("John,30,New York\n")
-      expect(output).to include("Jane,25,,USA\n")
-      expect(output).to include("Mike,35,Chicago,,IL\n")
+      expect(output).to include("name,age,city,country,state#{row_sep}")
+      expect(output).to include("John,30,New York#{row_sep}")
+      expect(output).to include("Jane,25,,USA#{row_sep}")
+      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
     end
   end
 
@@ -170,11 +186,11 @@ RSpec.describe SmarterCSV::Writer do
 
       output = File.read(file_path)
 
-      expect(output).to include("Full Name,Age,City,State,Country\n")
-      expect(output).to include("John,30,New York,,\n")
-      expect(output).to include("Jane,25,,,USA\n")
-      expect(output).to include("Mike,35,Chicago,IL,\n")
-      expect(output).to include("Alex,,,,USA\n")
+      expect(output).to include("Full Name,Age,City,State,Country#{row_sep}")
+      expect(output).to include("John,30,New York,,#{row_sep}")
+      expect(output).to include("Jane,25,,,USA#{row_sep}")
+      expect(output).to include("Mike,35,Chicago,IL,#{row_sep}")
+      expect(output).to include("Alex,,,,USA#{row_sep}")
     end
   end
 
@@ -207,10 +223,10 @@ RSpec.describe SmarterCSV::Writer do
       writer.finalize
       output = File.read(file_path)
 
-      expect(output).to include("a,b,c,d\n")
-      expect(output).to include("1,2\n")
-      expect(output).to include(",,3\n")
-      expect(output).to include("5,,,4\n")
+      expect(output).to include("a,b,c,d#{row_sep}")
+      expect(output).to include("1,2#{row_sep}")
+      expect(output).to include(",,3#{row_sep}")
+      expect(output).to include("5,,,4#{row_sep}")
     end
 
     it 'appends with missing fields' do
@@ -218,7 +234,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 1, b: 2 }, { a: 3 }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\n1,2\n3,\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}1,2#{row_sep}3,#{row_sep}")
     end
   end
 
@@ -229,7 +245,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 1, b: 2 }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("A,B\n1,2\n")
+      expect(File.read(file_path)).to eq("A,B#{row_sep}1,2#{row_sep}")
     end
 
     it 'writes header and appends content to output file' do
@@ -237,7 +253,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 1, b: 2 }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\n1,2\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}1,2#{row_sep}")
     end
 
     it 'properly closes the output file' do
@@ -255,7 +271,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 'hello', b: 'world' }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\nhello,world\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}hello,world#{row_sep}")
     end
 
     it 'quotes fields with column separator' do
@@ -263,7 +279,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 'hello, world', b: 'test' }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\n\"hello, world\",test\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello, world\",test#{row_sep}")
     end
 
     it 'quotes all fields when force_quotes is enabled' do
@@ -272,7 +288,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 'hello', b: 'world' }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\n\"hello\",\"world\"\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello\",\"world\"#{row_sep}")
     end
   end
 
@@ -282,7 +298,7 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{}]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("\n\n")
+      expect(File.read(file_path)).to eq("#{row_sep}#{row_sep}")
     end
 
     it 'handles empty array' do
@@ -290,15 +306,15 @@ RSpec.describe SmarterCSV::Writer do
       writer << []
       writer.finalize
 
-      expect(File.read(file_path)).to eq("\n")
+      expect(File.read(file_path)).to eq("#{row_sep}")
     end
 
     it 'handles special characters in data' do
       writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: "hello\nworld", b: 'quote"test' }]
+      writer << [{ a: "hello#{row_sep}world", b: 'quote"test' }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b\n\"hello\nworld\",\"quote\"test\"\n")
+      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello#{row_sep}world\",\"quote\"test\"#{row_sep}")
     end
   end
 

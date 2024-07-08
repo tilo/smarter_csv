@@ -3,25 +3,34 @@
 fixture_path = 'spec/fixtures'
 
 describe 'header transformations option' do
-  it 'loads_file_with_dashes_in_header_fields as strings' do
-    options = {strings_as_keys: true}
-    data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
-    expect(data.flatten.size).to eq 5
-    expect(data[0]['first_name']).to eq 'Dan'
-    expect(data[0]['last_name']).to eq 'McAllister'
+  let(:reader) { SmarterCSV::Reader.new(filename, options) }
+  let(:filename) { "#{fixture_path}/with_dashes.csv" }
 
-    expect(SmarterCSV.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
-    expect(SmarterCSV.headers).to eq %w[first_name last_name dogs cats birds fish]
+  context "with strings as keys" do
+    let(:options) { {strings_as_keys: true} }
+
+    it 'loads_file_with_dashes_in_header_fields as strings' do
+      data = reader.process
+      expect(data.flatten.size).to eq 5
+      expect(data[0]['first_name']).to eq 'Dan'
+      expect(data[0]['last_name']).to eq 'McAllister'
+
+      expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
+      expect(reader.headers).to eq %w[first_name last_name dogs cats birds fish]
+    end
   end
 
-  it 'loads_file_with_dashes_in_header_fields as symbols' do
-    options = {strings_as_keys: false}
-    data = SmarterCSV.process("#{fixture_path}/with_dashes.csv", options)
-    expect(data.flatten.size).to eq 5
-    expect(data[0][:first_name]).to eq 'Dan'
-    expect(data[0][:last_name]).to eq 'McAllister'
+  context "with symbols as keys" do
+    let(:options) { {strings_as_keys: false} }
 
-    expect(SmarterCSV.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
-    expect(SmarterCSV.headers).to eq %i[first_name last_name dogs cats birds fish]
+    it 'loads_file_with_dashes_in_header_fields as symbols' do
+      data = reader.process
+      expect(data.flatten.size).to eq 5
+      expect(data[0][:first_name]).to eq 'Dan'
+      expect(data[0][:last_name]).to eq 'McAllister'
+
+      expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
+      expect(reader.headers).to eq %i[first_name last_name dogs cats birds fish]
+    end
   end
 end

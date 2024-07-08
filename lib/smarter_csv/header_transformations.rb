@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module HeaderTransformations
     # transform the headers that were in the file:
     def header_transformations(header_array, options)
       header_array.map!{|x| x.gsub(%r/#{options[:quote_char]}/, '')}

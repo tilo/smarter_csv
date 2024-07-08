@@ -87,9 +87,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 }
 
 VALUE SmarterCSV = Qnil;
+VALUE Parser = Qnil;
 
 void Init_smarter_csv(void) {
-  VALUE SmarterCSV = rb_define_module("SmarterCSV");
+  SmarterCSV = rb_define_module("SmarterCSV");
+  Parser = rb_define_module_under(SmarterCSV, "Parser");
 
-  rb_define_module_function(SmarterCSV, "parse_csv_line_c", rb_parse_csv_line, 4);
+  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 4);
 }

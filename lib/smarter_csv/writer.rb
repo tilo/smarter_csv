@@ -40,7 +40,8 @@ module SmarterCSV
   class Writer
     def initialize(file_path, options = {})
       @options = options
-      @row_sep = options[:row_sep] || "\n" # RFC4180 "\r\n"
+
+      @row_sep = options[:row_sep] || $/ # Defaults to system's row separator. RFC4180 "\r\n"
       @col_sep = options[:col_sep] || ','
       @quote_char = options[:quote_char] || '"'
       @force_quotes = options[:force_quotes] == true

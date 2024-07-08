@@ -10,12 +10,14 @@ fixture_path = 'spec/fixtures'
       # works only when testing locally
       unless ENV['CI']
         it 'compiles the acceleration' do
-          expect(SmarterCSV.has_acceleration?).to eq true
+          reader = SmarterCSV::Reader.new('something')
+          expect(reader.has_acceleration).to eq true
         end
       end
 
       it 'loads emoji CSV file' do
-        data = SmarterCSV.process("#{fixture_path}/emoji.csv", options)
+        reader = SmarterCSV::Reader.new("#{fixture_path}/emoji.csv", options)
+        data = reader.process
         expect(data.size).to eq 3
 
         data.each do |h|

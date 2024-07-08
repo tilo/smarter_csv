@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class << self
+  module Headers
     def process_headers(filehandle, options)
       @raw_header = nil # header as it appears in the file
       @headers = nil # the processed headers

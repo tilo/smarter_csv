@@ -5,14 +5,15 @@ fixture_path = 'spec/fixtures'
 [true, false].each do |bool|
   describe "handling files with escaped quote chars with#{bool ? ' C-' : 'out '}acceleration" do
     let(:options) { { acceleration: bool } }
-
-    subject(:data) { SmarterCSV.process(file, options) }
+    let(:reader) { SmarterCSV::Reader.new(file, options) }
 
     describe ".count_quote_chars" do
+      let(:file) { 'something' }
+
       it "handles escaped characters and regular characters" do
-        expect(SmarterCSV.count_quote_chars("\"No\" \"Escaping\"", "\"")).to eq 4
-        expect(SmarterCSV.count_quote_chars("\"D\\\"Angelos\"", "\"")).to eq 2
-        expect(SmarterCSV.count_quote_chars("\!D\\\!Angelos\!", "\!")).to eq 2
+        expect(reader.count_quote_chars("\"No\" \"Escaping\"", "\"")).to eq 4
+        expect(reader.count_quote_chars("\"D\\\"Angelos\"", "\"")).to eq 2
+        expect(reader.count_quote_chars("\!D\\\!Angelos\!", "\!")).to eq 2
       end
     end
 
@@ -20,6 +21,8 @@ fixture_path = 'spec/fixtures'
       let(:file) { "#{fixture_path}/escaped_quote_char.csv" }
 
       it 'loads the csv file without issues' do
+        data = reader.process
+
         expect(data[0]).to eq(
           content: 'Some content',
           escapedname: "D\\\"Angelos",
@@ -41,6 +44,8 @@ fixture_path = 'spec/fixtures'
       end
 
       it 'loads the csv file without issues' do
+        data = reader.process
+
         expect(data[0]).to eq(
           content: 'Some content',
           escapedname: "D\\\!Angelos",
@@ -59,6 +64,8 @@ fixture_path = 'spec/fixtures'
       let(:file) { "#{fixture_path}/escaped_quote_char_3.csv" }
 
       it 'loads the csv file without issues' do
+        data = reader.process
+
         expect(data[0]).to eq(
           content: '\\"Some content\\"',
           escapedname: "D\\\"Angelos",
@@ -80,6 +87,8 @@ fixture_path = 'spec/fixtures'
       end
 
       it 'loads the csv file without issues' do
+        data = reader.process
+
         expect(data[0]).to eq(
           content: "\\'Some content\\'",
           escapedname: "D\\\'Angelos",
