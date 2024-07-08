@@ -1,4 +1,18 @@
 
+### Contents
+
+  * [Introduction](docs/_introduction.md)
+  * [The Basic API](docs/basic_api.md)
+  * [Batch Processing](./docs/batch_processing.md)
+  * [Configuration Options](docs/options.md)
+  * [Row and Column Separators](docs/row_col_sep.md)
+  * [Header Transformations](docs/header_transformations.md)
+  * [Header Validations](docs/header_validations.md)
+  * [Data Transformations](docs/data_transformations.md)
+  * [Value Converters](docs/value_converters.md)
+    
+--------------    
+
 # SmarterCSV Introduction
 
 `smarter_csv` is a Ruby Gem for smarter importing of CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, parallel processing, kicking-off batch jobs with Sidekiq, or oploading data to S3.
