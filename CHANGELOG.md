@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.12.0 (2024-07-08)
+## 1.12.0.pre1 (2024-07-08)
   * added SmarterCSV::Reader to process CSV files ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
   * SmarterCSV::Writer changed default row separator to the system's row separator (`\n` on Linux, `\r\n` on Windows)
   * added a lot of docs 
