@@ -25,7 +25,15 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
 
     class DollarConverter
       def self.convert(value)
-        value.sub('$','').to_f
+        value.sub('$','').to_f # strips the dollar sign and creates a Float value
+      end
+    end
+
+    require 'money'
+    class MoneyConverter
+      def self.convert(value)
+        # depending on locale you might want to also remove the indicator for thousands, e.g. comma 
+        Money.from_amount(value.gsub(/[\s\$]/,'').to_f) # creates a Money instance (based on cents)
       end
     end
 
