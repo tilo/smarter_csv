@@ -1,5 +1,3 @@
-PREVIOUS: [Configuration Options](./options.md) | NEXT: [Header Transformations](./header_transformations.md)
-----------------
 
 # Row and Column Separators
 

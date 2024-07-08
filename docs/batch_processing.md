@@ -1,5 +1,3 @@
-PREVIOUS: [The Basic API](./basic_api.md)  | NEXT: [Configuration Options](./options.md)
-----------------
 
 # Batch Processing
 

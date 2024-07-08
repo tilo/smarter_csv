@@ -1,5 +1,3 @@
-PREVIOUS: [Header Validations](./header_validations.md) | NEXT: [Value Converters](./value_converters.md)
--------------------
 
 # Data Transformations
 

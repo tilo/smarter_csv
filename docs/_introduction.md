@@ -1,5 +1,3 @@
-PREVIOUS [README](../README.md) | NEXT: [The Basic API](./basic_api.md)
----------------
 
 # SmarterCSV Introduction
 

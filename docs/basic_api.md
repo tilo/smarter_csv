@@ -1,5 +1,3 @@
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Batch Processing](./batch_processing.md)
-----------------
 
 # SmarterCSV API
 

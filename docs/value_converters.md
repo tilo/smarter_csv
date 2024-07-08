@@ -1,5 +1,3 @@
-PREVIOUS: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)
---------------------
 
 # Using Value Converters
 

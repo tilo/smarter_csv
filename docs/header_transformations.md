@@ -1,5 +1,3 @@
-PREVIOUS: [Row and Column Separators](./row_col_sep.md) | NEXT: [Header Validations](./header_validations.md) 
----------------
 
 # Header Transformations
 

@@ -1,5 +1,3 @@
-PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Data Transformations](./data_transformations.md)
-----------------
 
 # Header Validations
 

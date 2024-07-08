@@ -1,5 +1,3 @@
-PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md)
--------------
 
 # SmarterCSV Options
 
