@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.12.1 (2024-07-10)
+  * Improved column separator detection by ignoring quoted sections [#276](https://github.com/tilo/smarter_csv/pull/276)
+
 ## 1.12.0 (2024-07-09)
   * Added Thread-Safety: added SmarterCSV::Reader to process CSV files in a thread-safe manner ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
   * SmarterCSV::Writer changed default row separator to the system's row separator (`\n` on Linux, `\r\n` on Windows)
