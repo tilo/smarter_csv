@@ -90,8 +90,8 @@ describe 'can handle col_sep' do
       it 'does not detect separators that are between quotes' do
         data = SmarterCSV.process("#{fixture_path}/separator_chars_between_quotes.csv", options)
 
-
         expect(data.first.keys.size).to eq 5
+        expect(data.first[:"first,_last"]).to eq "John, Doe"
         expect(data.size).to eq 3
       end
 
@@ -159,10 +159,11 @@ describe 'can handle col_sep' do
       it 'does not detect separators that are between quotes' do
         data = SmarterCSV.process(
           "#{fixture_path}/separator_chars_between_quotes_no_headers.csv",
-          options.merge(user_provided_headers: %w[Name Age Job Department Project])
+          options.merge(headers_in_file: false, user_provided_headers: %w[Name Age Job Department Project])
         )
 
         expect(data.first.keys.size).to eq 5
+        expect(data.first["Name"]).to eq "John, Doe"
         expect(data.size).to eq 3
       end
 
