@@ -87,6 +87,14 @@ describe 'can handle col_sep' do
         end.to raise_exception SmarterCSV::NoColSepDetected
       end
 
+      it 'does not detect separators that are between quotes' do
+        data = SmarterCSV.process("#{fixture_path}/separator_chars_between_quotes.csv", options)
+
+
+        expect(data.first.keys.size).to eq 5
+        expect(data.size).to eq 3
+      end
+
       context 'when auto is given as a string' do
         let(:options) do
           {
@@ -146,6 +154,16 @@ describe 'can handle col_sep' do
         expect do
           SmarterCSV.process("#{fixture_path}/binary_no_headers.csv", options)
         end.to raise_exception SmarterCSV::NoColSepDetected
+      end
+
+      it 'does not detect separators that are between quotes' do
+        data = SmarterCSV.process(
+          "#{fixture_path}/separator_chars_between_quotes_no_headers.csv",
+          options.merge(user_provided_headers: %w[Name Age Job Department Project])
+        )
+
+        expect(data.first.keys.size).to eq 5
+        expect(data.size).to eq 3
       end
 
       context 'when auto is given as a string' do
