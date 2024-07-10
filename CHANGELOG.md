@@ -1,10 +1,10 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.12.0.pre1 (2024-07-08)
-  * Thread-Safety: added SmarterCSV::Reader to process CSV files in a thread-safe manner ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
+## 1.12.0 (2024-07-09)
+  * Added Thread-Safety: added SmarterCSV::Reader to process CSV files in a thread-safe manner ([issue #277](https://github.com/tilo/smarter_csv/pull/277))
   * SmarterCSV::Writer changed default row separator to the system's row separator (`\n` on Linux, `\r\n` on Windows)
-  * added a lot of docs 
+  * added a doc tree
   
   * POTENTIAL ISSUE:
     
