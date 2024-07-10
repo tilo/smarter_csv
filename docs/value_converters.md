@@ -21,10 +21,10 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
 
 ```ruby
     $ cat spec/fixtures/with_dates.csv
-    first,last,date,price
-    Ben,Miller,10/30/1998,$44.50
-    Tom,Turner,2/1/2011,$15.99
-    Ken,Smith,01/09/2013,$199.99
+    first,last,date,price,member
+    Ben,Miller,10/30/1998,$44.50,TRUE
+    Tom,Turner,2/1/2011,$15.99,False
+    Ken,Smith,01/09/2013,$199.99,true
 
     $ irb
     > require 'smarter_csv'
@@ -51,7 +51,20 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
       end
     end
 
-    options = {:value_converters => {:date => DateConverter, :price => DollarConverter}}
+    class BooleanConverter
+      def self.convert(value)
+        case value
+        when /true/i
+          true
+        when /false/i
+          false
+        else
+          nil
+        end
+      end
+    end
+
+    options = {value_converters: {date: DateConverter, price: DollarConverter, member: BooleanConverter}}
     data = SmarterCSV.process("spec/fixtures/with_dates.csv", options)
     first_record = data.first
     first_record[:date]
@@ -62,6 +75,8 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
       => 44.50
     first_record[:price].class
       => Float
+    first_record[:member]
+      => true
 ```
 
 --------------------

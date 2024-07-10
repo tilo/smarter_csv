@@ -15,6 +15,19 @@ class CurrencyConverter
   end
 end
 
+class BooleanConverter
+  def self.convert(value)
+    case value
+    when /true/i
+      true
+    when /false/i
+      false
+    else
+      nil
+    end
+  end
+end
+
 describe ':value_converters option' do
   it 'convert date values into Date instances' do
     options = {value_converters: {date: DateConverter}}
@@ -48,5 +61,13 @@ describe ':value_converters option' do
     expect(data[0][:price]).to eq 44.50
     expect(data[1][:price]).to eq 15.0
     expect(data[2][:price]).to eq 0.11
+  end
+
+  it 'converts boolean values into true/false' do
+    options = {value_converters: {member: BooleanConverter}}
+    data = SmarterCSV.process("#{fixture_path}/with_dates.csv", options)
+    expect(data.flatten.size).to eq 3
+    expect(data[0][:member]).to eq true
+    expect(data[1][:member]).to eq false
   end
 end
