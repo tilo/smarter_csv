@@ -11,6 +11,8 @@
 
 /*
    max_size: pass nil if no limit is specified
+
+   WE ARE NO LONGER PASSING IN max_size
  */
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size) {
   if (RB_TYPE_P(line, T_NIL) == 1) {

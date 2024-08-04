@@ -7,6 +7,8 @@ module SmarterCSV
     ###
     ### Thin wrapper around C-extension
     ###
+    ### NOTE: we are no longer passing-in header_size
+    ###
     def parse(line, options, header_size = nil)
       # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
 
@@ -31,17 +33,18 @@ module SmarterCSV
     # - we are not assuming that quotes inside a fields need to be doubled
     # - we are not assuming that all fields need to be quoted (0 is even)
     # - works with multi-char col_sep
-    # - if header_size is given, only up to header_size fields are parsed
     #
-    # We use header_size for parsing the body lines to make sure we always match the number of headers
-    # in case there are trailing col_sep characters in line
+    # NOTE: we are no longer passing-in header_size
+    #
+    # - if header_size was given, only up to header_size fields are parsed
+    #
+    #     We used header_size for parsing the body lines to make sure we always match the number of headers
+    #     in case there are trailing col_sep characters in line
+    #
+    #     the purpose of the max_size parameter was to handle a corner case where
+    #     CSV lines contain more fields than the header. In which case the remaining fields in the line were ignored
     #
     # Our convention is that empty fields are returned as empty strings, not as nil.
-    #
-    #
-    # the purpose of the max_size parameter is to handle a corner case where
-    # CSV lines contain more fields than the header.
-    # In which case the remaining fields in the line are ignored
     #
     def parse_csv_line_ruby(line, options, header_size = nil)
       return [] if line.nil?

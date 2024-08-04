@@ -62,7 +62,8 @@ module SmarterCSV
 
         skip_lines(fh, options)
 
-        @headers, header_size = process_headers(fh, options)
+        # NOTE: we are no longer using header_size
+        @headers, _header_size = process_headers(fh, options)
         @headerA = @headers # @headerA is deprecated, use @headers
 
         puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
@@ -116,7 +117,18 @@ module SmarterCSV
           line.chomp!(options[:row_sep])
 
           # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
-          dataA, _data_size = parse(line, options, header_size)
+          dataA, data_size = parse(line, options) # we parse the extra columns
+
+          if options[:strict]
+            raise SmarterCSV::MalformedCSV, "extra columns detected on line #{@file_line_count}"
+          else
+            # we create additional columns on-the-fly
+            current_size = @headers.size
+            while current_size < data_size
+              @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
+              current_size += 1
+            end
+          end
 
           dataA.map!{|x| x.strip} if options[:strip_whitespace]
 

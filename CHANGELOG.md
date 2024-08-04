@@ -1,6 +1,31 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.13.0 T.B.D
+  CHANGED DEFAULT BEHAVIOR
+  The changes are to improve robustness and to reduce the risk of data loss
+
+  * improved handling of extra columns in input data ([issue 284](https://github.com/tilo/smarter_csv/issues/284)) (thanks to James Fenley)
+   
+    * previous behavior:
+      when a CSV row had more columns than listed in the header, the additional columns were ignored
+
+    * new behavior:
+      * new default behavior is to auto-generate additional headers, e.g. :column_7, :column_8, etc
+      * you can set option `:strict` to true in order to get a `SmarterCSV::MalformedCSV` exception instead
+
+  * setting `user_provided_headers` now implies `headers_in_file: false` ([issue 282](https://github.com/tilo/smarter_csv/issues/282))
+    When headers are provided manually, there could be no headers in the file, and the user could lose the first row of data.
+    It is a safer default behavior to get one record with nonsense data (in case there were headers in the file), rather than losing a row.
+
+    * previous behavior:
+      setting `user_provided_headers` did not change the default `headers_in_file: true`
+
+    * new behavior:
+      setting `user_provided_headers` sets`headers_in_file: false`
+
+
+
 ## 1.12.1 (2024-07-10)
   * Improved column separator detection by ignoring quoted sections [#276](https://github.com/tilo/smarter_csv/pull/276) (thanks to Nicolas Castellanos)
 
