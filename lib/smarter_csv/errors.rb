@@ -11,6 +11,7 @@ module SmarterCSV
   class MissingKeys < SmarterCSVException; end # previously known as MissingHeaders
   class NoColSepDetected < SmarterCSVException; end
   class KeyMappingError < SmarterCSVException; end
+  class MalformedCSV < SmarterCSVException; end
   # Writer:
   class InvalidInputData < SmarterCSVException; end
 end

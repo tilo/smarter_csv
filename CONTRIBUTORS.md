@@ -54,3 +54,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Kenton Hirowatari](https://github.com/hirowatari)
  * [Daniel Pepper](https://github.com/dpep)
  * [Nicolas Castellanos](https://github.com/nicastelo)
+ * [James Fenley](https://github.com/rex-remind101)

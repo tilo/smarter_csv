@@ -61,6 +61,8 @@
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs or all empty values  |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
+     | :missing_header_prefix      |  column_ | can be set to a string of your liking                                                |
+     | :strict                     |   false  | When set to `true`, extra columns will raise MalformedCSV exception                  |
      ---------------------------------------------------------------------------------------------------------------------------------
 
 Additional 1.x Options which may be replaced in 2.0

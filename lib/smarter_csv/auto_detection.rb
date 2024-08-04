@@ -13,14 +13,13 @@ module SmarterCSV
       delimiters = [',', "\t", ';', ':', '|']
 
       line = nil
+      escaped_quote = Regexp.escape(options[:quote_char])
       has_header = options[:headers_in_file]
       candidates = Hash.new(0)
       count = has_header ? 1 : 5
       count.times do
         line = readline_with_counts(filehandle, options)
         delimiters.each do |d|
-          escaped_quote = Regexp.escape(options[:quote_char])
-
           # Count only non-quoted occurrences of the delimiter
           non_quoted_text = line.split(/#{escaped_quote}[^#{escaped_quote}]*#{escaped_quote}/).join
 
