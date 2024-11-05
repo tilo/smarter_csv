@@ -1,5 +1,5 @@
-First Name,Last Name,Reference, Wealth
-Dan,McAllister,0123,3.5
+First Name,Last Name,Reference, Wealth, Zip Code
+Dan,McAllister,0123,3.5,93456
 ,,,
-Miles,O'Brian,2345,3
-Nancy,Homes,2345,01
+Miles,O'Brian,2345,3,00223
+Nancy,Homes,2345,01,02343

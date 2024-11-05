@@ -62,7 +62,8 @@ module SmarterCSV
 
         skip_lines(fh, options)
 
-        @headers, header_size = process_headers(fh, options)
+        # NOTE: we are no longer using header_size
+        @headers, _header_size = process_headers(fh, options)
         @headerA = @headers # @headerA is deprecated, use @headers
 
         puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
@@ -97,14 +98,23 @@ module SmarterCSV
           multiline = count_quote_chars(line, options[:quote_char]).odd?
 
           while multiline
-            next_line = fh.readline(options[:row_sep])
-            next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
-            line += next_line
-            @file_line_count += 1
+            begin
+              next_line = fh.readline(options[:row_sep])
+              next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
+              line += next_line
+              @file_line_count += 1
 
-            break if fh.eof? # Exit loop if end of file is reached
-
-            multiline = count_quote_chars(line, options[:quote_char]).odd?
+              multiline = count_quote_chars(line, options[:quote_char]).odd?
+            rescue EOFError
+              # End of file reached. Check if quotes are balanced.
+              total_quotes = count_quote_chars(line, options[:quote_char])
+              if total_quotes.odd?
+                raise MalformedCSV, "Unclosed quoted field detected in multiline data"
+              else
+                # Quotes are balanced; proceed without raising an error.
+                break
+              end
+            end
           end
 
           # :nocov:
@@ -116,7 +126,18 @@ module SmarterCSV
           line.chomp!(options[:row_sep])
 
           # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
-          dataA, _data_size = parse(line, options, header_size)
+          dataA, data_size = parse(line, options) # we parse the extra columns
+
+          if options[:strict]
+            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
+          else
+            # we create additional columns on-the-fly
+            current_size = @headers.size
+            while current_size < data_size
+              @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
+              current_size += 1
+            end
+          end
 
           dataA.map!{|x| x.strip} if options[:strip_whitespace]
 

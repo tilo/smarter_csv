@@ -1,6 +1,45 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.13.0 (2024-11-06) ⚡ POTENTIALLY BREAKING ⚡
+  
+  CHANGED DEFAULT BEHAVIOR
+  ========================
+  The changes are to improve robustness and to reduce the risk of data loss
+
+  * implementing auto-detection of extra columns (thanks to James Fenley)
+
+  * improved handling of unbalanced quote_char in input ([issue 288](https://github.com/tilo/smarter_csv/issues/288)) thanks to Simon Rentzke), and ([issue 283](https://github.com/tilo/smarter_csv/issues/283)) thanks to James Fenley, Randall B, Matthew Kennedy)
+    -> SmarterCSV will now raise `SmarterCSV::MalformedCSV` for unbalanced quote_char.
+
+  * bugfix / improved handling of extra columns in input data ([issue 284](https://github.com/tilo/smarter_csv/issues/284)) (thanks to James Fenley)
+   
+    * previous behavior:
+      when a CSV row had more columns than listed in the header, the additional columns were ignored
+
+    * new behavior:
+      * new default behavior is to auto-generate additional headers, e.g. :column_7, :column_8, etc
+      * you can set option `:strict` to true in order to get a `SmarterCSV::MalformedCSV` exception instead
+
+  * setting `user_provided_headers` now implies `headers_in_file: false` ([issue 282](https://github.com/tilo/smarter_csv/issues/282))
+    
+    The option `user_provided_headers` can be used to specify headers when there are none in the input, OR to completely override headers that are in the input (file).
+
+    SmarterCSV is now using a safer default behavior.
+
+    * previous behavior:
+      Setting `user_provided_headers` did not change the default `headers_in_file: true`
+      If the input had no headers, this would cause the first line to be erroneously treated as a header, and the user could lose the first row of data.
+
+    * new behavior:
+      Setting `user_provided_headers` sets`headers_in_file: false`
+      a) Improved behavior if there was no header in the input data.
+      b) If there was a header in the input data, and `user_provided_headers` is used to override the headers in the file, then please explicitly specify `headers_in_file: true`, otherwise you will get an extra hash which includes the header data.
+
+    IF you set `user_provided_headers` and the file has a header, then provide `headers_in_file: true` to avoid getting that extra record.
+
+   * handling of numeric columns with leading zeroes, e.g. ZIP codes. ([issue #151](https://github.com/tilo/smarter_csv/issues/151) thanks to David Moles). `convert_values_to_numeric: { except: [:zip] }` will now return a string for that column instead.
+
 ## 1.12.1 (2024-07-10)
   * Improved column separator detection by ignoring quoted sections [#276](https://github.com/tilo/smarter_csv/pull/276) (thanks to Nicolas Castellanos)
 

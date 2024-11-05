@@ -41,7 +41,7 @@
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :col_sep                    |   :auto   | column separator (default was ',')                                           |
+     | :col_sep                    |   :auto   | column separator (default was ',')                                                  |
      | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
      |                             |          | e.g. when :quote_char is not properly escaped                                        |
      | :row_sep                    |  :auto   | row separator or record separator (previous default was system's $/ , which defaulted to "\n") |
@@ -49,9 +49,10 @@
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :headers_in_file            |   true   | Whether or not the file contains headers as the first line.                          |
-     |                             |          | Important if the file does not contain headers,                                      |
-     |                             |          | otherwise you would lose the first line of data.                                     |
+     | :headers_in_file            |  true(1) | Whether or not the file contains headers as the first line.                          |
+     |                             |          | (1): if `user_provided_headers` is given, the default is `false`,                    |
+     |                             |          | unless you specify it to be explicitly `true`.                                       |
+     |                             |          | This prevents losing the first line of data, which is otherwise assumed to be a header. |
      | :duplicate_header_suffix    |   ''     | Adds numbers to duplicated headers and separates them by the given suffix.           |
      |                             |          | Set this to nil to raise `DuplicateHeaders` error instead (previous behavior)        |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
@@ -61,6 +62,8 @@
      | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs or all empty values  |
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
+     | :missing_header_prefix      |  column_ | can be set to a string of your liking                                                |
+     | :strict                     |   false  | When set to `true`, extra columns will raise MalformedCSV exception                  |
      ---------------------------------------------------------------------------------------------------------------------------------
 
 Additional 1.x Options which may be replaced in 2.0
@@ -71,11 +74,11 @@ There have been a lot of 1-offs and feature creep around these options, and goin
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
-     | :silence_missing_keys        |   false  | ignore missing keys in `key_mapping`                                   |
-     |                             |          | if set to true: makes all mapped keys optional                         |
+     | :silence_missing_keys        |   false  | ignore missing keys in `key_mapping`                                                |
+     |                             |          | if set to true: makes all mapped keys optional                                       |
      |                             |          | if given an array, makes only the keys listed in it optional                         |
-     | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                  |
-     | :required_headers           |   nil    | (DEPRECATED / renamed) Use `required_keys` instead                          |
+     | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                    |
+     | :required_headers           |   nil    | (DEPRECATED / renamed) Use `required_keys` instead                                   |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
      | :downcase_header            |   true   | downcase all column headers                                                          |

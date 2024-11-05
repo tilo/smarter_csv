@@ -12,7 +12,7 @@ describe 'duplicate headers' do
 
     it 'raises error when user_provided_headers with duplicates are given' do
       expect do
-        options = {user_provided_headers: %i[a b c d a]}
+        options = {user_provided_headers: %i[a b c d a], headers_in_file: false}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
       end.to raise_exception(SmarterCSV::DuplicateHeaders)
     end
@@ -49,7 +49,7 @@ describe 'duplicate headers' do
       end
 
       it 'raises when duplicate headers are given' do
-        options.merge!({user_provided_headers: %i[a b c a a]})
+        options.merge!({user_provided_headers: %i[a b c a a], headers_in_file: false})
         expect do
           SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         end.to raise_exception(SmarterCSV::DuplicateHeaders)
@@ -76,7 +76,7 @@ describe 'duplicate headers' do
       end
 
       it 'raises when duplicate headers are given' do
-        options.merge!({user_provided_headers: %i[a b c a a]})
+        options.merge!({user_provided_headers: %i[a b c a a], headers_in_file: false})
         expect do
           SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
         end.to raise_exception(SmarterCSV::DuplicateHeaders)
