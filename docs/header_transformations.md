@@ -64,6 +64,8 @@ If you want to have an underscore between the header and the number, you can set
    => [{:first_name=>"Carl", :middle_name=>"Edward", :last_name=>"Sagan"}]
 ```
 
+If you set `duplicate_header_suffix: nil`, you get the same behavior as earlier versions, which raised the `SmarterCSV::DuplicateHeaders` error.
+
 ## Key Mapping
 
 The above example already illustrates how intermediate keys can be mapped into something different.

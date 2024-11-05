@@ -18,7 +18,7 @@ describe 'CSV file with more columns that shown in header' do
         end
 
         it "raises an exception" do
-          expect{reader.process}.to raise_exception SmarterCSV::MalformedCSV, "extra columns detected on line 2"
+          expect{reader.process}.to raise_exception SmarterCSV::HeaderSizeMismatch, "extra columns detected on line 2"
         end
       end
 

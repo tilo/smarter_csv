@@ -9,11 +9,10 @@
   #define true  ((bool)1)
 #endif
 
-/*
-   max_size: pass nil if no limit is specified
+VALUE SmarterCSV = Qnil;
+VALUE eMalformedCSVError = Qnil;
+VALUE Parser = Qnil;
 
-   WE ARE NO LONGER PASSING IN max_size
- */
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
@@ -26,7 +25,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   rb_encoding *encoding = rb_enc_get(line); /* get the encoding from the input line */
   char *startP = RSTRING_PTR(line); /* may not be null terminated */
   long line_len = RSTRING_LEN(line);
-  char *endP = startP + line_len ; /* points behind the string */
+  char *endP = startP + line_len; /* points behind the string */
   char *p = startP;
 
   char *col_sepP = RSTRING_PTR(col_sep);
@@ -41,18 +40,19 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   VALUE field;
   long i;
 
-  char prev_char = '\0'; // Store the previous character for comparison against an escape character
-  long backslash_count = 0; // to count consecutive backslash characters
+  /* Variables for escaped quote handling */
+  long backslash_count = 0;
+  bool in_quotes = false;
 
   while (p < endP) {
     /* does the remaining string start with col_sep ? */
     col_sep_found = true;
-    for(i=0; (i < col_sep_len) && (p+i < endP) ; i++) {
+    for(i=0; (i < col_sep_len) && (p+i < endP); i++) {
       col_sep_found = col_sep_found && (*(p+i) == *(col_sepP+i));
     }
-    /* if col_sep was found and we have even quotes */
-    if (col_sep_found && (quote_count % 2 == 0)) {
-      /* if max_size != nil && lements.size >= header_size */
+    /* if col_sep was found and we're not inside quotes */
+    if (col_sep_found && !in_quotes) {
+      /* if max_size != nil && elements.size >= header_size */
       if ((max_size != Qnil) && RARRAY_LEN(elements) >= NUM2INT(max_size)) {
         break;
       } else {
@@ -62,21 +62,29 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 
         p += col_sep_len;
         startP = p;
+        backslash_count = 0; // Reset backslash count at the start of a new field
       }
     } else {
       if (*p == '\\') {
         backslash_count++;
       } else {
-        if (*p == *quoteP && (backslash_count % 2 == 0)) {
-          quote_count++;
+        if (*p == *quoteP) {
+          if (backslash_count % 2 == 0) {
+            /* Even number of backslashes means quote is not escaped */
+            in_quotes = !in_quotes;
+          }
+          /* Else, quote is escaped; do nothing */
         }
-        backslash_count = 0; // no more consecutive backslash characters
+        backslash_count = 0; // Reset after any character other than backslash
       }
       p++;
     }
-
-    prev_char = *(p - 1); // Update the previous character
   } /* while */
+
+  /* Check for unclosed quotes at the end of the line */
+  if (in_quotes) {
+    rb_raise(eMalformedCSVError, "Unclosed quoted field detected in line: %s", StringValueCStr(line));
+  }
 
   /* check if the last part of the line needs to be processed */
   if ((max_size == Qnil) || RARRAY_LEN(elements) < NUM2INT(max_size)) {
@@ -88,12 +96,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   return elements;
 }
 
-VALUE SmarterCSV = Qnil;
-VALUE Parser = Qnil;
-
 void Init_smarter_csv(void) {
-  SmarterCSV = rb_define_module("SmarterCSV");
-  Parser = rb_define_module_under(SmarterCSV, "Parser");
+  // these modules and the error class are already defined in Ruby code, make them accessible:
+  SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
+  Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
+  eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
 
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 4);
 }

@@ -45,48 +45,71 @@ module SmarterCSV
     #     CSV lines contain more fields than the header. In which case the remaining fields in the line were ignored
     #
     # Our convention is that empty fields are returned as empty strings, not as nil.
-    #
+
     def parse_csv_line_ruby(line, options, header_size = nil)
-      return [] if line.nil?
+      return [[], 0] if line.nil?
 
       line_size = line.size
       col_sep = options[:col_sep]
       col_sep_size = col_sep.size
       quote = options[:quote_char]
-      quote_count = 0
       elements = []
       start = 0
       i = 0
 
-      previous_char = ''
+      backslash_count = 0
+      in_quotes = false
+
       while i < line_size
-        if line[i...i+col_sep_size] == col_sep && quote_count.even?
+        # Check if the current position matches the column separator and we're not inside quotes
+        if line[i...i+col_sep_size] == col_sep && !in_quotes
           break if !header_size.nil? && elements.size >= header_size
 
           elements << cleanup_quotes(line[start...i], quote)
-          previous_char = line[i]
-          i += col_sep.size
+          i += col_sep_size
           start = i
+          backslash_count = 0 # Reset backslash count at the start of a new field
         else
-          quote_count += 1 if line[i] == quote && previous_char != '\\'
-          previous_char = line[i]
+          if line[i] == '\\'
+            backslash_count += 1
+          else
+            if line[i] == quote
+              if backslash_count % 2 == 0
+                # Even number of backslashes means quote is not escaped
+                in_quotes = !in_quotes
+              end
+              # Else, quote is escaped; do nothing
+            end
+            backslash_count = 0 # Reset after any character other than backslash
+          end
           i += 1
         end
       end
-      elements << cleanup_quotes(line[start..-1], quote) if header_size.nil? || elements.size < header_size
+
+      # Check for unclosed quotes at the end of the line
+      if in_quotes
+        raise MalformedCSV, "Unclosed quoted field detected in line: #{line}"
+      end
+
+      # Process the remaining field
+      if header_size.nil? || elements.size < header_size
+        elements << cleanup_quotes(line[start..-1], quote)
+      end
+
       [elements, elements.size]
     end
 
     def cleanup_quotes(field, quote)
       return field if field.nil?
 
-      # return if field !~ /#{quote}/ # this check can probably eliminated
-
+      # Remove surrounding quotes if present
       if field.start_with?(quote) && field.end_with?(quote)
-        field.delete_prefix!(quote)
-        field.delete_suffix!(quote)
+        field = field[1..-2]
       end
-      field.gsub!("#{quote}#{quote}", quote)
+
+      # Replace double quotes with a single quote
+      field.gsub!("#{quote * 2}", quote)
+
       field
     end
   end

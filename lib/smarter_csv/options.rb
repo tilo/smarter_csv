@@ -52,6 +52,18 @@ module SmarterCSV
     def process_options(given_options = {})
       puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
 
+      # Special case for :user_provided_headers:
+      #
+      # If we would use the default `headers_in_file: true`, and `:user_provided_headers` are given,
+      # we could lose the first data row
+      #
+      # We now err on the side of treating an actual header as data, rather than losing a data row.
+      #
+      if given_options[:user_provided_headers] && !given_options.keys.include?(:headers_in_file)
+        given_options[:headers_in_file] = false
+        puts "WARNING: setting `headers_in_file: false` as a precaution to not lose the first row. Set explicitly to `true` if you have headers."
+      end
+
       @options = DEFAULT_OPTIONS.dup.merge!(given_options)
 
       # fix invalid input

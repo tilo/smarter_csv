@@ -33,6 +33,8 @@ Here is an example of using `convert_values_to_numeric` for numbers with leading
    => [{:zip=>"00480"}, {:zip=>"51903"}, {:zip=>"12354"}, {:zip=>"02343"}]
 ```   
 
+This will return the column `:zip` as a string with all digits intact.
+
 ## Remove Zero Values
 `remove_zero_values` is disabled by default.
 When enabled, it removes key/value pairs which have a numeric value equal to zero.
