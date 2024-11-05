@@ -7,7 +7,9 @@
   ========================
   The changes are to improve robustness and to reduce the risk of data loss
 
-  * improved handling of unbalanced quote_char in input ([issue 288](https://github.com/tilo/smarter_csv/issues/288)) thanks to Simon Rentzke), and ([issue 283](https://github.com/tilo/smarter_csv/issues/283)) thanks to  James Fenley, Randall B, Matthew Kennedy)
+  * implementing auto-detection of extra columns (thanks to James Fenley)
+
+  * improved handling of unbalanced quote_char in input ([issue 288](https://github.com/tilo/smarter_csv/issues/288)) thanks to Simon Rentzke), and ([issue 283](https://github.com/tilo/smarter_csv/issues/283)) thanks to James Fenley, Randall B, Matthew Kennedy)
     -> SmarterCSV will now raise `SmarterCSV::MalformedCSV` for unbalanced quote_char.
 
   * bugfix / improved handling of extra columns in input data ([issue 284](https://github.com/tilo/smarter_csv/issues/284)) (thanks to James Fenley)
