@@ -81,8 +81,8 @@ There is an additional option `remove_unmapped_keys` which can be enabled to onl
 
 ## CSV Files without Headers
 
-If you have CSV files without headers, it is important to set `headers_in_file: false`, otherwise you'll lose the first data line in your file.
-You then have to provide `user_provided_headers`, which takes an array of either symbols or strings.
+If you have CSV files without headers, it is important to set `headers_in_file: false`, otherwise you'll lose the first data line in your file. 
+You then have to provide `user_provided_headers`, which takes an array of either symbols or strings. Versions >1.13 now automatically set `headers_in_file: false` if you provide `user_provided_headers`. Also see next paragraph.
 
 
 ## CSV Files with Headers
@@ -93,6 +93,7 @@ For CSV files with headers, you can either:
 * map one or more headers into whatever you chose using the `map_headers` option.
   (if you map a header to `nil`, it will remove that column from the resulting row hash).
 * completely replace the headers using `user_provided_headers` (please be careful with this powerful option, as it is not robust against changes in input format).
+  When you use `user_provided_headers`, versions >1.13 will set `headers_in_file: false` -- so if you replace the headers for a file that has headers, you must set `headers_in_file: true` to override this and ignore the header row.
 * use the original unmodified headers from the CSV file, using `keep_original_headers`. This results in hash keys that are strings, and may be padded with spaces.
 
 
@@ -104,7 +105,7 @@ For CSV files with headers, you can either:
  * any occurences of :comment_regexp or :row_sep will be stripped from the first line with the CSV header
  * any of the keys in the header line will be downcased, spaces replaced by underscore, and converted to Ruby symbols before being used as keys in the returned Hashes
  * you can not combine the :user_provided_headers and :key_mapping options
- * if the incorrect number of headers are provided via :user_provided_headers, exception SmarterCSV::HeaderSizeMismatch is raised
+ * if the incorrect number of headers are provided via :user_provided_headers, versions >1.13 will automatically add column names `column_N` for additional unexpected columns. If you want to raise an error instead, add option `strict: true`, and it will raise `SmarterCSV::HeaderSizeMismatch`.
 
 ### NOTES on improper quotation and unwanted characters in headers:
  * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, use the `:force_simple_split => true` option in combination with `:strip_chars_from_headers => /[\-"]/` . This will also significantly speed up the import.
