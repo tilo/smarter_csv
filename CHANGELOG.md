@@ -38,7 +38,7 @@
 
     IF you set `user_provided_headers` and the file has a header, then provide `headers_in_file: true` to avoid getting that extra record.
 
-   * handling of numeric columns with leading zeroes, e.g. ZIP codes. ([issue #151](https://github.com/tilo/smarter_csv/issues/151) thanks to David Moles). `convert_values_to_numeric: { except: [:zip] }` will now return a string for that column instead.
+   * improved documentation for handling of numeric columns with leading zeroes, e.g. ZIP codes. ([issue #151](https://github.com/tilo/smarter_csv/issues/151) thanks to David Moles). `convert_values_to_numeric: { except: [:zip] }` will  return a string for that column instead (since version 1.10.x)
 
 ## 1.12.1 (2024-07-10)
   * Improved column separator detection by ignoring quoted sections [#276](https://github.com/tilo/smarter_csv/pull/276) (thanks to Nicolas Castellanos)
