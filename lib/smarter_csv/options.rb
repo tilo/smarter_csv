@@ -20,7 +20,6 @@ module SmarterCSV
       downcase_header: true,
       duplicate_header_suffix: '', # was: nil,
       file_encoding: 'utf-8',
-      force_simple_split: false,
       force_utf8: false,
       headers_in_file: true,
       invalid_byte_sequence: '',

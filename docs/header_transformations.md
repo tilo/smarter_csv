@@ -108,8 +108,7 @@ For CSV files with headers, you can either:
  * if the incorrect number of headers are provided via :user_provided_headers, versions >1.13 will automatically add column names `column_N` for additional unexpected columns. If you want to raise an error instead, add option `strict: true`, and it will raise `SmarterCSV::HeaderSizeMismatch`.
 
 ### NOTES on improper quotation and unwanted characters in headers:
- * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, use the `:force_simple_split => true` option in combination with `:strip_chars_from_headers => /[\-"]/` . This will also significantly speed up the import.
-   If you would force a different :quote_char instead (setting it to a non-used character), then the import would be up to 5-times slower than using `:force_simple_split`.
+ * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, set the `quote_char` to something different, e.g. `quote_char: "%"`, or try setting `:strip_chars_from_headers => /[\-"]/` 
 
 ---------------
 PREVIOUS: [Row and Column Separators](./row_col_sep.md) | NEXT: [Header Validations](./header_validations.md) 

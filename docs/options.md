@@ -41,9 +41,7 @@
      | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
      | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :col_sep                    |   :auto   | column separator (default was ',')                                                  |
-     | :force_simple_split         |   false  | force simple splitting on :col_sep character for non-standard CSV-files.             |
-     |                             |          | e.g. when :quote_char is not properly escaped                                        |
+     | :col_sep                    |  :auto   | column separator (default was ',')                                                   |
      | :row_sep                    |  :auto   | row separator or record separator (previous default was system's $/ , which defaulted to "\n") |
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
