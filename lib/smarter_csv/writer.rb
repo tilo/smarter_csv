@@ -81,6 +81,7 @@ module SmarterCSV
     def finalize
       # Map headers if :map_headers option is provided
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
+      mapped_headers = mapped_headers.map{|x| escape_csv_field(x)} if @force_quotes
 
       @temp_file.rewind
       @output_file.write(mapped_headers.join(@col_sep) + @row_sep)

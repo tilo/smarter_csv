@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.13.1 (2024-12-12)
+  * fix bug with SmarterCSV.generate with `force_quotes: true` ([issue 294](https://github.com/tilo/smarter_csv/issues/294))
+
 ## 1.13.0 (2024-11-06) ⚡ POTENTIALLY BREAKING ⚡
   
   CHANGED DEFAULT BEHAVIOR

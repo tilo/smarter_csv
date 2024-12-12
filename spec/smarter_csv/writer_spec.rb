@@ -288,7 +288,24 @@ RSpec.describe SmarterCSV::Writer do
       writer << [{ a: 'hello', b: 'world' }]
       writer.finalize
 
-      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello\",\"world\"#{row_sep}")
+      expect(File.read(file_path)).to eq("\"a\",\"b\"#{row_sep}\"hello\",\"world\"#{row_sep}")
+    end
+
+    context 'force_quotes also applies to headers' do
+      let(:options) { {force_quotes: true} }
+      let(:data) do
+        { name: 'John', age: 30, city: 'New York' }
+      end
+
+      it 'writes the given headers and data correctly' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+        expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
+      end
     end
   end
 
