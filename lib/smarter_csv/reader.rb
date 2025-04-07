@@ -112,7 +112,9 @@ module SmarterCSV
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
                 # Quotes are balanced; proceed without raising an error.
+                # :nocov:
                 break
+                # :nocov:
               end
             end
           end

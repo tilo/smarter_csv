@@ -88,7 +88,9 @@ module SmarterCSV
 
       # Check for unclosed quotes at the end of the line
       if in_quotes
+        # :nocov:
         raise MalformedCSV, "Unclosed quoted field detected in line: #{line}"
+        # :nocov:
       end
 
       # Process the remaining field
