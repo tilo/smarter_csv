@@ -31,7 +31,7 @@
      | :discover_headers           |   true    | Automatically detects all keys in the input before writing the header |
      |                             |           | Do not manually set this to `false`. ⚠️                         |
      |                             |           | But you can set this to `true` when using `map_headers` option. |
-     | :disable_auto_quoting       |  false    | To manually disable auto-quoting of special characters. Be careful with this! ⚠️ |
+     | :disable_auto_quoting       |  false    | To manually disable auto-quoting of special characters. ⚠️ Be careful with this! |
 
 
 ## CSV Reading
