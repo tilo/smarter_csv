@@ -123,9 +123,9 @@ RSpec.describe SmarterCSV::Writer do
     end
 
     context "when map_headers is given explicitly" do
-      let(:options) { {map_headers: {name: "Person", country: "Country"}} }
+      let(:options) { {map_headers: { name: "Person", country: "Country"} } }
 
-      it 'writes the given headers and data correctly' do
+      it 'writes the given headers and data correctly and does not auto-discover headers' do
         create_csv_file
 
         output = File.read(file_path)
@@ -135,6 +135,27 @@ RSpec.describe SmarterCSV::Writer do
         expect(output).to include("Jane,USA#{row_sep}")
         expect(output).to include("Mike,#{row_sep}")
         expect(output).to include("Alex,USA#{row_sep}")
+      end
+    end
+
+    context "when map_headers is given explicitly" do
+      let(:options) do
+        {
+          map_headers: { name: "Person", country: "Country" },
+          discover_headers: true # still auto-discover other headers
+        }
+      end
+
+      it 'writes the given headers and data correctly and auto-discovers all headers' do
+        create_csv_file
+
+        output = File.read(file_path)
+
+        expect(output).to include("Person,Country,age,city,state#{row_sep}")
+        expect(output).to include("John,,30,New York#{row_sep}")
+        expect(output).to include("Jane,USA,25,#{row_sep}")
+        expect(output).to include("Mike,,35,Chicago,IL#{row_sep}")
+        expect(output).to include("Alex,USA,,,#{row_sep}")
       end
     end
   end
@@ -194,169 +215,177 @@ RSpec.describe SmarterCSV::Writer do
     end
   end
 
-  context 'Initialization with Default Options' do
-    it 'initializes with default options' do
-      writer = SmarterCSV::Writer.new(file_path)
-      expect(writer.instance_variable_get(:@discover_headers)).to be true
-      expect(writer.instance_variable_get(:@headers)).to eq([])
-      expect(writer.instance_variable_get(:@col_sep)).to eq(',')
-    end
-  end
-
-  context 'Initialization with Custom Options' do
-    it 'initializes with custom options' do
-      options = { discover_headers: false, headers: ['a', 'b'], col_sep: ';', force_quotes: true, map_headers: { 'a' => 'A' } }
-      writer = SmarterCSV::Writer.new(file_path, options)
-      expect(writer.instance_variable_get(:@discover_headers)).to be false
-      expect(writer.instance_variable_get(:@headers)).to eq(['a', 'b'])
-      expect(writer.instance_variable_get(:@col_sep)).to eq(';')
-      expect(writer.instance_variable_get(:@force_quotes)).to be true
-      expect(writer.instance_variable_get(:@map_headers)).to eq({ 'a' => 'A' })
-    end
-  end
-
-  context 'Appending Data' do
-    it 'appends multiple hashes over multiple calls' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 1, b: 2 }, {c: 3}]
-      writer << [{ d: 4, a: 5 }]
-      writer.finalize
-      output = File.read(file_path)
-
-      expect(output).to include("a,b,c,d#{row_sep}")
-      expect(output).to include("1,2#{row_sep}")
-      expect(output).to include(",,3#{row_sep}")
-      expect(output).to include("5,,,4#{row_sep}")
-    end
-
-    it 'appends with missing fields' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 1, b: 2 }, { a: 3 }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("a,b#{row_sep}1,2#{row_sep}3,#{row_sep}")
-    end
-  end
-
-  context 'Finalizing the Output File' do
-    it 'maps headers' do
-      options = { map_headers: { a: 'A', b: 'B' } }
-      writer = SmarterCSV::Writer.new(file_path, options)
-      writer << [{ a: 1, b: 2 }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("A,B#{row_sep}1,2#{row_sep}")
-    end
-
-    it 'writes header and appends content to output file' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 1, b: 2 }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("a,b#{row_sep}1,2#{row_sep}")
-    end
-
-    it 'properly closes the output file' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 1, b: 2 }]
-      writer.finalize
-
-      expect(File).to be_exist(file_path)
-    end
-  end
-
-  context 'CSV Field Escaping' do
-    it 'does not quote fields without commas unless force_quotes is enabled' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 'hello', b: 'world' }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("a,b#{row_sep}hello,world#{row_sep}")
-    end
-
-    it 'quotes fields with column separator' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: 'hello, world', b: 'test' }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello, world\",test#{row_sep}")
-    end
-
-    it 'quotes all fields when force_quotes is enabled' do
-      options = { force_quotes: true }
-      writer = SmarterCSV::Writer.new(file_path, options)
-      writer << [{ a: 'hello', b: 'world' }]
-      writer.finalize
-
-      expect(File.read(file_path)).to eq("\"a\",\"b\"#{row_sep}\"hello\",\"world\"#{row_sep}")
-    end
-
-    context 'force_quotes also applies to headers' do
-      let(:options) { {force_quotes: true} }
-      let(:data) do
-        { name: 'John', age: 30, city: 'New York' }
+  context 'when automatic header discovery is disabled' do
+    context 'when we give explicit list of headers' do
+      let(:options) do
+        {
+          headers: [:name, :city, :state] # giving an explicit headers list will disable header discovery
+        }
       end
 
-      it 'writes the given headers and data correctly' do
-        writer = SmarterCSV::Writer.new(file_path, options)
-        writer << data
-        writer.finalize
+      it 'limits the CSV file to only the given headers' do
+        create_csv_file
+
         output = File.read(file_path)
 
-        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
-        expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
+        expect(output).to include("name,city,state#{row_sep}")
+        expect(output).to include("John,New York,#{row_sep}")
+        expect(output).to include("Jane,,#{row_sep}")
+        expect(output).to include("Mike,Chicago,IL#{row_sep}")
+        expect(output).to include("Alex,,#{row_sep}")
+      end
+    end
+
+    context 'when we explicitly disable header discovery' do
+      let(:options) do
+        { discover_headers: false } # THIS SHOULD NOT BE USED LIKE THIS!!
+      end
+
+      it 'limits the CSV file to only the given headers' do
+        create_csv_file
+
+        output = File.read(file_path)
+        expect(output).to eq "\n\n\n\n\n" # THIS SHOULD NOT BE USED LIKE THIS!!
       end
     end
   end
 
-  context 'Edge Cases' do
-    it 'handles empty hash' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{}]
-      writer.finalize
+  context 'when quoted CSV fields' do
+    describe 'when quote_char' do
+      let(:options) { {} }
+      let(:data_batches) do
+        [
+          { name: 'John', age: 30, city: 'New "York' },
+        ]
+      end
 
-      expect(File.read(file_path)).to eq("#{row_sep}#{row_sep}")
+      it 'auto-escapes quote_char' do
+        create_csv_file
+
+        output = File.read(file_path)
+        expect(output).to include("name,age,city#{row_sep}")
+        expect(output).to include('John,30,"New ""York"')
+      end
     end
 
-    it 'handles empty array' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << []
-      writer.finalize
 
-      expect(File.read(file_path)).to eq("#{row_sep}")
+    describe 'when special_char row_sep' do
+      let(:options) { {} }
+      let(:data_batches) do
+        [
+          { name: 'John', age: 30, city: "New \nYork" },
+        ]
+      end
+
+      it 'auto-escapes row_sep' do
+        create_csv_file
+
+        output = File.read(file_path)
+        expect(output).to include("name,age,city#{row_sep}")
+        expect(output).to match(/John,30,"New \nYork"/)
+      end
     end
 
-    it 'handles special characters in data' do
-      writer = SmarterCSV::Writer.new(file_path)
-      writer << [{ a: "hello#{row_sep}world", b: 'quote"test' }]
-      writer.finalize
+    describe 'when comma' do
+      let(:options) { {} }
+      let(:data_batches) do
+        [
+          { name: 'John', age: 30, city: "New York, New York" },
+        ]
+      end
 
-      expect(File.read(file_path)).to eq("a,b#{row_sep}\"hello#{row_sep}world\",\"quote\"test\"#{row_sep}")
+      it 'auto-escapes comma' do
+        create_csv_file
+
+        output = File.read(file_path)
+        expect(output).to include("name,age,city#{row_sep}")
+        expect(output).to match(/John,30,"New York, New York"/)
+      end
     end
   end
 
-  context 'Error Handling' do
-    it 'raises an error for invalid input data' do
-      expect do
-        writer = SmarterCSV::Writer.new(file_path)
-        writer << "this is invalid"
-      end.to raise_error SmarterCSV::InvalidInputData
+  context 'Value Converters' do
+    let(:options) do
+      {
+        value_converters: {
+          active: ->(v) { v ? 'YES' : 'NO' },
+        }
+      }
     end
 
-    it 'handles file access issues' do
-      allow(File).to receive(:open).and_raise(Errno::EACCES)
+    it 'applies value converters to matching keys' do
+      writer = SmarterCSV::Writer.new(file_path, options)
+      writer << { name: 'Alice', age: 42, active: true, balance: 234.235 }
+      writer.finalize
 
-      expect do
-        SmarterCSV::Writer.new(file_path)
-      end.to raise_error(Errno::EACCES)
+      output = File.read(file_path)
+      expect(output).to include("name,age,active,balance#{row_sep}")
+      expect(output).to include("Alice,42,YES,234.235#{row_sep}")
     end
 
-    it 'handles tempfile issues' do
-      allow(Tempfile).to receive(:new).and_raise(Errno::ENOENT)
+    describe 'when doing advanced mapping' do
+      let(:options) do
+        {
+          disable_auto_quoting: true, # ⚠️ Important: turn off auto-quoting because we're messing with it below
+          value_converters: {
+            active: ->(v) { v ? '✅' : '❌' },
+            balance: ->(v) do
+              case v
+              when Float
+                '$%.2f' % v.round(2)
+              when Integer
+                "$#{v}"
+              else
+                v.to_s
+              end
+            end,
+            _all: ->(k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
+          }
+        }
+      end
+      it 'applies all mappings in the correct order' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << { name: 'Alice', age: 42, active: true, balance: 234.235 }
+        writer << { name: 'Joe', age: 53, active: false, balance: 32100 }
+        writer.finalize
 
-      expect do
-        SmarterCSV::Writer.new(file_path)
-      end.to raise_error(Errno::ENOENT)
+        output = File.read(file_path)
+        expect(output).to include("name,age,active,balance#{row_sep}")
+        expect(output).to include("\"Alice\",42,\"✅\",\"$234.24\"#{row_sep}")
+        expect(output).to include("\"Joe\",53,\"❌\",\"$32100\"#{row_sep}")
+      end
+    end
+
+    it 'uses default serialization for fields without a converter' do
+      partial_options = {
+        headers: [:name, :age, :active],
+        value_converters: {
+          age: ->(v) { v.to_s }
+        }
+      }
+
+      writer = SmarterCSV::Writer.new(file_path, partial_options)
+      writer << { name: 'Bob', age: 50, active: false }
+      writer.finalize
+
+      output = File.read(file_path)
+      expect(output).to include("Bob,50,false#{row_sep}")
+    end
+
+    it 'handles rows where only some fields use converters' do
+      partial_options = {
+        headers: [:name, :age, :active],
+        value_converters: {
+          active: ->(v) { v ? 'True' : 'False' }
+        }
+      }
+
+      writer = SmarterCSV::Writer.new(file_path, partial_options)
+      writer << { name: 'Charlie', age: 29, active: true }
+      writer.finalize
+
+      output = File.read(file_path)
+      expect(output).to include("Charlie,29,True#{row_sep}")
     end
   end
 end

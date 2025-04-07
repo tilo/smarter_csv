@@ -58,3 +58,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Simon Rentzke](https://github.com/simonrentzke)
  * [Randall B](https://github.com/randall-coding)
  * [Matthew Kennedy](https://github.com/MattKitmanLabs)
+ * [Robert Reiz](https://github.com/reiz)

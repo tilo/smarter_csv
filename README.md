@@ -1,7 +1,7 @@
 
 # SmarterCSV
 
- [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
+  ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
 
  SmarterCSV provides a convenient interface for reading and writing CSV files and data.
 
@@ -35,7 +35,8 @@ Or install it yourself as:
 # Documentation
 
   * [Introduction](docs/_introduction.md)
-  * [The Basic API](docs/basic_api.md)
+  * [The Basic Read API](docs/basic_read_api.md)
+  * [The Basic Write API](docs/basic_write_api.md)
   * [Batch Processing](./docs/batch_processing.md)
   * [Configuration Options](docs/options.md)
   * [Row and Column Separators](docs/row_col_sep.md)
@@ -45,10 +46,10 @@ Or install it yourself as:
   * [Value Converters](docs/value_converters.md)
     
 # Articles
-* [Parsing CSV Files in Ruby with SmarterCSV](https://tilo-sloboda.medium.com/parsing-csv-files-in-ruby-with-smartercsv-6ce66fb6cf38)
-* [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
-* [Faster Parsing CSV with Parallel Processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing) by [Jack lin](https://github.com/xjlin0/)
-* [The original post](http://www.unixgods.org/Ruby/process_csv_as_hashes.html) that started SmarterCSV
+  * [Parsing CSV Files in Ruby with SmarterCSV](https://tilo-sloboda.medium.com/parsing-csv-files-in-ruby-with-smartercsv-6ce66fb6cf38)
+  * [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
+  * [Faster Parsing CSV with Parallel Processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing) by [Jack lin](https://github.com/xjlin0/)
+  * [The original post](http://www.unixgods.org/Ruby/process_csv_as_hashes.html) that started SmarterCSV
 
 # [ChangeLog](./CHANGELOG.md)
 

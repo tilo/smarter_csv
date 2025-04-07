@@ -1,15 +1,17 @@
 # frozen_string_literal: true
 
+require 'tempfile'
+
 module SmarterCSV
   #
   # Generate CSV files
   #
   # Create an instance of the Writer class with the filename and options.
-  # call `<<` one or mulltiple times to append data to the file.
+  # call `<<` one or multiple times to append data to the file.
   # call `finalize` to save the file.
   #
   # The `<<` method can take different arguments:
-  #  * a signle Hash
+  #  * a single Hash
   #  * an array of Hashes
   #  * nested arrays of arrays of Hashes
   #
@@ -29,6 +31,7 @@ module SmarterCSV
   #   headers : defaults to []
   #   force_quotes: defaults to false
   #   map_headers: defaults to {}, can be a hash of key -> value mappings
+  #   value_converters: optional hash of key -> lambda to control serialization
 
   # IMPORTANT NOTES:
   #  * Data hashes could contain strings or symbols as keys.
@@ -41,30 +44,32 @@ module SmarterCSV
     def initialize(file_path, options = {})
       @options = options
 
-      @row_sep = options[:row_sep] || $/ # Defaults to system's row separator. RFC4180 "\r\n"
+      @row_sep = options[:row_sep] || $/
       @col_sep = options[:col_sep] || ','
       @quote_char = options[:quote_char] || '"'
       @force_quotes = options[:force_quotes] == true
-      @discover_headers = true # defaults to true
+      @disable_auto_quoting = options[:disable_auto_quoting] == true
+      @value_converters = options[:value_converters] || {}
+      @map_all_keys = @value_converters.has_key?(:_all)
+      @mapped_keys = @value_converters.keys - [:_all]
+
+      @discover_headers = true
       if options.has_key?(:discover_headers)
-        # passing in the option overrides the default behavior
-        @discover_headers = options[:discover_headers] == true
+        @discover_headers = options[:discover_headers] == true # ⚠️ this option should not be exposed
       else
-        # disable discover_headers when headers are given explicitly
         @discover_headers = !(options.has_key?(:map_headers) || options.has_key?(:headers))
       end
-      @headers = [] # start with empty headers
-      @headers = options[:headers] if options.has_key?(:headers) # unless explicitly given
+
+      @headers = []
+      @headers = options[:headers] if options.has_key?(:headers)
       @headers = options[:map_headers].keys if options.has_key?(:map_headers) && !options.has_key?(:headers)
       @map_headers = options[:map_headers] || {}
 
       @output_file = File.open(file_path, 'w+')
-      # hidden state:
       @temp_file = Tempfile.new('tempfile', '/tmp')
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
-    # this can be called many times in order to append lines to the csv file
     def <<(data)
       case data
       when Hash
@@ -74,14 +79,15 @@ module SmarterCSV
       when NilClass
         # ignore
       else
+        # :nocov:
         raise InvalidInputData, "Invalid data type: #{data.class}. Must be a Hash or an Array."
+        # :nocov:
       end
     end
 
     def finalize
-      # Map headers if :map_headers option is provided
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
-      mapped_headers = mapped_headers.map{|x| escape_csv_field(x)} if @force_quotes
+      mapped_headers = mapped_headers.map { |x| escape_csv_field(x) } if @force_quotes
 
       @temp_file.rewind
       @output_file.write(mapped_headers.join(@col_sep) + @row_sep)
@@ -100,17 +106,43 @@ module SmarterCSV
         @headers.concat(new_keys)
       end
 
-      # Reorder the hash to match the current headers order and fill missing fields
-      ordered_row = @headers.map { |header| hash[header] || '' }
+      # Reorder the hash to match the current headers order and fill + map missing keys
+      ordered_row = @headers.map do |header|
+        has_header = hash.key?(header)
+        value = has_header ? hash[header] : '' # default to empty value
 
-      @temp_file.write ordered_row.map { |value| escape_csv_field(value) }.join(@col_sep) + @row_sep
+        # first map individual keys
+        value = map_value(header, value) if @mapped_keys.include?(header)
+
+        # then apply general mapping rules
+        value = map_all_values(header, value) if @map_all_keys
+
+        escape_csv_field(value) # for backwards compatibility
+      end
+
+      @temp_file.write ordered_row.join(@col_sep) + @row_sep
+    end
+
+    def map_value(key, value)
+      @value_converters[key].call(value)
+    end
+
+    def map_all_values(key, value)
+      @value_converters[:_all].call(key, value)
     end
 
     def escape_csv_field(field)
-      if @force_quotes || field.to_s.match(@quote_regex)
-        "\"#{field}\""
+      str = field.to_s
+      return str if @disable_auto_quoting
+
+      # double-quote fields if we force that, or if the field contains the comma, new-line, or quote character
+      contains_special_char = str.to_s.match(@quote_regex)
+      if @force_quotes || contains_special_char
+        str = str.gsub(@quote_char, @quote_char * 2) if contains_special_char # escape double-quote
+
+        "\"#{str}\""
       else
-        field.to_s
+        str
       end
     end
   end

@@ -2,7 +2,8 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
-  * [The Basic API](./basic_api.md)
+  * [The Basic Read API](./basic_read_api.md)
+  * [The Basic Write API](./basic_write_api.md) 
   * [**Batch Processing**](././batch_processing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
@@ -65,4 +66,4 @@ and how the `process` method returns the number of chunks when called with a blo
 ```
 
 ----------------
-PREVIOUS: [The Basic API](./basic_api.md)  | NEXT: [Configuration Options](./options.md)
+PREVIOUS: [The Basic Write API](./basic_write_api.md)  | NEXT: [Configuration Options](./options.md)

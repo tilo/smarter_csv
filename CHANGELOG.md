@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.14.0 (2025-04-07)
+ * adding advanced configuration options for writing CSV files. ([issue 297](https://github.com/tilo/smarter_csv/issues/297) thanks to Robert Reiz, [issue 296](https://github.com/tilo/smarter_csv/issues/296))
+
 ## 1.13.1 (2024-12-12)
   * fix bug with SmarterCSV.generate with `force_quotes: true` ([issue 294](https://github.com/tilo/smarter_csv/issues/294))
 
