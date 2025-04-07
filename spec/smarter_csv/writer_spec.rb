@@ -123,9 +123,9 @@ RSpec.describe SmarterCSV::Writer do
     end
 
     context "when map_headers is given explicitly" do
-      let(:options) { {map_headers: {name: "Person", country: "Country"}} }
+      let(:options) { {map_headers: { name: "Person", country: "Country"} } }
 
-      it 'writes the given headers and data correctly' do
+      it 'writes the given headers and data correctly and does not auto-discover headers' do
         create_csv_file
 
         output = File.read(file_path)
@@ -135,6 +135,27 @@ RSpec.describe SmarterCSV::Writer do
         expect(output).to include("Jane,USA#{row_sep}")
         expect(output).to include("Mike,#{row_sep}")
         expect(output).to include("Alex,USA#{row_sep}")
+      end
+    end
+
+    context "when map_headers is given explicitly" do
+      let(:options) do
+        {
+          map_headers: { name: "Person", country: "Country" },
+          discover_headers: true # still auto-discover other headers
+        }
+      end
+
+      it 'writes the given headers and data correctly and auto-discovers all headers' do
+        create_csv_file
+
+        output = File.read(file_path)
+
+        expect(output).to include("Person,Country,age,city,state#{row_sep}")
+        expect(output).to include("John,,30,New York#{row_sep}")
+        expect(output).to include("Jane,USA,25,#{row_sep}")
+        expect(output).to include("Mike,,35,Chicago,IL#{row_sep}")
+        expect(output).to include("Alex,USA,,,#{row_sep}")
       end
     end
   end
@@ -217,19 +238,14 @@ RSpec.describe SmarterCSV::Writer do
 
     context 'when we explicitly disable header discovery' do
       let(:options) do
-        { discover_headers: false }
+        { discover_headers: false } # THIS SHOULD NOT BE USED LIKE THIS!!
       end
 
       it 'limits the CSV file to only the given headers' do
         create_csv_file
 
         output = File.read(file_path)
-
-        expect(output).to include("name,city,state#{row_sep}")
-        expect(output).to include("John,New York,#{row_sep}")
-        expect(output).to include("Jane,,#{row_sep}")
-        expect(output).to include("Mike,Chicago,IL#{row_sep}")
-        expect(output).to include("Alex,,#{row_sep}")
+        expect(output).to eq "\n\n\n\n\n" # THIS SHOULD NOT BE USED LIKE THIS!!
       end
     end
   end

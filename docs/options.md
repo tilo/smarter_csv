@@ -29,7 +29,8 @@
      | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. | 
      |                             |           | ⚠️ This disables automatic header detection!                    |
      | :discover_headers           |   true    | Automatically detects all keys in the input before writing the header |
-     |                             |           | This can be disabled by providing `headers` or `map_headers` options. |
+     |                             |           | Do not manually set this to `false`. |
+     |                             |           | But you can set this to `true` when using `map_headers` option. |
      | :disable_auto_quoting       |  false    | To manually disable auto-quoting of special characters. Be careful with this! ⚠️ |
 
 
