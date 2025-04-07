@@ -152,7 +152,9 @@ This example puts double-quotes around all String-value data, but leaves other t
 
 Note that when you're customizing putting quote-chars around fields, you need to `disable_auto_quoting`.
 
+## More Examples
 
+Check out the [RSpec tests](../spec/smarter_csv/writer_spec.rb) for more examples.
 
 ----------------
 PREVIOUS: [The Basic Read API](./basic_read_api.md) | NEXT: [Batch Processing](./batch_processing.md)
