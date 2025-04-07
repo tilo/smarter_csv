@@ -35,8 +35,8 @@ Or install it yourself as:
 # Documentation
 
   * [Introduction](docs/_introduction.md)
-  * [The Basic Read API](./basic_read_api.md)
-  * [The Basic Write API](./basic_write_api.md)
+  * [The Basic Read API](docs/basic_read_api.md)
+  * [The Basic Write API](docs/basic_write_api.md)
   * [Batch Processing](./docs/batch_processing.md)
   * [Configuration Options](docs/options.md)
   * [Row and Column Separators](docs/row_col_sep.md)
