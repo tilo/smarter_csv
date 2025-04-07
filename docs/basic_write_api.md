@@ -154,18 +154,5 @@ Note that when you're customizing putting quote-chars around fields, you need to
 
 
 
-
-
-### Other Options
-
-
-
-
-
-
-If you have hashes of data, where each hash can have different keys, the `SmarterCSV::Writer` automatically discovers the superset of keys as the headers of the CSV file. This can be disabled and overridden by either providing one of the options `headers` or `map_headers`.
-
-
-
 ----------------
 PREVIOUS: [The Basic Read API](./basic_read_api.md) | NEXT: [Batch Processing](./batch_processing.md)
