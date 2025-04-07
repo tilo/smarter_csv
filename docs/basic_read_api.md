@@ -2,7 +2,8 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
-  * [**The Basic API**](./basic_api.md)
+  * [**The Basic Read API**](./basic_read_api.md)
+  * [The Basic Write API](./basic_write_api.md)    
   * [Batch Processing](././batch_processing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
@@ -70,46 +71,6 @@ It cal also be used with a block:
 This allows you access to the internal state of the `reader` instance after processing.
 
 
-## Interface for Writing CSV
-
-To generate a CSV file, we use the `<<` operator to append new data to the file.
-
-The input operator for adding data to a CSV file `<<` can handle single hashes, array-of-hashes, or array-of-arrays-of-hashes, and can be called one or multiple times for each file.
-
-One smart feature of writing CSV data is the discovery of headers. 
-
-If you have hashes of data, where each hash can have different keys, the `SmarterCSV::Reader` automatically discovers the superset of keys as the headers of the CSV file. This can be disabled by either providing one of the options `headers`, `map_headers`, or `discover_headers: false`.
-
-
-### Simplified Interface
-
-The simplified interface takes a block:
-
-      ```
-        SmarterCSV.generate(filename, options) do |csv_writer|
-
-         MyModel.find_in_batches(batch_size: 100) do |batch|
-           batch.pluck(:name, :description, :instructor).each do |record|
-             csv_writer << record
-           end
-         end
-
-       end
-     ```
-
-### Full Interface
-
-      ```
-        writer = SmarterCSV::Writer.new(file_path, options)
-
-        MyModel.find_in_batches(batch_size: 100) do |batch|
-          batch.pluck(:name, :description, :instructor).each do |record|
-            csv_writer << record
-          end
-
-        writer.finalize
-      ```
-
 ## Rescue from Exceptions
 
 While SmarterCSV uses sensible defaults to process the most common CSV files, it will raise exceptions if it can not auto-detect `col_sep`, `row_sep`, or if it encounters other problems. Therefore please rescue from `SmarterCSV::Error`, and handle outliers according to your requirements.
@@ -154,4 +115,4 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 ```
 
 ----------------
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Batch Processing](./batch_processing.md)
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [The Basic Write API](./basic_write_api.md)

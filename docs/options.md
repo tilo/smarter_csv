@@ -2,7 +2,8 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
-  * [The Basic API](./basic_api.md)
+  * [The Basic Read API](./basic_read_api.md)
+  * [The Basic Write API](./basic_write_api.md)
   * [Batch Processing](././batch_processing.md)
   * [**Configuration Options**](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
@@ -23,11 +24,14 @@
      | :col_sep                    |   ","     | Separates each value in a row | 
      | :quote_char                 |   '"'     | |
      | :force_quotes               |   false   | Forces each individual value to be quoted |
+     | :headers                    |    []     | You can provide the specific list of keys from the input you'd like to be used as headers in the CSV file |
+     |                             |           | ⚠️ This disables automatic header detection!                    |
+     | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. | 
+     |                             |           | ⚠️ This disables automatic header detection!                    |
      | :discover_headers           |   true    | Automatically detects all keys in the input before writing the header |
      |                             |           | This can be disabled by providing `headers` or `map_headers` options. |
-     | :headers                    |    []     | You can provide the specific list of keys from the input you'd like to be used as headers in the CSV file |
-     | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. | 
-     |
+     | :disable_auto_quoting       |  false    | To manually disable auto-quoting of special characters. Be careful with this! ⚠️ |
+
 
 ## CSV Reading
 
