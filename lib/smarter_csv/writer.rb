@@ -29,6 +29,7 @@ module SmarterCSV
   #   quote_char : defaults to "
   #   discover_headers : defaults to true
   #   headers : defaults to []
+  #   quote_headers: defaults to false
   #   force_quotes: defaults to false
   #   map_headers: defaults to {}, can be a hash of key -> value mappings
   #   value_converters: optional hash of key -> lambda to control serialization
@@ -48,6 +49,7 @@ module SmarterCSV
       @col_sep = options[:col_sep] || ','
       @quote_char = options[:quote_char] || '"'
       @force_quotes = options[:force_quotes] == true
+      @quote_headers = options[:quote_headers] == true
       @disable_auto_quoting = options[:disable_auto_quoting] == true
       @value_converters = options[:value_converters] || {}
       @map_all_keys = @value_converters.has_key?(:_all)
@@ -55,7 +57,7 @@ module SmarterCSV
 
       @discover_headers = true
       if options.has_key?(:discover_headers)
-        @discover_headers = options[:discover_headers] == true # ⚠️ this option should not be exposed
+        @discover_headers = options[:discover_headers] == true
       else
         @discover_headers = !(options.has_key?(:map_headers) || options.has_key?(:headers))
       end
@@ -87,7 +89,8 @@ module SmarterCSV
 
     def finalize
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
-      mapped_headers = mapped_headers.map { |x| escape_csv_field(x) } if @force_quotes
+      force_quotes = @quote_headers || @force_quotes
+      mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
 
       @temp_file.rewind
       @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?
@@ -117,7 +120,7 @@ module SmarterCSV
         # then apply general mapping rules
         value = map_all_values(header, value) if @map_all_keys
 
-        escape_csv_field(value) # for backwards compatibility
+        escape_csv_field(value, @force_quotes) # for backwards compatibility
       end
 
       @temp_file.write(ordered_row.join(@col_sep) + @row_sep) unless ordered_row.empty?
@@ -131,13 +134,13 @@ module SmarterCSV
       @value_converters[:_all].call(key, value)
     end
 
-    def escape_csv_field(field)
+    def escape_csv_field(field, force_quotes = false)
       str = field.to_s
       return str if @disable_auto_quoting
 
       # double-quote fields if we force that, or if the field contains the comma, new-line, or quote character
       contains_special_char = str.to_s.match(@quote_regex)
-      if @force_quotes || contains_special_char
+      if force_quotes || contains_special_char
         str = str.gsub(@quote_char, @quote_char * 2) if contains_special_char # escape double-quote
 
         "\"#{str}\""

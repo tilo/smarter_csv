@@ -309,6 +309,63 @@ RSpec.describe SmarterCSV::Writer do
     end
   end
 
+  context 'when quoted headers' do
+    let(:data) do
+      { name: 'John', age: 30, city: 'New York' }
+    end
+
+    context 'when force_quotes is true' do
+      let(:options) { {force_quotes: true} }
+
+      it 'quotes all the headers and data correctly' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+        expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
+      end
+    end
+
+    context 'when quote_headers is true' do
+      let(:options) { {quote_headers: true} }
+
+      it 'quotes all the headers correctly, but not the data' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+      end
+    end
+
+    context 'when problematic headers are given' do
+      let(:options) do
+        { map_headers: {
+            name: "last, first",
+            age: '"real" age',
+            city: "two line\nheader",
+          }
+        }
+      end
+
+      it 'correctly quotes all problematic headers, but not the data' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("\"last, first\"")
+        expect(output).to include("\"\"\"real\"\" age\"")
+        expect(output).to include("\"two line\nheader\"#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+      end
+    end
+  end
+
   context 'when quoted CSV fields' do
     describe 'when quote_char' do
       let(:options) { {} }

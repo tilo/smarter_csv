@@ -1,6 +1,11 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.14.1 (2025-04-09)
+ * bugfix: empty hash results in a blank line ([issue 299](https://github.com/tilo/smarter_csv/issues/299))
+ * bugfix: automatically quote problematic headers ([issue #300](https://github.com/tilo/smarter_csv/issues/300))
+ * new option: `quote_headers` allows to explicitly quote all headers
+
 ## 1.14.0 (2025-04-07)
  * adding advanced configuration options for writing CSV files. ([issue 297](https://github.com/tilo/smarter_csv/issues/297) thanks to Robert Reiz, [issue 296](https://github.com/tilo/smarter_csv/issues/296))
 

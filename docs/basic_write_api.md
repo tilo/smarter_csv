@@ -62,14 +62,14 @@ The simplified interface takes a block:
 ### Full Interface
 
       ```
-        writer = SmarterCSV::Writer.new(file_path, options)
+        csv_writer = SmarterCSV::Writer.new(file_path, options)
 
         MyModel.find_in_batches(batch_size: 100) do |batch|
           batch.pluck(:name, :description, :instructor).each do |record|
             csv_writer << record
           end
 
-        writer.finalize
+        csv_writer.finalize
       ```
 
 ## Advanced Features: Customizing the Output Format
@@ -141,7 +141,7 @@ You can also use the special keyword `:_all` to define transformations that are 
         value_converters: {        
           disable_auto_quoting: true, # ⚠️ Important: turn off auto-quoting because we're messing with it below
           active: ->(v) { !!v ? 'YES' : 'NO' },
-          _all: ->(k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
+          _all: ->(_k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
         }  
       }
 ```
