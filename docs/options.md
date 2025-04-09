@@ -32,6 +32,7 @@
      |                             |           | Do not manually set this to `false`. ⚠️                         |
      |                             |           | But you can set this to `true` when using `map_headers` option. |
      | :disable_auto_quoting       |  false    | To manually disable auto-quoting of special characters. ⚠️ Be careful with this! |
+     | :quote_headers              |  false    | To force quoting all headers (only needed in rare cases)        |
 
 
 ## CSV Reading
