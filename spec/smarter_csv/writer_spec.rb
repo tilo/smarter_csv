@@ -26,395 +26,400 @@ RSpec.describe SmarterCSV::Writer do
     ]
   end
 
-  context 'when empty data is handed in' do
-    let(:options) { {} }
+  context 'when different input data' do
+    context 'when empty data is handed in' do
+      let(:options) { {} }
 
-    subject(:write_csv) do
-      SmarterCSV.generate(file_path, options) do |csv_writer|
-        csv_writer << data
-      end
-    end
-
-    context 'when nil is passed in' do
-      let(:data) { nil }
-      it 'does not generate output' do
-        write_csv
-        output = File.read(file_path)
-        expect(output).to eq ''
-      end
-    end
-
-    context 'when {} is passed in' do
-      let(:data) { {} }
-      it 'does not generate output' do
-        write_csv
-        output = File.read(file_path)
-        expect(output).to eq ''
-      end
-    end
-
-    context 'when [] is passed in' do
-      let(:data) { [] }
-      it 'does not generate output' do
-        write_csv
-        output = File.read(file_path)
-        expect(output).to eq ''
-      end
-    end
-
-    context 'when [{},nil] is passed in' do
-      let(:data) { [{}, nil] }
-      it 'does not generate output' do
-        write_csv
-        output = File.read(file_path)
-        expect(output).to eq ''
-      end
-    end
-
-    context 'when [nil, {}, [], [{},nil]] is passed in' do
-      let(:data) { [nil, {}, [], [{}, nil]] }
-      it 'does not generate output' do
-        write_csv
-        output = File.read(file_path)
-        expect(output).to eq ''
-      end
-    end
-  end
-
-  context 'simplest case: one hash given' do
-    let(:options) { {} }
-    let(:data) do
-      { name: 'John', age: 30, city: 'New York' }
-    end
-
-    it 'writes the given headers and data correctly' do
-      writer = SmarterCSV::Writer.new(file_path, options)
-      writer << data
-      writer.finalize
-      output = File.read(file_path)
-
-      expect(output).to include("name,age,city#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-    end
-  end
-
-  context 'case: array of hashes given' do
-    let(:options) { {} }
-    let(:data) do
-      { name: 'John', age: 30, city: 'New York' }
-    end
-
-    it 'writes the given headers and data correctly' do
-      writer = SmarterCSV::Writer.new(file_path, options)
-      writer << data_batches[0]
-      writer << data_batches[1]
-      writer.finalize
-      output = File.read(file_path)
-
-      expect(output).to include("name,age,city,country,state#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-      expect(output).to include("Jane,25,,USA#{row_sep}")
-      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
-    end
-  end
-
-  context "when deeply nested data" do
-    let(:options) { {} }
-    let(:data_batches) do
-      [[[
-        [
-          { name: 'John', age: 30, city: 'New York' },
-          [{ name: 'Jane', age: 25, country: 'USA' }, nil],
-          []
-        ],
-        [
-          { name: 'Mike', age: 35, city: 'Chicago', state: 'IL' }
-        ]
-      ]],
-       {name: 'Alex', country: 'USA'}]
-    end
-
-    it 'writes the given headers and data correctly' do
-      create_csv_file
-      output = File.read(file_path)
-
-      expect(output).to include("name,age,city,country,state#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-      expect(output).to include("Jane,25,,USA#{row_sep}")
-      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
-      expect(output).to include("Alex,,,USA,#{row_sep}")
-    end
-
-    it 'works with the convenience module method' do
-      SmarterCSV.generate(file_path, options) do |csv|
-        data_batches.each do |data|
-          csv << data
+      subject(:write_csv) do
+        SmarterCSV.generate(file_path, options) do |csv_writer|
+          csv_writer << data
         end
       end
 
-      output = File.read(file_path)
-      expect(output).to include("name,age,city,country,state#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-      expect(output).to include("Jane,25,,USA#{row_sep}")
-      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
-      expect(output).to include("Alex,,,USA,#{row_sep}")
+      context 'when nil is passed in' do
+        let(:data) { nil }
+        it 'does not generate output' do
+          write_csv
+          output = File.read(file_path)
+          expect(output).to eq ''
+        end
+      end
+
+      context 'when {} is passed in' do
+        let(:data) { {} }
+        it 'does not generate output' do
+          write_csv
+          output = File.read(file_path)
+          expect(output).to eq ''
+        end
+      end
+
+      context 'when [] is passed in' do
+        let(:data) { [] }
+        it 'does not generate output' do
+          write_csv
+          output = File.read(file_path)
+          expect(output).to eq ''
+        end
+      end
+
+      context 'when [{},nil] is passed in' do
+        let(:data) { [{}, nil] }
+        it 'does not generate output' do
+          write_csv
+          output = File.read(file_path)
+          expect(output).to eq ''
+        end
+      end
+
+      context 'when [nil, {}, [], [{},nil]] is passed in' do
+        let(:data) { [nil, {}, [], [{}, nil]] }
+        it 'does not generate output' do
+          write_csv
+          output = File.read(file_path)
+          expect(output).to eq ''
+        end
+      end
     end
 
-    context "when headers are given explicitly" do
-      let(:options) { {headers: [:country, :name]} }
+    context 'simplest case: one hash given' do
+      let(:options) { {} }
+      let(:data) do
+        { name: 'John', age: 30, city: 'New York' }
+      end
+
+      it 'writes the given headers and data correctly' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("name,age,city#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+      end
+    end
+
+    context 'case: array of hashes given' do
+      let(:options) { {} }
+      let(:data) do
+        { name: 'John', age: 30, city: 'New York' }
+      end
+
+      it 'writes the given headers and data correctly' do
+        writer = SmarterCSV::Writer.new(file_path, options)
+        writer << data_batches[0]
+        writer << data_batches[1]
+        writer.finalize
+        output = File.read(file_path)
+
+        expect(output).to include("name,age,city,country,state#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+      end
+    end
+
+    context "when deeply nested data" do
+      let(:options) { {} }
+      let(:data_batches) do
+        [[[
+          [
+            { name: 'John', age: 30, city: 'New York' },
+            [{ name: 'Jane', age: 25, country: 'USA' }, nil],
+            []
+          ],
+          [
+            { name: 'Mike', age: 35, city: 'Chicago', state: 'IL' }
+          ]
+        ]],
+         {name: 'Alex', country: 'USA'}]
+      end
 
       it 'writes the given headers and data correctly' do
         create_csv_file
-
         output = File.read(file_path)
 
-        expect(output).to include("country,name#{row_sep}")
-        expect(output).to include(",John#{row_sep}")
-        expect(output).to include("USA,Jane#{row_sep}")
-        expect(output).to include(",Mike#{row_sep}")
-        expect(output).to include("USA,Alex#{row_sep}")
+        expect(output).to include("name,age,city,country,state#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+        expect(output).to include("Alex,,,USA,#{row_sep}")
+      end
+
+      it 'works with the convenience module method' do
+        SmarterCSV.generate(file_path, options) do |csv|
+          data_batches.each do |data|
+            csv << data
+          end
+        end
+
+        output = File.read(file_path)
+        expect(output).to include("name,age,city,country,state#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+        expect(output).to include("Alex,,,USA,#{row_sep}")
+      end
+
+      context "when headers are given explicitly" do
+        let(:options) { {headers: [:country, :name]} }
+
+        it 'writes the given headers and data correctly' do
+          create_csv_file
+
+          output = File.read(file_path)
+
+          expect(output).to include("country,name#{row_sep}")
+          expect(output).to include(",John#{row_sep}")
+          expect(output).to include("USA,Jane#{row_sep}")
+          expect(output).to include(",Mike#{row_sep}")
+          expect(output).to include("USA,Alex#{row_sep}")
+        end
+      end
+
+      context "when map_headers is given explicitly" do
+        let(:options) { {map_headers: { name: "Person", country: "Country"} } }
+
+        it 'writes the given headers and data correctly and does not auto-discover headers' do
+          create_csv_file
+
+          output = File.read(file_path)
+
+          expect(output).to include("Person,Country#{row_sep}")
+          expect(output).to include("John,#{row_sep}")
+          expect(output).to include("Jane,USA#{row_sep}")
+          expect(output).to include("Mike,#{row_sep}")
+          expect(output).to include("Alex,USA#{row_sep}")
+        end
+      end
+
+      context "when map_headers is given explicitly" do
+        let(:options) do
+          {
+            map_headers: { name: "Person", country: "Country" },
+            discover_headers: true # still auto-discover other headers
+          }
+        end
+
+        it 'writes the given headers and data correctly and auto-discovers all headers' do
+          create_csv_file
+
+          output = File.read(file_path)
+
+          expect(output).to include("Person,Country,age,city,state#{row_sep}")
+          expect(output).to include("John,,30,New York#{row_sep}")
+          expect(output).to include("Jane,USA,25,#{row_sep}")
+          expect(output).to include("Mike,,35,Chicago,IL#{row_sep}")
+          expect(output).to include("Alex,USA,,,#{row_sep}")
+        end
       end
     end
 
-    context "when map_headers is given explicitly" do
-      let(:options) { {map_headers: { name: "Person", country: "Country"} } }
+    context 'when quoted CSV fields' do
+      describe 'when quote_char' do
+        let(:options) { {} }
+        let(:data_batches) do
+          [
+            { name: 'John', age: 30, city: 'New "York' },
+          ]
+        end
 
-      it 'writes the given headers and data correctly and does not auto-discover headers' do
+        it 'auto-escapes quote_char' do
+          create_csv_file
+
+          output = File.read(file_path)
+          expect(output).to include("name,age,city#{row_sep}")
+          expect(output).to include('John,30,"New ""York"')
+        end
+      end
+
+      describe 'when special_char row_sep' do
+        let(:options) { {} }
+        let(:data_batches) do
+          [
+            { name: 'John', age: 30, city: "New \nYork" },
+          ]
+        end
+
+        it 'auto-escapes row_sep' do
+          create_csv_file
+
+          output = File.read(file_path)
+          expect(output).to include("name,age,city#{row_sep}")
+          expect(output).to match(/John,30,"New \nYork"/)
+        end
+      end
+
+      describe 'when comma' do
+        let(:options) { {} }
+        let(:data_batches) do
+          [
+            { name: 'John', age: 30, city: "New York, New York" },
+          ]
+        end
+
+        it 'auto-escapes comma' do
+          create_csv_file
+
+          output = File.read(file_path)
+          expect(output).to include("name,age,city#{row_sep}")
+          expect(output).to match(/John,30,"New York, New York"/)
+        end
+      end
+    end
+  end
+
+  context 'when configuring headers' do
+    context 'when headers are given explicitly' do
+      let(:options) { { headers: %i[name age city] } }
+
+      it 'writes the given headers and data correctly' do
         create_csv_file
-
         output = File.read(file_path)
 
-        expect(output).to include("Person,Country#{row_sep}")
-        expect(output).to include("John,#{row_sep}")
-        expect(output).to include("Jane,USA#{row_sep}")
-        expect(output).to include("Mike,#{row_sep}")
-        expect(output).to include("Alex,USA#{row_sep}")
-      end
-    end
-
-    context "when map_headers is given explicitly" do
-      let(:options) do
-        {
-          map_headers: { name: "Person", country: "Country" },
-          discover_headers: true # still auto-discover other headers
-        }
-      end
-
-      it 'writes the given headers and data correctly and auto-discovers all headers' do
-        create_csv_file
-
-        output = File.read(file_path)
-
-        expect(output).to include("Person,Country,age,city,state#{row_sep}")
-        expect(output).to include("John,,30,New York#{row_sep}")
-        expect(output).to include("Jane,USA,25,#{row_sep}")
-        expect(output).to include("Mike,,35,Chicago,IL#{row_sep}")
-        expect(output).to include("Alex,USA,,,#{row_sep}")
-      end
-    end
-  end
-
-  context 'when headers are given explicitly' do
-    let(:options) { { headers: %i[name age city] } }
-
-    it 'writes the given headers and data correctly' do
-      create_csv_file
-      output = File.read(file_path)
-
-      expect(output).to include("name,age,city#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-      expect(output).to include("Jane,25,#{row_sep}")
-      expect(output).to include("Mike,35,Chicago#{row_sep}")
-      expect(output).to include("Alex,,#{row_sep}")
-    end
-  end
-
-  context 'when headers are automatically discovered' do
-    let(:options) { {} }
-
-    it 'writes the discovered headers and data correctly' do
-      create_csv_file
-      output = File.read(file_path)
-
-      expect(output).to include("name,age,city,country,state#{row_sep}")
-      expect(output).to include("John,30,New York#{row_sep}")
-      expect(output).to include("Jane,25,,USA#{row_sep}")
-      expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
-    end
-  end
-
-  context 'when headers are mapped' do
-    let(:options) do
-      {
-        map_headers: {
-          name: 'Full Name',
-          age: 'Age',
-          city: 'City',
-          state: 'State',
-          country: 'Country',
-        }
-      }
-    end
-
-    it 'writes the mapped headers and data in the correct order' do
-      create_csv_file
-
-      output = File.read(file_path)
-
-      expect(output).to include("Full Name,Age,City,State,Country#{row_sep}")
-      expect(output).to include("John,30,New York,,#{row_sep}")
-      expect(output).to include("Jane,25,,,USA#{row_sep}")
-      expect(output).to include("Mike,35,Chicago,IL,#{row_sep}")
-      expect(output).to include("Alex,,,,USA#{row_sep}")
-    end
-  end
-
-  context 'when automatic header discovery is disabled' do
-    context 'when we give explicit list of headers' do
-      let(:options) do
-        {
-          headers: [:name, :city, :state] # giving an explicit headers list will disable header discovery
-        }
-      end
-
-      it 'limits the CSV file to only the given headers' do
-        create_csv_file
-
-        output = File.read(file_path)
-
-        expect(output).to include("name,city,state#{row_sep}")
-        expect(output).to include("John,New York,#{row_sep}")
-        expect(output).to include("Jane,,#{row_sep}")
-        expect(output).to include("Mike,Chicago,IL#{row_sep}")
+        expect(output).to include("name,age,city#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,#{row_sep}")
+        expect(output).to include("Mike,35,Chicago#{row_sep}")
         expect(output).to include("Alex,,#{row_sep}")
       end
     end
 
-    # NOTE:
-    #  * setting `discover_headers: false` is implicit when setting :headers or :map_headers
-    #  * that's why it does not make sense to set it manually to `false`.
-    #  * if you want to turn off header discovery, just provide one of those two options
-    #
-    context 'when we explicitly disable header discovery, but do not provide headers' do
-      let(:options) do
-        { discover_headers: false } # THIS DOES NOT MAKE SENSE without providing :headers or :map_headers
-      end
+    context 'when headers are automatically discovered' do
+      let(:options) { {} }
 
-      it 'limits the CSV file to only the given headers' do
+      it 'writes the discovered headers and data correctly' do
         create_csv_file
-
-        output = File.read(file_path)
-        expect(output).to eq '' # because it turns off header discovery and no headers provided
-      end
-    end
-  end
-
-  context 'when quoted headers' do
-    let(:data) do
-      { name: 'John', age: 30, city: 'New York' }
-    end
-
-    context 'when force_quotes is true' do
-      let(:options) { {force_quotes: true} }
-
-      it 'quotes all the headers and data correctly' do
-        writer = SmarterCSV::Writer.new(file_path, options)
-        writer << data
-        writer.finalize
         output = File.read(file_path)
 
-        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
-        expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
-      end
-    end
-
-    context 'when quote_headers is true' do
-      let(:options) { {quote_headers: true} }
-
-      it 'quotes all the headers correctly, but not the data' do
-        writer = SmarterCSV::Writer.new(file_path, options)
-        writer << data
-        writer.finalize
-        output = File.read(file_path)
-
-        expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+        expect(output).to include("name,age,city,country,state#{row_sep}")
         expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
       end
     end
 
-    context 'when problematic headers are given' do
+    context 'when headers are mapped' do
       let(:options) do
-        { map_headers: {
-            name: "last, first",
-            age: '"real" age',
-            city: "two line\nheader",
+        {
+          map_headers: {
+            name: 'Full Name',
+            age: 'Age',
+            city: 'City',
+            state: 'State',
+            country: 'Country',
           }
         }
       end
 
-      it 'correctly quotes all problematic headers, but not the data' do
-        writer = SmarterCSV::Writer.new(file_path, options)
-        writer << data
-        writer.finalize
-        output = File.read(file_path)
-
-        expect(output).to include("\"last, first\"")
-        expect(output).to include("\"\"\"real\"\" age\"")
-        expect(output).to include("\"two line\nheader\"#{row_sep}")
-        expect(output).to include("John,30,New York#{row_sep}")
-      end
-    end
-  end
-
-  context 'when quoted CSV fields' do
-    describe 'when quote_char' do
-      let(:options) { {} }
-      let(:data_batches) do
-        [
-          { name: 'John', age: 30, city: 'New "York' },
-        ]
-      end
-
-      it 'auto-escapes quote_char' do
+      it 'writes the mapped headers and data in the correct order' do
         create_csv_file
 
         output = File.read(file_path)
-        expect(output).to include("name,age,city#{row_sep}")
-        expect(output).to include('John,30,"New ""York"')
+
+        expect(output).to include("Full Name,Age,City,State,Country#{row_sep}")
+        expect(output).to include("John,30,New York,,#{row_sep}")
+        expect(output).to include("Jane,25,,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,IL,#{row_sep}")
+        expect(output).to include("Alex,,,,USA#{row_sep}")
       end
     end
 
-    describe 'when special_char row_sep' do
-      let(:options) { {} }
-      let(:data_batches) do
-        [
-          { name: 'John', age: 30, city: "New \nYork" },
-        ]
+    context 'when automatic header discovery is disabled' do
+      context 'when we give explicit list of headers' do
+        let(:options) do
+          {
+            headers: [:name, :city, :state] # giving an explicit headers list will disable header discovery
+          }
+        end
+
+        it 'limits the CSV file to only the given headers' do
+          create_csv_file
+
+          output = File.read(file_path)
+
+          expect(output).to include("name,city,state#{row_sep}")
+          expect(output).to include("John,New York,#{row_sep}")
+          expect(output).to include("Jane,,#{row_sep}")
+          expect(output).to include("Mike,Chicago,IL#{row_sep}")
+          expect(output).to include("Alex,,#{row_sep}")
+        end
       end
 
-      it 'auto-escapes row_sep' do
-        create_csv_file
+      # NOTE:
+      #  * setting `discover_headers: false` is implicit when setting :headers or :map_headers
+      #  * that's why it does not make sense to set it manually to `false`.
+      #  * if you want to turn off header discovery, just provide one of those two options
+      #
+      context 'when we explicitly disable header discovery, but do not provide headers' do
+        let(:options) do
+          { discover_headers: false } # THIS DOES NOT MAKE SENSE without providing :headers or :map_headers
+        end
 
-        output = File.read(file_path)
-        expect(output).to include("name,age,city#{row_sep}")
-        expect(output).to match(/John,30,"New \nYork"/)
+        it 'limits the CSV file to only the given headers' do
+          create_csv_file
+
+          output = File.read(file_path)
+          expect(output).to eq '' # because it turns off header discovery and no headers provided
+        end
       end
     end
 
-    describe 'when comma' do
-      let(:options) { {} }
-      let(:data_batches) do
-        [
-          { name: 'John', age: 30, city: "New York, New York" },
-        ]
+    context 'when quoted headers' do
+      let(:data) do
+        { name: 'John', age: 30, city: 'New York' }
       end
 
-      it 'auto-escapes comma' do
-        create_csv_file
+      context 'when force_quotes is true' do
+        let(:options) { {force_quotes: true} }
 
-        output = File.read(file_path)
-        expect(output).to include("name,age,city#{row_sep}")
-        expect(output).to match(/John,30,"New York, New York"/)
+        it 'quotes all the headers and data fields' do
+          writer = SmarterCSV::Writer.new(file_path, options)
+          writer << data
+          writer.finalize
+          output = File.read(file_path)
+
+          expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+          expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
+        end
+      end
+
+      context 'when quote_headers is true' do
+        let(:options) { {quote_headers: true} }
+
+        it 'quotes all the headers correctly, but not the data' do
+          writer = SmarterCSV::Writer.new(file_path, options)
+          writer << data
+          writer.finalize
+          output = File.read(file_path)
+
+          expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+          expect(output).to include("John,30,New York#{row_sep}")
+        end
+      end
+
+      context 'when problematic headers are given' do
+        let(:options) do
+          {
+            map_headers: {
+              name: "last, first",      # commas / @col_sep in header
+              age: '"real" age',        # double-quotes / @quote_char in header
+              city: "two line\nheader", # line breaks / @row_sep in header
+            }
+          }
+        end
+
+        it 'correctly quotes all problematic headers, but not the data' do
+          writer = SmarterCSV::Writer.new(file_path, options)
+          writer << data
+          writer.finalize
+          output = File.read(file_path)
+
+          expect(output).to include("\"last, first\"")
+          expect(output).to include("\"\"\"real\"\" age\"")
+          expect(output).to include("\"two line\nheader\"#{row_sep}")
+          expect(output).to include("John,30,New York#{row_sep}")
+        end
       end
     end
   end
