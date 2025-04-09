@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# rubocop:disable Style/WordArray
 RSpec.describe SmarterCSV::Writer do
   subject(:create_csv_file) do
     writer = SmarterCSV::Writer.new(file_path, options)
@@ -25,6 +24,61 @@ RSpec.describe SmarterCSV::Writer do
       ],
       {name: 'Alex', country: 'USA'}
     ]
+  end
+
+  context 'when empty data is handed in' do
+    let(:options) { {} }
+
+    subject(:write_csv) do
+      SmarterCSV.generate(file_path, options) do |csv_writer|
+        csv_writer << data
+      end
+    end
+
+    context 'when nil is passed in' do
+      let(:data) { nil }
+      it 'does not generate output' do
+        write_csv
+        output = File.read(file_path)
+        expect(output).to eq ''
+      end
+    end
+
+    context 'when {} is passed in' do
+      let(:data) { {} }
+      it 'does not generate output' do
+        write_csv
+        output = File.read(file_path)
+        expect(output).to eq ''
+      end
+    end
+
+    context 'when [] is passed in' do
+      let(:data) { [] }
+      it 'does not generate output' do
+        write_csv
+        output = File.read(file_path)
+        expect(output).to eq ''
+      end
+    end
+
+    context 'when [{},nil] is passed in' do
+      let(:data) { [{}, nil] }
+      it 'does not generate output' do
+        write_csv
+        output = File.read(file_path)
+        expect(output).to eq ''
+      end
+    end
+
+    context 'when [nil, {}, [], [{},nil]] is passed in' do
+      let(:data) { [nil, {}, [], [{}, nil]] }
+      it 'does not generate output' do
+        write_csv
+        output = File.read(file_path)
+        expect(output).to eq ''
+      end
+    end
   end
 
   context 'simplest case: one hash given' do
@@ -236,16 +290,21 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
 
-    context 'when we explicitly disable header discovery' do
+    # NOTE:
+    #  * setting `discover_headers: false` is implicit when setting :headers or :map_headers
+    #  * that's why it does not make sense to set it manually to `false`.
+    #  * if you want to turn off header discovery, just provide one of those two options
+    #
+    context 'when we explicitly disable header discovery, but do not provide headers' do
       let(:options) do
-        { discover_headers: false } # THIS SHOULD NOT BE USED LIKE THIS!!
+        { discover_headers: false } # THIS DOES NOT MAKE SENSE without providing :headers or :map_headers
       end
 
       it 'limits the CSV file to only the given headers' do
         create_csv_file
 
         output = File.read(file_path)
-        expect(output).to eq "\n\n\n\n\n" # THIS SHOULD NOT BE USED LIKE THIS!!
+        expect(output).to eq '' # because it turns off header discovery and no headers provided
       end
     end
   end
@@ -267,7 +326,6 @@ RSpec.describe SmarterCSV::Writer do
         expect(output).to include('John,30,"New ""York"')
       end
     end
-
 
     describe 'when special_char row_sep' do
       let(:options) { {} }
@@ -339,14 +397,14 @@ RSpec.describe SmarterCSV::Writer do
                 v.to_s
               end
             end,
-            _all: ->(k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
+            _all: ->(_k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
           }
         }
       end
       it 'applies all mappings in the correct order' do
         writer = SmarterCSV::Writer.new(file_path, options)
         writer << { name: 'Alice', age: 42, active: true, balance: 234.235 }
-        writer << { name: 'Joe', age: 53, active: false, balance: 32100 }
+        writer << { name: 'Joe', age: 53, active: false, balance: 32_100 }
         writer.finalize
 
         output = File.read(file_path)
@@ -389,4 +447,3 @@ RSpec.describe SmarterCSV::Writer do
     end
   end
 end
-# rubocop:enable Style/WordArray

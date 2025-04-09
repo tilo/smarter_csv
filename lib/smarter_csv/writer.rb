@@ -90,7 +90,7 @@ module SmarterCSV
       mapped_headers = mapped_headers.map { |x| escape_csv_field(x) } if @force_quotes
 
       @temp_file.rewind
-      @output_file.write(mapped_headers.join(@col_sep) + @row_sep)
+      @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?
       @output_file.write(@temp_file.read)
       @output_file.flush
       @output_file.close
@@ -120,7 +120,7 @@ module SmarterCSV
         escape_csv_field(value) # for backwards compatibility
       end
 
-      @temp_file.write ordered_row.join(@col_sep) + @row_sep
+      @temp_file.write(ordered_row.join(@col_sep) + @row_sep) unless ordered_row.empty?
     end
 
     def map_value(key, value)

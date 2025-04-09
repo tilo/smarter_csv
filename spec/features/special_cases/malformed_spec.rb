@@ -45,6 +45,5 @@ fixture_path = 'spec/fixtures'
         end
       end
     end
-
   end
 end

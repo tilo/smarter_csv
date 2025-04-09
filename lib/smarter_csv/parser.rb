@@ -110,7 +110,7 @@ module SmarterCSV
       end
 
       # Replace double quotes with a single quote
-      field.gsub!("#{quote * 2}", quote)
+      field.gsub!((quote * 2).to_s, quote)
 
       field
     end

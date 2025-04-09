@@ -58,6 +58,9 @@ Style/ClassMethods:
 Style/ConditionalAssignment:
   Enabled: false
 
+Style/CommentAnnotation:
+  Enabled: false
+
 Style/CommentedKeyword:
   Enabled: false
 
@@ -76,6 +79,9 @@ Style/Encoding:
 Style/EvalWithLocation:
   Enabled: false
 
+Style/EvenOdd:
+  Enabled: false
+
 Style/FormatString:
   Enabled: false
 
@@ -92,6 +98,9 @@ Style/IfUnlessModifier:
   Enabled: false
 
 Style/InverseMethods:
+  Enabled: false
+
+Style/Lambda:
   Enabled: false
 
 Style/NestedTernaryOperator:
@@ -115,6 +124,9 @@ Style/SafeNavigation:
 Style/SlicingWithRange:
   Enabled: false
 
+Style/SoleNestedConditional:
+  Enabled: false
+
 Style/SpecialGlobalVars: # DANGER: unsafe rule!!
   Enabled: false
 
@@ -135,8 +147,13 @@ Style/SymbolArray:
 Style/SymbolProc: # old Ruby versions can't do this
   Enabled: false
 
+Style/TrailingCommaInArrayLiteral:
+  Enabled: false
+  EnforcedStyleForMultiline: consistent_comma
+
 Style/TrailingCommaInHashLiteral:
   Enabled: false
+  EnforcedStyleForMultiline: consistent_comma
 
 Style/TrailingUnderscoreVariable:
   Enabled: false
