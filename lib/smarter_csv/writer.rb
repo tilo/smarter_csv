@@ -90,6 +90,7 @@ module SmarterCSV
     def finalize
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
       force_quotes = @quote_headers || @force_quotes
+
       mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
 
       @temp_file.rewind
@@ -136,7 +137,7 @@ module SmarterCSV
 
     def escape_csv_field(field, force_quotes = false)
       str = field.to_s
-      return str if @disable_auto_quoting
+      return str if @disable_auto_quoting && !force_quotes
 
       # double-quote fields if we force that, or if the field contains the comma, new-line, or quote character
       contains_special_char = str.to_s.match(@quote_regex)

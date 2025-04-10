@@ -384,6 +384,25 @@ RSpec.describe SmarterCSV::Writer do
         end
       end
 
+      context 'when force_quotes is true, even with auto-quoting disabled' do
+        let(:options) do
+          {
+            force_quotes: true,
+            disable_auto_quoting: true, # works even then
+          }
+        end
+
+        it 'quotes all the headers and data fields' do
+          writer = SmarterCSV::Writer.new(file_path, options)
+          writer << data
+          writer.finalize
+          output = File.read(file_path)
+
+          expect(output).to include("\"name\",\"age\",\"city\"#{row_sep}")
+          expect(output).to include("\"John\",\"30\",\"New York\"#{row_sep}")
+        end
+      end
+
       context 'when quote_headers is true' do
         let(:options) { {quote_headers: true} }
 
@@ -446,6 +465,7 @@ RSpec.describe SmarterCSV::Writer do
     describe 'when doing advanced mapping' do
       let(:options) do
         {
+          quote_headers: true,
           disable_auto_quoting: true, # ⚠️ Important: turn off auto-quoting because we're messing with it below
           value_converters: {
             active: ->(v) { v ? '✅' : '❌' },
@@ -470,7 +490,7 @@ RSpec.describe SmarterCSV::Writer do
         writer.finalize
 
         output = File.read(file_path)
-        expect(output).to include("name,age,active,balance#{row_sep}")
+        expect(output).to include("\"name\",\"age\",\"active\",\"balance\"#{row_sep}")
         expect(output).to include("\"Alice\",42,\"✅\",\"$234.24\"#{row_sep}")
         expect(output).to include("\"Joe\",53,\"❌\",\"$32100\"#{row_sep}")
       end
