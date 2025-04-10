@@ -2,7 +2,7 @@
 # SmarterCSV 1.x Change Log
 
 ## 1.14.2 (2025-04-10)
- * bugfix: SmarterCSV::Writer fixing corner case with `quote_headers: true`
+ * bugfix: SmarterCSV::Writer fixing corner case with `quote_headers: true` ([issue 301](https://github.com/tilo/smarter_csv/issues/301))
  * new option: `header_converter` allows to programatically modify the headers
 
 ## 1.14.1 (2025-04-09)
