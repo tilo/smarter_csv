@@ -28,6 +28,10 @@
      |                             |           | ⚠️ This disables automatic header detection!                    |
      | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. | 
      |                             |           | ⚠️ This disables automatic header detection!                    |
+     | :value_converters           |    nil    | allows to define lambdas to programmatically modify values       |
+     |                             |           | * either for specific `key` names                                |
+     |                             |           | * or using `_all` for all fields                                |
+     | :header_converter           |    nil    | allows to define one lambda to programmatically modify the headers |
      | :discover_headers           |   true    | Automatically detects all keys in the input before writing the header |
      |                             |           | Do not manually set this to `false`. ⚠️                         |
      |                             |           | But you can set this to `true` when using `map_headers` option. |

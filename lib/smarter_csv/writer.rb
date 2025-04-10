@@ -54,6 +54,7 @@ module SmarterCSV
       @value_converters = options[:value_converters] || {}
       @map_all_keys = @value_converters.has_key?(:_all)
       @mapped_keys = @value_converters.keys - [:_all]
+      @header_converter = options[:header_converter]
 
       @discover_headers = true
       if options.has_key?(:discover_headers)
@@ -89,8 +90,10 @@ module SmarterCSV
 
     def finalize
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
-      force_quotes = @quote_headers || @force_quotes
 
+      mapped_headers = @headers.map { |header| @header_converter.call(header) } if @header_converter
+
+      force_quotes = @quote_headers || @force_quotes
       mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
 
       @temp_file.rewind

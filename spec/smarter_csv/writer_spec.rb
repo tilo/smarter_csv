@@ -299,15 +299,15 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
 
-    context 'when headers are mapped' do
+    context 'when headers are arbitrarily mapped' do
       let(:options) do
         {
           map_headers: {
-            name: 'Full Name',
-            age: 'Age',
-            city: 'City',
-            state: 'State',
-            country: 'Country',
+            name: 'Voller Name',
+            age: 'Alter',
+            city: 'Stadt',
+            state: 'Land',
+            country: 'Staat',
           }
         }
       end
@@ -317,11 +317,31 @@ RSpec.describe SmarterCSV::Writer do
 
         output = File.read(file_path)
 
-        expect(output).to include("Full Name,Age,City,State,Country#{row_sep}")
+        expect(output).to include("Voller Name,Alter,Stadt,Land,Staat#{row_sep}")
         expect(output).to include("John,30,New York,,#{row_sep}")
         expect(output).to include("Jane,25,,,USA#{row_sep}")
         expect(output).to include("Mike,35,Chicago,IL,#{row_sep}")
         expect(output).to include("Alex,,,,USA#{row_sep}")
+      end
+    end
+
+    context 'when header_converter is used' do
+      let(:options) do
+        {
+          header_converter: ->(header) { header.upcase }
+        }
+      end
+
+      it 'converts all the headers to upcase' do
+        create_csv_file
+
+        output = File.read(file_path)
+
+        expect(output).to include("NAME,AGE,CITY,COUNTRY,STATE#{row_sep}")
+        expect(output).to include("John,30,New York#{row_sep}")
+        expect(output).to include("Jane,25,,USA#{row_sep}")
+        expect(output).to include("Mike,35,Chicago,,IL#{row_sep}")
+        expect(output).to include("Alex,,,USA,#{row_sep}")
       end
     end
 

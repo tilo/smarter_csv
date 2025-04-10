@@ -3,6 +3,7 @@
 
 ## 1.14.2 (2025-04-10)
  * bugfix: SmarterCSV::Writer fixing corner case with `quote_headers: true`
+ * new option: `header_converter` allows to programatically modify the headers
 
 ## 1.14.1 (2025-04-09)
  * bugfix: SmarterCSV::Writer empty hash results in a blank line ([issue 299](https://github.com/tilo/smarter_csv/issues/299))
