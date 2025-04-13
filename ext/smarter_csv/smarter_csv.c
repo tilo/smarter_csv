@@ -44,21 +44,33 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   long backslash_count = 0;
   bool in_quotes = false;
 
+  /* Optimization 1: maintain count instead of calling RARRAY_LEN repeatedly */
+  long element_count = 0;
+
+  /* Optimization 2: cache max_size value if not nil */
+  int max_fields = -1;
+  if (max_size != Qnil) {
+    max_fields = NUM2INT(max_size);
+    if (max_fields < 0) {
+      return rb_ary_new();  // Return empty array early
+    }
+  }
+
   while (p < endP) {
     /* does the remaining string start with col_sep ? */
     col_sep_found = true;
-    for(i=0; (i < col_sep_len) && (p+i < endP); i++) {
-      col_sep_found = col_sep_found && (*(p+i) == *(col_sepP+i));
+    for (i = 0; (i < col_sep_len) && (p + i < endP); i++) {
+      col_sep_found = col_sep_found && (*(p + i) == *(col_sepP + i));
     }
     /* if col_sep was found and we're not inside quotes */
     if (col_sep_found && !in_quotes) {
-      /* if max_size != nil && elements.size >= header_size */
-      if ((max_size != Qnil) && RARRAY_LEN(elements) >= NUM2INT(max_size)) {
+      if ((max_fields >= 0) && (element_count >= max_fields)) {
         break;
       } else {
         /* push that field with original encoding onto the results */
         field = rb_enc_str_new(startP, p - startP, encoding);
         rb_ary_push(elements, field);
+        element_count++;
 
         p += col_sep_len;
         startP = p;
@@ -87,8 +99,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   }
 
   /* check if the last part of the line needs to be processed */
-  if ((max_size == Qnil) || RARRAY_LEN(elements) < NUM2INT(max_size)) {
-    /* copy the remaining line as a field with original encoding onto the results */
+  if ((max_fields < 0) || (element_count < max_fields)) {
     field = rb_enc_str_new(startP, endP - startP, encoding);
     rb_ary_push(elements, field);
   }

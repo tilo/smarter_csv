@@ -14,7 +14,7 @@ module SmarterCSV
 
       if options[:acceleration] && has_acceleration
         # :nocov:
-        has_quotes = line =~ /#{options[:quote_char]}/
+        has_quotes = line.include?(options[:quote_char])
         elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
         elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
         [elements, elements.size]
