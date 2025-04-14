@@ -2,6 +2,8 @@
 
 module SmarterCSV
   module Parser
+    EMPTY_STRING = ''.freeze
+
     protected
 
     ###
@@ -102,7 +104,8 @@ module SmarterCSV
     end
 
     def cleanup_quotes(field, quote)
-      return field if field.nil?
+      return nil if field.nil?
+      return EMPTY_STRING if field.empty?
 
       # Remove surrounding quotes if present
       if field.start_with?(quote) && field.end_with?(quote)
@@ -110,9 +113,13 @@ module SmarterCSV
       end
 
       # Replace double quotes with a single quote
-      field.gsub!((quote * 2).to_s, quote)
+      field.gsub!(doubled_quote(quote), quote)
 
       field
+    end
+
+    def doubled_quote(quote)
+      @doubled_quote ||= (quote * 2).to_s.freeze
     end
   end
 end
