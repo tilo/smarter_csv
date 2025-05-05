@@ -13,17 +13,16 @@ module SmarterCSV
     ###
     def parse(line, options, header_size = nil)
       # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
+      has_quotes = line.include?(options[:quote_char])
 
       if options[:acceleration] && has_acceleration
         # :nocov:
-        has_quotes = line.include?(options[:quote_char])
-        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size)
-        elements.map!{|x| cleanup_quotes(x, options[:quote_char])} if has_quotes
+        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace])
         [elements, elements.size]
         # :nocov:
       else
         # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
-        parse_csv_line_ruby(line, options, header_size)
+        parse_csv_line_ruby(line, options, header_size, has_quotes)
       end
     end
 
@@ -48,7 +47,7 @@ module SmarterCSV
     #
     # Our convention is that empty fields are returned as empty strings, not as nil.
 
-    def parse_csv_line_ruby(line, options, header_size = nil)
+    def parse_csv_line_ruby(line, options, header_size = nil, has_quotes = false)
       return [[], 0] if line.nil?
 
       line_size = line.size
@@ -100,6 +99,7 @@ module SmarterCSV
         elements << cleanup_quotes(line[start..-1], quote)
       end
 
+      elements.map!(&:strip) if options[:strip_whitespace]
       [elements, elements.size]
     end
 
