@@ -128,6 +128,7 @@ module SmarterCSV
           line.chomp!(options[:row_sep])
 
           # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
+          # we are now stripping whitespace inside the parse() methods
           dataA, data_size = parse(line, options) # we parse the extra columns
 
           if options[:strict]
@@ -140,8 +141,6 @@ module SmarterCSV
               current_size += 1
             end
           end
-
-          dataA.map!{|x| x.strip} if options[:strip_whitespace]
 
           # if all values are blank, then ignore this line
           next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))

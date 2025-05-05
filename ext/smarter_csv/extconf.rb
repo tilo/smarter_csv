@@ -9,6 +9,8 @@ if RbConfig::MAKEFILE_CONFIG["CFLAGS"].include?("-g -O3")
   RbConfig::MAKEFILE_CONFIG["CFLAGS"] = fixed_CFLAGS
 end
 
-CONFIG["optflags"] = "-O3"
+# CONFIG["optflags"] = "-O3 -march=native -flto"
+CONFIG["optflags"] = "-O3 -march=native -flto -fomit-frame-pointer -DNDEBUG"
+CONFIG["debugflags"] = ""
 
 create_makefile('smarter_csv/smarter_csv')

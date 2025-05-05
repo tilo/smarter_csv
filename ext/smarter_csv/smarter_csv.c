@@ -2,6 +2,7 @@
 #include "ruby/encoding.h"
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #ifndef bool
   #define bool int
@@ -12,8 +13,25 @@
 VALUE SmarterCSV = Qnil;
 VALUE eMalformedCSVError = Qnil;
 VALUE Parser = Qnil;
+VALUE Qempty_string = Qnil; // shared frozen empty string
 
-static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size) {
+static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
+  char *buf = ALLOC_N(char, len);
+  long j = 0;
+  for (long i = 0; i < len; i++) {
+    if (str[i] == quote_char && i + 1 < len && str[i + 1] == quote_char) {
+      buf[j++] = quote_char;
+      i++; // skip second quote
+    } else {
+      buf[j++] = str[i];
+    }
+  }
+  VALUE out = rb_enc_str_new(buf, j, encoding);
+  xfree(buf);
+  return out;
+}
+
+static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
   }
@@ -22,74 +40,180 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     rb_raise(rb_eTypeError, "ERROR in SmarterCSV.parse_line: line has to be a string or nil");
   }
 
-  rb_encoding *encoding = rb_enc_get(line); /* get the encoding from the input line */
-  char *startP = RSTRING_PTR(line); /* may not be null terminated */
+  rb_encoding *encoding = rb_enc_get(line);
+  char *startP = RSTRING_PTR(line);
   long line_len = RSTRING_LEN(line);
-  char *endP = startP + line_len; /* points behind the string */
+  char *endP = startP + line_len;
   char *p = startP;
 
   char *col_sepP = RSTRING_PTR(col_sep);
   long col_sep_len = RSTRING_LEN(col_sep);
 
   char *quoteP = RSTRING_PTR(quote_char);
-  long quote_count = 0;
-
-  bool col_sep_found = true;
+  char quote_char_val = quoteP[0];
+  size_t quote_len = strlen(quoteP);
 
   VALUE elements = rb_ary_new();
   VALUE field;
-  long i;
 
-  /* Variables for escaped quote handling */
+  long element_count = 0;
+  int max_fields = -1;
+  if (max_size != Qnil) {
+    max_fields = NUM2INT(max_size);
+    if (max_fields < 0) {
+      return rb_ary_new();
+    }
+  }
+
+  bool has_quotes = RTEST(has_quotes_val);
+  bool strip_ws = RTEST(strip_ws_val);
+
+  // === FAST PATH: No quotes and single-character separator ===
+  if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
+    char sep = *col_sepP;
+    char *sep_pos = NULL;
+
+    while ((sep_pos = memchr(p, sep, endP - p))) {
+      if ((max_fields >= 0) && (element_count >= max_fields)) {
+        break;
+      }
+
+      long field_len = sep_pos - startP;
+      char *raw_field = startP;
+      char *trim_start = raw_field;
+      char *trim_end = raw_field + field_len - 1;
+
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = trim_end - trim_start + 1;
+
+      field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+      rb_ary_push(elements, field);
+      element_count++;
+
+      p = sep_pos + 1;
+      startP = p;
+    }
+
+    if ((max_fields < 0) || (element_count < max_fields)) {
+      long field_len = endP - startP;
+      char *raw_field = startP;
+      char *trim_start = raw_field;
+      char *trim_end = raw_field + field_len - 1;
+
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = trim_end - trim_start + 1;
+
+      field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+      rb_ary_push(elements, field);
+    }
+
+    return elements;
+  }
+
+  // === SLOW PATH: Quoted fields or multi-char separator ===
+  long i;
   long backslash_count = 0;
   bool in_quotes = false;
+  bool col_sep_found = true;
 
   while (p < endP) {
-    /* does the remaining string start with col_sep ? */
     col_sep_found = true;
-    for(i=0; (i < col_sep_len) && (p+i < endP); i++) {
-      col_sep_found = col_sep_found && (*(p+i) == *(col_sepP+i));
-    }
-    /* if col_sep was found and we're not inside quotes */
-    if (col_sep_found && !in_quotes) {
-      /* if max_size != nil && elements.size >= header_size */
-      if ((max_size != Qnil) && RARRAY_LEN(elements) >= NUM2INT(max_size)) {
+    for (i = 0; (i < col_sep_len) && (p + i < endP); i++) {
+      if (*(p + i) != *(col_sepP + i)) {
+        col_sep_found = false;
         break;
-      } else {
-        /* push that field with original encoding onto the results */
-        field = rb_enc_str_new(startP, p - startP, encoding);
-        rb_ary_push(elements, field);
-
-        p += col_sep_len;
-        startP = p;
-        backslash_count = 0; // Reset backslash count at the start of a new field
       }
+    }
+
+    if (col_sep_found && !in_quotes) {
+      if ((max_fields >= 0) && (element_count >= max_fields)) {
+        break;
+      }
+
+      long field_len = p - startP;
+      char *raw_field = startP;
+
+      bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
+      if (quoted) {
+        raw_field++;
+        field_len -= 2;
+      }
+
+      char *trim_start = raw_field;
+      char *trim_end = raw_field + field_len - 1;
+
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = trim_end - trim_start + 1;
+
+      if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
+        field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+      } else {
+        field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+      }
+
+      rb_ary_push(elements, field);
+      element_count++;
+
+      p += col_sep_len;
+      startP = p;
+      backslash_count = 0;
     } else {
       if (*p == '\\') {
         backslash_count++;
       } else {
-        if (*p == *quoteP) {
+        if (*p == quote_char_val) {
           if (backslash_count % 2 == 0) {
-            /* Even number of backslashes means quote is not escaped */
             in_quotes = !in_quotes;
           }
-          /* Else, quote is escaped; do nothing */
         }
-        backslash_count = 0; // Reset after any character other than backslash
+        backslash_count = 0;
       }
       p++;
     }
-  } /* while */
+  }
 
-  /* Check for unclosed quotes at the end of the line */
   if (in_quotes) {
     rb_raise(eMalformedCSVError, "Unclosed quoted field detected in line: %s", StringValueCStr(line));
   }
 
-  /* check if the last part of the line needs to be processed */
-  if ((max_size == Qnil) || RARRAY_LEN(elements) < NUM2INT(max_size)) {
-    /* copy the remaining line as a field with original encoding onto the results */
-    field = rb_enc_str_new(startP, endP - startP, encoding);
+  if ((max_fields < 0) || (element_count < max_fields)) {
+    long field_len = endP - startP;
+    char *raw_field = startP;
+
+    bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
+    if (quoted) {
+      raw_field++;
+      field_len -= 2;
+    }
+
+    char *trim_start = raw_field;
+    char *trim_end = raw_field + field_len - 1;
+
+    if (strip_ws) {
+      while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+      while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+    }
+
+    long trimmed_len = trim_end - trim_start + 1;
+
+    if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
+      field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+    } else {
+      field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+    }
+
     rb_ary_push(elements, field);
   }
 
@@ -97,10 +221,10 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 }
 
 void Init_smarter_csv(void) {
-  // these modules and the error class are already defined in Ruby code, make them accessible:
   SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
   Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
-
-  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 4);
+  Qempty_string = rb_str_new_literal("");
+  rb_gc_register_address(&Qempty_string);
+  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 6);
 }
