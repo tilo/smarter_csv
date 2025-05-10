@@ -3,7 +3,8 @@
 module SmarterCSV
   class Reader
     include ::SmarterCSV::Options
-    include ::SmarterCSV::FileIO
+    # include ::SmarterCSV::BufferedIO
+    # include ::SmarterCSV::FileIO
     include ::SmarterCSV::AutoDetection
     include ::SmarterCSV::Headers
     include ::SmarterCSV::HeaderTransformations

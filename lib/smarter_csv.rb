@@ -3,7 +3,8 @@
 require "smarter_csv/version"
 require "smarter_csv/errors"
 
-require "smarter_csv/file_io"
+require "smarter_csv/buffered_io"
+
 require "smarter_csv/options"
 require "smarter_csv/auto_detection"
 require 'smarter_csv/header_transformations'
