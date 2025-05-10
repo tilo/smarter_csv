@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'smarter_csv/buffered_io'
+require 'buffered_io/buffered_io'
 require 'digest'
 
 RSpec.describe SmarterCSV::BufferedIO do

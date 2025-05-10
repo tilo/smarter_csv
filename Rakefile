@@ -28,19 +28,17 @@ if RUBY_ENGINE == 'jruby'
 else
   task build: :compile
 
-  %w[buffered_io].each do |ext_name|
-    Rake::ExtensionTask.new(ext_name) do |ext|
-      ext.lib_dir = "lib/smarter_csv"
-      ext.ext_dir = "ext/smarter_csv"
-      ext.source_pattern = "*.{c,h}"
-    end
+  Rake::ExtensionTask.new("buffered_io") do |ext|
+    ext.lib_dir = "lib/buffered_io"
+    ext.ext_dir = "ext/buffered_io"
+    ext.source_pattern = "buffered_io.{c,h}"
   end
 
-  # Rake::ExtensionTask.new("buffered_io") do |ext|
-  #   ext.lib_dir = "lib/smarter_csv"
-  #   ext.ext_dir = "ext/smarter_csv"
-  #   ext.source_pattern = "*.{c,h}"
-  # end
+  Rake::ExtensionTask.new("smarter_csv") do |ext|
+    ext.lib_dir = "lib/smarter_csv"
+    ext.ext_dir = "ext/smarter_csv"
+    ext.source_pattern = "smarter_csv.{c,h}"
+  end
 
   # task default: %i[clobber compile spec rubocop]
   task default: %i[clobber compile spec]

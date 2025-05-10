@@ -13,5 +13,4 @@ end
 CONFIG["optflags"] = "-O3 -march=native -flto -fomit-frame-pointer -DNDEBUG"
 CONFIG["debugflags"] = ""
 
-create_makefile('smarter_csv/smarter_csv')
-
+create_makefile('smarter_csv/buffered_io')

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
+require "smarter_csv/file_io"
 
 module SmarterCSV
   class Reader
     include ::SmarterCSV::Options
-    # include ::SmarterCSV::BufferedIO
-    # include ::SmarterCSV::FileIO
+    include ::SmarterCSV::FileIO
     include ::SmarterCSV::AutoDetection
     include ::SmarterCSV::Headers
     include ::SmarterCSV::HeaderTransformations
