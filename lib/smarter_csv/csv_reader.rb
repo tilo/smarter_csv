@@ -2,9 +2,10 @@
 
 module SmarterCSV
   class CSVReader
-    def initialize(buffered_io, options, encoding = Encoding::UTF_8)
-      @io = buffered_io
-      @encoding = encoding
+    def initialize(source, options)
+      @buffer_size = options[:buffer_size] || (128 * 1024)
+      @io = SmarterCSV::BufferedIO.new(source, @buffer_size)
+      @encoding = source.respond_to?(:external_encoding) ? source.external_encoding : Encoding::UTF_8
       @row_sep = options[:row_sep]
       @col_sep = options[:col_sep]
       @quote_char = options[:quote_char]
@@ -99,29 +100,19 @@ module SmarterCSV
       bytes = +""
       while (b = @io.peek_byte)
         bytes << b
-        len = bytes.bytesize
+        return consume(bytes) if bytes.valid_encoding?
+        break if bytes.bytesize >= 4
 
-        clen = char_length(bytes)
-        break if clen == len
-        break if clen == -1 || len >= 4
-
-        @io.next_byte # consume if still assembling
+        @io.next_byte
       end
-
-      return nil if bytes.empty?
-
-      # consume what we peeked
-      bytes.bytesize.times { @io.next_byte }
-      bytes.force_encoding(@encoding)
+      nil
     end
-    
+
     private
 
-    def char_length(bytes)
-      ptr = bytes.bytes
-      rb_enc_precise_mbclen(ptr.pack("C*"), ptr.pack("C*") + bytes.bytesize, @encoding)
-    rescue StandardError
-      -1
+    def consume(bytes)
+      bytes.bytesize.times { @io.next_byte }
+      bytes.force_encoding(@encoding)
     end
 
     def row_separator?(char)
