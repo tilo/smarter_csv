@@ -96,4 +96,28 @@ RSpec.describe SmarterCSV::BufferedIO do
       end
     end
   end
+
+  describe '#peek_byte' do
+    it 'returns the same byte as next_byte without advancing' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("ABC"), 2)
+
+      first_peek = io.peek_byte
+      expect(first_peek).to eq("A")
+
+      first_actual = io.next_byte
+      expect(first_actual).to eq("A")
+
+      second_peek = io.peek_byte
+      expect(second_peek).to eq("B")
+    end
+
+    it 'returns nil at EOF' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("Z"), 1)
+
+      expect(io.peek_byte).to eq("Z")
+      expect(io.next_byte).to eq("Z")
+      expect(io.peek_byte).to be_nil
+      expect(io.next_byte).to be_nil
+    end
+  end
 end

@@ -32,12 +32,6 @@ typedef struct {
   bool eof;
 } SmarterCSV_Buffer;
 
-// Function declarations
-bool init_buffer(SmarterCSV_Buffer *b, size_t buffer_size);
-void refill_buffer(SmarterCSV_Buffer *b);
-void swap_buffers(SmarterCSV_Buffer *b);
-int next_byte(SmarterCSV_Buffer *b);
-
 static void buffer_free(void *ptr) {
   SmarterCSV_Buffer *b = (SmarterCSV_Buffer *)ptr;
   if (b) {
@@ -74,7 +68,6 @@ bool init_buffer(SmarterCSV_Buffer *b, size_t buffer_size) {
 void refill_buffer(SmarterCSV_Buffer *b) {
   size_t carry_offset = 0;
 
-  // Only reset length after calculating carry
   size_t remaining = b->length - b->pos;
   if (remaining > 0) {
     if (remaining > MAX_CARRY_ZONE) remaining = MAX_CARRY_ZONE;
@@ -109,7 +102,6 @@ void swap_buffers(SmarterCSV_Buffer *b) {
   b->pos = 0;
 }
 
-// Ensure b->length is not reset before carry logic below
 int next_byte(SmarterCSV_Buffer *b) {
   while (b->pos >= b->length) {
     if (b->eof) return EOF;
@@ -118,6 +110,16 @@ int next_byte(SmarterCSV_Buffer *b) {
     swap_buffers(b);
   }
   return (unsigned char)b->active_buf[b->pos++];
+}
+
+int peek_byte(SmarterCSV_Buffer *b) {
+  while (b->pos >= b->length) {
+    if (b->eof) return EOF;
+    refill_buffer(b);
+    if (b->inactive_len == 0) return EOF;
+    swap_buffers(b);
+  }
+  return (unsigned char)b->active_buf[b->pos];
 }
 
 static VALUE buffer_alloc(VALUE klass) {
@@ -155,6 +157,7 @@ static VALUE buffer_initialize(VALUE self, VALUE source, VALUE size_val) {
     b->length = 0;
     b->pos = 0;
   }
+
   return self;
 }
 
@@ -163,6 +166,16 @@ static VALUE buffer_next_byte(VALUE self) {
   TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
 
   int byte = next_byte(b);
+  if (byte == EOF) return Qnil;
+  char c = (char)byte;
+  return rb_str_new(&c, 1);
+}
+
+static VALUE buffer_peek_byte(VALUE self) {
+  SmarterCSV_Buffer *b;
+  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+
+  int byte = peek_byte(b);
   if (byte == EOF) return Qnil;
   char c = (char)byte;
   return rb_str_new(&c, 1);
@@ -181,5 +194,6 @@ void Init_buffered_io(void) {
   rb_define_alloc_func(cBufferedIO, buffer_alloc);
   rb_define_method(cBufferedIO, "initialize", buffer_initialize, 2);
   rb_define_method(cBufferedIO, "next_byte", buffer_next_byte, 0);
+  rb_define_method(cBufferedIO, "peek_byte", buffer_peek_byte, 0);
   rb_define_method(cBufferedIO, "eof?", buffer_eof, 0);
 }
