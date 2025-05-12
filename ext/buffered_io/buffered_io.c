@@ -181,6 +181,52 @@ static VALUE buffer_peek_byte(VALUE self) {
   return rb_str_new(&c, 1);
 }
 
+static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
+  SmarterCSV_Buffer *b;
+  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+
+  size_t n = 1;
+  if (argc == 1) {
+    n = NUM2SIZET(argv[0]);
+    if (n == 0) return rb_str_new("", 0);
+  }
+
+  VALUE result = rb_str_new(0, n);
+  char *dst = RSTRING_PTR(result);
+
+  size_t remaining = b->length - b->pos;
+
+  size_t copied = 0;
+  while (copied < n) {
+    if (remaining >= n - copied) {
+      memcpy(dst + copied, b->active_buf + b->pos + copied, n - copied);
+      break;
+    } else {
+      if (remaining > 0) {
+        memcpy(dst + copied, b->active_buf + b->pos + copied, remaining);
+        copied += remaining;
+      }
+
+      if (b->eof) {
+        rb_str_set_len(result, copied);  // Trim result
+        return copied == 0 ? Qnil : result;
+      }
+
+      refill_buffer(b);
+      if (b->inactive_len == 0) {
+        b->eof = true;
+        rb_str_set_len(result, copied);  // Trim result
+        return copied == 0 ? Qnil : result;
+      }
+
+      swap_buffers(b);
+      remaining = b->length - b->pos;
+    }
+  }
+
+  return result;
+}
+
 static VALUE buffer_eof(VALUE self) {
   SmarterCSV_Buffer *b;
   TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
@@ -195,5 +241,6 @@ void Init_buffered_io(void) {
   rb_define_method(cBufferedIO, "initialize", buffer_initialize, 2);
   rb_define_method(cBufferedIO, "next_byte", buffer_next_byte, 0);
   rb_define_method(cBufferedIO, "peek_byte", buffer_peek_byte, 0);
+  rb_define_method(cBufferedIO, "peek_bytes", buffer_peek_bytes, -1);
   rb_define_method(cBufferedIO, "eof?", buffer_eof, 0);
 }

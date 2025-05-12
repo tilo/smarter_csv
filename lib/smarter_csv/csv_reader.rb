@@ -2,6 +2,9 @@
 
 module SmarterCSV
   class CSVReader
+    attr_reader :io, :encoding, :buffer_size
+    attr_reader :quote_char, :double_quote_char, :col_sep, :row_sep
+
     def initialize(source, options)
       @buffer_size = options[:buffer_size] || (128 * 1024)
       @io = SmarterCSV::BufferedIO.new(source, @buffer_size)
@@ -10,166 +13,105 @@ module SmarterCSV
       @col_sep = options[:col_sep]
       @quote_char = options[:quote_char]
       @double_quote_char = options[:quote_char] * 2
+
+      @max_sep_length  = [@col_sep.size, @row_sep.size, 2].max
     end
 
+    # ---------------------------------------------------------------
+    # Finite State Machine to read CSV row as fields
     def read_row_as_fields
-      fields = []
-      field = +""
-      match_buffer = +""
+      @fields = []
+      @buffer = +""
       state = :start_field
-      field_pushed = false
+      in_quotes = false
+      quote_balanced = false
 
       loop do
-        char = next_char
-        break if char.nil?
+        peek = peek_chars(@max_sep_length)
 
-        match_buffer << char
-        puts "STATE: #{state}, CHAR: #{char.inspect}, MATCH_BUFFER: #{match_buffer.inspect}"
+        # --- End of File ---
+        if peek.nil?
+          # if we were inside a quoted field and it's not closed, it's an error
+          if in_quotes || !quote_balanced
+            raise SmarterCSV::MalformedCSVError, "Unclosed quoted field"
+          end
+          finalize_field
+          return @fields.empty? ? nil : @fields
+        end
 
-        case state
-        when :start_field
-          field_pushed = false
-          if match_buffer == @quote_char
-            # Look ahead: is this the start of an escaped quote or quoted field?
-            temp = match_buffer.dup
-            temp << (peek_char || "")
-            if temp == @double_quote_char
-              puts "Double quote detected in start_field"
-              field << @quote_char
-              match_buffer.clear
-              @io.next_byte # consume lookahead
-              state = :in_field
-            else
-              puts "Entering quoted field"
-              match_buffer.clear
-              state = :in_quoted_field
-            end
-          elsif match_buffer == @col_sep
-            puts "Empty field at start"
-            fields << ""
-            field_pushed = true
-            match_buffer.clear
-            state = :start_field
-          elsif match_buffer == @row_sep
-            puts "Empty field at row_sep"
-            fields << ""
-            field_pushed = true
-            match_buffer.clear
-            break
-          elsif match_buffer.start_with?(@col_sep, @row_sep, @quote_char)
-            next
-          else
-            puts "Entering unquoted field"
-            field << match_buffer[0]
-            match_buffer = match_buffer[1..-1] || +""
+        # Handle quoted field
+        if state == :start_field
+          if peek.start_with?(@quote_char)
+            in_quotes = true
+            quote_balanced = false
+            skip_chars(@quote_char.size)
             state = :in_field
-          end
-
-        when :in_field
-          if match_buffer == @col_sep
-            puts "Field complete in in_field"
-            fields << field
-            field_pushed = true
-            field = +""
-            match_buffer.clear
-            state = :start_field
-          elsif match_buffer.start_with?(@col_sep)
-            next
-          elsif match_buffer == @row_sep
-            puts "Row end in in_field"
-            fields << field
-            field = +""
-            field_pushed = true
-            match_buffer.clear
-            break
-          elsif match_buffer.start_with?(@row_sep)
-            next
-          elsif match_buffer == @double_quote_char
-            puts "Unescaped double quote inside unquoted field"
-            field << @quote_char
-            match_buffer.clear
-          elsif match_buffer.start_with?(@double_quote_char)
             next
           else
-            field << match_buffer[0]
-            match_buffer = match_buffer[1..-1] || +""
-          end
-
-        when :in_quoted_field
-          if match_buffer == @double_quote_char
-            puts "Escaped quote inside quoted field"
-            field << @quote_char
-            match_buffer.clear
-          elsif match_buffer == @quote_char
-            puts "Potential end of quoted field"
-            state = :quote_terminated
-            match_buffer.clear
-          elsif match_buffer.start_with?(@quote_char)
-            next
-          else
-            field << match_buffer[0]
-            match_buffer = match_buffer[1..-1] || +""
-          end
-
-        when :quote_terminated
-          if match_buffer == @quote_char
-            puts "Double quote escape after quote_terminated"
-            field << @quote_char
-            match_buffer.clear
-            state = :in_quoted_field
-          elsif match_buffer == @col_sep
-            puts "Field complete after quote"
-            fields << field
-            field_pushed = true
-            field = +""
-            match_buffer.clear
-            state = :start_field
-          elsif match_buffer == @row_sep
-            puts "Row end after quoted field"
-            fields << field
-            field_pushed = true
-            match_buffer.clear
-            break
-          elsif match_buffer.start_with?(@col_sep, @row_sep, @quote_char)
-            next
-          else
-            puts "Garbage after quoted field"
-            field << match_buffer[0]
-            match_buffer = match_buffer[1..-1] || +""
+            in_quotes = false
+            quote_balanced = true
             state = :in_field
           end
         end
+
+        if in_quotes
+          # Check for escaped quote or closing quote
+          if peek.start_with?(@double_quote_char)
+            skip_chars(@double_quote_char.size)
+            @buffer << @quote_char
+          elsif peek.start_with?(@quote_char)
+            skip_chars(@quote_char.size)
+            in_quotes = false
+            quote_balanced = true
+          else
+            ch = next_char
+            @buffer << ch if ch
+          end
+        else
+          # Check field and row separators
+          if peek.start_with?(@col_sep)
+            skip_chars(@col_sep.size)
+            finalize_field
+            state = :start_field
+          elsif peek.start_with?(@row_sep)
+            skip_chars(@row_sep.size)
+            finalize_field
+            return @fields
+          else
+            ch = next_char
+            @buffer << ch if ch
+          end
+        end
       end
-
-      # Final field flush after loop (last field without trailing row_sep)
-      field << match_buffer unless match_buffer.empty?
-      fields << field unless field.empty? || field_pushed
-
-      fields.empty? ? nil : fields
     end
+
+    def finalize_field
+      # remove surrounding quotes if needed, already handled
+      @fields << @buffer.dup
+      @buffer.clear
+    end
+
+    # ---------------------------------------------------------------
 
     def read_row
       row = +""
-      match_buffer = +""
+      @match_buffer = +""
 
       while (char = next_char)
-        match_buffer << char
+        @match_buffer << char
 
-        if match_buffer == @row_sep
-          row << match_buffer
+        if @match_buffer == @row_sep
+          row << @match_buffer
           return row
         end
 
-        # Continue matching if we're on a valid prefix
-        next if @row_sep.start_with?(match_buffer)
+        next if @row_sep.start_with?(@match_buffer)
 
-        # Flush first char of buffer to row, and try to match again
-        row << match_buffer[0]
-        match_buffer = match_buffer[1..-1] || +""
+        row << @match_buffer[0]
+        @match_buffer = @match_buffer[1..-1] || +""
       end
 
-      # At EOF: flush what's left
-      row << match_buffer unless match_buffer.empty?
+      row << @match_buffer unless @match_buffer.empty?
       row.empty? ? nil : row
     end
 
@@ -186,35 +128,60 @@ module SmarterCSV
     end
     # rubocop:enable Naming/MethodParameterName
 
-    def peek_char
-      bytes = +""
-      while (b = @io.peek_byte)
-        bytes << b
-        return bytes.force_encoding(@encoding) if bytes.valid_encoding?
-        break if bytes.bytesize >= 4
+    def peek_chars(n)
+      chars = []
+      offset = 1
 
-        @io.next_byte
+      while chars.size < n
+        bytes = @io.peek_bytes(offset)
+        break if bytes.nil? || bytes.empty?
+
+        str = bytes.dup.force_encoding(@encoding)
+
+        if str.valid_encoding?
+          char_array = str.chars
+          return char_array[0, n].join if char_array.size >= n
+        end
+
+        break if bytes.bytesize >= 128  # safety limit
+        offset += 1
+      end
+
+      nil
+    end
+
+    def peek_char
+      n = 1
+      loop do
+        bytes = @io.peek_bytes(n)
+        return nil if bytes.nil? || bytes.bytesize == 0
+
+        str = bytes.dup.force_encoding(@encoding)
+        return str if str.valid_encoding?
+
+        break if bytes.bytesize >= 64
+
+        n += 1
       end
       nil
     end
 
     def next_char
       bytes = +""
-      while (b = @io.peek_byte)
-        bytes << b
-        return consume(bytes) if bytes.valid_encoding?
-        break if bytes.bytesize >= 4
+      while (b = @io.next_byte)
+        bytes << b if b
+        str = bytes.dup.force_encoding(@encoding)
+        return str if str.valid_encoding?
 
-        @io.next_byte
+        break if bytes.bytesize >= 64 || b.nil? # too many bytes or EOF
       end
-      nil
+      nil  # Or raise Encoding::InvalidByteSequenceError, depending on your needs
     end
 
-    private
-
-    def consume(bytes)
-      bytes.bytesize.times { @io.next_byte }
-      bytes.force_encoding(@encoding)
+    # fetch n characters from the io buffer
+    def next_chars(n)
+      n.times { next_char }
     end
+    alias_method :skip_chars, :next_chars
   end
 end
