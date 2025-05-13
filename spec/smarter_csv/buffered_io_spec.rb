@@ -120,4 +120,56 @@ RSpec.describe SmarterCSV::BufferedIO do
       expect(io.next_byte).to be_nil
     end
   end
+
+  describe '#peek_bytes' do
+    it 'returns all remaining bytes, if fewer are available' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("abc"), 2)
+      expect(io.peek_bytes(4)).to eq("abc")
+      expect(io.next_byte).to eq("a")
+      expect(io.peek_bytes(3)).to eq("bc")
+      expect(io.next_byte).to eq("b")
+      expect(io.next_byte).to eq("c")
+      expect(io.peek_bytes(1)).to be_nil
+      expect(io.next_byte).to be_nil
+    end
+
+    it 'peeks multiple bytes without advancing' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("abcdef"), 3)
+      expect(io.peek_bytes(4)).to eq("abcd")
+      expect(io.next_byte).to eq("a")
+      expect(io.peek_bytes(3)).to eq("bcd")
+    end
+
+    it 'returns partial result if fewer bytes available' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("abc"), 2)
+      expect(io.peek_bytes(5)).to eq("abc")
+    end
+
+    it 'returns nil at EOF' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("z"), 1)
+      expect(io.peek_bytes(1)).to eq("z")
+      io.next_byte
+      expect(io.peek_bytes(1)).to be_nil
+    end
+
+    it 'returns empty string when given 0' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("hello"), 2)
+      expect(io.peek_bytes(0)).to eq("")
+    end
+
+    it 'repeated peeks do not advance' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("xyz"), 2)
+      expect(io.peek_bytes(2)).to eq("xy")
+      expect(io.peek_bytes(2)).to eq("xy")
+      expect(io.next_byte).to eq("x")
+      expect(io.peek_bytes(2)).to eq("yz")
+    end
+
+    it 'handles peeking across buffer boundary without advancing' do
+      io = SmarterCSV::BufferedIO.new(StringIO.new("1234567890"), 4)
+      expect(io.peek_bytes(8)).to eq("12345678")
+      expect(io.next_byte).to eq("1")
+      expect(io.peek_bytes(3)).to eq("234")
+    end
+  end
 end

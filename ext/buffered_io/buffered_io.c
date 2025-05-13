@@ -181,6 +181,8 @@ static VALUE buffer_peek_byte(VALUE self) {
   return rb_str_new(&c, 1);
 }
 
+#define SCRATCH_BUFFER_SIZE 4096
+
 static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
   SmarterCSV_Buffer *b;
   TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
@@ -191,41 +193,50 @@ static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
     if (n == 0) return rb_str_new("", 0);
   }
 
-  VALUE result = rb_str_new(0, n);
-  char *dst = RSTRING_PTR(result);
+  size_t available = b->length - b->pos;
+  if (n <= available) {
+    return rb_str_new(b->active_buf + b->pos, n);
+  }
 
-  size_t remaining = b->length - b->pos;
+  // allocate scratch buffer
+  char *scratch = malloc(n);
+  if (!scratch) rb_raise(rb_eNoMemError, "Unable to allocate scratch buffer");
 
   size_t copied = 0;
-  while (copied < n) {
-    if (remaining >= n - copied) {
-      memcpy(dst + copied, b->active_buf + b->pos + copied, n - copied);
-      break;
-    } else {
-      if (remaining > 0) {
-        memcpy(dst + copied, b->active_buf + b->pos + copied, remaining);
-        copied += remaining;
-      }
 
-      if (b->eof) {
-        rb_str_set_len(result, copied);  // Trim result
-        return copied == 0 ? Qnil : result;
-      }
+  // copy from current active_buf
+  if (available > 0) {
+    memcpy(scratch, b->active_buf + b->pos, available);
+    copied += available;
+  }
 
-      refill_buffer(b);
-      if (b->inactive_len == 0) {
-        b->eof = true;
-        rb_str_set_len(result, copied);  // Trim result
-        return copied == 0 ? Qnil : result;
-      }
+  // read remaining bytes into temp buffer
+  size_t to_fetch = n - copied;
+  char *tail = scratch + copied;
 
-      swap_buffers(b);
-      remaining = b->length - b->pos;
+  off_t rewind_offset = 0;
+  if (b->source_type == SOURCE_FILE_PTR) {
+    rewind_offset = ftell(b->fp);
+    size_t read = fread(tail, 1, to_fetch, b->fp);
+    fseek(b->fp, rewind_offset, SEEK_SET);  // rewind to original position
+    copied += read;
+  } else if (b->source_type == SOURCE_RUBY_IO) {
+    VALUE str = rb_funcall(b->ruby_io, rb_intern("read"), 1, SIZET2NUM(to_fetch));
+    if (!NIL_P(str)) {
+      memcpy(tail, RSTRING_PTR(str), RSTRING_LEN(str));
+      copied += RSTRING_LEN(str);
+      rb_funcall(b->ruby_io, rb_intern("seek"), 2, LL2NUM(-((long)RSTRING_LEN(str))), INT2FIX(SEEK_CUR));
     }
   }
 
+  VALUE result = copied == 0 ? Qnil : rb_str_new(scratch, copied);
+  free(scratch);
   return result;
 }
+
+
+
+
 
 static VALUE buffer_eof(VALUE self) {
   SmarterCSV_Buffer *b;
