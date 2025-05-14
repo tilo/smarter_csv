@@ -91,7 +91,39 @@ RSpec.describe SmarterCSV::CSVReader do
       end
     end
 
-    ['"', "'", "<>", "🔺", "\x02"].each do |quote_char|
+    ['"'].each do |quote_char|
+      it "parses quoted field with escaped quote_char #{quote_char}" do
+        options = { col_sep: ',', row_sep: "\n", quote_char: quote_char, buffer_size: 8 }
+        str = %{#{quote_char}5'11#{quote_char}#{quote_char}#{quote_char}}
+        reader = SmarterCSV::CSVReader.new(StringIO.new(str), options)
+        expect(reader.read_row_as_fields).to eq([%{5'11#{quote_char}}])
+      end
+    end
+
+    ["🔺"].each do |quote_char|
+      # THESE ARE CURRENTLY FAILING!
+      it "parses quoted fields with custom quote_char #{quote_char.inspect}" do
+        options = { col_sep: ',', row_sep: "\n", quote_char: quote_char, buffer_size: 8 }
+        data = [
+          %w[a b c].join(options[:col_sep]),
+          %w[x y z].join(options[:col_sep]),
+          [
+            %{5#{quote_char}#{quote_char}},
+            %{5'11#{quote_char}#{quote_char}},
+            %{#{quote_char}5'11#{quote_char}#{quote_char}#{quote_char}}
+          ].join(options[:col_sep])
+        ]
+        input = data.join(options[:row_sep])
+        reader = SmarterCSV::CSVReader.new(StringIO.new(input), options)
+        expect(reader.read_row_as_fields).to eq(%w[a b c])
+        expect(reader.read_row_as_fields).to eq(%w[x y z])
+        expect(reader.read_row_as_fields).to eq([
+          %{5#{quote_char}}, %{5'11#{quote_char}}, %{5'11#{quote_char}}
+        ])
+      end
+    end
+
+    ['"', "^", "<>", "🔺", "\x02".dup.force_encoding('ASCII-8BIT')].each do |quote_char|
       it "parses un-quoted field with escaped quote_char #{quote_char}" do
         options = { col_sep: ',', row_sep: "\n", quote_char: quote_char, buffer_size: 8 }
         str = %{5#{quote_char}#{quote_char}}
@@ -106,6 +138,7 @@ RSpec.describe SmarterCSV::CSVReader do
         expect(reader.read_row_as_fields).to eq([%{5'11#{quote_char}}])
       end
 
+      # THESE ARE CURRENTLY FAILING!
       it "parses quoted field with escaped quote_char #{quote_char}" do
         options = { col_sep: ',', row_sep: "\n", quote_char: quote_char, buffer_size: 8 }
         str = %{#{quote_char}5'11#{quote_char}#{quote_char}#{quote_char}}
@@ -158,7 +191,7 @@ RSpec.describe SmarterCSV::CSVReader do
 
   describe '#next_char with encoding support' do
     it 'reads Shift_JIS encoded characters correctly' do
-      options.merge(buffer_size: 4)
+      options.merge!(buffer_size: 4)
       str = "あいうえお\n".encode("Shift_JIS")
       reader = SmarterCSV::CSVReader.new(StringIO.new(str), options)
 
@@ -171,7 +204,7 @@ RSpec.describe SmarterCSV::CSVReader do
     end
 
     it 'reads ISO-8859-1 extended characters correctly' do
-      options.merge(buffer_size: 2)
+      options.merge!(buffer_size: 2)
       str = "caf\xe9\n".dup.force_encoding("ISO-8859-1") # é in Latin-1
       reader = SmarterCSV::CSVReader.new(StringIO.new(str), options)
 
@@ -184,7 +217,7 @@ RSpec.describe SmarterCSV::CSVReader do
     end
 
     it 'returns nil or skips on malformed UTF-8 input' do
-      options.merge(buffer_size: 1)
+      options.merge!(buffer_size: 1)
       # Invalid UTF-8: continuation byte with no leading byte
       malformed = "\xC2\xC2\xC2".b
       reader = SmarterCSV::CSVReader.new(StringIO.new(malformed), options)
@@ -200,7 +233,7 @@ RSpec.describe SmarterCSV::CSVReader do
 
   describe '#next_char' do
     it 'reads UTF-8 characters correctly' do
-      options.merge(buffer_size: 4)
+      options.merge!(buffer_size: 4)
       input = "abc💡🚀xyz\n"
       reader = SmarterCSV::CSVReader.new(StringIO.new(input), options)
 
@@ -214,9 +247,9 @@ RSpec.describe SmarterCSV::CSVReader do
   end
 
   describe '#read_row' do
-    ["\n", "\r", "\n\r"].each do |row_sep|
-      it "reads a single line with a custom row_sep #{row_sep}" do
-        options.merge(buffer_size: 8)
+    ["\n", "\r", "\n\r", "💡"].each do |row_sep|
+      it "reads a single line with a custom row_sep #{row_sep.inspect}" do
+        options.merge!(buffer_size: 8, row_sep: row_sep)
         input = "foo,bar,baz#{row_sep}next,row,here#{row_sep}"
         reader = SmarterCSV::CSVReader.new(StringIO.new(input), options)
 
@@ -229,7 +262,7 @@ RSpec.describe SmarterCSV::CSVReader do
     end
 
     it 'returns nil at EOF' do
-      options.merge(buffer_size: 4)
+      options.merge!(buffer_size: 4, row_sep: "\n")
       reader = SmarterCSV::CSVReader.new(StringIO.new("final\n"), options)
 
       reader.read_row # consume line
@@ -239,7 +272,7 @@ RSpec.describe SmarterCSV::CSVReader do
 
   describe '#read_rows' do
     it 'reads multiple rows' do
-      options.merge(buffer_size: 6)
+      options.merge!(buffer_size: 6)
       input = "a,b,c\n1,2,3\nx,y,z\n"
       reader = SmarterCSV::CSVReader.new(StringIO.new(input), options)
 
