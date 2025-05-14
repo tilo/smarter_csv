@@ -34,6 +34,12 @@ else
     ext.source_pattern = "buffered_io.{c,h}"
   end
 
+  Rake::ExtensionTask.new("parser") do |ext|
+    ext.lib_dir = "lib/parser"
+    ext.ext_dir = "ext/parser"
+    ext.source_pattern = "parser.{c,h}"
+  end
+
   Rake::ExtensionTask.new("smarter_csv") do |ext|
     ext.lib_dir = "lib/smarter_csv"
     ext.ext_dir = "ext/smarter_csv"

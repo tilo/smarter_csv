@@ -235,9 +235,6 @@ static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
 }
 
 
-
-
-
 static VALUE buffer_eof(VALUE self) {
   SmarterCSV_Buffer *b;
   TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
