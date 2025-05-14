@@ -164,7 +164,7 @@ module SmarterCSV
 
         break if bytes.bytesize >= 64 || b.nil? # too many bytes or EOF
       end
-      nil # Or raise Encoding::InvalidByteSequenceError, depending on your needs
+      nil # Or raise Encoding::InvalidByteSequenceError
     end
 
     # rubocop:disable Naming/MethodParameterName
@@ -181,27 +181,9 @@ module SmarterCSV
 
     # fetch n characters from the io buffer
     def next_chars(n)
-      n.times do
-        ch = next_char
-      end
+      n.times { next_char }
     end
     alias skip_chars next_chars
-
-    # it should be safe to assume in average a char is less than 16 bytes
-    # def peek_chars(n)
-    #   bytes = @io.peek_bytes(n * 16)
-    #   return nil if bytes.nil? || bytes.empty?
-    #
-    #   str = bytes.dup.force_encoding(@encoding)
-    #
-    #   if str.valid_encoding?
-    #     char_array = str.chars
-    #     result = char_array[0, n].join
-    #     return result
-    #   end
-    #
-    #   nil
-    # end
 
     # - it should be safe to assume in average a char is less than 16 bytes
     # - peek_bytes may contain invalid sequences if a multi-byte character is cut
