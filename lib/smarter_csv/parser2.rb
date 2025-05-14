@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  class CSVReader
+  class Parser2
     attr_reader :io, :encoding, :buffer_size
     attr_reader :quote_char, :double_quote_char, :col_sep, :row_sep
 
