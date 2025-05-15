@@ -5,6 +5,7 @@ require "smarter_csv/errors"
 
 require "buffered_io/buffered_io"
 require 'smarter_csv/parser2'
+require 'parser/parserc'
 
 require "smarter_csv/options"
 require "smarter_csv/auto_detection"

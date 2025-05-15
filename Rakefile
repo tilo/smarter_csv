@@ -34,7 +34,7 @@ else
     ext.source_pattern = "buffered_io.{c,h}"
   end
 
-  Rake::ExtensionTask.new("parser") do |ext|
+  Rake::ExtensionTask.new("parserc") do |ext|
     ext.lib_dir = "lib/parser"
     ext.ext_dir = "ext/parser"
     ext.source_pattern = "parser.{c,h}"
