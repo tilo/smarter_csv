@@ -255,21 +255,18 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   VALUE str = rb_str_dup(bytes);
   rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
-    VALUE chars = rb_funcall(str, rb_intern("chars"), 0);
-    VALUE result = rb_ary_new();
-    for (int i = 0; i < n && i < RARRAY_LEN(chars); ++i) {
-      rb_ary_push(result, rb_ary_entry(chars, i));
-    }
-    return rb_funcall(result, rb_intern("join"), 0);
+    return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
   } else {
+    // VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
+    // VALUE chars = rb_funcall(scrubbed, rb_intern("chars"), 0);
+    // VALUE result = rb_ary_new();
+    // for (int i = 0; i < n && i < RARRAY_LEN(chars); ++i) {
+    //   rb_ary_push(result, rb_ary_entry(chars, i));
+    // }
+    // if (RARRAY_LEN(result) == 0) return Qnil;
+    // return rb_funcall(result, rb_intern("join"), 0);
     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
-    VALUE chars = rb_funcall(scrubbed, rb_intern("chars"), 0);
-    VALUE result = rb_ary_new();
-    for (int i = 0; i < n && i < RARRAY_LEN(chars); ++i) {
-      rb_ary_push(result, rb_ary_entry(chars, i));
-    }
-    if (RARRAY_LEN(result) == 0) return Qnil;
-    return rb_funcall(result, rb_intern("join"), 0);
+    return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
   }
 }
 
