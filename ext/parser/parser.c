@@ -234,42 +234,39 @@ static VALUE parser_read_field_c(VALUE self) {
 }
 
 // Ruby methods: next_char, peek_chars, next_chars, skip_chars
-// static VALUE parser_next_char(VALUE self) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-//   VALUE io = rb_iv_get(self, "@io");
-
-//   // Fast-path for ASCII/UTF-8 single-byte characters
-//   if (p->is_ascii_or_utf8) {
-//     VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(byte_val)) return Qnil;
-
-//     if (RSTRING_LEN(byte_val) == 1 && ((unsigned char)RSTRING_PTR(byte_val)[0]) < 0x80) {
-//       return byte_val;  // already a valid single-byte ASCII char
-//     } else {
-//       VALUE dup = rb_str_dup(byte_val);
-//       rb_funcall(dup, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//       return RTEST(rb_funcall(dup, rb_intern("valid_encoding?"), 0)) ? dup : Qnil;
-//     }
-//   }
-
-//   // Slow-path for general encodings
-//   VALUE bytes = rb_str_new("", 0);
-//   for (int i = 0; i < 64; ++i) {
-//     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(b)) break;
-//     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
-//     VALUE str = rb_str_dup(bytes);
-//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//     if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
-//   }
-//   return Qnil;
-// }
-
 static VALUE parser_next_char(VALUE self) {
+  parser_t *p;
+  TypedData_Get_Struct(self, parser_t, &parser_type, p);
   VALUE io = rb_iv_get(self, "@io");
-  VALUE bytes = rb_str_new("", 0);
 
+  if (p->is_ascii_or_utf8) {
+    VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
+    if (NIL_P(byte_val)) return Qnil;
+
+    const char *ptr = RSTRING_PTR(byte_val);
+    if (RSTRING_LEN(byte_val) == 1 && ((unsigned char)ptr[0]) < 0x80) {
+      return byte_val;  // fast-path for ASCII
+    }
+
+    // slow-path for UTF-8 multibyte character
+    VALUE bytes = rb_str_dup(byte_val);
+    rb_funcall(bytes, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+
+    if (RTEST(rb_funcall(bytes, rb_intern("valid_encoding?"), 0))) return bytes;
+
+    for (int i = 0; i < 63; ++i) {
+      VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
+      if (NIL_P(b)) break;
+      rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
+      VALUE str = rb_str_dup(bytes);
+      rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+      if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
+    }
+    return Qnil;
+  }
+
+  // General fallback path for other encodings
+  VALUE bytes = rb_str_new("", 0);
   for (int i = 0; i < 64; ++i) {
     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
     if (NIL_P(b)) break;
@@ -281,6 +278,21 @@ static VALUE parser_next_char(VALUE self) {
   return Qnil;
 }
 
+// static VALUE parser_next_char(VALUE self) {
+//   VALUE io = rb_iv_get(self, "@io");
+//   VALUE bytes = rb_str_new("", 0);
+
+//   for (int i = 0; i < 64; ++i) {
+//     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
+//     if (NIL_P(b)) break;
+//     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
+//     VALUE str = rb_str_dup(bytes);
+//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+//     if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
+//   }
+//   return Qnil;
+// }
+
 static VALUE parser_next_chars(VALUE self, VALUE nval) {
   int n = NUM2INT(nval);
   for (int i = 0; i < n; ++i) {
@@ -290,36 +302,11 @@ static VALUE parser_next_chars(VALUE self, VALUE nval) {
 }
 
 // Ruby method: peek_chars
-static VALUE parser_peek_chars(VALUE self, VALUE nval) {
-  int n = NUM2INT(nval);
-  VALUE io = rb_iv_get(self, "@io");
-  VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
-  if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
-
-  VALUE str = rb_str_dup(bytes);
-  rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-  if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
-    return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-  } else {
-    VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
-    return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-  }
-}
-
 // static VALUE parser_peek_chars(VALUE self, VALUE nval) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
 //   int n = NUM2INT(nval);
 //   VALUE io = rb_iv_get(self, "@io");
 //   VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
 //   if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
-
-//   if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
-//     VALUE substr = rb_str_substr(bytes, 0, n);
-//     rb_funcall(substr, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//     return substr;
-//   }
 
 //   VALUE str = rb_str_dup(bytes);
 //   rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
@@ -330,6 +317,31 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
 //     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
 //   }
 // }
+
+static VALUE parser_peek_chars(VALUE self, VALUE nval) {
+  parser_t *p;
+  TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+  int n = NUM2INT(nval);
+  VALUE io = rb_iv_get(self, "@io");
+  VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
+  if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
+
+  if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
+    VALUE substr = rb_str_substr(bytes, 0, n);
+    rb_funcall(substr, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+    return substr;
+  }
+
+  VALUE str = rb_str_dup(bytes);
+  rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+  if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+    return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+  } else {
+    VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
+    return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+  }
+}
 
 // Ruby method: read_row (returns raw string line including row_sep)
 static VALUE parser_read_row(VALUE self) {
