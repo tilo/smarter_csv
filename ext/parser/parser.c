@@ -267,14 +267,12 @@ static VALUE parser_read_field_c(VALUE self) {
 // }
 
 static VALUE parser_next_char(VALUE self) {
-  printf("[parser_next_char] ENTER\n");
   VALUE io = rb_iv_get(self, "@io");
   VALUE bytes = rb_str_new("", 0);
 
   for (int i = 0; i < 64; ++i) {
     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
     if (NIL_P(b)) break;
-    printf("[parser_next_char] got byte: '%.*s'\n", (int)RSTRING_LEN(b), RSTRING_PTR(b));
     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
     VALUE str = rb_str_dup(bytes);
     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
