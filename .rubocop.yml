@@ -1,6 +1,9 @@
 AllCops:
   TargetRubyVersion: 2.5 # purposely an old Ruby version
 
+Layout/FirstArrayElementIndentation:
+  Enabled: false
+
 Layout/SpaceBeforeBlockBraces:
   Enabled: false
 
