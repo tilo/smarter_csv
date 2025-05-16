@@ -273,6 +273,53 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   }
 }
 
+// Ruby method: read_row (returns raw string line including row_sep)
+// Ruby method: read_row (returns raw string line including row_sep)
+static VALUE parser_read_row(VALUE self) {
+  VALUE io = rb_iv_get(self, "@io");
+  VALUE row_sep = rb_iv_get(self, "@row_sep");
+  VALUE encoding = rb_iv_get(self, "@encoding");
+
+  long row_sep_len = RSTRING_LEN(row_sep);
+  const char *row_sep_ptr = RSTRING_PTR(row_sep);
+
+  VALUE buffer = rb_str_new("", 0);
+
+  while (1) {
+    VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
+    if (NIL_P(byte_val)) break;
+
+    rb_str_cat(buffer, RSTRING_PTR(byte_val), RSTRING_LEN(byte_val));
+
+    if (RSTRING_LEN(buffer) >= row_sep_len) {
+      const char *buf_ptr = RSTRING_PTR(buffer);
+      long buf_len = RSTRING_LEN(buffer);
+
+      if (strncmp(buf_ptr + buf_len - row_sep_len, row_sep_ptr, row_sep_len) == 0) {
+        rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
+        return buffer;
+      }
+    }
+  }
+
+  if (RSTRING_LEN(buffer) == 0) {
+    return Qnil;
+  }
+
+  rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
+  return buffer;
+}
+
+
+// Ruby method: skip_rows (skips n rows and retuns nil)
+static VALUE parser_skip_rows(VALUE self, VALUE nval) {
+  int n = NUM2INT(nval);
+  for (int i = 0; i < n; ++i) {
+    parser_read_row(self);
+  }
+  return Qnil;
+}
+
 // Ruby: initialize(source, options)
 static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   parser_t *p;
@@ -329,4 +376,6 @@ void Init_parserc(void) {
   rb_define_method(cParser, "next_chars", parser_next_chars, 1);
   rb_define_method(cParser, "skip_chars", parser_next_chars, 1);
   rb_define_method(cParser, "peek_chars", parser_peek_chars, 1);
+  rb_define_method(cParser, "read_row", parser_read_row, 0);
+  rb_define_method(cParser, "skip_rows", parser_skip_rows, 1);
 }

@@ -257,31 +257,31 @@ RSpec.describe "CSV parser backed by buffered_id" do
         end
       end
 
-      if klass == SmarterCSV::Parser2
-        describe '#read_row' do
-          ["\n", "\r", "\n\r", "💡"].each do |row_sep|
-            it "reads a single line with a custom row_sep #{row_sep.inspect}" do
-              options.merge!(buffer_size: 8, row_sep: row_sep)
-              input = "foo,bar,baz#{row_sep}next,row,here#{row_sep}"
-              reader = klass.new(StringIO.new(input), options)
+      describe '#read_row' do
+        ["\n", "\r", "\n\r", "💡"].each do |row_sep|
+          it "reads a single line with a custom row_sep #{row_sep.inspect}" do
+            options.merge!(buffer_size: 8, row_sep: row_sep)
+            input = "foo,bar,baz#{row_sep}next,row,here#{row_sep}"
+            reader = klass.new(StringIO.new(input), options)
 
-              row = reader.read_row
-              expect(row).to eq("foo,bar,baz#{row_sep}")
+            row = reader.read_row
+            expect(row).to eq("foo,bar,baz#{row_sep}")
 
-              row2 = reader.read_row
-              expect(row2).to eq("next,row,here#{row_sep}")
-            end
-          end
-
-          it 'returns nil at EOF' do
-            options.merge!(buffer_size: 4, row_sep: "\n")
-            reader = klass.new(StringIO.new("final\n"), options)
-
-            reader.read_row # consume line
-            expect(reader.read_row).to be_nil
+            row2 = reader.read_row
+            expect(row2).to eq("next,row,here#{row_sep}")
           end
         end
 
+        it 'returns nil at EOF' do
+          options.merge!(buffer_size: 4, row_sep: "\n")
+          reader = klass.new(StringIO.new("final\n"), options)
+
+          reader.read_row # consume line
+          expect(reader.read_row).to be_nil
+        end
+      end
+
+      if klass == SmarterCSV::Parser2
         describe '#read_rows' do
           it 'reads multiple rows' do
             options.merge!(buffer_size: 6)
