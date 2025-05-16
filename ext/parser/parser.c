@@ -20,6 +20,21 @@ typedef struct {
   size_t field_starts[MAX_FIELDS];
   size_t field_lengths[MAX_FIELDS];
   size_t field_count;
+
+  long col_sep_len;
+  long row_sep_len;
+  long quote_char_len;
+  long double_quote_char_len;
+  long max_sep_len;
+
+  const char *col_sep_ptr;
+  const char *row_sep_ptr;
+  const char *quote_char_ptr;
+  const char *double_quote_char_ptr;
+
+  int is_ascii;
+  int is_utf8;
+  int is_ascii_or_utf8;  
 } parser_t;
 
 // Forward declarations for internal C functions
@@ -59,7 +74,10 @@ static VALUE parser_allocate(VALUE klass) {
   p->buffer_pos = 0;
   p->field_count = 0;
   p->buffered_io = Qnil;
-
+  p->col_sep_len = 0;
+  p->row_sep_len = 0;
+  p->quote_char_len = 0;
+  p->double_quote_char_len = 0;  
   return obj;
 }
 
@@ -109,14 +127,10 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
 
-  VALUE col_sep = rb_iv_get(self, "@col_sep");
-  VALUE row_sep = rb_iv_get(self, "@row_sep");
-  VALUE max_sep_len_val = rb_iv_get(self, "@max_sep_length");
-
   int row_complete = 0;
 
   while (!row_complete) {
-    VALUE sep = parser_peek_chars(self, max_sep_len_val);
+    VALUE sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
 
     VALUE pair = parser_read_field_c(self);
     if (TYPE(pair) != T_ARRAY || RARRAY_LEN(pair) != 2) {
@@ -133,13 +147,13 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       finalize_field(p);
     }
 
-    sep = parser_peek_chars(self, max_sep_len_val);
-    if (!NIL_P(sep) && RSTRING_LEN(sep) >= RSTRING_LEN(col_sep) && 
-        strncmp(RSTRING_PTR(sep), RSTRING_PTR(col_sep), RSTRING_LEN(col_sep)) == 0) {
-      parser_next_chars(self, INT2NUM(RSTRING_LEN(col_sep)));
-    } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= RSTRING_LEN(row_sep) && 
-               strncmp(RSTRING_PTR(sep), RSTRING_PTR(row_sep), RSTRING_LEN(row_sep)) == 0) {
-      parser_next_chars(self, INT2NUM(RSTRING_LEN(row_sep)));
+    sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
+    if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->col_sep_len && 
+        strncmp(RSTRING_PTR(sep), p->col_sep_ptr, p->col_sep_len) == 0) {
+      parser_next_chars(self, INT2NUM(p->col_sep_len));
+    } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->row_sep_len && 
+               strncmp(RSTRING_PTR(sep), p->row_sep_ptr, p->row_sep_len) == 0) {
+      parser_next_chars(self, INT2NUM(p->row_sep_len));
       row_complete = 1;
     } else if (NIL_P(sep) || RSTRING_LEN(sep) == 0) {
       row_complete = 1;
@@ -156,25 +170,20 @@ static VALUE parser_read_field_c(VALUE self) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
 
-  VALUE buffer = rb_str_new("", 0);
   int field_started = 1;
   int field_ends_in_quote = 0;
   int field_closed = 0;
 
-  VALUE quote_char = rb_iv_get(self, "@quote_char");
-  VALUE double_quote_char = rb_iv_get(self, "@double_quote_char");
-  VALUE col_sep = rb_iv_get(self, "@col_sep");
-  VALUE row_sep = rb_iv_get(self, "@row_sep");
-  VALUE max_sep_len_val = rb_iv_get(self, "@max_sep_length");
+  mark_field_start(p);
 
   while (1) {
-    VALUE peek = parser_peek_chars(self, max_sep_len_val);
+    VALUE peek = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
 
     if (field_started) {
-      field_ends_in_quote = !NIL_P(peek) && RSTRING_LEN(peek) >= RSTRING_LEN(quote_char) &&
-                            strncmp(RSTRING_PTR(peek), RSTRING_PTR(quote_char), RSTRING_LEN(quote_char)) == 0;
+      field_ends_in_quote = !NIL_P(peek) && RSTRING_LEN(peek) >= p->quote_char_len &&
+                            strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0;
       if (field_ends_in_quote) {
-        parser_next_chars(self, INT2NUM(RSTRING_LEN(quote_char)));
+        parser_next_chars(self, INT2NUM(p->quote_char_len));
       }
       field_started = 0;
       continue;
@@ -187,49 +196,85 @@ static VALUE parser_read_field_c(VALUE self) {
     }
 
     if (field_ends_in_quote) {
-      if (RSTRING_LEN(peek) >= RSTRING_LEN(double_quote_char) &&
-          strncmp(RSTRING_PTR(peek), RSTRING_PTR(double_quote_char), RSTRING_LEN(double_quote_char)) == 0) {
-        parser_next_chars(self, INT2NUM(RSTRING_LEN(double_quote_char)));
-        rb_str_cat(buffer, RSTRING_PTR(quote_char), RSTRING_LEN(quote_char));
-      } else if (RSTRING_LEN(peek) >= RSTRING_LEN(quote_char) &&
-                 strncmp(RSTRING_PTR(peek), RSTRING_PTR(quote_char), RSTRING_LEN(quote_char)) == 0) {
-        parser_next_chars(self, INT2NUM(RSTRING_LEN(quote_char)));
+      if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
+          strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
+        parser_next_chars(self, INT2NUM(p->double_quote_char_len));
+        append_chars(p, p->quote_char_ptr, p->quote_char_len);
+      } else if (RSTRING_LEN(peek) >= p->quote_char_len &&
+                 strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0) {
+        parser_next_chars(self, INT2NUM(p->quote_char_len));
         field_closed = 1;
         break;
       } else {
         VALUE ch = parser_next_char(self);
-        if (!NIL_P(ch)) rb_str_cat(buffer, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
       }
     } else {
-      if (RSTRING_LEN(peek) >= RSTRING_LEN(double_quote_char) &&
-          strncmp(RSTRING_PTR(peek), RSTRING_PTR(double_quote_char), RSTRING_LEN(double_quote_char)) == 0) {
-        parser_next_chars(self, INT2NUM(RSTRING_LEN(double_quote_char)));
-        rb_str_cat(buffer, RSTRING_PTR(quote_char), RSTRING_LEN(quote_char));
+      if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
+          strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
+        parser_next_chars(self, INT2NUM(p->double_quote_char_len));
+        append_chars(p, p->quote_char_ptr, p->quote_char_len);
       } else if (NIL_P(peek) ||
-                 (RSTRING_LEN(peek) >= RSTRING_LEN(col_sep) &&
-                  strncmp(RSTRING_PTR(peek), RSTRING_PTR(col_sep), RSTRING_LEN(col_sep)) == 0) ||
-                 (RSTRING_LEN(peek) >= RSTRING_LEN(row_sep) &&
-                  strncmp(RSTRING_PTR(peek), RSTRING_PTR(row_sep), RSTRING_LEN(row_sep)) == 0)) {
+                 (RSTRING_LEN(peek) >= p->col_sep_len &&
+                  strncmp(RSTRING_PTR(peek), p->col_sep_ptr, p->col_sep_len) == 0) ||
+                 (RSTRING_LEN(peek) >= p->row_sep_len &&
+                  strncmp(RSTRING_PTR(peek), p->row_sep_ptr, p->row_sep_len) == 0)) {
         field_closed = 1;
         break;
       } else {
         VALUE ch = parser_next_char(self);
-        if (!NIL_P(ch)) rb_str_cat(buffer, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
       }
     }
   }
 
-  return rb_ary_new3(2, buffer, field_closed ? Qtrue : Qfalse);
+  VALUE str = rb_str_new(p->active_buf + p->field_starts[p->field_count],
+                         p->buffer_pos - p->field_starts[p->field_count]);
+  return rb_ary_new3(2, str, field_closed ? Qtrue : Qfalse);
 }
 
 // Ruby methods: next_char, peek_chars, next_chars, skip_chars
+// static VALUE parser_next_char(VALUE self) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+//   VALUE io = rb_iv_get(self, "@io");
+
+//   // Fast-path for ASCII/UTF-8 single-byte characters
+//   if (p->is_ascii_or_utf8) {
+//     VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
+//     if (NIL_P(byte_val)) return Qnil;
+
+//     if (RSTRING_LEN(byte_val) == 1 && ((unsigned char)RSTRING_PTR(byte_val)[0]) < 0x80) {
+//       return byte_val;  // already a valid single-byte ASCII char
+//     } else {
+//       VALUE dup = rb_str_dup(byte_val);
+//       rb_funcall(dup, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+//       return RTEST(rb_funcall(dup, rb_intern("valid_encoding?"), 0)) ? dup : Qnil;
+//     }
+//   }
+
+//   // Slow-path for general encodings
+//   VALUE bytes = rb_str_new("", 0);
+//   for (int i = 0; i < 64; ++i) {
+//     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
+//     if (NIL_P(b)) break;
+//     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
+//     VALUE str = rb_str_dup(bytes);
+//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+//     if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
+//   }
+//   return Qnil;
+// }
+
 static VALUE parser_next_char(VALUE self) {
+  printf("[parser_next_char] ENTER\n");
   VALUE io = rb_iv_get(self, "@io");
   VALUE bytes = rb_str_new("", 0);
 
   for (int i = 0; i < 64; ++i) {
     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
     if (NIL_P(b)) break;
+    printf("[parser_next_char] got byte: '%.*s'\n", (int)RSTRING_LEN(b), RSTRING_PTR(b));
     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
     VALUE str = rb_str_dup(bytes);
     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
@@ -246,6 +291,7 @@ static VALUE parser_next_chars(VALUE self, VALUE nval) {
   return Qnil;
 }
 
+// Ruby method: peek_chars
 static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   int n = NUM2INT(nval);
   VALUE io = rb_iv_get(self, "@io");
@@ -257,20 +303,36 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
   } else {
-    // VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
-    // VALUE chars = rb_funcall(scrubbed, rb_intern("chars"), 0);
-    // VALUE result = rb_ary_new();
-    // for (int i = 0; i < n && i < RARRAY_LEN(chars); ++i) {
-    //   rb_ary_push(result, rb_ary_entry(chars, i));
-    // }
-    // if (RARRAY_LEN(result) == 0) return Qnil;
-    // return rb_funcall(result, rb_intern("join"), 0);
     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
   }
 }
 
-// Ruby method: read_row (returns raw string line including row_sep)
+// static VALUE parser_peek_chars(VALUE self, VALUE nval) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+//   int n = NUM2INT(nval);
+//   VALUE io = rb_iv_get(self, "@io");
+//   VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
+//   if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
+
+//   if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
+//     VALUE substr = rb_str_substr(bytes, 0, n);
+//     rb_funcall(substr, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+//     return substr;
+//   }
+
+//   VALUE str = rb_str_dup(bytes);
+//   rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
+//   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+//     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+//   } else {
+//     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
+//     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+//   }
+// }
+
 // Ruby method: read_row (returns raw string line including row_sep)
 static VALUE parser_read_row(VALUE self) {
   VALUE io = rb_iv_get(self, "@io");
@@ -317,6 +379,7 @@ static VALUE parser_skip_rows(VALUE self, VALUE nval) {
   return Qnil;
 }
 
+
 // Ruby: initialize(source, options)
 static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   parser_t *p;
@@ -330,7 +393,8 @@ static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
 
   rb_iv_set(self, "@io", buffered_io);
   rb_iv_set(self, "@buffer_size", buffer_size);
-  rb_iv_set(self, "@encoding", rb_funcall(source, rb_intern("external_encoding"), 0));
+  VALUE encoding = rb_funcall(source, rb_intern("external_encoding"), 0);
+  rb_iv_set(self, "@encoding", encoding);
 
   VALUE row_sep = rb_hash_aref(options, ID2SYM(rb_intern("row_sep")));
   VALUE col_sep = rb_hash_aref(options, ID2SYM(rb_intern("col_sep")));
@@ -345,8 +409,23 @@ static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   long max_len = RSTRING_LEN(row_sep);
   if (RSTRING_LEN(col_sep) > max_len) max_len = RSTRING_LEN(col_sep);
   if (RSTRING_LEN(double_quote_char) > max_len) max_len = RSTRING_LEN(double_quote_char);
-
   rb_iv_set(self, "@max_sep_length", LONG2NUM(max_len));
+
+  p->col_sep_len = RSTRING_LEN(col_sep);
+  p->row_sep_len = RSTRING_LEN(row_sep);
+  p->quote_char_len = RSTRING_LEN(quote_char);
+  p->double_quote_char_len = RSTRING_LEN(double_quote_char);
+  p->max_sep_len = max_len;
+
+  p->col_sep_ptr = RSTRING_PTR(col_sep);
+  p->row_sep_ptr = RSTRING_PTR(row_sep);
+  p->quote_char_ptr = RSTRING_PTR(quote_char);
+  p->double_quote_char_ptr = RSTRING_PTR(double_quote_char);
+
+  const char *enc_name = RSTRING_PTR(rb_funcall(encoding, rb_intern("to_s"), 0));
+  p->is_ascii = strcmp(enc_name, "US-ASCII") == 0;
+  p->is_utf8 = strcmp(enc_name, "UTF-8") == 0;
+  p->is_ascii_or_utf8 = (p->is_ascii || p->is_utf8);
 
   return self;
 }

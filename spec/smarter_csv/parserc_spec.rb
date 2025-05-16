@@ -5,7 +5,6 @@ RSpec.describe SmarterCSV::ParserC do
     { quote_char: '"', row_sep: "\n", col_sep: ',', buffer_size: 64 }
   end
   let(:source) { StringIO.new("a,b,\"c\"\"c\"\nd,e,f\n") }
-  # let(:buffered_io) { SmarterCSV::BufferedIO.new(source, options[:buffer_size]) }
 
   subject(:parser) do
     described_class.new(source, options)
@@ -18,6 +17,4 @@ RSpec.describe SmarterCSV::ParserC do
     fields2 = parser.read_row_as_fields
     expect(fields2).to eq(["d", "e", "f"])
   end
-
-
 end
