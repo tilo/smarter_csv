@@ -5,32 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-#define BUFFER_SIZE_256K (256 * 1024)
-#define BUFFER_SIZE_512K (512 * 1024)
-#define BUFFER_SIZE_1MB   (1024 * 1024)
-#define MAX_CARRY_ZONE 16  // multibyte, quote, newline safety
-
-typedef enum { SOURCE_FILE_PTR, SOURCE_RUBY_IO } SmarterCSV_SourceType;
-
-typedef struct {
-  char *buffer1;
-  char *buffer2;
-  char *active_buf;
-  char *inactive_buf;
-
-  size_t buffer_size;
-  size_t pos;
-  size_t length;
-  size_t carry_len;
-  size_t inactive_len;
-
-  FILE *fp;
-  VALUE ruby_io;
-  SmarterCSV_SourceType source_type;
-
-  bool eof;
-} SmarterCSV_Buffer;
+#include <ruby/encoding.h>
+#include "buffered_io.h"
 
 static void buffer_free(void *ptr) {
   SmarterCSV_Buffer *b = (SmarterCSV_Buffer *)ptr;
@@ -42,7 +18,8 @@ static void buffer_free(void *ptr) {
   }
 }
 
-static const rb_data_type_t buffer_type = {
+// currently visible externally; maybe make this static
+const rb_data_type_t buffer_type = {
   "SmarterCSV_Buffer",
   { NULL, buffer_free, NULL },
   0, 0, RUBY_TYPED_FREE_IMMEDIATELY
@@ -142,10 +119,13 @@ static VALUE buffer_initialize(VALUE self, VALUE source, VALUE size_val) {
     if (!fp) rb_sys_fail("fopen");
     b->fp = fp;
     b->source_type = SOURCE_FILE_PTR;
+    rb_iv_set(self, "@encoding", rb_enc_from_encoding(rb_utf8_encoding()));
   } else if (rb_respond_to(source, rb_intern("read"))) {
     b->ruby_io = source;
     b->source_type = SOURCE_RUBY_IO;
     rb_gc_register_address(&b->ruby_io);
+    VALUE encoding = rb_funcall(source, rb_intern("external_encoding"), 0);
+    rb_iv_set(self, "@encoding", encoding);
   } else {
     rb_raise(rb_eTypeError, "expected String filename or IO object");
   }
@@ -234,7 +214,6 @@ static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
   return result;
 }
 
-
 static VALUE buffer_eof(VALUE self) {
   SmarterCSV_Buffer *b;
   TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
@@ -251,4 +230,5 @@ void Init_buffered_io(void) {
   rb_define_method(cBufferedIO, "peek_byte", buffer_peek_byte, 0);
   rb_define_method(cBufferedIO, "peek_bytes", buffer_peek_bytes, -1);
   rb_define_method(cBufferedIO, "eof?", buffer_eof, 0);
+  rb_define_attr(cBufferedIO, "encoding", 1, 0);
 }

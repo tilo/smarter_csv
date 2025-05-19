@@ -20,6 +20,10 @@ module SmarterCSV
       ].max
     end
 
+    def eof?
+      io.eof?
+    end
+    
     # ---------------------------------------------------------------
     # Finite State Machine to read CSV row as fields
     def read_row_as_fields

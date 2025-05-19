@@ -2,6 +2,7 @@
 
 #include "ruby.h"
 #include <string.h>
+#include "../buffered_io/buffered_io.h"
 
 #define MAX_ROW_BYTES 262144 // 256 KB
 #define MAX_FIELDS 128 * 1024 // Arbitrary upper bound of fields per row
@@ -43,7 +44,7 @@ static VALUE parser_next_chars(VALUE self, VALUE nval);
 static VALUE parser_peek_chars(VALUE self, VALUE nval);
 static VALUE parser_read_field_c(VALUE self);
 static VALUE parser_read_row_as_fields_c(VALUE self);
-
+extern VALUE buffer_eof(VALUE self);
 
 static void parser_free(void *ptr) {
   parser_t *p = (parser_t *)ptr;
@@ -156,6 +157,7 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       parser_next_chars(self, INT2NUM(p->row_sep_len));
       row_complete = 1;
     } else if (NIL_P(sep) || RSTRING_LEN(sep) == 0) {
+      parser_next_char(self);  // consume final bytes, forces EOF detection
       row_complete = 1;
     } else {
       rb_raise(rb_eRuntimeError, "Expected separator but found: %s", RSTRING_PTR(sep));
@@ -389,7 +391,6 @@ static VALUE parser_skip_rows(VALUE self, VALUE nval) {
   return Qnil;
 }
 
-
 // Ruby: initialize(source, options)
 static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   parser_t *p;
@@ -403,7 +404,8 @@ static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
 
   rb_iv_set(self, "@io", buffered_io);
   rb_iv_set(self, "@buffer_size", buffer_size);
-  VALUE encoding = rb_funcall(source, rb_intern("external_encoding"), 0);
+
+  VALUE encoding = rb_iv_get(buffered_io, "@encoding");
   rb_iv_set(self, "@encoding", encoding);
 
   VALUE row_sep = rb_hash_aref(options, ID2SYM(rb_intern("row_sep")));
@@ -440,6 +442,18 @@ static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   return self;
 }
 
+static VALUE parser_eof(VALUE self) {
+  parser_t *p;
+  TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+  if (NIL_P(p->buffered_io)) return Qtrue;
+
+  SmarterCSV_Buffer *b;
+  TypedData_Get_Struct(p->buffered_io, SmarterCSV_Buffer, &buffer_type, b);
+
+  return b->eof ? Qtrue : Qfalse;
+}
+
 // Debug method for internal buffer state
 static VALUE parser_debug_info(VALUE self) {
   parser_t *p;
@@ -464,4 +478,5 @@ void Init_parserc(void) {
   rb_define_method(cParser, "peek_chars", parser_peek_chars, 1);
   rb_define_method(cParser, "read_row", parser_read_row, 0);
   rb_define_method(cParser, "skip_rows", parser_skip_rows, 1);
+  rb_define_method(cParser, "eof?", parser_eof, 0);
 }
