@@ -19,7 +19,7 @@ module SmarterCSV
         # header_line = preprocess_header_line(header_line, options)
 
         file_header_array = header_transformations(file_header_array, options)
-
+        @csv_line_count += 1
       else
         unless options[:user_provided_headers]
           raise SmarterCSV::IncorrectOption, "ERROR: If :headers_in_file is set to false, you have to provide :user_provided_headers"
