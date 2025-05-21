@@ -49,7 +49,8 @@ module SmarterCSV
     }.freeze
 
     # NOTE: this is not called when "parse" methods are tested by themselves
-    def process_options(given_options = {})
+    def process_options(user_options = {})
+      given_options = user_options.dup
       puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
 
       # Special case for :user_provided_headers:
