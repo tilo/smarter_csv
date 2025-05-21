@@ -145,7 +145,7 @@ module SmarterCSV
           if use_chunks
             chunk << hash # append temp result to chunk
 
-            if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
+            if chunk.size >= chunk_size || parser.eof? # if chunk if full, or EOF reached
               # do something with the chunk
               if block_given?
                 yield chunk # do something with the hashes in the chunk in the block
