@@ -14,6 +14,14 @@ describe 'handling files with one column' do
     end
   end
 
+  context 'when simple unix file with header with space' do
+    let(:file) { "#{fixture_path}/simple_with_header_with_space.csv" }
+
+    it 'loads the csv file without issues' do
+      expect(data.size).to eq 4 # should not raise
+    end
+  end
+
   context 'when simple windows file with header' do
     let(:file) { "#{fixture_path}/simple_with_header_windows.csv" }
 
