@@ -9,7 +9,7 @@
 #include "buffered_io.h"
 
 static void buffer_free(void *ptr) {
-  SmarterCSV_Buffer *b = (SmarterCSV_Buffer *)ptr;
+  BufferedIoBufferType *b = (BufferedIoBufferType *)ptr;
   if (b) {
     free(b->buffer1);
     free(b->buffer2);
@@ -20,12 +20,12 @@ static void buffer_free(void *ptr) {
 
 // currently visible externally; maybe make this static
 const rb_data_type_t buffer_type = {
-  "SmarterCSV_Buffer",
+  "BufferedIoBufferType",
   { NULL, buffer_free, NULL },
   0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
 
-bool init_buffer(SmarterCSV_Buffer *b, size_t buffer_size) {
+bool init_buffer(BufferedIoBufferType *b, size_t buffer_size) {
   b->buffer1 = calloc(1, buffer_size);
   b->buffer2 = calloc(1, buffer_size);
   if (!b->buffer1 || !b->buffer2) return false;
@@ -42,7 +42,7 @@ bool init_buffer(SmarterCSV_Buffer *b, size_t buffer_size) {
   return true;
 }
 
-void refill_buffer(SmarterCSV_Buffer *b) {
+void refill_buffer(BufferedIoBufferType *b) {
   size_t carry_offset = 0;
 
   size_t remaining = b->length - b->pos;
@@ -70,7 +70,7 @@ void refill_buffer(SmarterCSV_Buffer *b) {
   if (bytes_read == 0) b->eof = true;
 }
 
-void swap_buffers(SmarterCSV_Buffer *b) {
+void swap_buffers(BufferedIoBufferType *b) {
   char *tmp = b->active_buf;
   b->active_buf = b->inactive_buf;
   b->inactive_buf = tmp;
@@ -79,7 +79,10 @@ void swap_buffers(SmarterCSV_Buffer *b) {
   b->pos = 0;
 }
 
-int next_byte(SmarterCSV_Buffer *b) {
+// next_byte: Returns the next byte from the active buffer,
+// refilling and swapping buffers if needed.
+// Returns -1 (EOF) if no more data is available.
+int next_byte(BufferedIoBufferType *b) {
   while (b->pos >= b->length) {
     if (b->eof) return EOF;
     refill_buffer(b);
@@ -89,7 +92,10 @@ int next_byte(SmarterCSV_Buffer *b) {
   return (unsigned char)b->active_buf[b->pos++];
 }
 
-int peek_byte(SmarterCSV_Buffer *b) {
+// peek_byte: Returns the next byte from the buffer without consuming it.
+// Like next_byte, refills/swaps buffers as needed.
+// Returns -1 (EOF) if no data is available.
+int peek_byte(BufferedIoBufferType *b) {
   while (b->pos >= b->length) {
     if (b->eof) return EOF;
     refill_buffer(b);
@@ -99,14 +105,16 @@ int peek_byte(SmarterCSV_Buffer *b) {
   return (unsigned char)b->active_buf[b->pos];
 }
 
+// ---- Ruby Interface: --------------------------------------------------------------
+
 static VALUE buffer_alloc(VALUE klass) {
-  SmarterCSV_Buffer *b;
-  return TypedData_Make_Struct(klass, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  return TypedData_Make_Struct(klass, BufferedIoBufferType, &buffer_type, b);
 }
 
 static VALUE buffer_initialize(VALUE self, VALUE source, VALUE size_val) {
-  SmarterCSV_Buffer *b;
-  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   size_t size = NUM2SIZET(size_val);
   if (!init_buffer(b, size)) {
@@ -141,9 +149,12 @@ static VALUE buffer_initialize(VALUE self, VALUE source, VALUE size_val) {
   return self;
 }
 
+// buffer_next_byte: Ruby method `BufferedIO#next_byte`
+// Returns the next byte as a 1-char Ruby string, or nil at EOF.
+// Internally calls next_byte(...) on the buffer struct.
 static VALUE buffer_next_byte(VALUE self) {
-  SmarterCSV_Buffer *b;
-  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   int byte = next_byte(b);
   if (byte == EOF) return Qnil;
@@ -151,9 +162,12 @@ static VALUE buffer_next_byte(VALUE self) {
   return rb_str_new(&c, 1);
 }
 
+// buffer_peek_byte: Ruby method `BufferedIO#peek_byte`
+// Returns the next byte as a 1-char Ruby string, or nil at EOF.
+// Does NOT advance the byte position. Calls peek_byte(...) internally.
 static VALUE buffer_peek_byte(VALUE self) {
-  SmarterCSV_Buffer *b;
-  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   int byte = peek_byte(b);
   if (byte == EOF) return Qnil;
@@ -161,11 +175,12 @@ static VALUE buffer_peek_byte(VALUE self) {
   return rb_str_new(&c, 1);
 }
 
-#define SCRATCH_BUFFER_SIZE 4096
-
+// buffer_peek_bytes: Ruby method `BufferedIO#peek_bytes(n)`
+// Returns up to `n` bytes from the buffer without consuming them,
+// combining buffer data and a temporary rewind strategy if needed.
 static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
-  SmarterCSV_Buffer *b;
-  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   size_t n = 1;
   if (argc == 1) {
@@ -215,8 +230,8 @@ static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
 }
 
 static VALUE buffer_eof(VALUE self) {
-  SmarterCSV_Buffer *b;
-  TypedData_Get_Struct(self, SmarterCSV_Buffer, &buffer_type, b);
+  BufferedIoBufferType *b;
+  TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
   return b->eof ? Qtrue : Qfalse;
 }
 

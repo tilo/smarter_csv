@@ -1,6 +1,6 @@
 // ext/smarter_csv/buffered_io.h
-#ifndef SMARTERCSV_BUFFER_H
-#define SMARTERCSV_BUFFER_H
+#ifndef BUFFERED_IO_H
+#define BUFFERED_IO_H
 
 #include "ruby.h"
 #include <stdio.h>
@@ -15,7 +15,7 @@
 typedef enum {
   SOURCE_FILE_PTR,
   SOURCE_RUBY_IO
-} SmarterCSV_SourceType;
+} BufferedIoSourceType;
 
 typedef struct {
   char *buffer1;
@@ -31,19 +31,19 @@ typedef struct {
 
   FILE *fp;
   VALUE ruby_io;
-  SmarterCSV_SourceType source_type;
+  BufferedIoSourceType source_type;
   VALUE rb_cEncoding;
 
   bool eof;
-} SmarterCSV_Buffer;
+} BufferedIoBufferType;
 
 extern const rb_data_type_t buffer_type;
 
 // Optionally declare these if parser.c or other code needs them:
-bool init_buffer(SmarterCSV_Buffer *b, size_t buffer_size);
-void refill_buffer(SmarterCSV_Buffer *b);
-void swap_buffers(SmarterCSV_Buffer *b);
-int next_byte(SmarterCSV_Buffer *b);
-int peek_byte(SmarterCSV_Buffer *b);
+bool init_buffer(BufferedIoBufferType *b, size_t buffer_size);
+void refill_buffer(BufferedIoBufferType *b);
+void swap_buffers(BufferedIoBufferType *b);
+int next_byte(BufferedIoBufferType *b);
+int peek_byte(BufferedIoBufferType *b);
 
-#endif // SMARTERCSV_BUFFER_H
+#endif // BUFFERED_IO_H

@@ -16,6 +16,7 @@ module SmarterCSV
       chunk_size: nil,
       col_sep: :auto, # was: ',',
       comment_regexp: nil, # was: /\A#/,
+      comment_prefix: '',
       convert_values_to_numeric: true,
       downcase_header: true,
       duplicate_header_suffix: '', # was: nil,
@@ -62,6 +63,11 @@ module SmarterCSV
         given_options[:headers_in_file] = false
         puts "WARNING: setting `headers_in_file: false` as a precaution to not lose the first row. Set explicitly to `true` if you have headers."
       end
+
+      if given_options[:comment_regexp] 
+        given_options[:comment_prefix] = given_options[:comment_regexp].source[/\A\^(.+)/, 1]
+      end
+      given_options[:comment_prefix] = '' if given_options[:comment_prefix].nil? || given_options[:comment_prefix].empty?
 
       @options = DEFAULT_OPTIONS.dup.merge!(given_options)
 

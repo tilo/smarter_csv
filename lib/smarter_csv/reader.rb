@@ -28,6 +28,7 @@ module SmarterCSV
     # first parameter: filename or input object which responds to readline method
     def initialize(input, given_options = {})
       @input = input
+      @is_io = input.respond_to?(:readline)
       @has_rails = !!defined?(Rails)
       @csv_line_count = 0
       @chunk_count = 0
@@ -41,7 +42,8 @@ module SmarterCSV
       @enforce_utf8 = false # only set to true if needed (after options parsing)
       @options = process_options(given_options)
       # true if it is compiled with accelleration
-      @has_acceleration = !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
+      # @has_acceleration = !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
+      @has_acceleration = !!defined?(SmarterCSV::ParserC)
     end
 
     def process(&block) # rubocop:disable Lint/UnusedMethodArgument
@@ -49,21 +51,26 @@ module SmarterCSV
       @verbose = options[:verbose]
 
       begin
-        fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
-
-        if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
-          puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+        # Perform auto-detection using raw IO
+        if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+          io = @is_io ? input : File.open(input, "r:#{options[:file_encoding]}")
+          options[:row_sep] = guess_line_ending(io, options) if options[:row_sep]&.to_sym == :auto
+          options[:col_sep] = guess_column_separator(io, options) if options[:col_sep]&.to_sym == :auto
+          @is_io ? io.rewind : io.close
         end
 
-        # auto-detect the row separator
-        options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
-        # attempt to auto-detect column separator
-        options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+        # input is either a file-path or an open Ruby IO object
+        parser = SmarterCSV::ParserC.new(input, options)
+        parser.skip_rows(options[:skip_lines]) if options[:skip_lines].to_i > 0
 
-        skip_lines(fh, options)
+        # fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+
+        # if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
+        #   puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+        # end
 
         # NOTE: we are no longer using header_size
-        @headers, _header_size = process_headers(fh, options)
+        @headers, _header_size = process_headers(parser, options)
         @headerA = @headers # @headerA is deprecated, use @headers
 
         puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
@@ -81,68 +88,39 @@ module SmarterCSV
         end
 
         # now on to processing all the rest of the lines in the CSV file:
-        # fh.each_line |line|
-        until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
-          line = readline_with_counts(fh, options)
+
+        until parser.eof?
+          # TO DO:
+          #  - COMMENT LINE HANDLING NEEDS TO BE MOVED TO ParserC
+###          next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
+
+          dataA = parser.read_row_as_fields
+          dataA_size = dataA.size
+          @file_line_count += 1 # does not make sense anymore
+          @csv_line_count += 1
 
           # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-          line = enforce_utf8_encoding(line, options) if @enforce_utf8
+          # line = enforce_utf8_encoding(line, options) if @enforce_utf8
 
-          print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose
+          print "processing CSV row %10d\r" % [@csv_line_count] if @verbose
 
-          next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
-
-          # cater for the quoted csv data containing the row separator carriage return character
-          # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
-          # by detecting the existence of an uneven number of quote characters
-          multiline = count_quote_chars(line, options[:quote_char]).odd?
-
-          while multiline
-            begin
-              next_line = fh.readline(options[:row_sep])
-              next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
-              line += next_line
-              @file_line_count += 1
-
-              multiline = count_quote_chars(line, options[:quote_char]).odd?
-            rescue EOFError
-              # End of file reached. Check if quotes are balanced.
-              total_quotes = count_quote_chars(line, options[:quote_char])
-              if total_quotes.odd?
-                raise MalformedCSV, "Unclosed quoted field detected in multiline data"
-              else
-                # Quotes are balanced; proceed without raising an error.
-                # :nocov:
-                break
-                # :nocov:
-              end
-            end
-          end
-
-          # :nocov:
-          if multiline && @verbose
-            print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
-          end
-          # :nocov:
-
-          line.chomp!(options[:row_sep])
+          # if all values are blank, then ignore this line
+          next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
           # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
           # we are now stripping whitespace inside the parse() methods
-          dataA, data_size = parse(line, options) # we parse the extra columns
 
-          if options[:strict]
-            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
+          if options[:strict] && dataA.size > @headers.size
+            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@csv_line_count}"
           else
             # we create additional columns on-the-fly
             current_size = @headers.size
-            while current_size < data_size
+            while current_size < dataA_size
               @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
               current_size += 1
             end
           end
 
-          # if all values are blank, then ignore this line
           next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
 
           # --- HASH TRANSFORMATIONS ------------------------------------------------------------
@@ -205,7 +183,7 @@ module SmarterCSV
           # chunk = [] # initialize for next chunk of data
         end
       ensure
-        fh.close if fh.respond_to?(:close)
+        input.close if input.respond_to?(:close)
       end
 
       if block_given?
@@ -215,23 +193,23 @@ module SmarterCSV
       end
     end
 
-    def count_quote_chars(line, quote_char)
-      return 0 if line.nil? || quote_char.nil? || quote_char.empty?
+    # def count_quote_chars(line, quote_char)
+    #   return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
-      count = 0
-      escaped = false
+    #   count = 0
+    #   escaped = false
 
-      line.each_char do |char|
-        if char == '\\' && !escaped
-          escaped = true
-        else
-          count += 1 if char == quote_char && !escaped
-          escaped = false
-        end
-      end
+    #   line.each_char do |char|
+    #     if char == '\\' && !escaped
+    #       escaped = true
+    #     else
+    #       count += 1 if char == quote_char && !escaped
+    #       escaped = false
+    #     end
+    #   end
 
-      count
-    end
+    #   count
+    # end
 
     protected
 
@@ -254,12 +232,10 @@ module SmarterCSV
       end
     end
 
-    private
+    # def enforce_utf8_encoding(line, options)
+    #   # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
-    def enforce_utf8_encoding(line, options)
-      # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-
-      line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
-    end
+    #   line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+    # end
   end
 end

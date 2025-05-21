@@ -2,7 +2,7 @@
 
 module SmarterCSV
   module Headers
-    def process_headers(filehandle, options)
+    def process_headers(parser, options)
       @raw_header = nil # header as it appears in the file
       @headers = nil # the processed headers
       header_array = []
@@ -12,10 +12,11 @@ module SmarterCSV
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header_line = @raw_header = readline_with_counts(filehandle, options)
-        header_line = preprocess_header_line(header_line, options)
+        file_header_array = parser.read_row_as_fields
+        file_header_size = file_header_array.size
 
-        file_header_array, file_header_size = parse(header_line, options)
+        # header_line = @raw_header = readline_with_counts(filehandle, options)
+        # header_line = preprocess_header_line(header_line, options)
 
         file_header_array = header_transformations(file_header_array, options)
 
@@ -49,20 +50,18 @@ module SmarterCSV
       [header_array, header_array.size]
     end
 
-    private
+    # def preprocess_header_line(header_line, options)
+    #   # header_line = enforce_utf8_encoding(header_line, options)
+    #   header_line = remove_comments_from_header(header_line, options)
+    #   header_line = header_line.chomp(options[:row_sep])
+    #   header_line.gsub!(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
+    #   header_line
+    # end
 
-    def preprocess_header_line(header_line, options)
-      header_line = enforce_utf8_encoding(header_line, options)
-      header_line = remove_comments_from_header(header_line, options)
-      header_line = header_line.chomp(options[:row_sep])
-      header_line.gsub!(options[:strip_chars_from_headers], '') if options[:strip_chars_from_headers]
-      header_line
-    end
+    # def remove_comments_from_header(header, options)
+    #   return header unless options[:comment_regexp]
 
-    def remove_comments_from_header(header, options)
-      return header unless options[:comment_regexp]
-
-      header.sub(options[:comment_regexp], '')
-    end
+    #   header.sub(options[:comment_regexp], '')
+    # end
   end
 end
