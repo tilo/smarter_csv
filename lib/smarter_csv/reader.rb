@@ -12,9 +12,10 @@ module SmarterCSV
     include ::SmarterCSV::Parser
 
     attr_reader :input, :options
-    attr_reader :csv_line_count, :chunk_count, :file_line_count
+    attr_reader :chunk_count
     attr_reader :enforce_utf8, :has_rails, :has_acceleration
     attr_reader :errors, :warnings, :headers, :raw_header, :result
+    attr_accessor :csv_line_count
 
     # :nocov:
     # rubocop:disable Naming/MethodName
@@ -30,10 +31,9 @@ module SmarterCSV
       @input = input
       @is_io = input.respond_to?(:readline)
       @has_rails = !!defined?(Rails)
-      @csv_line_count = 0
       @chunk_count = 0
+      @csv_line_count = 0
       @errors = {}
-      @file_line_count = 0
       @headerA = []
       @headers = nil
       @raw_header = nil # header as it appears in the file
@@ -60,7 +60,8 @@ module SmarterCSV
         end
 
         # input is either a file-path or an open Ruby IO object
-        parser = SmarterCSV::ParserC.new(input, options)
+        parser = SmarterCSV::ParserC.new(input, @options)
+
         parser.skip_rows(options[:skip_lines]) if options[:skip_lines].to_i > 0
 
         # fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
@@ -95,14 +96,14 @@ module SmarterCSV
 ###          next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
           dataA = parser.read_row_as_fields
+          dataA ||= []
           dataA_size = dataA.size
-          @file_line_count += 1 # does not make sense anymore
           @csv_line_count += 1
 
           # replace invalid byte sequence in UTF-8 with question mark to avoid errors
           # line = enforce_utf8_encoding(line, options) if @enforce_utf8
 
-          print "processing CSV row %10d\r" % [@csv_line_count] if @verbose
+          print "processing CSV row %10d\r" % [csv_line_count] if @verbose
 
           # if all values are blank, then ignore this line
           next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
@@ -111,13 +112,13 @@ module SmarterCSV
           # we are now stripping whitespace inside the parse() methods
 
           if options[:strict] && dataA.size > @headers.size
-            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@csv_line_count}"
+            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{csv_line_count}"
           else
             # we create additional columns on-the-fly
             current_size = @headers.size
             while current_size < dataA_size
               @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
-              current_size += 1
+              @current_size += 1
             end
           end
 
@@ -137,9 +138,9 @@ module SmarterCSV
 
           next if options[:remove_empty_hashes] && hash.empty?
 
-          puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
+          puts "CSV Line #{csv_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
           # optional adding of csv_line_number to the hash to help debugging
-          hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
+          hash[:csv_line_number] = csv_line_count if options[:with_line_numbers]
 
           # process the chunks or the resulting hash
           if use_chunks
@@ -192,24 +193,6 @@ module SmarterCSV
         @result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
       end
     end
-
-    # def count_quote_chars(line, quote_char)
-    #   return 0 if line.nil? || quote_char.nil? || quote_char.empty?
-
-    #   count = 0
-    #   escaped = false
-
-    #   line.each_char do |char|
-    #     if char == '\\' && !escaped
-    #       escaped = true
-    #     else
-    #       count += 1 if char == quote_char && !escaped
-    #       escaped = false
-    #     end
-    #   end
-
-    #   count
-    # end
 
     protected
 

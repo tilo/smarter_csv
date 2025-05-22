@@ -72,6 +72,10 @@ module SmarterCSV
 
       @options = DEFAULT_OPTIONS.dup.merge!(given_options)
 
+      @options[:quote_char] ||= DEFAULT_OPTIONS[:quote_char]
+      @options[:col_sep] ||= DEFAULT_OPTIONS[:col_sep]
+      @options[:row_sep] ||= DEFAULT_OPTIONS[:row_sep]
+
       # fix invalid input
       @options[:invalid_byte_sequence] ||= ''
 

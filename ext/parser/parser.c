@@ -37,7 +37,10 @@ typedef struct {
 
   int is_ascii;
   int is_utf8;
-  int is_ascii_or_utf8;  
+  int is_ascii_or_utf8;
+
+  VALUE incr_line_count;  // store the Ruby proc
+  bool has_incr_proc;     // simple flag to avoid checking NIL every time
 } parser_t;
 
 // Forward declarations for internal C functions
@@ -62,9 +65,15 @@ static size_t parser_memsize(const void *ptr) {
   return sizeof(parser_t) + (2 * MAX_ROW_BYTES);
 }
 
+static void parser_mark(void *ptr) {
+  parser_t *p = (parser_t *)ptr;
+  if (!NIL_P(p->buffered_io)) rb_gc_mark(p->buffered_io);
+  if (!NIL_P(p->incr_line_count)) rb_gc_mark(p->incr_line_count);
+}
+
 static const rb_data_type_t parser_type = {
   "SmarterCSV::ParserC",
-  {0, parser_free, parser_memsize,},
+  { parser_mark, parser_free, parser_memsize },
   0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
 
@@ -81,7 +90,7 @@ static VALUE parser_allocate(VALUE klass) {
   p->col_sep_len = 0;
   p->row_sep_len = 0;
   p->quote_char_len = 0;
-  p->double_quote_char_len = 0;  
+  p->double_quote_char_len = 0;
   return obj;
 }
 // --------------------------------------------------------------
@@ -95,6 +104,12 @@ static VALUE parser_debug_consume(VALUE self) {
   return Qnil;
 }
 // --------------------------------------------------------------
+
+static inline void parser_increment_csv_line_count(parser_t *p) {
+  if (p->has_incr_proc) {
+    rb_funcall(p->incr_line_count, rb_intern("call"), 0);
+  }  
+}
 
 // Internal: Append characters to the buffer
 static void append_chars(parser_t *p, const char *bytes, size_t len) {
@@ -124,29 +139,6 @@ static void finalize_field(parser_t *p) {
 }
 
 // Internal: Return an array of Ruby strings representing the fields
-// static VALUE flush_row(parser_t *p, VALUE self) {
-//   VALUE ary = rb_ary_new2(p->field_count);
-//   // VALUE encoding = rb_iv_get(self, rb_intern("@encoding"));
-//   // VALUE encoding_name = rb_funcall(encoding, rb_intern("to_s"), 0);
-
-
-//   for (size_t i = 0; i < p->field_count; ++i) {
-//     size_t start = p->field_starts[i];
-//     size_t len = p->field_lengths[i];
-//     VALUE str = rb_str_new(p->active_buf + start, len);
-
-//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-
-//     // rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
-//     // rb_funcall(str, rb_intern("force_encoding"), 1, encoding_name);
-//     rb_ary_push(ary, str);
-//   }
-
-//   p->buffer_pos = 0;
-//   p->field_count = 0;
-//   return ary;
-// }
-
 static VALUE flush_row(parser_t *p, VALUE self) {
   VALUE ary = rb_ary_new2(p->field_count);
   // VALUE encoding = rb_iv_get(self, rb_intern("encoding"));
@@ -165,22 +157,26 @@ static VALUE flush_row(parser_t *p, VALUE self) {
   return ary;
 }
 
-
 static void skip_single_row(parser_t *p, VALUE self) {
   while (1) {
     VALUE ch = parser_next_char(self);
     if (NIL_P(ch)) return; // EOF
+
     if (RSTRING_LEN(ch) == p->row_sep_len &&
         strncmp(RSTRING_PTR(ch), p->row_sep_ptr, p->row_sep_len) == 0) {
+      // increment @csv_line_count
+      parser_increment_csv_line_count(p);
+
       return;
     }
   }
 }
 
-// Ruby method: read_row_as_fields
 static VALUE parser_read_row_as_fields_c(VALUE self) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+  BufferedIoBufferType *buffered_io_p;
+  TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
 
   // Check for comment prefix at start of row
   if (p->comment_prefix_len > 0) {
@@ -199,7 +195,22 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       }
 
       if (match) {
-        skip_single_row(p, self);  // or parser_skip_rows(self, INT2NUM(1));
+        // Skip chars until row_sep or EOF
+        int end_of_comment_reached = 0;
+        while (!end_of_comment_reached) {
+          VALUE ch = parser_next_char(self);
+
+          if (NIL_P(ch) || buffered_io_p->eof) {
+            end_of_comment_reached = 1;
+          } else if (RSTRING_LEN(ch) == p->row_sep_len &&
+                     strncmp(RSTRING_PTR(ch), p->row_sep_ptr, p->row_sep_len) == 0) {
+            end_of_comment_reached = 1;
+          }
+        }
+        // increment @csv_line_count
+        parser_increment_csv_line_count(p);
+
+        if (buffered_io_p->eof) return Qnil;
         return parser_read_row_as_fields_c(self);  // tail recursion: try again
       }
     }
@@ -223,14 +234,11 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       rb_raise(rb_eRuntimeError, "Unclosed quoted field");
     }
 
-    // Field has already been appended into the buffer and boundaries marked
-    // Nothing more to do here if field_ok == Qtrue
-
     sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
-    if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->col_sep_len && 
+    if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->col_sep_len &&
         strncmp(RSTRING_PTR(sep), p->col_sep_ptr, p->col_sep_len) == 0) {
       parser_next_chars(self, INT2NUM(p->col_sep_len));
-    } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->row_sep_len && 
+    } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->row_sep_len &&
                strncmp(RSTRING_PTR(sep), p->row_sep_ptr, p->row_sep_len) == 0) {
       parser_next_chars(self, INT2NUM(p->row_sep_len));
       row_complete = 1;
@@ -244,77 +252,6 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
 
   return flush_row(p, self);
 }
-
-
-
-
-// static VALUE parser_read_row_as_fields_c(VALUE self) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
-//   // Check for comment prefix at start of row
-//   if (p->comment_prefix_len > 0) {
-//     VALUE peek = parser_peek_chars(self, LONG2NUM(p->comment_prefix_len));
-
-//     if (!NIL_P(peek) && RSTRING_LEN(peek) >= p->comment_prefix_len) {
-//       const char *buf = RSTRING_PTR(peek);
-//       const char *prefix = p->comment_prefix_ptr;
-
-//       int match = 1;
-//       for (long i = 0; i < p->comment_prefix_len; ++i) {
-//         if (buf[i] != prefix[i]) {
-//           match = 0;
-//           break;
-//         }
-//       }
-
-//       if (match) {
-//         skip_single_row(p, self);  // instead of parser_skip_rows
-//         return parser_read_row_as_fields_c(self);  // tail recursion
-//       }
-//     }
-//   }
-
-//   // Read actual row
-//   int row_complete = 0;
-
-//   while (!row_complete) {
-//     VALUE sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
-
-//     VALUE pair = parser_read_field_c(self);
-//     if (TYPE(pair) != T_ARRAY || RARRAY_LEN(pair) != 2) {
-//       rb_raise(rb_eRuntimeError, "Expected [field, field_closed] from read_field_c");
-//     }
-//     VALUE field = rb_ary_entry(pair, 0);
-//     VALUE field_closed = rb_ary_entry(pair, 1);
-//     if (field_closed == Qfalse) {
-//       rb_raise(rb_eRuntimeError, "Unclosed quoted field");
-//     }
-//     if (field != Qnil) {
-//       mark_field_start(p);
-//       append_chars(p, RSTRING_PTR(field), RSTRING_LEN(field));
-//       finalize_field(p);
-//     }
-
-//     sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
-//     if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->col_sep_len && 
-//         strncmp(RSTRING_PTR(sep), p->col_sep_ptr, p->col_sep_len) == 0) {
-//       parser_next_chars(self, INT2NUM(p->col_sep_len));
-//     } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->row_sep_len && 
-//                strncmp(RSTRING_PTR(sep), p->row_sep_ptr, p->row_sep_len) == 0) {
-//       parser_next_chars(self, INT2NUM(p->row_sep_len));
-//       row_complete = 1;
-//     } else if (NIL_P(sep) || RSTRING_LEN(sep) == 0) {
-//       parser_next_char(self);  // consume final bytes, forces EOF detection
-//       row_complete = 1;
-//     } else {
-//       rb_raise(rb_eRuntimeError, "Expected separator but found: %s", RSTRING_PTR(sep));
-//     }
-//   }
-
-//   return flush_row(p, self);
-// }
-
 
 // Ruby method: read_field
 static VALUE parser_read_field_c(VALUE self) {
@@ -384,77 +321,6 @@ static VALUE parser_read_field_c(VALUE self) {
   finalize_field(p);
   return rb_ary_new3(2, Qtrue, field_closed ? Qtrue : Qfalse);  // str is sliced later
 }
-
-
-// static VALUE parser_read_field_c(VALUE self) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
-//   int field_started = 1;
-//   int field_ends_in_quote = 0;
-//   int field_closed = 0;
-
-//   mark_field_start(p);
-
-//   while (1) {
-//     VALUE peek = parser_peek_chars(self, LONG2NUM(p->max_sep_len));    
-
-//     if (field_started) {
-//       field_ends_in_quote = !NIL_P(peek) && RSTRING_LEN(peek) >= p->quote_char_len &&
-//                             strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0;
-//       if (field_ends_in_quote) {
-//         parser_next_chars(self, INT2NUM(p->quote_char_len));
-//       }
-//       field_started = 0;
-//       continue;
-//     }
-
-//     if (NIL_P(peek)) {
-//       field_closed = !field_ends_in_quote;
-//       if (field_ends_in_quote) return rb_ary_new3(2, Qnil, Qfalse);
-//       break;
-//     }
-
-//     if (field_ends_in_quote) {
-//       if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
-//           strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
-//         parser_next_chars(self, INT2NUM(p->double_quote_char_len));
-//         append_chars(p, p->quote_char_ptr, p->quote_char_len);
-//       } else if (RSTRING_LEN(peek) >= p->quote_char_len &&
-//                  strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0) {
-//         parser_next_chars(self, INT2NUM(p->quote_char_len));
-//         field_closed = 1;
-//         break;
-//       } else {
-//         VALUE ch = parser_next_char(self);
-//         if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
-//       }
-//     } else {
-//       if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
-//           strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
-//         parser_next_chars(self, INT2NUM(p->double_quote_char_len));
-//         append_chars(p, p->quote_char_ptr, p->quote_char_len);
-//       } else if (NIL_P(peek) ||
-//                  (RSTRING_LEN(peek) >= p->col_sep_len &&
-//                   strncmp(RSTRING_PTR(peek), p->col_sep_ptr, p->col_sep_len) == 0) ||
-//                  (RSTRING_LEN(peek) >= p->row_sep_len &&
-//                   strncmp(RSTRING_PTR(peek), p->row_sep_ptr, p->row_sep_len) == 0)) {
-//         field_closed = 1;
-//         break;
-//       } else {
-//         VALUE ch = parser_next_char(self);
-//         if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
-//       }
-//     }
-//   }
-
-//   VALUE str = rb_str_new(p->active_buf + p->field_starts[p->field_count],
-//                          p->buffer_pos - p->field_starts[p->field_count]);
-
-//   // rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-
-//   return rb_ary_new3(2, str, field_closed ? Qtrue : Qfalse);
-// }
 
 // Ruby methods: next_char, peek_chars, next_chars, skip_chars
 
@@ -535,109 +401,6 @@ static VALUE parser_next_char(VALUE self) {
   return Qnil;
 }
 
-
-
-
-
-
-
-// static VALUE parser_next_char(VALUE self) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
-//   unsigned char cbuf[8];  // buffer for multibyte chars
-//   int clen = 0;
-
-//   // ASCII fast path
-//   int byte = next_byte(p->buffered_io);
-//   if (byte == EOF) return Qnil;
-
-//   cbuf[clen++] = (unsigned char)byte;
-
-//   if (p->is_ascii_or_utf8 && byte < 0x80) {
-//     return rb_str_new((const char *)cbuf, 1);
-//   }
-
-//   // multibyte fallback path (UTF-8 or other)
-//   VALUE bytes = rb_str_new((const char *)cbuf, 1);
-
-//   for (int i = 0; i < 7; ++i) {
-//     if (rb_funcall(bytes, rb_intern("force_encoding"), 1, p->encoding),
-//         RTEST(rb_funcall(bytes, rb_intern("valid_encoding?"), 0))) {
-//       return bytes;
-//     }
-
-//     int next = next_byte(p->buffered_io);
-//     if (next == EOF) break;
-
-//     cbuf[clen] = (unsigned char)next;
-//     rb_str_cat(bytes, (const char *)&cbuf[clen], 1);
-//     clen++;
-//   }
-
-//   return Qnil;
-// }
-
-
-// static VALUE parser_next_char(VALUE self) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-//   VALUE io = rb_iv_get(self, "@io");
-
-//   if (p->is_ascii_or_utf8) {
-//     VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(byte_val)) return Qnil;
-
-//     const char *ptr = RSTRING_PTR(byte_val);
-//     if (RSTRING_LEN(byte_val) == 1 && ((unsigned char)ptr[0]) < 0x80) {
-//       return byte_val;  // fast-path for ASCII
-//     }
-
-//     // slow-path for UTF-8 multibyte character
-//     VALUE bytes = rb_str_dup(byte_val);
-//     rb_funcall(bytes, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-
-//     if (RTEST(rb_funcall(bytes, rb_intern("valid_encoding?"), 0))) return bytes;
-
-//     for (int i = 0; i < 63; ++i) {
-//       VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
-//       if (NIL_P(b)) break;
-//       rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
-//       VALUE str = rb_str_dup(bytes);
-//       rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//       if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
-//     }
-//     return Qnil;
-//   }
-
-//   // General fallback path for other encodings
-//   VALUE bytes = rb_str_new("", 0);
-//   for (int i = 0; i < 64; ++i) {
-//     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(b)) break;
-//     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
-//     VALUE str = rb_str_dup(bytes);
-//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//     if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
-//   }
-//   return Qnil;
-// }
-
-// static VALUE parser_next_char(VALUE self) {
-//   VALUE io = rb_iv_get(self, "@io");
-//   VALUE bytes = rb_str_new("", 0);
-
-//   for (int i = 0; i < 64; ++i) {
-//     VALUE b = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(b)) break;
-//     rb_str_cat(bytes, RSTRING_PTR(b), RSTRING_LEN(b));
-//     VALUE str = rb_str_dup(bytes);
-//     rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//     if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) return str;
-//   }
-//   return Qnil;
-// }
-
 static VALUE parser_next_chars(VALUE self, VALUE nval) {
   int n = NUM2INT(nval);
   for (int i = 0; i < n; ++i) {
@@ -679,84 +442,7 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   }
 }
 
-// static VALUE parser_peek_chars(VALUE self, VALUE nval) {
-//   parser_t *p;
-//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
-//   int n = NUM2INT(nval);
-//   VALUE io = rb_iv_get(self, "@io");
-//   VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
-//   if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
-
-//   if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
-//     VALUE substr = rb_str_substr(bytes, 0, n);
-//     rb_funcall(substr, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//     return substr;
-//   }
-
-//   VALUE str = rb_str_dup(bytes);
-//   rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
-//     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-//   } else {
-//     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
-//     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-//   }
-// }
-
-// static VALUE parser_peek_chars(VALUE self, VALUE nval) {
-//   int n = NUM2INT(nval);
-//   VALUE io = rb_iv_get(self, "@io");
-//   VALUE bytes = rb_funcall(io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
-//   if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
-
-//   VALUE str = rb_str_dup(bytes);
-//   rb_funcall(str, rb_intern("force_encoding"), 1, rb_iv_get(self, "@encoding"));
-//   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
-//     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-//   } else {
-//     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
-//     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
-//   }
-// }
-
-
 // Ruby method: read_row (returns raw string line including row_sep)
-// static VALUE parser_read_row(VALUE self) {
-//   VALUE io = rb_iv_get(self, "@io");
-//   VALUE row_sep = rb_iv_get(self, "@row_sep");
-//   VALUE encoding = rb_iv_get(self, "@encoding");
-
-//   long row_sep_len = RSTRING_LEN(row_sep);
-//   const char *row_sep_ptr = RSTRING_PTR(row_sep);
-
-//   VALUE buffer = rb_str_new("", 0);
-
-//   while (1) {
-//     VALUE byte_val = rb_funcall(io, rb_intern("next_byte"), 0);
-//     if (NIL_P(byte_val)) break;
-
-//     rb_str_cat(buffer, RSTRING_PTR(byte_val), RSTRING_LEN(byte_val));
-
-//     if (RSTRING_LEN(buffer) >= row_sep_len) {
-//       const char *buf_ptr = RSTRING_PTR(buffer);
-//       long buf_len = RSTRING_LEN(buffer);
-
-//       if (strncmp(buf_ptr + buf_len - row_sep_len, row_sep_ptr, row_sep_len) == 0) {
-//         rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
-//         return buffer;
-//       }
-//     }
-//   }
-
-//   if (RSTRING_LEN(buffer) == 0) {
-//     return Qnil;
-//   }
-
-//   rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
-//   return buffer;
-// }
-
 static VALUE parser_read_row(VALUE self) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
@@ -784,6 +470,10 @@ static VALUE parser_read_row(VALUE self) {
       if (strncmp(buf_ptr + buf_len - p->row_sep_len, p->row_sep_ptr, p->row_sep_len) == 0) {
         // fprintf(stderr, "parser_read_row: row separator matched ('%.*s')\n", (int)p->row_sep_len, p->row_sep_ptr);
         rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
+
+        // increment csv_line_count
+        parser_increment_csv_line_count(p);
+
         return buffer;
       }
     }
@@ -805,15 +495,24 @@ static VALUE parser_skip_rows(VALUE self, VALUE nval) {
   for (int i = 0; i < n; ++i) {
     // fprintf(stderr, "skip_rows: skipping 1 row\n");
 
-    parser_read_row(self);
+    parser_read_row(self);    
   }
   return Qnil;
 }
 
 // Ruby: initialize(source, options)
 static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
+  Check_Type(options, T_HASH);
+
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+  VALUE incr_proc = rb_hash_aref(options, ID2SYM(rb_intern("incr_csv_line_count")));
+  if (!NIL_P(incr_proc) && !rb_respond_to(incr_proc, rb_intern("call"))) {
+    rb_raise(rb_eArgError, ":incr_csv_line_count must respond to #call");
+  }
+  p->incr_line_count = incr_proc;
+  p->has_incr_proc = !NIL_P(incr_proc);
 
   VALUE buffer_size = rb_hash_lookup(options, ID2SYM(rb_intern("buffer_size")));
   if (NIL_P(buffer_size)) buffer_size = SIZET2NUM(128 * 1024);
@@ -833,11 +532,21 @@ static VALUE parser_initialize(VALUE self, VALUE source, VALUE options) {
   VALUE double_quote_char = rb_funcall(quote_char, rb_intern("*"), 1, INT2NUM(2));
   VALUE comment_prefix = rb_hash_aref(options, ID2SYM(rb_intern("comment_prefix")));
 
+  // Validate all required string values
+  if (NIL_P(col_sep)) rb_raise(rb_eArgError, ":col_sep must be provided");
+  Check_Type(col_sep, T_STRING);
+
+  if (NIL_P(row_sep)) rb_raise(rb_eArgError, ":row_sep must be provided");
+  Check_Type(row_sep, T_STRING);
+
+  if (NIL_P(quote_char)) rb_raise(rb_eArgError, ":quote_char must be provided");
+  Check_Type(quote_char, T_STRING);
+
+
   rb_iv_set(self, "@row_sep", row_sep);
   rb_iv_set(self, "@col_sep", col_sep);
   rb_iv_set(self, "@quote_char", quote_char);
   rb_iv_set(self, "@double_quote_char", double_quote_char);
-  // rb_if_set(self, "@comment_prefix", comment_prefix);
 
   long max_len = RSTRING_LEN(row_sep);
   if (RSTRING_LEN(col_sep) > max_len) max_len = RSTRING_LEN(col_sep);
