@@ -52,12 +52,14 @@ module SmarterCSV
 
       begin
         # Perform auto-detection using raw IO
-        if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
-          io = @is_io ? input : File.open(input, "r:#{options[:file_encoding]}")
-          options[:row_sep] = guess_line_ending(io, options) if options[:row_sep]&.to_sym == :auto
-          options[:col_sep] = guess_column_separator(io, options) if options[:col_sep]&.to_sym == :auto
-          @is_io ? io.rewind : io.close
-        end
+        guess_delimiters(input, options)
+
+        # if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+        #   io = @is_io ? input : File.open(input, "r:#{options[:file_encoding]}")
+        #   options[:row_sep] = guess_line_ending(io, options) if options[:row_sep]&.to_sym == :auto
+        #   options[:col_sep] = guess_column_separator(io, options) if options[:col_sep]&.to_sym == :auto
+        #   @is_io ? io.rewind : io.close
+        # end
 
         # input is either a file-path or an open Ruby IO object
         parser = SmarterCSV::ParserC.new(input, @options)
@@ -91,10 +93,6 @@ module SmarterCSV
         # now on to processing all the rest of the lines in the CSV file:
 
         until parser.eof?
-          # TO DO:
-          #  - COMMENT LINE HANDLING NEEDS TO BE MOVED TO ParserC
-###          next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
-
           dataA = parser.read_row_as_fields
           dataA ||= []
           dataA_size = dataA.size
@@ -118,7 +116,7 @@ module SmarterCSV
             current_size = @headers.size
             while current_size < dataA_size
               @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
-              @current_size += 1
+              current_size += 1
             end
           end
 

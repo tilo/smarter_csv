@@ -79,7 +79,8 @@ void swap_buffers(BufferedIoBufferType *b) {
   b->pos = 0;
 }
 
-// next_byte: Returns the next byte from the active buffer,
+// next_byte:
+// Returns the next byte from the buffer (raw 8-bit char), or -1 at EOF
 // refilling and swapping buffers if needed.
 // Returns -1 (EOF) if no more data is available.
 int next_byte(BufferedIoBufferType *b) {
@@ -92,7 +93,8 @@ int next_byte(BufferedIoBufferType *b) {
   return (unsigned char)b->active_buf[b->pos++];
 }
 
-// peek_byte: Returns the next byte from the buffer without consuming it.
+// peek_byte:
+// Returns the next byte without consuming it (raw 8-bit char), or -1 at EOF
 // Like next_byte, refills/swaps buffers as needed.
 // Returns -1 (EOF) if no data is available.
 int peek_byte(BufferedIoBufferType *b) {
@@ -103,6 +105,54 @@ int peek_byte(BufferedIoBufferType *b) {
     swap_buffers(b);
   }
   return (unsigned char)b->active_buf[b->pos];
+}
+
+#define MAX_CARRY_ZONE 4096  // or whatever your actual value is
+static char scratch_buf[MAX_CARRY_ZONE];
+
+// Returns a pointer to up to `n` bytes in the active buffer. If not enough, returns NULL
+const char *peek_bytes(BufferedIoBufferType *b, size_t n, size_t *available) {
+  static char scratch_buf[MAX_CARRY_ZONE];
+  *available = 0;
+
+  size_t collected = 0;
+  size_t remaining = b->length - b->pos;
+
+  // 1. Copy from current active_buf if anything is available
+  if (remaining > 0) {
+    size_t chunk = (n < remaining) ? n : remaining;
+    memcpy(scratch_buf, b->active_buf + b->pos, chunk);
+    collected += chunk;
+  }
+
+  size_t to_fetch = n - collected;
+  if (to_fetch > 0) {
+    char *dest = scratch_buf + collected;
+
+    if (b->source_type == SOURCE_FILE_PTR) {
+      off_t orig = ftell(b->fp);
+      size_t read = fread(dest, 1, to_fetch, b->fp);
+      fseek(b->fp, orig, SEEK_SET);
+      collected += read;
+    } else if (b->source_type == SOURCE_RUBY_IO) {
+      VALUE str = rb_funcall(b->ruby_io, rb_intern("read"), 1, SIZET2NUM(to_fetch));
+      if (!NIL_P(str)) {
+        size_t read = RSTRING_LEN(str);
+        memcpy(dest, RSTRING_PTR(str), read);
+        collected += read;
+        rb_funcall(b->ruby_io, rb_intern("seek"), 2, LONG2NUM(-((long)read)), INT2FIX(SEEK_CUR));
+      }
+    }
+  }
+
+  *available = collected;
+  return (collected > 0) ? scratch_buf : NULL;
+}
+
+
+// Returns true if the buffer has reached EOF
+bool is_eof(BufferedIoBufferType *b) {
+  return b->eof && (b->pos >= b->length);
 }
 
 // ---- Ruby Interface: --------------------------------------------------------------
@@ -150,34 +200,54 @@ static VALUE buffer_initialize(VALUE self, VALUE source, VALUE size_val) {
 }
 
 // buffer_next_byte: Ruby method `BufferedIO#next_byte`
-// Returns the next byte as a 1-char Ruby string, or nil at EOF.
-// Internally calls next_byte(...) on the buffer struct.
 static VALUE buffer_next_byte(VALUE self) {
   BufferedIoBufferType *b;
   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   int byte = next_byte(b);
-  if (byte == EOF) return Qnil;
-  char c = (char)byte;
-  return rb_str_new(&c, 1);
+  return byte == -1 ? Qnil : INT2FIX(byte);
 }
 
-// buffer_peek_byte: Ruby method `BufferedIO#peek_byte`
+// buffer_next_byte: Ruby method `BufferedIO#next_byte`
 // Returns the next byte as a 1-char Ruby string, or nil at EOF.
-// Does NOT advance the byte position. Calls peek_byte(...) internally.
+// Internally calls next_byte(...) on the buffer struct.
+// buffer_peek_byte: Ruby method `BufferedIO#peek_byte`
 static VALUE buffer_peek_byte(VALUE self) {
   BufferedIoBufferType *b;
   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
 
   int byte = peek_byte(b);
-  if (byte == EOF) return Qnil;
-  char c = (char)byte;
-  return rb_str_new(&c, 1);
+  return byte == -1 ? Qnil : INT2FIX(byte);
 }
+
+// static VALUE buffer_next_byte(VALUE self) {
+//   BufferedIoBufferType *b;
+//   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
+
+//   int byte = next_byte(b);
+//   if (byte == EOF) return Qnil;
+//   char c = (char)byte;
+//   return rb_str_new(&c, 1);
+// }
+
+// buffer_peek_byte: Ruby method `BufferedIO#peek_byte`
+// Returns the next byte as a 1-char Ruby string, or nil at EOF.
+// Does NOT advance the byte position. Calls peek_byte(...) internally.
+// static VALUE buffer_peek_byte(VALUE self) {
+//   BufferedIoBufferType *b;
+//   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
+
+//   int byte = peek_byte(b);
+//   if (byte == EOF) return Qnil;
+//   char c = (char)byte;
+//   return rb_str_new(&c, 1);
+// }
 
 // buffer_peek_bytes: Ruby method `BufferedIO#peek_bytes(n)`
 // Returns up to `n` bytes from the buffer without consuming them,
 // combining buffer data and a temporary rewind strategy if needed.
+
+// buffer_peek_bytes: Ruby method `BufferedIO#peek_bytes(n)`
 static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
   BufferedIoBufferType *b;
   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
@@ -185,49 +255,69 @@ static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
   size_t n = 1;
   if (argc == 1) {
     n = NUM2SIZET(argv[0]);
-    if (n == 0) return rb_str_new("", 0);
+    if (n == 0) return rb_ary_new();
   }
 
-  size_t available = b->length - b->pos;
-  if (n <= available) {
-    return rb_str_new(b->active_buf + b->pos, n);
+  size_t available = 0;
+  const char *ptr = peek_bytes(b, n, &available);
+  if (ptr == NULL) return Qnil;
+
+  VALUE ary = rb_ary_new_capa(available);
+  for (size_t i = 0; i < available; ++i) {
+    rb_ary_push(ary, INT2FIX((unsigned char)ptr[i]));
   }
-
-  // allocate scratch buffer
-  char *scratch = malloc(n);
-  if (!scratch) rb_raise(rb_eNoMemError, "Unable to allocate scratch buffer");
-
-  size_t copied = 0;
-
-  // copy from current active_buf
-  if (available > 0) {
-    memcpy(scratch, b->active_buf + b->pos, available);
-    copied += available;
-  }
-
-  // read remaining bytes into temp buffer
-  size_t to_fetch = n - copied;
-  char *tail = scratch + copied;
-
-  off_t rewind_offset = 0;
-  if (b->source_type == SOURCE_FILE_PTR) {
-    rewind_offset = ftell(b->fp);
-    size_t read = fread(tail, 1, to_fetch, b->fp);
-    fseek(b->fp, rewind_offset, SEEK_SET);  // rewind to original position
-    copied += read;
-  } else if (b->source_type == SOURCE_RUBY_IO) {
-    VALUE str = rb_funcall(b->ruby_io, rb_intern("read"), 1, SIZET2NUM(to_fetch));
-    if (!NIL_P(str)) {
-      memcpy(tail, RSTRING_PTR(str), RSTRING_LEN(str));
-      copied += RSTRING_LEN(str);
-      rb_funcall(b->ruby_io, rb_intern("seek"), 2, LL2NUM(-((long)RSTRING_LEN(str))), INT2FIX(SEEK_CUR));
-    }
-  }
-
-  VALUE result = copied == 0 ? Qnil : rb_str_new(scratch, copied);
-  free(scratch);
-  return result;
+  return ary;
 }
+// static VALUE buffer_peek_bytes(int argc, VALUE *argv, VALUE self) {
+//   BufferedIoBufferType *b;
+//   TypedData_Get_Struct(self, BufferedIoBufferType, &buffer_type, b);
+
+//   size_t n = 1;
+//   if (argc == 1) {
+//     n = NUM2SIZET(argv[0]);
+//     if (n == 0) return rb_str_new("", 0);
+//   }
+
+//   size_t available = b->length - b->pos;
+//   if (n <= available) {
+//     return rb_str_new(b->active_buf + b->pos, n);
+//   }
+
+//   // allocate scratch buffer
+//   char *scratch = malloc(n);
+//   if (!scratch) rb_raise(rb_eNoMemError, "Unable to allocate scratch buffer");
+
+//   size_t copied = 0;
+
+//   // copy from current active_buf
+//   if (available > 0) {
+//     memcpy(scratch, b->active_buf + b->pos, available);
+//     copied += available;
+//   }
+
+//   // read remaining bytes into temp buffer
+//   size_t to_fetch = n - copied;
+//   char *tail = scratch + copied;
+
+//   off_t rewind_offset = 0;
+//   if (b->source_type == SOURCE_FILE_PTR) {
+//     rewind_offset = ftell(b->fp);
+//     size_t read = fread(tail, 1, to_fetch, b->fp);
+//     fseek(b->fp, rewind_offset, SEEK_SET);  // rewind to original position
+//     copied += read;
+//   } else if (b->source_type == SOURCE_RUBY_IO) {
+//     VALUE str = rb_funcall(b->ruby_io, rb_intern("read"), 1, SIZET2NUM(to_fetch));
+//     if (!NIL_P(str)) {
+//       memcpy(tail, RSTRING_PTR(str), RSTRING_LEN(str));
+//       copied += RSTRING_LEN(str);
+//       rb_funcall(b->ruby_io, rb_intern("seek"), 2, LL2NUM(-((long)RSTRING_LEN(str))), INT2FIX(SEEK_CUR));
+//     }
+//   }
+
+//   VALUE result = copied == 0 ? Qnil : rb_str_new(scratch, copied);
+//   free(scratch);
+//   return result;
+// }
 
 static VALUE buffer_eof(VALUE self) {
   BufferedIoBufferType *b;

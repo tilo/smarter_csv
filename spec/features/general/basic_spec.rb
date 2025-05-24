@@ -49,14 +49,16 @@ fixture_path = 'spec/fixtures'
         end
 
         context 'with correct cardinality user_provided_headers' do
-          let(:options) { super().merge({user_provided_headers: %i[a b c d e f], headers_in_file: true}) }
-
+          let(:options) { 
+            super().merge({user_provided_headers: %i[a b c d e f], headers_in_file: true}) 
+          }
           it 'replaces headers with user_provided_headers' do
             data = reader.process
             expect(data.size).to eq 5
 
-            expect(reader.raw_header).to eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
             expect(reader.headers).to eq %i[a b c d e f]
+            # with the ParserC class, we no longer provide raw_header
+            # expect(reader.raw_header).to eq "First Name,Last Name,Dogs,Cats,Birds,Fish\n"
           end
         end
 
@@ -71,7 +73,8 @@ fixture_path = 'spec/fixtures'
             expect(data.size).to eq 5
           end
 
-          it 'has no raw_header' do
+          # with the ParserC class, we no longer provide raw_header
+          xit 'has no raw_header' do
             reader.process
             expect(reader.raw_header).to eq nil # because there was no header in the input
           end

@@ -4,6 +4,15 @@ module SmarterCSV
   module AutoDetection
     protected
 
+    def guess_delimiters(input, options)
+      return unless options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+
+      io = @is_io ? input : File.open(input, "r:#{options[:file_encoding]}")
+      options[:row_sep] = guess_line_ending(io, options) if options[:row_sep]&.to_sym == :auto
+      options[:col_sep] = guess_column_separator(io, options) if options[:col_sep]&.to_sym == :auto
+      @is_io ? io.rewind : io.close
+    end
+
     # If file has headers, then guesses column separator from headers.
     # Otherwise guesses column separator from contents.
     # Raises exception if none is found.
@@ -18,7 +27,7 @@ module SmarterCSV
       candidates = Hash.new(0)
       count = has_header ? 1 : 5
       count.times do
-        line = readline_with_counts(filehandle, options)
+        line = filehandle.readline
         delimiters.each do |d|
           # Count only non-quoted occurrences of the delimiter
           non_quoted_text = line.split(/#{escaped_quote}[^#{escaped_quote}]*#{escaped_quote}/).join

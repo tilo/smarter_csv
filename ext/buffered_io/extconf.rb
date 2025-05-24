@@ -13,4 +13,6 @@ end
 CONFIG["optflags"] = "-O3 -march=native -flto -fomit-frame-pointer -DNDEBUG"
 CONFIG["debugflags"] = ""
 
-create_makefile('smarter_csv/buffered_io')
+$INSTALLFILES = [['buffered_io.bundle', 'lib']]
+
+create_makefile('buffered_io')

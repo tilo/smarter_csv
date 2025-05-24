@@ -63,7 +63,7 @@ RSpec.describe SmarterCSV::BufferedIO do
 
       it "handles file that ends exactly at buffer size" do
         filename = "#{fixture_path}/exact_128bytes.csv"
-        content = "a" * 128
+        content = "a"* 128
         File.write(filename, content)
         io = SmarterCSV::BufferedIO.new(filename, 128)
         result = +""
@@ -87,12 +87,12 @@ RSpec.describe SmarterCSV::BufferedIO do
         # Emoji = 4-byte UTF-8: "💡💡💡" = 12 bytes
         input = "123💡💡💡456\n"
         io = SmarterCSV::BufferedIO.new(StringIO.new(input), 4)
-        result = +""
+        result = []
         while (b = io.next_byte)
-          result << b
+          result += [b]
         end
         # we are doing low-level IO, we care only about bytes here, not encoding
-        expect(result.bytes).to eq(input.bytes)
+        expect(result).to eq(input.bytes)
       end
     end
   end
@@ -102,20 +102,20 @@ RSpec.describe SmarterCSV::BufferedIO do
       io = SmarterCSV::BufferedIO.new(StringIO.new("ABC"), 2)
 
       first_peek = io.peek_byte
-      expect(first_peek).to eq("A")
+      expect(first_peek).to eq("A".ord)
 
       first_actual = io.next_byte
-      expect(first_actual).to eq("A")
+      expect(first_actual).to eq("A".ord)
 
       second_peek = io.peek_byte
-      expect(second_peek).to eq("B")
+      expect(second_peek).to eq("B".ord)
     end
 
     it 'returns nil at EOF' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("Z"), 1)
 
-      expect(io.peek_byte).to eq("Z")
-      expect(io.next_byte).to eq("Z")
+      expect(io.peek_byte).to eq("Z".ord)
+      expect(io.next_byte).to eq("Z".ord)
       expect(io.peek_byte).to be_nil
       expect(io.next_byte).to be_nil
     end
@@ -124,52 +124,52 @@ RSpec.describe SmarterCSV::BufferedIO do
   describe '#peek_bytes' do
     it 'returns all remaining bytes, if fewer are available' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("abc"), 2)
-      expect(io.peek_bytes(4)).to eq("abc")
-      expect(io.next_byte).to eq("a")
-      expect(io.peek_bytes(3)).to eq("bc")
-      expect(io.next_byte).to eq("b")
-      expect(io.next_byte).to eq("c")
+      expect(io.peek_bytes(4)).to eq("abc".bytes)
+      expect(io.next_byte).to eq("a".ord)
+      expect(io.peek_bytes(3)).to eq("bc".bytes)
+      expect(io.next_byte).to eq("b".ord)
+      expect(io.next_byte).to eq("c".ord)
       expect(io.peek_bytes(1)).to be_nil
       expect(io.next_byte).to be_nil
     end
 
     it 'peeks multiple bytes without advancing' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("abcdef"), 3)
-      expect(io.peek_bytes(4)).to eq("abcd")
-      expect(io.next_byte).to eq("a")
-      expect(io.peek_bytes(3)).to eq("bcd")
+      expect(io.peek_bytes(4)).to eq("abcd".bytes)
+      expect(io.next_byte).to eq("a".ord)
+      expect(io.peek_bytes(3)).to eq("bcd".bytes)
     end
 
     it 'returns partial result if fewer bytes available' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("abc"), 2)
-      expect(io.peek_bytes(5)).to eq("abc")
+      expect(io.peek_bytes(5)).to eq("abc".bytes)
     end
 
     it 'returns nil at EOF' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("z"), 1)
-      expect(io.peek_bytes(1)).to eq("z")
+      expect(io.peek_bytes(1)).to eq(["z".ord])
       io.next_byte
       expect(io.peek_bytes(1)).to be_nil
     end
 
     it 'returns empty string when given 0' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("hello"), 2)
-      expect(io.peek_bytes(0)).to eq("")
+      expect(io.peek_bytes(0)).to eq([])
     end
 
     it 'repeated peeks do not advance' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("xyz"), 2)
-      expect(io.peek_bytes(2)).to eq("xy")
-      expect(io.peek_bytes(2)).to eq("xy")
-      expect(io.next_byte).to eq("x")
-      expect(io.peek_bytes(2)).to eq("yz")
+      expect(io.peek_bytes(2)).to eq("xy".bytes)
+      expect(io.peek_bytes(2)).to eq("xy".bytes)
+      expect(io.next_byte).to eq("x".ord)
+      expect(io.peek_bytes(2)).to eq("yz".bytes)
     end
 
     it 'handles peeking across buffer boundary without advancing' do
       io = SmarterCSV::BufferedIO.new(StringIO.new("1234567890"), 4)
-      expect(io.peek_bytes(8)).to eq("12345678")
-      expect(io.next_byte).to eq("1")
-      expect(io.peek_bytes(3)).to eq("234")
+      expect(io.peek_bytes(8)).to eq("12345678".bytes)
+      expect(io.next_byte).to eq("1".ord)
+      expect(io.peek_bytes(3)).to eq("234".bytes)
     end
   end
 end

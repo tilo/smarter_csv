@@ -15,7 +15,7 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.has_rails).to eq false
       expect(reader.input).to eq filename
       expect(reader.headers).to be_nil
-      expect(reader.raw_header).to be_nil
+      expect(reader.raw_header).to be_nil  # TO BE DELETED
       expect(reader.headerA).to eq []
       expect(reader.warnings).to be_empty
       expect(reader.errors).to be_empty

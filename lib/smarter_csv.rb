@@ -2,9 +2,20 @@
 
 require "smarter_csv/version"
 require "smarter_csv/errors"
+# C-extensions:
+begin
+  require "buffered_io"
+rescue LoadError
+  # $LOAD_PATH.unshift File.expand_path("../../ext/buffered_io", __FILE__)
+  require "buffered_io/buffered_io"
+end
 
-require "buffered_io/buffered_io"
-require 'parser/parserc'
+begin
+  require "parserc"
+rescue LoadError
+  # $LOAD_PATH.unshift File.expand_path("../../ext/parser", __FILE__)
+  require "parser/parserc"
+end
 
 require 'smarter_csv/parser2'
 
