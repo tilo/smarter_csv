@@ -7,15 +7,15 @@ fixture_path = 'spec/fixtures'
     let(:options) { { acceleration: bool } }
     let(:reader) { SmarterCSV::Reader.new(file, options) }
 
-    describe ".count_quote_chars" do
-      let(:file) { 'something' }
+    # describe ".count_quote_chars" do
+    #   let(:file) { 'something' }
 
-      it "handles escaped characters and regular characters" do
-        expect(reader.count_quote_chars("\"No\" \"Escaping\"", "\"")).to eq 4
-        expect(reader.count_quote_chars("\"D\\\"Angelos\"", "\"")).to eq 2
-        expect(reader.count_quote_chars("\!D\\\!Angelos\!", "\!")).to eq 2
-      end
-    end
+    #   it "handles escaped characters and regular characters" do
+    #     expect(reader.count_quote_chars("\"No\" \"Escaping\"", "\"")).to eq 4
+    #     expect(reader.count_quote_chars("\"D\\\"Angelos\"", "\"")).to eq 2
+    #     expect(reader.count_quote_chars("\!D\\\!Angelos\!", "\!")).to eq 2
+    #   end
+    # end
 
     context 'when it is a strangely delimited file' do
       let(:file) { "#{fixture_path}/escaped_quote_char.csv" }

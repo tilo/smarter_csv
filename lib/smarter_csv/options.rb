@@ -16,6 +16,7 @@ module SmarterCSV
       chunk_size: nil,
       col_sep: :auto, # was: ',',
       comment_regexp: nil, # was: /\A#/,
+      comment_prefix: '',
       convert_values_to_numeric: true,
       downcase_header: true,
       duplicate_header_suffix: '', # was: nil,
@@ -48,7 +49,8 @@ module SmarterCSV
     }.freeze
 
     # NOTE: this is not called when "parse" methods are tested by themselves
-    def process_options(given_options = {})
+    def process_options(user_options = {})
+      given_options = user_options.dup
       puts "User provided options:\n#{pp(given_options)}\n" if given_options[:verbose]
 
       # Special case for :user_provided_headers:
@@ -63,7 +65,16 @@ module SmarterCSV
         puts "WARNING: setting `headers_in_file: false` as a precaution to not lose the first row. Set explicitly to `true` if you have headers."
       end
 
+      if given_options[:comment_regexp] 
+        given_options[:comment_prefix] = given_options[:comment_regexp].source[/\A\^(.+)/, 1]
+      end
+      given_options[:comment_prefix] = '' if given_options[:comment_prefix].nil? || given_options[:comment_prefix].empty?
+
       @options = DEFAULT_OPTIONS.dup.merge!(given_options)
+
+      @options[:quote_char] ||= DEFAULT_OPTIONS[:quote_char]
+      @options[:col_sep] ||= DEFAULT_OPTIONS[:col_sep]
+      @options[:row_sep] ||= DEFAULT_OPTIONS[:row_sep]
 
       # fix invalid input
       @options[:invalid_byte_sequence] ||= ''

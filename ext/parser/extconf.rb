@@ -13,7 +13,6 @@ end
 CONFIG["optflags"] = "-O3 -march=native -flto -fomit-frame-pointer -DNDEBUG"
 CONFIG["debugflags"] = ""
 
-$INSTALLFILES = [['smarter_csv.bundle', 'lib']]
+$INSTALLFILES = [['parser.bundle', 'lib']]
 
-create_makefile('smarter_csv')
-
+create_makefile('parserc')

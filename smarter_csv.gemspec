@@ -23,16 +23,20 @@ Gem::Specification.new do |spec|
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
   spec.files = Dir.chdir(__dir__) do
-    `git ls-files -z`.split("\x0").reject do |f|
+    (`git ls-files -z`.split("\x0") + Dir['ext/**/*.{c,h}', 'lib/**/*.rb']).reject do |f|
       (f == __FILE__) ||
-        f.match(%r{\A(?:(?:bin|test|spec|features)/|\.(?:git|travis|circleci)|appveyor)}) || f.match(/\.h\z/)
+        f.match(%r{\A(?:(?:bin|test|spec|features)/|\.(?:git|travis|circleci)|appveyor)}) 
     end
   end
   spec.test_files = spec.files.grep(%r{^(test|spec|features)/})
 
   spec.executables   = spec.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
-  spec.require_paths = %w[lib ext]
-  spec.extensions = ["ext/smarter_csv/extconf.rb"]
+  spec.require_paths = %w[lib]  
+  spec.extensions = [
+    "ext/smarter_csv/extconf.rb",
+    "ext/buffered_io/extconf.rb",
+    "ext/parser/extconf.rb",
+  ]
   spec.files += Dir.glob("ext/smarter_csv/**/*")
 
   spec.add_development_dependency "awesome_print"

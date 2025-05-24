@@ -15,8 +15,9 @@ describe 'header transformations option' do
       expect(data[0]['first_name']).to eq 'Dan'
       expect(data[0]['last_name']).to eq 'McAllister'
 
-      expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
       expect(reader.headers).to eq %w[first_name last_name dogs cats birds fish]
+      # with the ParserC class, we no longer provide raw_header
+      # expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
     end
   end
 
@@ -29,8 +30,9 @@ describe 'header transformations option' do
       expect(data[0][:first_name]).to eq 'Dan'
       expect(data[0][:last_name]).to eq 'McAllister'
 
-      expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
       expect(reader.headers).to eq %i[first_name last_name dogs cats birds fish]
+      # with the ParserC class, we no longer provide raw_header
+      # expect(reader.raw_header).to eq "First-Name,Last-Name,Dogs,Cats,Birds,Fish\n"
     end
   end
 end

@@ -2,10 +2,26 @@
 
 require "smarter_csv/version"
 require "smarter_csv/errors"
+# C-extensions:
+begin
+  require "buffered_io"
+rescue LoadError
+  # $LOAD_PATH.unshift File.expand_path("../../ext/buffered_io", __FILE__)
+  require "buffered_io/buffered_io"
+end
 
-require "smarter_csv/file_io"
+begin
+  require "parserc"
+rescue LoadError
+  # $LOAD_PATH.unshift File.expand_path("../../ext/parser", __FILE__)
+  require "parser/parserc"
+end
+
+require 'smarter_csv/parser2'
+
 require "smarter_csv/options"
 require "smarter_csv/auto_detection"
+require "smarter_csv/file_io"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'
 require "smarter_csv/headers"
@@ -14,6 +30,7 @@ require "smarter_csv/hash_transformations"
 require "smarter_csv/parser"
 require "smarter_csv/writer"
 require "smarter_csv/reader"
+
 
 # load the C-extension:
 case RUBY_ENGINE
