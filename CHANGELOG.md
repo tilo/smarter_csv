@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.14.4 (2025-05-26)
+ * Bugfix: SmarterCSV::Reader fixing issue with header containing spaces ([PR 305](https://github.com/tilo/smarter_csv/pull/305) thanks to Felipe Cabezudo)
+
 ## 1.14.3 (2025-05-04)
  * Improved C-extension parsing logic:
    - Added fast path for unquoted fields to avoid unnecessary quote checks.
