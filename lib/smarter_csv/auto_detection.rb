@@ -32,7 +32,7 @@ module SmarterCSV
 
       if candidates.values.max == 0
         # if the header only contains
-        return ',' if line.chomp(options[:row_sep]) =~ /^\w+$/
+        return ',' if line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
 
         raise SmarterCSV::NoColSepDetected
       end
