@@ -10,11 +10,6 @@ SimpleCov.start do
   add_filter "/pkg/"
 end
 
-if ENV['CI'] == 'true' || ENV['CODECOV_TOKEN']
-  require 'codecov'
-  SimpleCov.formatter = SimpleCov::Formatter::Codecov
-end
-
 Bundler.require(:default)
 require 'smarter_csv'
 

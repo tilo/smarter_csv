@@ -36,7 +36,6 @@ Gem::Specification.new do |spec|
   spec.files += Dir.glob("ext/smarter_csv/**/*")
 
   spec.add_development_dependency "awesome_print"
-  spec.add_development_dependency "codecov"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "rubocop"
