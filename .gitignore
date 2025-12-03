@@ -13,3 +13,4 @@ tmp/*
 coverage/*
 .rspec_status
 .DS_Store
+vendor/bundle
