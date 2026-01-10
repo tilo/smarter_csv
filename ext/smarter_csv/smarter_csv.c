@@ -51,7 +51,6 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 
   char *quoteP = RSTRING_PTR(quote_char);
   char quote_char_val = quoteP[0];
-  size_t quote_len = strlen(quoteP);
 
   VALUE elements = rb_ary_new();
   VALUE field;
