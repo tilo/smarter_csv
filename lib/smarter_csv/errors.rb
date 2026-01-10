@@ -8,7 +8,16 @@ module SmarterCSV
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
   class DuplicateHeaders < SmarterCSVException; end
-  class MissingKeys < SmarterCSVException; end # previously known as MissingHeaders
+
+  class MissingKeys < SmarterCSVException # previously known as MissingHeaders
+    attr_reader :keys
+
+    def initialize(message, keys)
+      super(message)
+      @keys = keys
+    end
+  end
+
   class NoColSepDetected < SmarterCSVException; end
   class KeyMappingError < SmarterCSVException; end
   class MalformedCSV < SmarterCSVException; end
