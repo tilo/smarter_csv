@@ -1,5 +1,6 @@
 #include "ruby.h"
 #include "ruby/encoding.h"
+#include "ruby/version.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -8,6 +9,16 @@
   #define bool int
   #define false ((bool)0)
   #define true  ((bool)1)
+#endif
+
+/*
+ * rb_hash_new_capa() was added in Ruby 3.2. For older Ruby versions,
+ * we fall back to rb_hash_new() which doesn't pre-allocate capacity.
+ */
+#if defined(RUBY_API_VERSION_MAJOR) && (RUBY_API_VERSION_MAJOR > 3 || (RUBY_API_VERSION_MAJOR == 3 && RUBY_API_VERSION_MINOR >= 2))
+  /* Ruby 3.2+ has rb_hash_new_capa */
+#else
+  #define rb_hash_new_capa(capa) rb_hash_new()
 #endif
 
 VALUE SmarterCSV = Qnil;
@@ -56,7 +67,6 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 
   char *quoteP = RSTRING_PTR(quote_char);
   char quote_char_val = quoteP[0];
-  size_t quote_len = strlen(quoteP);
 
   VALUE elements = rb_ary_new();
   VALUE field;
