@@ -15,7 +15,7 @@
 class Klass
   include SmarterCSV::Parser
   def has_acceleration
-    true
+    !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
   end
 end
 
