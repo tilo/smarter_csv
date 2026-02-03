@@ -3,7 +3,8 @@
 
 ## 1.15.0 (2026-02-02)
 
-### Performance Optimizations
+* Performance Optimizations
+* Dropping support for Ruby 2.5
 
 Major rewrite of the C extension for significantly faster CSV parsing:
 
@@ -15,7 +16,7 @@ Major rewrite of the C extension for significantly faster CSV parsing:
 
  * **Conditional nil padding**: Missing columns only padded with `nil` when `remove_empty_values: false`, avoiding unnecessary work in the default case.
 
-### Benchmark Results (vs 1.14.4)
+Benchmark Results (vs 1.14.4)
 
  * Standard CSV files: **1.9x - 4.0x faster**
  * Wide CSV files (500 columns): **2.2x faster** than 1.14.4, **3.9x faster** than Ruby CSV
