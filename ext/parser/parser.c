@@ -181,7 +181,6 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
   // Check for comment prefix at start of row
   if (p->comment_prefix_len > 0) {
     VALUE peek = parser_peek_chars(self, LONG2NUM(p->comment_prefix_len));
-
     if (!NIL_P(peek) && RSTRING_LEN(peek) >= p->comment_prefix_len) {
       const char *buf = RSTRING_PTR(peek);
       const char *prefix = p->comment_prefix_ptr;
@@ -195,23 +194,18 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       }
 
       if (match) {
-        // Skip chars until row_sep or EOF
-        int end_of_comment_reached = 0;
-        while (!end_of_comment_reached) {
+        while (1) {
           VALUE ch = parser_next_char(self);
-
-          if (NIL_P(ch) || buffered_io_p->eof) {
-            end_of_comment_reached = 1;
-          } else if (RSTRING_LEN(ch) == p->row_sep_len &&
-                     strncmp(RSTRING_PTR(ch), p->row_sep_ptr, p->row_sep_len) == 0) {
-            end_of_comment_reached = 1;
+          if (NIL_P(ch) || buffered_io_p->eof) break;
+          if (RSTRING_LEN(ch) == p->row_sep_len &&
+              strncmp(RSTRING_PTR(ch), p->row_sep_ptr, p->row_sep_len) == 0) {
+            break;
           }
         }
-        // increment @csv_line_count
-        parser_increment_csv_line_count(p);
 
+        parser_increment_csv_line_count(p);
         if (buffered_io_p->eof) return Qnil;
-        return parser_read_row_as_fields_c(self);  // tail recursion: try again
+        return parser_read_row_as_fields_c(self);
       }
     }
   }
@@ -243,7 +237,7 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
       parser_next_chars(self, INT2NUM(p->row_sep_len));
       row_complete = 1;
     } else if (NIL_P(sep) || RSTRING_LEN(sep) == 0) {
-      parser_next_char(self);  // consume final bytes, forces EOF detection
+      parser_next_char(self);  // ensure EOF detection
       row_complete = 1;
     } else {
       rb_raise(rb_eRuntimeError, "Expected separator but found: %s", RSTRING_PTR(sep));
@@ -252,6 +246,87 @@ static VALUE parser_read_row_as_fields_c(VALUE self) {
 
   return flush_row(p, self);
 }
+
+// static VALUE parser_read_row_as_fields_c(VALUE self) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+//   BufferedIoBufferType *buffered_io_p;
+//   TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
+
+//   // Check for comment prefix at start of row
+//   if (p->comment_prefix_len > 0) {
+//     VALUE peek = parser_peek_chars(self, LONG2NUM(p->comment_prefix_len));
+
+//     if (!NIL_P(peek) && RSTRING_LEN(peek) >= p->comment_prefix_len) {
+//       const char *buf = RSTRING_PTR(peek);
+//       const char *prefix = p->comment_prefix_ptr;
+
+//       int match = 1;
+//       for (long i = 0; i < p->comment_prefix_len; ++i) {
+//         if (buf[i] != prefix[i]) {
+//           match = 0;
+//           break;
+//         }
+//       }
+
+//       if (match) {
+//         // Skip chars until row_sep or EOF
+//         int end_of_comment_reached = 0;
+//         while (!end_of_comment_reached) {
+//           VALUE ch = parser_next_char(self);
+
+//           if (NIL_P(ch) || buffered_io_p->eof) {
+//             end_of_comment_reached = 1;
+//           } else if (RSTRING_LEN(ch) == p->row_sep_len &&
+//                      strncmp(RSTRING_PTR(ch), p->row_sep_ptr, p->row_sep_len) == 0) {
+//             end_of_comment_reached = 1;
+//           }
+//         }
+//         // increment @csv_line_count
+//         parser_increment_csv_line_count(p);
+
+//         if (buffered_io_p->eof) return Qnil;
+//         return parser_read_row_as_fields_c(self);  // tail recursion: try again
+//       }
+//     }
+//   }
+
+//   // Read actual row
+//   int row_complete = 0;
+
+//   while (!row_complete) {
+//     VALUE sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
+
+//     VALUE pair = parser_read_field_c(self);
+//     if (TYPE(pair) != T_ARRAY || RARRAY_LEN(pair) != 2) {
+//       rb_raise(rb_eRuntimeError, "Expected [field_ok, field_closed] from read_field_c");
+//     }
+
+//     VALUE field_ok = rb_ary_entry(pair, 0);
+//     VALUE field_closed = rb_ary_entry(pair, 1);
+
+//     if (field_closed == Qfalse) {
+//       rb_raise(rb_eRuntimeError, "Unclosed quoted field");
+//     }
+
+//     sep = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
+//     if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->col_sep_len &&
+//         strncmp(RSTRING_PTR(sep), p->col_sep_ptr, p->col_sep_len) == 0) {
+//       parser_next_chars(self, INT2NUM(p->col_sep_len));
+//     } else if (!NIL_P(sep) && RSTRING_LEN(sep) >= p->row_sep_len &&
+//                strncmp(RSTRING_PTR(sep), p->row_sep_ptr, p->row_sep_len) == 0) {
+//       parser_next_chars(self, INT2NUM(p->row_sep_len));
+//       row_complete = 1;
+//     } else if (NIL_P(sep) || RSTRING_LEN(sep) == 0) {
+//       parser_next_char(self);  // consume final bytes, forces EOF detection
+//       row_complete = 1;
+//     } else {
+//       rb_raise(rb_eRuntimeError, "Expected separator but found: %s", RSTRING_PTR(sep));
+//     }
+//   }
+
+//   return flush_row(p, self);
+// }
 
 // Ruby method: read_field
 static VALUE parser_read_field_c(VALUE self) {
@@ -298,7 +373,9 @@ static VALUE parser_read_field_c(VALUE self) {
         break;
       } else {
         VALUE ch = parser_next_char(self);
-        if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        if (!NIL_P(ch)) {
+          append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        }
       }
     } else {
       if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
@@ -313,14 +390,84 @@ static VALUE parser_read_field_c(VALUE self) {
         break;
       } else {
         VALUE ch = parser_next_char(self);
-        if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        if (!NIL_P(ch)) {
+          append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+        }
       }
     }
   }
 
   finalize_field(p);
-  return rb_ary_new3(2, Qtrue, field_closed ? Qtrue : Qfalse);  // str is sliced later
+  return rb_ary_new3(2, Qtrue, field_closed ? Qtrue : Qfalse);
 }
+
+// static VALUE parser_read_field_c(VALUE self) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+//   int field_started = 1;
+//   int field_ends_in_quote = 0;
+//   int field_closed = 0;
+
+//   mark_field_start(p);
+
+//   while (1) {
+//     VALUE peek = parser_peek_chars(self, LONG2NUM(p->max_sep_len));
+
+//     if (field_started) {
+//       field_ends_in_quote = !NIL_P(peek) &&
+//                             RSTRING_LEN(peek) >= p->quote_char_len &&
+//                             strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0;
+//       if (field_ends_in_quote) {
+//         parser_next_chars(self, INT2NUM(p->quote_char_len));
+//       }
+//       field_started = 0;
+//       continue;
+//     }
+
+//     if (NIL_P(peek)) {
+//       field_closed = !field_ends_in_quote;
+//       if (field_ends_in_quote) {
+//         return rb_ary_new3(2, Qnil, Qfalse);  // unterminated quoted field
+//       }
+//       break;
+//     }
+
+//     if (field_ends_in_quote) {
+//       if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
+//           strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
+//         parser_next_chars(self, INT2NUM(p->double_quote_char_len));
+//         append_chars(p, p->quote_char_ptr, p->quote_char_len);
+//       } else if (RSTRING_LEN(peek) >= p->quote_char_len &&
+//                  strncmp(RSTRING_PTR(peek), p->quote_char_ptr, p->quote_char_len) == 0) {
+//         parser_next_chars(self, INT2NUM(p->quote_char_len));
+//         field_closed = 1;
+//         break;
+//       } else {
+//         VALUE ch = parser_next_char(self);
+//         if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+//       }
+//     } else {
+//       if (RSTRING_LEN(peek) >= p->double_quote_char_len &&
+//           strncmp(RSTRING_PTR(peek), p->double_quote_char_ptr, p->double_quote_char_len) == 0) {
+//         parser_next_chars(self, INT2NUM(p->double_quote_char_len));
+//         append_chars(p, p->quote_char_ptr, p->quote_char_len);
+//       } else if ((RSTRING_LEN(peek) >= p->col_sep_len &&
+//                   strncmp(RSTRING_PTR(peek), p->col_sep_ptr, p->col_sep_len) == 0) ||
+//                  (RSTRING_LEN(peek) >= p->row_sep_len &&
+//                   strncmp(RSTRING_PTR(peek), p->row_sep_ptr, p->row_sep_len) == 0)) {
+//         field_closed = 1;
+//         break;
+//       } else {
+//         VALUE ch = parser_next_char(self);
+//         if (!NIL_P(ch)) append_chars(p, RSTRING_PTR(ch), RSTRING_LEN(ch));
+//       }
+//     }
+//   }
+
+//   finalize_field(p);
+//   return rb_ary_new3(2, Qtrue, field_closed ? Qtrue : Qfalse);  // str is sliced later
+// }
 
 // Ruby methods: next_char, peek_chars, next_chars, skip_chars
 
@@ -339,67 +486,127 @@ static VALUE parser_next_char(VALUE self) {
   // 1. Fast-path for ASCII or UTF-8
   if (p->is_ascii_or_utf8) {
     int b = next_byte(buffered_io_p);
-    if (b == -1) {
-      // fprintf(stderr, "next_char: EOF\n");
-      return Qnil;
-    }
+    if (b == -1) return Qnil;
 
     unsigned char c = (unsigned char)b;
 
     // ASCII fast-path
     if (c < 0x80) {
-      // fprintf(stderr, "next_char: ASCII '%c'\n", c);
       return rb_str_new((const char *)&c, 1);
     }
 
-    // UTF-8 slow path: assemble valid multibyte character
+    // UTF-8 multibyte fallback
     char buf[8];
     buf[0] = c;
     int len = 1;
-
-    VALUE str = Qnil;
 
     for (; len < 8; ++len) {
       int b2 = next_byte(buffered_io_p);
       if (b2 == -1) break;
       buf[len] = (char)b2;
 
-      VALUE s = rb_str_new(buf, len + 1);
-      rb_funcall(s, rb_intern("force_encoding"), 1, encoding);
-      if (RTEST(rb_funcall(s, rb_intern("valid_encoding?"), 0))) {
-        str = s;
-        // fprintf(stderr, "next_char: UTF-8 '%.*s'\n", len + 1, buf);
-        break;
+      VALUE str = rb_str_new(buf, len + 1);
+      rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+      if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+        return str;
       }
     }
 
-    // if (str == Qnil) fprintf(stderr, "next_char: UTF-8 invalid sequence\n");
-    return str == Qnil ? Qnil : str;
+    // Could not assemble valid UTF-8 char
+    return Qnil;
   }
 
-  // 2. Fallback path for other encodings
+  // 2. Fallback for other encodings
   char buf[64];
   int len = 0;
 
   while (len < 64) {
     int b = next_byte(buffered_io_p);
-    if (b == -1) {
-      // fprintf(stderr, "next_char: EOF (fallback)\n");
-      break;
-    }
+    if (b == -1) break;
     buf[len++] = (char)b;
 
-    VALUE s = rb_str_new(buf, len);
-    rb_funcall(s, rb_intern("force_encoding"), 1, encoding);
-    if (RTEST(rb_funcall(s, rb_intern("valid_encoding?"), 0))) {
-      // fprintf(stderr, "next_char: Fallback '%.*s'\n", len, buf);
-      return s;
+    VALUE str = rb_str_new(buf, len);
+    rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+    if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+      return str;
     }
   }
 
-  // fprintf(stderr, "next_char: fallback invalid sequence\n");
   return Qnil;
 }
+
+// static VALUE parser_next_char(VALUE self) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+//   BufferedIoBufferType *buffered_io_p;
+//   TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
+
+//   VALUE encoding = rb_iv_get(self, "@encoding");
+
+//   // 1. Fast-path for ASCII or UTF-8
+//   if (p->is_ascii_or_utf8) {
+//     int b = next_byte(buffered_io_p);
+//     if (b == -1) {
+//       // fprintf(stderr, "next_char: EOF\n");
+//       return Qnil;
+//     }
+
+//     unsigned char c = (unsigned char)b;
+
+//     // ASCII fast-path
+//     if (c < 0x80) {
+//       // fprintf(stderr, "next_char: ASCII '%c'\n", c);
+//       return rb_str_new((const char *)&c, 1);
+//     }
+
+//     // UTF-8 slow path: assemble valid multibyte character
+//     char buf[8];
+//     buf[0] = c;
+//     int len = 1;
+
+//     VALUE str = Qnil;
+
+//     for (; len < 8; ++len) {
+//       int b2 = next_byte(buffered_io_p);
+//       if (b2 == -1) break;
+//       buf[len] = (char)b2;
+
+//       VALUE s = rb_str_new(buf, len + 1);
+//       rb_funcall(s, rb_intern("force_encoding"), 1, encoding);
+//       if (RTEST(rb_funcall(s, rb_intern("valid_encoding?"), 0))) {
+//         str = s;
+//         // fprintf(stderr, "next_char: UTF-8 '%.*s'\n", len + 1, buf);
+//         break;
+//       }
+//     }
+
+//     // if (str == Qnil) fprintf(stderr, "next_char: UTF-8 invalid sequence\n");
+//     return str == Qnil ? Qnil : str;
+//   }
+
+//   // 2. Fallback path for other encodings
+//   char buf[64];
+//   int len = 0;
+
+//   while (len < 64) {
+//     int b = next_byte(buffered_io_p);
+//     if (b == -1) {
+//       // fprintf(stderr, "next_char: EOF (fallback)\n");
+//       break;
+//     }
+//     buf[len++] = (char)b;
+
+//     VALUE s = rb_str_new(buf, len);
+//     rb_funcall(s, rb_intern("force_encoding"), 1, encoding);
+//     if (RTEST(rb_funcall(s, rb_intern("valid_encoding?"), 0))) {
+//       // fprintf(stderr, "next_char: Fallback '%.*s'\n", len, buf);
+//       return s;
+//     }
+//   }
+
+//   // fprintf(stderr, "next_char: fallback invalid sequence\n");
+//   return Qnil;
+// }
 
 static VALUE parser_next_chars(VALUE self, VALUE nval) {
   int n = NUM2INT(nval);
@@ -416,24 +623,28 @@ static VALUE parser_next_chars(VALUE self, VALUE nval) {
 static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
-
-  int n = NUM2INT(nval);
   BufferedIoBufferType *buffered_io_p;
   TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
 
-  VALUE bytes = rb_funcall(p->buffered_io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
-  if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
+  int n = NUM2INT(nval);
+  size_t available = 0;
+
+  const char *bytes = peek_bytes(buffered_io_p, n * 16, &available);  // generous over-read
+  if (!bytes || available == 0) return Qnil;
 
   VALUE encoding = rb_iv_get(self, "@encoding");
 
-  if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
-    VALUE substr = rb_str_substr(bytes, 0, n);
-    rb_funcall(substr, rb_intern("force_encoding"), 1, encoding);
-    return substr;
+  // ASCII or UTF-8 fast-path
+  if (p->is_ascii_or_utf8 && available >= (size_t)n) {
+    VALUE str = rb_str_new(bytes, n);
+    rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+    return str;
   }
 
-  VALUE str = rb_str_dup(bytes);
+  // General encoding fallback
+  VALUE str = rb_str_new(bytes, available);
   rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+
   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
   } else {
@@ -442,52 +653,119 @@ static VALUE parser_peek_chars(VALUE self, VALUE nval) {
   }
 }
 
+// static VALUE parser_peek_chars(VALUE self, VALUE nval) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+//   int n = NUM2INT(nval);
+//   BufferedIoBufferType *buffered_io_p;
+//   TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
+
+//   VALUE bytes = rb_funcall(p->buffered_io, rb_intern("peek_bytes"), 1, INT2NUM(n * 16));
+//   if (NIL_P(bytes) || RSTRING_LEN(bytes) == 0) return Qnil;
+
+//   VALUE encoding = rb_iv_get(self, "@encoding");
+
+//   if (p->is_ascii_or_utf8 && RSTRING_LEN(bytes) >= n) {
+//     VALUE substr = rb_str_substr(bytes, 0, n);
+//     rb_funcall(substr, rb_intern("force_encoding"), 1, encoding);
+//     return substr;
+//   }
+
+//   VALUE str = rb_str_dup(bytes);
+//   rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+//   if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+//     return rb_funcall(str, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+//   } else {
+//     VALUE scrubbed = rb_funcall(str, rb_intern("scrub"), 1, rb_str_new_cstr(""));
+//     return rb_funcall(scrubbed, rb_intern("slice"), 2, INT2NUM(0), INT2NUM(n));
+//   }
+// }
+
 // Ruby method: read_row (returns raw string line including row_sep)
 static VALUE parser_read_row(VALUE self) {
   parser_t *p;
   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+  BufferedIoBufferType *buffered_io_p;
+  TypedData_Get_Struct(p->buffered_io, BufferedIoBufferType, &buffer_type, buffered_io_p);
 
   VALUE encoding = rb_iv_get(self, "@encoding");
 
-  VALUE buffer = rb_str_new("", 0);
-
-  // fprintf(stderr, "read_row: reading 1 row\n");
+  size_t collected = 0;
+  char buffer[MAX_ROW_BYTES];
 
   while (1) {
-    VALUE ch = parser_next_char(self);
-    if (NIL_P(ch)) {
-      // fprintf(stderr, "parser_read_row: EOF reached\n");
-      break;
+    int b = next_byte(buffered_io_p);
+    if (b == -1) break;
+
+    if (collected >= MAX_ROW_BYTES) {
+      rb_raise(rb_eRuntimeError, "Row too large");
     }
 
-    // fprintf(stderr, "parser_read_row: appending '%.*s'\n", (int)RSTRING_LEN(ch), RSTRING_PTR(ch));
-    rb_str_cat(buffer, RSTRING_PTR(ch), RSTRING_LEN(ch));
+    buffer[collected++] = (char)b;
 
-    if (RSTRING_LEN(buffer) >= p->row_sep_len) {
-      const char *buf_ptr = RSTRING_PTR(buffer);
-      long buf_len = RSTRING_LEN(buffer);
-
-      if (strncmp(buf_ptr + buf_len - p->row_sep_len, p->row_sep_ptr, p->row_sep_len) == 0) {
-        // fprintf(stderr, "parser_read_row: row separator matched ('%.*s')\n", (int)p->row_sep_len, p->row_sep_ptr);
-        rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
-
-        // increment csv_line_count
-        parser_increment_csv_line_count(p);
-
-        return buffer;
-      }
+    if (collected >= p->row_sep_len &&
+        strncmp(buffer + collected - p->row_sep_len, p->row_sep_ptr, p->row_sep_len) == 0) {
+      parser_increment_csv_line_count(p);
+      VALUE result = rb_str_new(buffer, collected);
+      rb_funcall(result, rb_intern("force_encoding"), 1, encoding);
+      return result;
     }
   }
 
-  if (RSTRING_LEN(buffer) == 0) {
-    // fprintf(stderr, "parser_read_row: returning Qnil (empty buffer)\n");
-    return Qnil;
-  }
+  if (collected == 0) return Qnil;
 
-  // fprintf(stderr, "parser_read_row: returning partial buffer '%.*s'\n", (int)RSTRING_LEN(buffer), RSTRING_PTR(buffer));
-  rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
-  return buffer;
+  VALUE result = rb_str_new(buffer, collected);
+  rb_funcall(result, rb_intern("force_encoding"), 1, encoding);
+  return result;
 }
+
+
+// static VALUE parser_read_row(VALUE self) {
+//   parser_t *p;
+//   TypedData_Get_Struct(self, parser_t, &parser_type, p);
+
+//   VALUE encoding = rb_iv_get(self, "@encoding");
+
+//   VALUE buffer = rb_str_new("", 0);
+
+//   // fprintf(stderr, "read_row: reading 1 row\n");
+
+//   while (1) {
+//     VALUE ch = parser_next_char(self);
+//     if (NIL_P(ch)) {
+//       // fprintf(stderr, "parser_read_row: EOF reached\n");
+//       break;
+//     }
+
+//     // fprintf(stderr, "parser_read_row: appending '%.*s'\n", (int)RSTRING_LEN(ch), RSTRING_PTR(ch));
+//     rb_str_cat(buffer, RSTRING_PTR(ch), RSTRING_LEN(ch));
+
+//     if (RSTRING_LEN(buffer) >= p->row_sep_len) {
+//       const char *buf_ptr = RSTRING_PTR(buffer);
+//       long buf_len = RSTRING_LEN(buffer);
+
+//       if (strncmp(buf_ptr + buf_len - p->row_sep_len, p->row_sep_ptr, p->row_sep_len) == 0) {
+//         // fprintf(stderr, "parser_read_row: row separator matched ('%.*s')\n", (int)p->row_sep_len, p->row_sep_ptr);
+//         rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
+
+//         // increment csv_line_count
+//         parser_increment_csv_line_count(p);
+
+//         return buffer;
+//       }
+//     }
+//   }
+
+//   if (RSTRING_LEN(buffer) == 0) {
+//     // fprintf(stderr, "parser_read_row: returning Qnil (empty buffer)\n");
+//     return Qnil;
+//   }
+
+//   // fprintf(stderr, "parser_read_row: returning partial buffer '%.*s'\n", (int)RSTRING_LEN(buffer), RSTRING_PTR(buffer));
+//   rb_funcall(buffer, rb_intern("force_encoding"), 1, encoding);
+//   return buffer;
+// }
 
 // Ruby method: skip_rows (skips n rows and retuns nil)
 static VALUE parser_skip_rows(VALUE self, VALUE nval) {

@@ -10,7 +10,7 @@
 #define BUFFER_SIZE_512K (512 * 1024)
 #define BUFFER_SIZE_1MB   (1024 * 1024)
 
-#define MAX_CARRY_ZONE 16
+#define MAX_CARRY_ZONE 4096
 
 typedef enum {
   SOURCE_FILE_PTR,
@@ -45,5 +45,6 @@ void refill_buffer(BufferedIoBufferType *b);
 void swap_buffers(BufferedIoBufferType *b);
 int next_byte(BufferedIoBufferType *b);
 int peek_byte(BufferedIoBufferType *b);
+const char *peek_bytes(BufferedIoBufferType *b, size_t n, size_t *available);
 
 #endif // BUFFERED_IO_H
