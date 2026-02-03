@@ -599,6 +599,322 @@ This string comparison is fragile - what about "utf-8" lowercase?
 
 ---
 
+## UTF-8 Implementation Analysis: Current vs Optimal
+
+### Current Implementation: Trial-and-Error Approach
+
+The current `parser_next_char()` function uses a trial-and-error approach:
+
+```c
+// UTF-8 multibyte - current approach
+char buf[8];
+buf[0] = c;
+for (int len = 1; len < 8; ++len) {
+  int b2 = next_byte(buffered_io_p);
+  buf[len] = (char)b2;
+
+  VALUE str = rb_str_new(buf, len + 1);                           // Create Ruby String
+  rb_funcall(str, rb_intern("force_encoding"), 1, encoding);      // Ruby method call
+  if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {  // Ruby method call
+    return str;
+  }
+}
+```
+
+**Problem:** For every non-ASCII character, it:
+1. Allocates a temporary Ruby String
+2. Calls `force_encoding` (Ruby method dispatch)
+3. Calls `valid_encoding?` (Ruby method dispatch)
+4. Repeats until valid
+
+This defeats much of the performance benefit of using C for the hot path.
+
+### Better Approach: UTF-8 Byte Pattern Recognition
+
+UTF-8 has a deterministic structure. The first byte tells you exactly how many bytes follow:
+
+```
+Binary Pattern          Bytes   Range
+0xxxxxxx                1       ASCII (U+0000 to U+007F)
+110xxxxx 10xxxxxx       2       U+0080 to U+07FF
+1110xxxx 10xxxxxx ×2    3       U+0800 to U+FFFF
+11110xxx 10xxxxxx ×3    4       U+10000 to U+10FFFF (emoji, etc.)
+```
+
+**Pure C implementation (no Ruby calls needed):**
+
+```c
+static inline int utf8_char_length(unsigned char first_byte) {
+  if (first_byte < 0x80) return 1;              // 0xxxxxxx - ASCII
+  if ((first_byte & 0xE0) == 0xC0) return 2;    // 110xxxxx
+  if ((first_byte & 0xF0) == 0xE0) return 3;    // 1110xxxx
+  if ((first_byte & 0xF8) == 0xF0) return 4;    // 11110xxx
+  return 1;  // Invalid leading byte, treat as single byte
+}
+
+static VALUE parser_next_char_fast(BufferedIoBufferType *b, VALUE encoding) {
+  int first = next_byte(b);
+  if (first == -1) return Qnil;
+
+  unsigned char c = (unsigned char)first;
+  int len = utf8_char_length(c);
+
+  char buf[4];
+  buf[0] = c;
+
+  for (int i = 1; i < len; i++) {
+    int next = next_byte(b);
+    if (next == -1) return Qnil;  // Truncated sequence
+    buf[i] = (char)next;
+  }
+
+  VALUE str = rb_str_new(buf, len);
+  rb_enc_associate(str, rb_enc_get(encoding));  // Faster than force_encoding
+  return str;
+}
+```
+
+### Performance Comparison
+
+| Aspect | Current (Trial-and-Error) | Proper UTF-8 Decode |
+|--------|---------------------------|---------------------|
+| Ruby method calls per char | 2-8 | 0 |
+| Temporary objects | 1-4 per char | 0 |
+| Predictable | No | Yes |
+| Handles invalid UTF-8 | Returns nil | Could validate or pass through |
+
+### Do We Need ICU (International Components for Unicode)?
+
+**No, not for character assembly.** Here's the analysis:
+
+| Task | ICU Needed? | Alternative |
+|------|-------------|-------------|
+| UTF-8 byte → character | No | Simple bit pattern matching (pure C) |
+| Shift_JIS, GB2312, etc. | Maybe | Could use Ruby's encoding or lookup tables |
+| Unicode normalization (NFC/NFD) | Yes | Not needed for CSV parsing |
+| Locale-aware case conversion | Yes | Not needed for CSV parsing |
+| Collation (sorting) | Yes | Not needed for CSV parsing |
+
+ICU is a large dependency (~30MB) that would be overkill for CSV parsing. The simple bit-pattern approach handles UTF-8 perfectly, and Ruby's encoding system can be used as a fallback for other encodings.
+
+### What's Needed to Complete This
+
+| Task | Effort | Impact |
+|------|--------|--------|
+| Replace UTF-8 trial-and-error with deterministic decode | Low (~20 lines) | High - eliminates Ruby calls |
+| Add UTF-8 validation (check continuation bytes are `10xxxxxx`) | Low | Medium - catches invalid sequences |
+| Keep Ruby fallback for non-UTF-8 encodings | None | Already exists |
+| Optional: Add lookup tables for common encodings (Shift_JIS, etc.) | Medium | Low - niche use case |
+
+### Recommended Fix
+
+Add this helper function and modify `parser_next_char`:
+
+```c
+// Add this helper
+static inline int utf8_char_length(unsigned char c) {
+  if (c < 0x80) return 1;
+  if ((c & 0xE0) == 0xC0) return 2;
+  if ((c & 0xF0) == 0xE0) return 3;
+  if ((c & 0xF8) == 0xF0) return 4;
+  return 1;
+}
+
+// Modify parser_next_char to use it for UTF-8
+if (p->is_utf8 && c >= 0x80) {
+  int len = utf8_char_length(c);
+  char buf[4];
+  buf[0] = c;
+  for (int i = 1; i < len; i++) {
+    int b = next_byte(buffered_io_p);
+    if (b == -1) return Qnil;
+    buf[i] = (char)b;
+  }
+  VALUE str = rb_str_new(buf, len);
+  rb_enc_associate(str, rb_utf8_encoding());
+  return str;
+}
+```
+
+### Implementation Status Summary
+
+| Question | Answer |
+|----------|--------|
+| Is it complete? | Functional but inefficient |
+| Does it work? | Yes, for most cases |
+| Is it optimal? | No - uses Ruby calls unnecessarily |
+| Do we need ICU? | No |
+| What's needed? | ~20 lines of C to properly decode UTF-8 |
+
+---
+
+## Emoji and Non-UTF-8 Encoding Support
+
+### Does the UTF-8 Fix Handle Emojis?
+
+**Yes.** Emojis are valid UTF-8 and use 4-byte sequences:
+
+```
+💡 (U+1F4A1) = F0 9F 92 A1
+
+F0 = 11110000 → First byte matches 11110xxx pattern → 4 bytes
+9F = 10011111 → Continuation byte
+92 = 10010010 → Continuation byte
+A1 = 10100001 → Continuation byte
+```
+
+The `utf8_char_length()` function handles this correctly:
+```c
+if ((first_byte & 0xF8) == 0xF0) return 4;  // Matches F0, covers all emoji
+```
+
+### Does the UTF-8 Fix Handle Non-UTF-8 Encodings?
+
+**No.** The simple UTF-8 fix is encoding-specific. It will NOT work for:
+
+| Encoding | Structure | Problem |
+|----------|-----------|---------|
+| **Shift_JIS** | First byte 0x81-0x9F or 0xE0-0xFC → 2 bytes | Different byte patterns |
+| **GBK/GB2312** | First byte 0x81-0xFE → 2 bytes | Different byte patterns |
+| **EUC-JP** | First byte 0xA1-0xFE → 2-3 bytes | Different byte patterns |
+| **ISO-8859-x** | All single byte | No multi-byte, but 0x80-0xFF mean different things |
+| **UTF-16** | 2 or 4 bytes, different structure | Completely different |
+
+### The Proper Solution: Ruby's C API
+
+Ruby provides `rb_enc_precise_mbclen()` which handles ALL encodings Ruby supports:
+
+```c
+#include "ruby/encoding.h"
+
+// Use Ruby's encoding system to determine character length
+rb_encoding *enc = rb_enc_get(str);
+int len = rb_enc_precise_mbclen(ptr, ptr + remaining, enc);
+if (MBCLEN_CHARFOUND_P(len)) {
+  int char_len = MBCLEN_CHARFOUND_LEN(len);
+  // consume char_len bytes
+}
+```
+
+### Recommended Hybrid Approach
+
+```c
+static VALUE parser_next_char(VALUE self) {
+  // ... setup code ...
+
+  unsigned char c = (unsigned char)next_byte(buffered_io_p);
+
+  // ASCII fast path (works for all ASCII-compatible encodings)
+  if (c < 0x80) {
+    return rb_enc_str_new((char*)&c, 1, enc);
+  }
+
+  // UTF-8 optimized path (covers 95%+ of real-world usage)
+  if (p->is_utf8) {
+    int len = utf8_char_length(c);
+    char buf[4];
+    buf[0] = c;
+    for (int i = 1; i < len; i++) {
+      buf[i] = (char)next_byte(buffered_io_p);
+    }
+    return rb_enc_str_new(buf, len, rb_utf8_encoding());
+  }
+
+  // All other encodings: use Ruby's encoding API
+  // ... use rb_enc_precise_mbclen approach ...
+}
+```
+
+### Encoding Support Comparison
+
+| Approach | UTF-8 | Emoji | Shift_JIS | GBK | Speed | Complexity |
+|----------|-------|-------|-----------|-----|-------|------------|
+| Current (trial-and-error) | ✓ | ✓ | ✓ | ✓ | Slow | Low |
+| Simple UTF-8 fix | ✓ | ✓ | ✗ | ✗ | Fast | Low |
+| `rb_enc_precise_mbclen` | ✓ | ✓ | ✓ | ✓ | Medium | Medium |
+| Hybrid (recommended) | ✓ | ✓ | ✓ | ✓ | Fast | Medium |
+
+---
+
+## ICU vs rb_enc_precise_mbclen
+
+ICU (International Components for Unicode) is a comprehensive Unicode library. Here's how it compares to Ruby's built-in encoding API:
+
+### Feature Comparison
+
+| Aspect | ICU | rb_enc_precise_mbclen |
+|--------|-----|----------------------|
+| **Dependency** | External library (~30MB) | Already included in Ruby |
+| **Build complexity** | Must link ICU, handle versions | None - part of Ruby C API |
+| **Encoding support** | Very comprehensive | All encodings Ruby supports |
+| **Character length API** | `ucnv_getNextUChar()`, `u_countChar32()` | `rb_enc_precise_mbclen()` |
+| **Unicode version** | Regularly updated | Follows Ruby's updates |
+| **Portability** | Works outside Ruby | Ruby extensions only |
+| **Consistency with Ruby** | May differ from Ruby's behavior | Guaranteed to match Ruby |
+
+### Code Comparison
+
+**ICU approach:**
+```c
+#include <unicode/ucnv.h>
+#include <unicode/uchar.h>
+
+UConverter *conv = ucnv_open("UTF-8", &err);
+UChar32 c = ucnv_getNextUChar(conv, &source, sourceEnd, &err);
+int charLen = U8_LENGTH(c);
+ucnv_close(conv);
+```
+
+**Ruby API approach:**
+```c
+#include "ruby/encoding.h"
+
+rb_encoding *enc = rb_enc_get(str);
+int len = rb_enc_precise_mbclen(ptr, ptr + remaining, enc);
+if (MBCLEN_CHARFOUND_P(len)) {
+  int char_len = MBCLEN_CHARFOUND_LEN(len);
+}
+```
+
+### When to Use Which
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Ruby C extension (like SmarterCSV) | **rb_enc_precise_mbclen** - already available, no dependencies |
+| Standalone C library | ICU - comprehensive, portable |
+| Need Unicode normalization (NFC/NFD) | ICU - Ruby's support is limited |
+| Need collation/sorting | ICU - more sophisticated |
+| Minimal dependencies | rb_enc_precise_mbclen or hand-coded UTF-8 |
+| Maximum compatibility with Ruby | rb_enc_precise_mbclen - guaranteed match |
+
+### Why rb_enc_precise_mbclen is Better for SmarterCSV
+
+1. **No new dependency** - ICU adds ~30MB and build complexity
+2. **Consistency** - Results match Ruby's string handling exactly
+3. **Already there** - Just `#include "ruby/encoding.h"`
+4. **Maintained** - Ruby core team handles encoding updates
+5. **Simpler build** - No need to find/link ICU on user systems
+
+### When ICU Would Make Sense
+
+- Building a **non-Ruby** CSV library in C
+- Need **Unicode normalization** (NFC, NFD, NFKC, NFKD)
+- Need **locale-aware collation** (sorting)
+- Need **Unicode properties** (is this character a letter? a digit?)
+
+None of these apply to SmarterCSV's CSV parsing needs.
+
+### Recommendation Summary
+
+| Question | Answer |
+|----------|--------|
+| Is ICU an alternative? | Yes, technically |
+| Is ICU better for SmarterCSV? | **No** - overkill, adds complexity |
+| What should SmarterCSV use? | `rb_enc_precise_mbclen` for non-UTF-8, simple bit patterns for UTF-8 |
+| When would ICU be better? | Standalone C library, or advanced Unicode features |
+
+---
+
 ## Potential Benefits
 
 1. **No Ruby readline overhead** - Reading happens entirely in C
