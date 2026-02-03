@@ -12,7 +12,7 @@ module SmarterCSV
   class MissingKeys < SmarterCSVException # previously known as MissingHeaders
     attr_reader :keys
 
-    def initialize(message, keys)
+    def initialize(message, keys = [])
       super(message)
       @keys = keys
     end
