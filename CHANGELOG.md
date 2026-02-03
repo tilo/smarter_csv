@@ -59,6 +59,28 @@ Benchmarks using Ruby 3.4.7
 
 **Memory improvements:** 39% less memory allocated, 43% fewer objects created
 
+### Exception Improvements
+
+ * `MissingKeys#keys` - programmatic access to missing keys without parsing error messages ([PR #314](https://github.com/tilo/smarter_csv/pull/314), thanks to Skye Shaw)
+ * `DuplicateHeaders#headers` - programmatic access to duplicate headers without parsing error messages
+
+   ```ruby
+   # Example: accessing missing keys programmatically
+   rescue SmarterCSV::MissingKeys => e
+     e.keys  # => [:employee_id, :department]
+   end
+
+   # Example: accessing duplicate headers programmatically
+   rescue SmarterCSV::DuplicateHeaders => e
+     e.headers  # => [:email]
+   end
+   ```
+
+### Misc Fixes
+
+ * Fix compilation error on ARM macOS (`-march=native` unsupported) ([PR #313](https://github.com/tilo/smarter_csv/pull/313), thanks to Skye Shaw)
+ * CI improvements: Ruby 3.4 support, Codecov action update ([PR #311](https://github.com/tilo/smarter_csv/pull/311), thanks to Mark Bumiller)
+
 ## 1.14.4 (2025-05-26)
  * Bugfix: SmarterCSV::Reader fixing issue with header containing spaces ([PR 305](https://github.com/tilo/smarter_csv/pull/305) thanks to Felipe Cabezudo)
 

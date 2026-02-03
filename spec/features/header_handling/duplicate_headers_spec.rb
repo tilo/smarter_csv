@@ -14,7 +14,9 @@ describe 'duplicate headers' do
       expect do
         options = {user_provided_headers: %i[a b c d a], headers_in_file: false}
         SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-      end.to raise_exception(SmarterCSV::DuplicateHeaders)
+      end.to raise_exception(SmarterCSV::DuplicateHeaders) do |error|
+        expect(error.headers).to eq [:a]
+      end
     end
 
     it 'can remap duplicated headers' do
@@ -31,7 +33,9 @@ describe 'duplicate headers' do
       it 'raises error on duplicate headers in the input file' do
         expect do
           SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        end.to raise_exception(SmarterCSV::DuplicateHeaders)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders) do |error|
+          expect(error.headers).to eq [:email]
+        end
       end
     end
 
@@ -52,7 +56,9 @@ describe 'duplicate headers' do
         options.merge!({user_provided_headers: %i[a b c a a], headers_in_file: false})
         expect do
           SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        end.to raise_exception(SmarterCSV::DuplicateHeaders)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders) do |error|
+          expect(error.headers).to eq [:a]
+        end
       end
 
       it 'can remap duplicated headers' do
@@ -79,7 +85,9 @@ describe 'duplicate headers' do
         options.merge!({user_provided_headers: %i[a b c a a], headers_in_file: false})
         expect do
           SmarterCSV.process("#{fixture_path}/duplicate_headers.csv", options)
-        end.to raise_exception(SmarterCSV::DuplicateHeaders)
+        end.to raise_exception(SmarterCSV::DuplicateHeaders) do |error|
+          expect(error.headers).to eq [:a]
+        end
       end
     end
   end

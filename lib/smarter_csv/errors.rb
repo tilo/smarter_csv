@@ -7,7 +7,14 @@ module SmarterCSV
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
-  class DuplicateHeaders < SmarterCSVException; end
+  class DuplicateHeaders < SmarterCSVException
+    attr_reader :headers
+
+    def initialize(message, headers = [])
+      super(message)
+      @headers = headers
+    end
+  end
 
   class MissingKeys < SmarterCSVException # previously known as MissingHeaders
     attr_reader :keys

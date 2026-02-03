@@ -60,3 +60,5 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Matthew Kennedy](https://github.com/MattKitmanLabs)
  * [Robert Reiz](https://github.com/reiz)
  * [Felipe Cabezudo](https://github.com/felipekb)
+ * [Skye Shaw](https://github.com/sshaw)
+ * [Mark Bumiller](https://github.com/makrsmark)

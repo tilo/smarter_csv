@@ -14,7 +14,7 @@ module SmarterCSV
       duplicates = header_counts.select { |_, count| count > 1 }
 
       unless duplicates.empty?
-        raise(SmarterCSV::DuplicateHeaders, "Duplicate Headers in CSV: #{duplicates.inspect}")
+        raise SmarterCSV::DuplicateHeaders.new("Duplicate Headers in CSV: #{duplicates.inspect}", duplicates.keys)
       end
     end
 
