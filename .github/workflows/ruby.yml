@@ -55,6 +55,13 @@ jobs:
         run: bundle exec rake
         env:
           JAVA_OPTS: -Djdk.io.File.enableADS=true
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu' && matrix.ruby == '3.3'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/.resultset.json
+          fail_ci_if_error: false
 
   finish:
     runs-on: ubuntu-latest
