@@ -2,7 +2,7 @@
 
 module SmarterCSV
   module Parser
-    EMPTY_STRING = ''.freeze
+    EMPTY_STRING = '' # already frozen
 
     protected
 
@@ -26,6 +26,64 @@ module SmarterCSV
       end
     end
 
+    # Parse a CSV line directly into a hash, with support for extra columns.
+    # Returns [hash_or_nil, data_size] where hash is nil if all values are blank.
+    def parse_line_to_hash(line, headers, options)
+      has_quotes = line.include?(options[:quote_char])
+
+      if options[:acceleration] && has_acceleration
+        # :nocov:
+        parse_line_to_hash_c(
+          line,
+          headers,
+          options[:col_sep],
+          options[:quote_char],
+          options[:missing_header_prefix],
+          has_quotes,
+          options[:strip_whitespace],
+          options[:remove_empty_hashes],
+          options[:remove_empty_values]
+        )
+        # :nocov:
+      else
+        parse_line_to_hash_ruby(line, headers, options, has_quotes)
+      end
+    end
+
+    # Ruby implementation of parse_line_to_hash
+    def parse_line_to_hash_ruby(line, headers, options, has_quotes = false)
+      return [nil, 0] if line.nil?
+
+      # Parse the line into values
+      elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
+
+      # Check if all values are blank
+      if options[:remove_empty_hashes] && (elements.empty? || elements.all? { |v| v.nil? || v.to_s.strip.empty? })
+        return [nil, data_size]
+      end
+
+      # Build the hash - only include keys for values that exist
+      hash = {}
+      elements.each_with_index do |value, i|
+        key = if i < headers.size
+                headers[i]
+              else
+                "#{options[:missing_header_prefix]}#{i + 1}".to_sym
+              end
+        hash[key] = value
+      end
+
+      # Add nil for missing columns only when remove_empty_values is false
+      # (when true, nils would be removed anyway by hash_transformations)
+      unless options[:remove_empty_values]
+        (elements.size...headers.size).each do |i|
+          hash[headers[i]] = nil
+        end
+      end
+
+      [hash, data_size]
+    end
+
     # ------------------------------------------------------------------
     # Ruby equivalent of the C-extension for parse_line
     #
@@ -47,7 +105,7 @@ module SmarterCSV
     #
     # Our convention is that empty fields are returned as empty strings, not as nil.
 
-    def parse_csv_line_ruby(line, options, header_size = nil, has_quotes = false)
+    def parse_csv_line_ruby(line, options, header_size = nil, _has_quotes = false)
       return [[], 0] if line.nil?
 
       line_size = line.size

@@ -1,6 +1,27 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.15.0 (2026-02-02)
+
+### Performance Optimizations
+
+Major rewrite of the C extension for significantly faster CSV parsing:
+
+ * **New `parse_line_to_hash_c` function**: Builds Ruby hash directly during parsing, eliminating intermediate array allocations. Previously, parsing created a values array, then `zip()` created pairs array, then `to_h()` built the hash. Now done in a single pass.
+
+ * **Shared empty string optimization**: Reuses a single frozen empty string for all empty CSV fields, reducing object allocations and GC pressure.
+
+ * **Faster quote counting**: New `count_quote_chars_c` function replaces Ruby's `each_char` iteration, eliminating one String object allocation per character.
+
+ * **Conditional nil padding**: Missing columns only padded with `nil` when `remove_empty_values: false`, avoiding unnecessary work in the default case.
+
+### Benchmark Results (vs 1.14.4)
+
+ * Standard CSV files: **1.9x - 4.0x faster**
+ * Wide CSV files (500 columns): **2.2x faster** than 1.14.4, **3.9x faster** than Ruby CSV
+ * Files with embedded newlines: **4.1x faster**
+ * Reduced GC overhead from ~18% to ~12%
+
 ## 1.14.4 (2025-05-26)
  * Bugfix: SmarterCSV::Reader fixing issue with header containing spaces ([PR 305](https://github.com/tilo/smarter_csv/pull/305) thanks to Felipe Cabezudo)
 

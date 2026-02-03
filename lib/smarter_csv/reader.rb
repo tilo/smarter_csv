@@ -129,24 +129,24 @@ module SmarterCSV
 
           # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
           # we are now stripping whitespace inside the parse() methods
-          dataA, data_size = parse(line, options) # we parse the extra columns
+          # we create additional columns on-the-fly when we find more data fields than headers
+          hash, data_size = parse_line_to_hash(line, @headers, options)
 
-          if options[:strict]
-            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
-          else
-            # we create additional columns on-the-fly
-            current_size = @headers.size
-            while current_size < data_size
-              @headers << "#{options[:missing_header_prefix]}#{current_size + 1}".to_sym
-              current_size += 1
+          # Handle extra columns (more data fields than headers)
+          if data_size > @headers.size
+            if options[:strict]
+              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
+            end
+            # Update headers array for subsequent rows
+            while @headers.size < data_size
+              @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
             end
           end
 
-          # if all values are blank, then ignore this line
-          next if options[:remove_empty_hashes] && (dataA.empty? || blank?(dataA))
+          # if all values were blank (hash is nil) we ignore this CSV line
+          next if hash.nil?
 
           # --- HASH TRANSFORMATIONS ------------------------------------------------------------
-          hash = @headers.zip(dataA).to_h
 
           hash = hash_transformations(hash, options)
 
@@ -218,6 +218,12 @@ module SmarterCSV
     def count_quote_chars(line, quote_char)
       return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
+      # Use C extension for performance if available (avoids creating a String object per character)
+      if @has_acceleration && SmarterCSV::Parser.respond_to?(:count_quote_chars_c)
+        return SmarterCSV::Parser.count_quote_chars_c(line, quote_char)
+      end
+
+      # Fallback to Ruby implementation
       count = 0
       escaped = false
 

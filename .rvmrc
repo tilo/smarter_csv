@@ -1,1 +1,1 @@
-rvm gemset use smarter_csv
+rvm use default@smarter_csv --create
