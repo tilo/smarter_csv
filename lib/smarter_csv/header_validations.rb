@@ -26,7 +26,7 @@ module SmarterCSV
         missing_keys = options[:required_keys].select { |k| !headers_set.include?(k) }
 
         unless missing_keys.empty?
-          raise SmarterCSV::MissingKeys, "ERROR: missing attributes: #{missing_keys.join(',')}. Check `reader.headers` for original headers."
+          raise SmarterCSV::MissingKeys.new("ERROR: missing attributes: #{missing_keys.join(',')}. Check `reader.headers` for original headers.", missing_keys)
         end
       end
     end
