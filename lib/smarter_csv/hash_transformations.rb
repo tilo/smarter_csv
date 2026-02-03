@@ -2,6 +2,11 @@
 
 module SmarterCSV
   module HashTransformations
+    # Frozen regex constants for performance (avoid recompilation on every value)
+    FLOAT_REGEX = /\A[+-]?\d+\.\d+\z/.freeze
+    INTEGER_REGEX = /\A[+-]?\d+\z/.freeze
+    ZERO_REGEX = /\A0+(?:\.0+)?\z/.freeze
+
     def hash_transformations(hash, options)
       # there may be unmapped keys, or keys purposedly mapped to nil or an empty key..
       # make sure we delete any key/value pairs from the hash, which the user wanted to delete:
@@ -14,15 +19,17 @@ module SmarterCSV
       hash.each_with_object({}) do |(k, v), new_hash|
         next if k.nil? || k == '' || k == :""
         next if remove_empty_values && (has_rails ? v.blank? : blank?(v))
-        next if remove_zero_values && v.is_a?(String) && v =~ /^(0+|0+\.0+)$/ # values are Strings
-        next if remove_values_matching && v =~ remove_values_matching
+        next if remove_zero_values && v.is_a?(String) && ZERO_REGEX.match?(v)
+        next if remove_values_matching && remove_values_matching.match?(v)
 
         # deal with the :only / :except options to :convert_values_to_numeric
         if convert_to_numeric && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-          if v =~ /^[+-]?\d+\.\d+$/
-            v = v.to_f
-          elsif v =~ /^[+-]?\d+$/
-            v = v.to_i
+          if v.is_a?(String)
+            if FLOAT_REGEX.match?(v)
+              v = v.to_f
+            elsif INTEGER_REGEX.match?(v)
+              v = v.to_i
+            end
           end
         end
 
