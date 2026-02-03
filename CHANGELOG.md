@@ -1,12 +1,12 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.15.0 (2026-02-02)
+## 1.15.0 (2026-02-03)
 
 * Performance Optimizations
 * Dropping support for Ruby 2.5
 
-Major rewrite of the C extension for significantly faster CSV parsing:
+### C Extension Improvements
 
  * **New `parse_line_to_hash_c` function**: Builds Ruby hash directly during parsing, eliminating intermediate array allocations. Previously, parsing created a values array, then `zip()` created pairs array, then `to_h()` built the hash. Now done in a single pass.
 
@@ -16,12 +16,48 @@ Major rewrite of the C extension for significantly faster CSV parsing:
 
  * **Conditional nil padding**: Missing columns only padded with `nil` when `remove_empty_values: false`, avoiding unnecessary work in the default case.
 
-Benchmark Results (vs 1.14.4)
+### Ruby Code Optimizations
 
- * Standard CSV files: **1.9x - 4.0x faster**
- * Wide CSV files (500 columns): **2.2x faster** than 1.14.4, **3.9x faster** than Ruby CSV
- * Files with embedded newlines: **4.1x faster**
- * Reduced GC overhead from ~18% to ~12%
+ * **Frozen regex constants**: Numeric conversion patterns (`FLOAT_REGEX`, `INTEGER_REGEX`, `ZERO_REGEX`) are now pre-compiled and frozen, eliminating millions of regex compilations for large files. This alone reduced numeric conversion overhead from +75% to +4%.
+
+ * **In-place hash modification**: Hash transformations now modify hashes in-place instead of creating copies, reducing memory allocations by 39% and object count by 43%.
+
+### Benchmark Results
+
+Benchmarks using Ruby 3.4.7
+
+**vs SmarterCSV 1.14.4:**
+
+| File Type | Time 1.14.4 | Time 1.15.0 | Speedup |
+|-----------|-------------|-------------|---------|
+| Standard CSV (50K rows) | 1.77s | 0.39s | **4.5x faster** |
+| Wide CSV (500 columns) | 19.73s | 4.76s | **4.1x faster** |
+| Embedded newlines | 0.58s | 0.10s | **5.7x faster** |
+| Long fields (22MB) | 3.11s | 0.15s | **20x faster** |
+| Large file (62MB, 50K rows) | 8.76s | 2.00s | **4.4x faster** |
+
+**vs Ruby CSV 3.3.5:**
+
+| File Type | Ruby CSV | SmarterCSV 1.15.0 | Speedup |
+|-----------|----------|-------------------|---------|
+| Standard CSV (50K rows) | 0.84s | 0.39s | **2.2x faster** |
+| Wide CSV (500 columns) | 34.63s | 4.76s | **7.3x faster** |
+| Large file (62MB, 50K rows) | 9.09s | 2.00s | **4.5x faster** |
+
+**Summary:**
+
+```
+┌──────────────────────┬───────────────────────┐
+│        Metric        │         Range         │
+├──────────────────────┼───────────────────────┤
+│ vs SmarterCSV 1.14.4 │ 2.5x - 5.7x faster    │
+│                      │ (up to 20x for some)  │
+├──────────────────────┼───────────────────────┤
+│ vs Ruby CSV          │ 1.3x - 7.3x faster    │
+└──────────────────────┴───────────────────────┘
+```
+
+**Memory improvements:** 39% less memory allocated, 43% fewer objects created
 
 ## 1.14.4 (2025-05-26)
  * Bugfix: SmarterCSV::Reader fixing issue with header containing spaces ([PR 305](https://github.com/tilo/smarter_csv/pull/305) thanks to Felipe Cabezudo)
