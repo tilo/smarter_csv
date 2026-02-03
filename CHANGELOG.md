@@ -31,10 +31,10 @@ Benchmarks using Ruby 3.4.7
 | File Type | Time 1.14.4 | Time 1.15.0 | Speedup |
 |-----------|-------------|-------------|---------|
 | Standard CSV (50K rows) | 1.77s | 0.39s | **4.5x faster** |
-| Wide CSV (500 columns) | 19.73s | 4.76s | **4.1x faster** |
-| Embedded newlines | 0.58s | 0.10s | **5.7x faster** |
-| Long fields (22MB) | 3.11s | 0.15s | **20x faster** |
-| Large file (62MB, 50K rows) | 8.76s | 2.00s | **4.4x faster** |
+| Wide CSV (500 columns, 20K rows) | 24.0s | 5.0s | **4.8x faster** |
+| Embedded newlines (20K rows) | 0.58s | 0.10s | **5.7x faster** |
+| Long fields (22MB, 20k rows) | 3.11s | 0.15s | **20x faster** |
+| Large file (62MB, 50K rows) | 8.8s | 2.0s | **4.4x faster** |
 
 **vs Ruby CSV 3.3.5:**
 
