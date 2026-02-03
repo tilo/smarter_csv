@@ -310,6 +310,100 @@ The existing line-by-line parser from v1.14.x. Takes an already-read line string
 | **Newlines in quotes** | Requires Ruby continuation handling | Handled natively in C |
 | **Complexity** | Lower | Higher |
 
+## Why BufferedIO vs Ruby IO/StringIO?
+
+### Ruby IO/StringIO Flow
+
+```
+File → IO.readline → Ruby String object → C extension receives String → Parse → Ruby Array
+            ↑              ↑                        ↑
+      Ruby method    Object allocation      String passed to C
+```
+
+Every line read:
+1. Ruby's `readline` is called (Ruby method dispatch overhead)
+2. A new Ruby String object is created for the entire line
+3. That String is passed to the C extension
+4. C extension parses the String's bytes
+5. More Ruby Strings created for each field
+
+### BufferedIO Flow
+
+```
+File → C buffer (256KB) → C parser reads bytes directly → Ruby Strings only for final fields
+              ↑                      ↑
+      Pure C, no Ruby          Pure C function calls
+```
+
+The key difference: **no Ruby involvement until the final output**.
+
+### Why This Matters
+
+| Operation | Ruby IO | BufferedIO |
+|-----------|---------|------------|
+| Read next byte | Ruby method call + potential object allocation | Pure C function call |
+| Read a line | Creates Ruby String | Bytes stay in C buffer |
+| Memory allocation | Per-line Ruby heap allocation | One 256KB C buffer, reused |
+| GC pressure | High (millions of String objects) | Low (only final field Strings) |
+
+### Concrete Example
+
+Reading a 1 million row CSV:
+
+**With Ruby IO:**
+- 1 million `readline` calls (Ruby method dispatch)
+- 1 million Ruby String allocations for lines
+- 5 million+ Ruby String allocations for fields
+- Heavy GC activity
+
+**With BufferedIO:**
+- ~4 `read` calls (256KB each for 1MB file)
+- Millions of `next_byte()` calls, but they're **pure C**:
+  ```c
+  int next_byte(BufferedIoBufferType *b) {
+    return (unsigned char)b->active_buf[b->pos++];  // Just pointer arithmetic
+  }
+  ```
+- Ruby Strings only created for final field values
+- Minimal GC pressure
+
+### The Real Win: C-to-C Calls
+
+The parser does this millions of times:
+
+```c
+// Pure C - no Ruby method dispatch, no allocation
+int b = next_byte(buffered_io_p);
+if (b == ',') { ... }
+```
+
+With Ruby IO, even `IO#getbyte` involves:
+- Ruby method lookup
+- Ruby-to-C transition
+- Potential object allocation
+- C-to-Ruby transition
+
+### When It Matters Most
+
+| Scenario | Benefit |
+|----------|---------|
+| Small files (< 1MB) | Minimal - Ruby IO is fine |
+| Large files (10MB+) | Noticeable - less GC |
+| Huge files (100MB+) | Significant - much less memory churn |
+| Streaming/real-time | Important - consistent low latency |
+| Quoted fields with newlines | High - no continuation line logic needed |
+
+### Summary
+
+BufferedIO isn't "better" for simple cases - it's an optimization for:
+1. **Eliminating per-line Ruby object allocation**
+2. **Keeping hot-path parsing entirely in C**
+3. **Reducing GC pressure on large files**
+
+The trade-off is complexity. For most users, Ruby IO + C parsing (what 1.15.0 does) is plenty fast.
+
+---
+
 ## Test Status
 
 ```
@@ -380,6 +474,128 @@ bundle exec rspec spec/smarter_csv/buffered_io_spec.rb \
                   spec/smarter_csv/parserc_spec.rb \
                   spec/smarter_csv/parser2_spec.rb
 ```
+
+---
+
+## UTF-8, Emoji, and Multi-byte Character Handling
+
+### How BufferedIO Handles Multi-byte Characters
+
+BufferedIO operates at the **byte level** - it has no concept of characters:
+
+```c
+int next_byte(BufferedIoBufferType *b) {
+  return (unsigned char)b->active_buf[b->pos++];  // Returns 0-255
+}
+```
+
+A UTF-8 emoji like 💡 is 4 bytes: `F0 9F 92 A1`. BufferedIO sees these as 4 separate values.
+
+### Current Handling in ParserC
+
+The parser has a `next_char()` function that assembles bytes into characters:
+
+```c
+// Fast path for ASCII (single byte)
+if (c < 0x80) {
+  return rb_str_new((const char *)&c, 1);
+}
+
+// Slow path: assemble multi-byte UTF-8
+char buf[8];
+buf[0] = c;
+for (int len = 1; len < 8; ++len) {
+  int b2 = next_byte(buffered_io_p);
+  buf[len] = (char)b2;
+
+  VALUE str = rb_str_new(buf, len + 1);
+  rb_funcall(str, rb_intern("force_encoding"), 1, encoding);
+  if (RTEST(rb_funcall(str, rb_intern("valid_encoding?"), 0))) {
+    return str;  // Valid character assembled
+  }
+}
+```
+
+### Potential Issues
+
+| Issue | Risk | Current Status |
+|-------|------|----------------|
+| **Buffer boundary splits** | Medium | Carry zone (4KB) should handle, but edge cases possible |
+| **Emoji as separator** | High | Tests commented out as "CURRENTLY FAILING" |
+| **Emoji in field content** | Low | Should work - bytes copied, encoding applied at end |
+| **Shift_JIS, other encodings** | Medium | Basic tests pass, edge cases unknown |
+| **Invalid UTF-8 sequences** | Medium | Returns nil, may lose data |
+| **Performance of slow path** | Medium | Ruby method calls for each multi-byte char |
+
+### Evidence from Tests
+
+In `parser2_spec.rb`, there are commented-out failing tests:
+
+```ruby
+# ["🔺"].each do |quote_char|
+# THESE ARE CURRENTLY FAILING!
+```
+
+And working tests for simpler multi-byte:
+
+```ruby
+it 'reads UTF-8 characters correctly' do
+  input = "abc💡🚀xyz\n"
+  # ... this passes
+end
+```
+
+### Specific Concerns
+
+#### 1. Multi-byte Separators
+
+If `col_sep` or `row_sep` is an emoji, the byte-by-byte comparison might have issues:
+
+```c
+// This compares bytes, not characters
+if (strncmp(RSTRING_PTR(peek), p->col_sep_ptr, p->col_sep_len) == 0)
+```
+
+This *should* work since it compares the full byte sequence, but needs thorough testing.
+
+#### 2. Buffer Boundary Edge Case
+
+```
+Buffer 1: [...data...][F0][9F]  ← First 2 bytes of 💡
+Buffer 2: [92][A1][...data...]  ← Last 2 bytes of 💡
+```
+
+The carry zone is designed for this, but what if:
+- The emoji spans the carry zone boundary?
+- The buffer is very small (tests use 4-8 byte buffers)?
+
+#### 3. Encoding Detection
+
+```c
+const char *enc_name = RSTRING_PTR(rb_funcall(encoding, rb_intern("to_s"), 0));
+p->is_utf8 = strcmp(enc_name, "UTF-8") == 0;
+```
+
+This string comparison is fragile - what about "utf-8" lowercase?
+
+### Recommendations Before Production Use
+
+| Task | Priority |
+|------|----------|
+| Fix emoji quote_char tests | High |
+| Test with various emoji separators | High |
+| Test large files with emojis at buffer boundaries | Medium |
+| Test Shift_JIS, GB2312, other multi-byte encodings | Medium |
+| Add encoding name normalization | Low |
+| Benchmark slow path vs fast path ratio | Low |
+
+### Summary
+
+| Scenario | Status |
+|----------|--------|
+| **Content with multi-byte characters** | Likely works (bytes preserved, encoding applied at end) |
+| **Multi-byte separators** | Risky - some tests are known failing |
+| **Edge cases at buffer boundaries** | Needs more testing |
 
 ---
 
