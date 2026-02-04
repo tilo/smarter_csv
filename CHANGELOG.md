@@ -80,7 +80,7 @@ _P90 measured over the full set of benchmarked files_
 |---------------------------|--------|------|--------|--------|------------|
 | worldcities.csv           |   5 MB |  48K |  1.27s |  0.49s |  **2.6x**  |
 | LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |  6.73s |  1.99s |  **3.4x**  |
-| PILOT_CERT.csv            |  62 MB |  50K |  8.43s |  2.43s |  **3.5x**  |
+| PEOPLE_IMPORT.csv         |  62 MB |  50K |  8.43s |  2.43s |  **3.5x**  |
 | wide_500_cols_20k.csv     |  98 MB |  20K | 19.38s |  5.09s |  **3.8x**  |
 | long_fields_20k.csv       |  22 MB |  20K |  3.05s |  0.15s | **20.5x**  |
 | embedded_newlines_20k.csv | 1.5 MB |  20K |  0.59s |  0.12s |  **5.1x**  |
@@ -99,7 +99,7 @@ For this reason, **CSV.table is the closest equivalent to SmarterCSV.**
 |---------------------------|--------|------|------------|-----------|--------|-----------|------------|
 | worldcities.csv           |   5 MB |  48K |    1.06s   |   2.12s   |  0.49s | **2.2x**  |  **4.3x**  |
 | LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |    3.85s   |   9.25s   |  1.99s | **1.9x**  |  **4.7x**  |
-| PILOT_CERT.csv            |  62 MB |  50K |    9.10s   |  24.39s   |  2.43s | **3.8x**  | **10.1x**  |
+| PEOPLE_IMPORT.csv         |  62 MB |  50K |    9.10s   |  24.39s   |  2.43s | **3.8x**  | **10.1x**  |
 | wide_500_cols_20k.csv     |  98 MB |  20K |   34.24s   |  61.24s   |  5.09s | **6.7x**  | **12.0x**  |
 | long_fields_20k.csv       |  22 MB |  20K |    0.34s   |   0.81s   |  0.15s | **2.3x**  |  **5.5x**  |
 | whitespace_heavy_20k.csv  | 3.3 MB |  20K |    0.30s   |   0.83s   |  0.12s | **2.5x**  |  **7.0x**  |
