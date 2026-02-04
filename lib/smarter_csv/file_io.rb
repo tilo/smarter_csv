@@ -4,8 +4,10 @@ module SmarterCSV
   module FileIO
     protected
 
-    def readline_with_counts(filehandle, options)
-      line = filehandle.readline(options[:row_sep])
+    def next_line_with_counts(filehandle, options)
+      line = filehandle.gets(options[:row_sep])
+      return nil if line.nil? # EOF reached
+
       @file_line_count += 1
       @csv_line_count += 1
       line = remove_bom(line) if @csv_line_count == 1
@@ -14,7 +16,7 @@ module SmarterCSV
 
     def skip_lines(filehandle, options)
       options[:skip_lines].to_i.times do
-        readline_with_counts(filehandle, options)
+        next_line_with_counts(filehandle, options)
       end
     end
 

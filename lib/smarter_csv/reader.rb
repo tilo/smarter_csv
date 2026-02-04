@@ -81,9 +81,7 @@ module SmarterCSV
         end
 
         # now on to processing all the rest of the lines in the CSV file:
-        # fh.each_line |line|
-        until fh.eof? # we can't use fh.readlines() here, because this would read the whole file into memory at once, and eof => true
-          line = readline_with_counts(fh, options)
+        while (line = next_line_with_counts(fh, options))
 
           # replace invalid byte sequence in UTF-8 with question mark to avoid errors
           line = enforce_utf8_encoding(line, options) if @enforce_utf8
@@ -98,25 +96,22 @@ module SmarterCSV
           multiline = count_quote_chars(line, options[:quote_char]).odd?
 
           while multiline
-            begin
-              next_line = fh.readline(options[:row_sep])
-              next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
-              line += next_line
-              @file_line_count += 1
-
-              multiline = count_quote_chars(line, options[:quote_char]).odd?
-            rescue EOFError
+            next_line = fh.gets(options[:row_sep])
+            if next_line.nil?
               # End of file reached. Check if quotes are balanced.
               total_quotes = count_quote_chars(line, options[:quote_char])
               if total_quotes.odd?
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
                 # Quotes are balanced; proceed without raising an error.
-                # :nocov:
                 break
-                # :nocov:
               end
             end
+            next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
+            line += next_line
+            @file_line_count += 1
+
+            multiline = count_quote_chars(line, options[:quote_char]).odd?
           end
 
           # :nocov:
@@ -137,6 +132,7 @@ module SmarterCSV
             if options[:strict]
               raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
             end
+
             # Update headers array for subsequent rows
             while @headers.size < data_size
               @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
@@ -170,7 +166,7 @@ module SmarterCSV
             if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
               # do something with the chunk
               if block_given?
-                yield chunk # do something with the hashes in the chunk in the block
+                yield chunk, @chunk_count # do something with the hashes in the chunk in the block
               else
                 @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
               end
@@ -183,7 +179,8 @@ module SmarterCSV
 
           else # no chunk handling
             if block_given?
-              yield [hash] # do something with the hash in the block (better to use chunking here)
+              yield [hash], @chunk_count # do something with the hash in the block (better to use chunking here)
+              @chunk_count += 1
             else
               @result << hash
             end
@@ -197,7 +194,7 @@ module SmarterCSV
         if !chunk.nil? && chunk.size > 0
           # do something with the chunk
           if block_given?
-            yield chunk # do something with the hashes in the chunk in the block
+            yield chunk, @chunk_count # do something with the hashes in the chunk in the block
           else
             @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
           end

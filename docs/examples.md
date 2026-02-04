@@ -61,16 +61,18 @@ Please note how each hash contains only the keys for columns with non-null value
 ```
 
 ## Example 4: Processing a CSV File, and inserting batch jobs in Sidekiq:
+The block receives an optional second parameter `chunk_index` (0-based) for progress tracking:
 ```ruby
     filename = '/tmp/input.csv' # CSV file containing ids or data to process
     options = { :chunk_size => 100 }
-    n = SmarterCSV.process(filename, options) do |chunk|
+    n = SmarterCSV.process(filename, options) do |chunk, chunk_index|
+      puts "Queueing chunk #{chunk_index} with #{chunk.size} records..."
       Sidekiq::Client.push_bulk(
         'class' => SidekiqIndividualWorkerClass,
         'args' => chunk,
       )
       # OR:
-      # SidekiqBatchWorkerClass.process_async(chunk ) # pass an array of hashes to Sidekiq workers for parallel processing
+      # SidekiqBatchWorkerClass.process_async(chunk) # pass an array of hashes to Sidekiq workers for parallel processing
     end
     => returns number of chunks
 ```

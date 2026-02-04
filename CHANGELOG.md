@@ -6,7 +6,35 @@
 * Performance Optimizations
 * Dropping support for Ruby 2.5
 
-### C Extension Improvements
+### New Features
+
+ * **Chunk index in block processing**: When using block-based processing, an optional second parameter `chunk_index` is now passed to the block. This 0-based index is useful for progress tracking and debugging. The change is backwards compatible - existing code continues to work.
+
+   ```ruby
+   SmarterCSV.process(file, chunk_size: 100) do |chunk, chunk_index|
+     puts "Processing chunk #{chunk_index}..."
+     Model.import(chunk)
+   end
+   ```
+
+### Exception Improvements
+
+ * `MissingKeys#keys` - programmatic access to missing keys without parsing error messages ([PR #314](https://github.com/tilo/smarter_csv/pull/314), thanks to Skye Shaw)
+ * `DuplicateHeaders#headers` - programmatic access to duplicate headers without parsing error messages
+
+   ```ruby
+   # Example: accessing missing keys programmatically
+   rescue SmarterCSV::MissingKeys => e
+     e.keys  # => [:employee_id, :department]
+   end
+
+   # Example: accessing duplicate headers programmatically
+   rescue SmarterCSV::DuplicateHeaders => e
+     e.headers  # => [:email]
+   end
+   ```
+
+### Performance Improvements
 
  * **New `parse_line_to_hash_c` function**: Builds Ruby hash directly during parsing, eliminating intermediate array allocations. Previously, parsing created a values array, then `zip()` created pairs array, then `to_h()` built the hash. Now done in a single pass.
 
@@ -58,23 +86,6 @@ Benchmarks using Ruby 3.4.7
 ```
 
 **Memory improvements:** 39% less memory allocated, 43% fewer objects created
-
-### Exception Improvements
-
- * `MissingKeys#keys` - programmatic access to missing keys without parsing error messages ([PR #314](https://github.com/tilo/smarter_csv/pull/314), thanks to Skye Shaw)
- * `DuplicateHeaders#headers` - programmatic access to duplicate headers without parsing error messages
-
-   ```ruby
-   # Example: accessing missing keys programmatically
-   rescue SmarterCSV::MissingKeys => e
-     e.keys  # => [:employee_id, :department]
-   end
-
-   # Example: accessing duplicate headers programmatically
-   rescue SmarterCSV::DuplicateHeaders => e
-     e.headers  # => [:email]
-   end
-   ```
 
 ### Misc Fixes
 

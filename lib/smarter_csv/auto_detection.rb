@@ -18,21 +18,22 @@ module SmarterCSV
       candidates = Hash.new(0)
       count = has_header ? 1 : 5
       count.times do
-        line = readline_with_counts(filehandle, options)
+        next_line = next_line_with_counts(filehandle, options)
+        break if next_line.nil? # EOF reached (short files)
+
+        line = next_line
         delimiters.each do |d|
           # Count only non-quoted occurrences of the delimiter
           non_quoted_text = line.split(/#{escaped_quote}[^#{escaped_quote}]*#{escaped_quote}/).join
 
           candidates[d] += non_quoted_text.scan(d).count
         end
-      rescue EOFError # short files
-        break
       end
       rewind(filehandle)
 
       if candidates.values.max == 0
-        # if the header only contains
-        return ',' if line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
+        # if the header only contains word characters and whitespace, assume comma separator
+        return ',' if line && line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
 
         raise SmarterCSV::NoColSepDetected
       end
