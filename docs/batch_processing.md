@@ -21,6 +21,14 @@ This can come in handy when you don't want to slow-down the CSV import of large 
 
 Setting the option `chunk_size` sets the max batch size.
 
+When using a block, an optional second parameter `chunk_index` is passed, representing the 0-based index of the current chunk. This is useful for progress tracking and debugging:
+
+```ruby
+    SmarterCSV.process(filename, {chunk_size: 100}) do |chunk, chunk_index|
+      puts "Processing chunk #{chunk_index}"
+      MyModel.insert_all(chunk)
+    end
+```
 
 ## Example 1: How SmarterCSV processes CSV-files as chunks, returning arrays of hashes:
 Please note how the returned array contains two sub-arrays containing the chunks which were read, each chunk containing 2 hashes.
@@ -34,11 +42,13 @@ In case the number of rows is not cleanly divisible by `:chunk_size`, the last c
 ```
 
 ## Example 2: How SmarterCSV processes CSV-files as chunks, and passes arrays of hashes to a given block:
-Please note how the given block is passed the data for each chunk as the parameter (array of hashes),
-and how the `process` method returns the number of chunks when called with a block
+Please note how the given block is passed the data for each chunk as the first parameter (array of hashes),
+with an optional second parameter for the chunk index (0-based).
+The `process` method returns the number of chunks when called with a block.
 
 ```ruby
-     > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk|
+     > total_chunks = SmarterCSV.process('/tmp/pets.csv', {:chunk_size => 2, :key_mapping => {:first_name => :first, :last_name => :last}}) do |chunk, chunk_index|
+         puts "Processing chunk #{chunk_index}..."
          chunk.each do |h|   # you can post-process the data from each row to your heart's content, and also create virtual attributes:
            h[:full_name] = [h[:first],h[:last]].join(' ')  # create a virtual attribute
            h.delete(:first) ; h.delete(:last)              # remove two keys
@@ -46,7 +56,9 @@ and how the `process` method returns the number of chunks when called with a blo
          puts chunk.inspect   # we could at this point pass the chunk to a Resque worker..
        end
 
+       Processing chunk 0...
        [{:dogs=>"2", :full_name=>"Dan McAllister"}, {:cats=>"5", :full_name=>"Lucy Laweless"}]
+       Processing chunk 1...
        [{:fish=>"21", :full_name=>"Miles O'Brian"}, {:dogs=>"2", :birds=>"1", :full_name=>"Nancy Homes"}]
         => 2
 ```

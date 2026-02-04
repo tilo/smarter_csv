@@ -1,6 +1,119 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.15.0 (2026-02-04)
+
+* Dropping support for Ruby 2.5
+
+* Performance Optimizations
+  - 39% less memory allocated
+  - 43% fewer objects created
+  - ~5× faster at P90 vs SmarterCSV 1.14.4
+  - ~3–7× faster at P90 vs Ruby CSV
+
+### New Features
+
+ * **Chunk index in block processing**: When using block-based processing, an optional second parameter `chunk_index` is now passed to the block. This 0-based index is useful for progress tracking and debugging. The change is backwards compatible - existing code continues to work.
+
+   ```ruby
+   SmarterCSV.process(file, chunk_size: 100) do |chunk, chunk_index|
+     puts "Processing chunk #{chunk_index}..."
+     Model.import(chunk)
+   end
+   ```
+
+### Exception Improvements
+
+ * `MissingKeys#keys` - programmatic access to missing keys without parsing error messages ([PR #314](https://github.com/tilo/smarter_csv/pull/314), thanks to Skye Shaw)
+ * `DuplicateHeaders#headers` - programmatic access to duplicate headers without parsing error messages
+
+   ```ruby
+   # Example: accessing missing keys programmatically
+   rescue SmarterCSV::MissingKeys => e
+     e.keys  # => [:employee_id, :department]
+   end
+
+   # Example: accessing duplicate headers programmatically
+   rescue SmarterCSV::DuplicateHeaders => e
+     e.headers  # => [:email]
+   end
+   ```
+
+### Performance Improvements
+
+ * **New `parse_line_to_hash_c` function**: Builds Ruby hash directly during parsing, eliminating intermediate array allocations. Previously, parsing created a values array, then `zip()` created pairs array, then `to_h()` built the hash. Now done in a single pass.
+
+ * **Shared empty string optimization**: Reuses a single frozen empty string for all empty CSV fields, reducing object allocations and GC pressure.
+
+ * **Faster quote counting**: New `count_quote_chars_c` function replaces Ruby's `each_char` iteration, eliminating one String object allocation per character.
+
+ * **Conditional nil padding**: Missing columns only padded with `nil` when `remove_empty_values: false`, avoiding unnecessary work in the default case.
+
+### Ruby Code Optimizations
+
+ * **Frozen regex constants**: Numeric conversion patterns (`FLOAT_REGEX`, `INTEGER_REGEX`, `ZERO_REGEX`) are now pre-compiled and frozen, eliminating millions of regex compilations for large files. This alone reduced numeric conversion overhead from +75% to +4%.
+
+ * **In-place hash modification**: Hash transformations now modify hashes in-place instead of creating copies, reducing memory allocations by 39% and object count by 43%.
+
+### Benchmark Results
+
+Benchmarks using Ruby 3.4.7 on M1 Apple Silicon. All times in seconds.
+
+**Summary:**
+
+| Comparison           | Range               | Comments             |    P90 |
+|----------------------|---------------------|----------------------|--------|
+| vs SmarterCSV 1.14.4 | 2.6x -  3.5x faster | up to 20.5x for some |    ~5x |
+| vs CSV hashes        | 1.9x -  3.8x faster | up to  6.7x for some |    ~3x |
+| vs CSV.table         | 4.3x - 10.1x faster | up to 12.0x for some | ~7..8x |
+
+_P90 measured over the full set of benchmarked files_
+
+**These gains come while returning fully usable hashes with conversions, not raw arrays that require post-processing.**
+
+**Memory improvements:** 39% less memory allocated, 43% fewer objects created
+
+
+**vs SmarterCSV 1.14.4:**
+
+| File                      | Size   | Rows | 1.14.4 | 1.15.0 | Speedup    |
+|---------------------------|--------|------|--------|--------|------------|
+| worldcities.csv           |   5 MB |  48K |  1.27s |  0.49s |  **2.6x**  |
+| LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |  6.73s |  1.99s |  **3.4x**  |
+| PILOT_CERT.csv            |  62 MB |  50K |  8.43s |  2.43s |  **3.5x**  |
+| wide_500_cols_20k.csv     |  98 MB |  20K | 19.38s |  5.09s |  **3.8x**  |
+| long_fields_20k.csv       |  22 MB |  20K |  3.05s |  0.15s | **20.5x**  |
+| embedded_newlines_20k.csv | 1.5 MB |  20K |  0.59s |  0.12s |  **5.1x**  |
+
+**vs Ruby CSV 3.3.5:**
+
+For an apples-to-apples comparison, we must compare parsers that return the same result structure and perform comparable work.
+SmarterCSV returns an array of hashes with symbol keys and type conversion applied, so raw CSV array parsing is not a fair comparison.
+
+**Beware of comparisons that focus solely on raw CSV parsing.**
+Such benchmarks measure only tokenization, while real-world usage still **requires substantial post-processing to produce usable data**. Leaving this work out -- hash construction, normalization, type conversion, and edge-case handling to produce usable data -- consistently **understates the actual cost of CSV ingestion**.
+
+For this reason, **CSV.table is the closest equivalent to SmarterCSV.**
+
+| File                      | Size   | Rows | CSV hashes | CSV.table | 1.15.0 | vs hashes | vs table   |
+|---------------------------|--------|------|------------|-----------|--------|-----------|------------|
+| worldcities.csv           |   5 MB |  48K |    1.06s   |   2.12s   |  0.49s | **2.2x**  |  **4.3x**  |
+| LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |    3.85s   |   9.25s   |  1.99s | **1.9x**  |  **4.7x**  |
+| PILOT_CERT.csv            |  62 MB |  50K |    9.10s   |  24.39s   |  2.43s | **3.8x**  | **10.1x**  |
+| wide_500_cols_20k.csv     |  98 MB |  20K |   34.24s   |  61.24s   |  5.09s | **6.7x**  | **12.0x**  |
+| long_fields_20k.csv       |  22 MB |  20K |    0.34s   |   0.81s   |  0.15s | **2.3x**  |  **5.5x**  |
+| whitespace_heavy_20k.csv  | 3.3 MB |  20K |    0.30s   |   0.83s   |  0.12s | **2.5x**  |  **7.0x**  |
+
+_CSV hashes = `CSV.read(file, headers: true).map(&:to_h)` (string keys, no conversion, still requires post-processing)_
+_CSV.table = `CSV.table(file).map(&:to_h)` (symbol keys + numeric conversion, still requires post-processing)_
+_worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
+
+
+### Misc Fixes
+
+ * Fix compilation error on ARM macOS (`-march=native` unsupported) ([PR #313](https://github.com/tilo/smarter_csv/pull/313), thanks to Skye Shaw)
+ * CI improvements: Ruby 3.4 support, Codecov action update ([PR #311](https://github.com/tilo/smarter_csv/pull/311), thanks to Mark Bumiller)
+
 ## 1.14.4 (2025-05-26)
  * Bugfix: SmarterCSV::Reader fixing issue with header containing spaces ([PR 305](https://github.com/tilo/smarter_csv/pull/305) thanks to Felipe Cabezudo)
 

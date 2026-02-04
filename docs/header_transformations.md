@@ -67,6 +67,17 @@ If you want to have an underscore between the header and the number, you can set
 
 If you set `duplicate_header_suffix: nil`, you get the same behavior as earlier versions, which raised the `SmarterCSV::DuplicateHeaders` error.
 
+When `SmarterCSV::DuplicateHeaders` is raised, you can access the duplicate headers directly via the `headers` accessor:
+
+```ruby
+begin
+  data = SmarterCSV.process('/tmp/dupe.csv', {duplicate_header_suffix: nil})
+rescue SmarterCSV::DuplicateHeaders => e
+  puts "Duplicate columns: #{e.headers.join(', ')}"
+  # => e.headers returns [:name] (array of duplicate header symbols)
+end
+```
+
 ## Key Mapping
 
 The above example already illustrates how intermediate keys can be mapped into something different.

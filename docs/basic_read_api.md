@@ -39,11 +39,12 @@ It can also be used with a block:
          end
       ```
 
-It can also be used for processing batches of rows:
+It can also be used for processing batches of rows. An optional second block parameter provides the 0-based chunk index:
 
       ```
-         SmarterCSV.process(file_or_input, {chunk_size: 100}, &block) do |array_of_hashes|
+         SmarterCSV.process(file_or_input, {chunk_size: 100}) do |array_of_hashes, chunk_index|
             # process one chunk of up to 100 rows of CSV data
+            puts "Processing chunk #{chunk_index}..."
          end
       ```
 

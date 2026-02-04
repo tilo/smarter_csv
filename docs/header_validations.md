@@ -33,5 +33,19 @@ If these keys are not present, `SmarterCSV::MissingKeys` will be raised to infor
   => this will raise SmarterCSV::MissingKeys if any row does not contain these three keys
 ```
 
+## Handling Missing Keys Programmatically
+
+When `SmarterCSV::MissingKeys` is raised, you can access the missing keys directly via the `keys` accessor, without parsing the error message:
+
+```ruby
+begin
+  options = { required_keys: [:source_account, :destination_account, :amount] }
+  data = SmarterCSV.process("/tmp/transactions.csv", options)
+rescue SmarterCSV::MissingKeys => e
+  puts "Missing columns: #{e.keys.join(', ')}"
+  # => e.keys returns [:amount] (array of missing key symbols)
+end
+```
+
 ----------------
 PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Data Transformations](./data_transformations.md)

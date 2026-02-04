@@ -38,4 +38,24 @@ describe 'chunked reading' do
     expect(n).to eq 120
     expect(i).to eq 5
   end
+
+  it 'passes chunk index as second block argument when chunking' do
+    indices = []
+    options = {chunk_size: 2, remove_empty_hashes: true}
+    SmarterCSV.process("#{fixture_path}/chunk_cornercase.csv", options) do |_chunk, chunk_index|
+      indices << chunk_index
+    end
+
+    expect(indices).to eq [0, 1, 2]
+  end
+
+  it 'passes chunk index as second block argument without chunking' do
+    indices = []
+    options = {remove_empty_hashes: true}
+    SmarterCSV.process("#{fixture_path}/chunk_cornercase.csv", options) do |_chunk, chunk_index|
+      indices << chunk_index
+    end
+
+    expect(indices).to eq [0, 1, 2, 3, 4]
+  end
 end

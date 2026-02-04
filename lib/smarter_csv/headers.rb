@@ -12,7 +12,7 @@ module SmarterCSV
       if options[:headers_in_file] # extract the header line
         # process the header line in the CSV file..
         # the first line of a CSV file contains the header .. it might be commented out, so we need to read it anyhow
-        header_line = @raw_header = readline_with_counts(filehandle, options)
+        header_line = @raw_header = next_line_with_counts(filehandle, options)
         header_line = preprocess_header_line(header_line, options)
 
         file_header_array, file_header_size = parse(header_line, options)
