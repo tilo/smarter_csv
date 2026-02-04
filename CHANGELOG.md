@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.15.0 (2026-02-03)
+## 1.15.0 (2026-02-04)
 
 * Performance Optimizations
 * Dropping support for Ruby 2.5
@@ -52,38 +52,53 @@
 
 ### Benchmark Results
 
-Benchmarks using Ruby 3.4.7
+Benchmarks using Ruby 3.4.7 on M1 Apple Silicon. All times in seconds.
 
 **vs SmarterCSV 1.14.4:**
 
-| File Type | Time 1.14.4 | Time 1.15.0 | Speedup |
-|-----------|-------------|-------------|---------|
-| Standard CSV (50K rows) | 1.77s | 0.39s | **4.5x faster** |
-| Wide CSV (500 columns, 20K rows) | 24.0s | 5.0s | **4.8x faster** |
-| Embedded newlines (20K rows) | 0.58s | 0.10s | **5.7x faster** |
-| Long fields (22MB, 20k rows) | 3.11s | 0.15s | **20x faster** |
-| Large file (62MB, 50K rows) | 8.8s | 2.0s | **4.4x faster** |
+| File                      | Size   | Rows | 1.14.4 | 1.15.0 | Speedup    |
+|---------------------------|--------|------|--------|--------|------------|
+| worldcities.csv           |   5 MB |  48K |  1.27s |  0.49s |  **2.6x**  |
+| LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |  6.73s |  1.99s |  **3.4x**  |
+| PILOT_CERT.csv            |  62 MB |  50K |  8.43s |  2.43s |  **3.5x**  |
+| wide_500_cols_20k.csv     |  98 MB |  20K | 19.38s |  5.09s |  **3.8x**  |
+| long_fields_20k.csv       |  22 MB |  20K |  3.05s |  0.15s | **20.5x**  |
+| embedded_newlines_20k.csv | 1.5 MB |  20K |  0.59s |  0.12s |  **5.1x**  |
 
 **vs Ruby CSV 3.3.5:**
 
-| File Type | Ruby CSV | SmarterCSV 1.15.0 | Speedup |
-|-----------|----------|-------------------|---------|
-| Standard CSV (50K rows) | 0.84s | 0.39s | **2.2x faster** |
-| Wide CSV (500 columns) | 34.63s | 4.76s | **7.3x faster** |
-| Large file (62MB, 50K rows) | 9.09s | 2.00s | **4.5x faster** |
+For an apples-to-apples comparison, we must compare parsers that return the same result structure and perform comparable work.
+SmarterCSV returns an array of hashes with symbol keys and type conversion applied, so raw CSV array parsing is not a fair comparison.
+
+**Beware of comparisons that focus solely on raw CSV parsing.**
+Such benchmarks measure only tokenization, while real-world usage still **requires substantial post-processing to produce usable data**. Leaving this work out -- hash construction, normalization, type conversion, and edge-case handling to produce usable data -- consistently **understates the actual cost of CSV ingestion**.
+
+For this reason, **CSV.table is the closest equivalent to SmarterCSV.**
+
+| File                      | Size   | Rows | CSV hashes | CSV.table | 1.15.0 | vs hashes | vs table   |
+|---------------------------|--------|------|------------|-----------|--------|-----------|------------|
+| worldcities.csv           |   5 MB |  48K |    1.06s   |   2.12s   |  0.49s | **2.2x**  |  **4.3x**  |
+| LANDSAT_ETM_C2_L1_50k.csv |  31 MB |  50K |    3.85s   |   9.25s   |  1.99s | **1.9x**  |  **4.7x**  |
+| PILOT_CERT.csv            |  62 MB |  50K |    9.10s   |  24.39s   |  2.43s | **3.8x**  | **10.1x**  |
+| wide_500_cols_20k.csv     |  98 MB |  20K |   34.24s   |  61.24s   |  5.09s | **6.7x**  | **12.0x**  |
+| long_fields_20k.csv       |  22 MB |  20K |    0.34s   |   0.81s   |  0.15s | **2.3x**  |  **5.5x**  |
+| whitespace_heavy_20k.csv  | 3.3 MB |  20K |    0.30s   |   0.83s   |  0.12s | **2.5x**  |  **7.0x**  |
+
+_CSV hashes = `CSV.read(file, headers: true).map(&:to_h)` (string keys, no conversion, still requires post-processing)_
+_CSV.table = `CSV.table(file).map(&:to_h)` (symbol keys + numeric conversion, still requires post-processing)_
+_worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
 
 **Summary:**
 
-```
-┌──────────────────────┬───────────────────────┐
-│        Metric        │         Range         │
-├──────────────────────┼───────────────────────┤
-│ vs SmarterCSV 1.14.4 │ 2.5x - 5.7x faster    │
-│                      │ (up to 20x for some)  │
-├──────────────────────┼───────────────────────┤
-│ vs Ruby CSV          │ 1.3x - 7.3x faster    │
-└──────────────────────┴───────────────────────┘
-```
+| Comparison           | Range               | Comments             |    P90 |
+|----------------------|---------------------|----------------------|--------|
+| vs SmarterCSV 1.14.4 | 2.6x -  3.5x faster | up to 20.5x for some |    ~5x |
+| vs CSV hashes        | 1.9x -  3.8x faster | up to  6.7x for some |    ~3x |
+| vs CSV.table         | 4.3x - 10.1x faster | up to 12.0x for some | ~7..8x |
+
+_P90 measured over the full set of benchmarked files_
+
+**The most important point: these gains come while returning fully usable hashes with conversions, not raw arrays that require post-processing.**
 
 **Memory improvements:** 39% less memory allocated, 43% fewer objects created
 
