@@ -17,6 +17,22 @@ One user wrote:
 
   > *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes. [...] Smarter CSV was a big part and helped clean up our code ALOT*
 
+## Performance
+
+SmarterCSV is designed for **real-world CSV processing**, returning fully usable hashes with symbol keys and type conversions — not raw arrays that require additional post-processing.
+
+**Beware of benchmarks that only measure raw CSV parsing.** Such comparisons measure tokenization alone, while real-world usage requires hash construction, key normalization, type conversion, and edge-case handling. Omitting this work **understates the actual cost of CSV ingestion**.
+
+For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to SmarterCSV.
+
+| Comparison           | Speedup (P90)    |
+|----------------------|------------------|
+| vs SmarterCSV 1.14.4 | ~5× faster       |
+| vs CSV.table         | ~7× faster       |
+| vs CSV hashes        | ~3× faster       |
+
+_Benchmarks: Ruby 3.4.7, M1 Apple Silicon. Memory: 39% less allocated, 43% fewer objects. See [CHANGELOG](./CHANGELOG.md) for details._
+
 # Installation
 
 Add this line to your application's Gemfile:
