@@ -54,6 +54,21 @@
 
 Benchmarks using Ruby 3.4.7 on M1 Apple Silicon. All times in seconds.
 
+**Summary:**
+
+| Comparison           | Range               | Comments             |    P90 |
+|----------------------|---------------------|----------------------|--------|
+| vs SmarterCSV 1.14.4 | 2.6x -  3.5x faster | up to 20.5x for some |    ~5x |
+| vs CSV hashes        | 1.9x -  3.8x faster | up to  6.7x for some |    ~3x |
+| vs CSV.table         | 4.3x - 10.1x faster | up to 12.0x for some | ~7..8x |
+
+_P90 measured over the full set of benchmarked files_
+
+**These gains come while returning fully usable hashes with conversions, not raw arrays that require post-processing.**
+
+**Memory improvements:** 39% less memory allocated, 43% fewer objects created
+
+
 **vs SmarterCSV 1.14.4:**
 
 | File                      | Size   | Rows | 1.14.4 | 1.15.0 | Speedup    |
@@ -88,19 +103,6 @@ _CSV hashes = `CSV.read(file, headers: true).map(&:to_h)` (string keys, no conve
 _CSV.table = `CSV.table(file).map(&:to_h)` (symbol keys + numeric conversion, still requires post-processing)_
 _worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
 
-**Summary:**
-
-| Comparison           | Range               | Comments             |    P90 |
-|----------------------|---------------------|----------------------|--------|
-| vs SmarterCSV 1.14.4 | 2.6x -  3.5x faster | up to 20.5x for some |    ~5x |
-| vs CSV hashes        | 1.9x -  3.8x faster | up to  6.7x for some |    ~3x |
-| vs CSV.table         | 4.3x - 10.1x faster | up to 12.0x for some | ~7..8x |
-
-_P90 measured over the full set of benchmarked files_
-
-**The most important point: these gains come while returning fully usable hashes with conversions, not raw arrays that require post-processing.**
-
-**Memory improvements:** 39% less memory allocated, 43% fewer objects created
 
 ### Misc Fixes
 
