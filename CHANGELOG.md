@@ -3,8 +3,13 @@
 
 ## 1.15.0 (2026-02-04)
 
-* Performance Optimizations
 * Dropping support for Ruby 2.5
+
+* Performance Optimizations
+  - 39% less memory allocated
+  - 43% fewer objects created
+  - ~5× faster at P90 vs SmarterCSV 1.14.4
+  - ~3–7× faster at P90 vs Ruby CSV
 
 ### New Features
 
