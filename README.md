@@ -35,7 +35,7 @@ _Benchmarks: Ruby 3.4.7, M1 Apple Silicon. Memory: 39% less allocated, 43% fewer
 
 ## Examples
 
-**Simple Example:**
+### Simple Example:
 ```ruby
 $ cat spec/fixtures/sample.csv
    First Name  , Last	 Name , Emoji , Posts
@@ -58,7 +58,7 @@ Notice how SmarterCSV automatically (all defaults):
 - Removes empty values → `remove_empty_values: true`
 - Preserves Unicode and emoji characters
 
-**Batch Processing:**
+### Batch Processing:
 
 Processing large CSV files in chunks minimizes memory usage and enables powerful workflows:
 - **Database imports** — bulk insert records in batches for better performance
