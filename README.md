@@ -80,7 +80,7 @@ For reporting issues, please:
   * open a pull-request adding a test that demonstrates the issue
   * mention your version of SmarterCSV, Ruby, Rails
 
-# [A Special Thanks to all Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
+# [A Special Thanks to all 59 Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
 
 
 # Contributing
