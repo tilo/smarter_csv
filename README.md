@@ -33,6 +33,63 @@ For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to Smarter
 
 _Benchmarks: Ruby 3.4.7, M1 Apple Silicon. Memory: 39% less allocated, 43% fewer objects. See [CHANGELOG](./CHANGELOG.md) for details._
 
+## Examples
+
+**Simple Example:**
+```ruby
+$ cat spec/fixtures/sample.csv
+   First Name  , Last	 Name , Emoji , Posts
+José ,Corüazón, ❤️, 12
+Jürgen, Müller ,😐,3
+ Michael, May ,😞, 7
+
+$ irb
+>> require 'smarter_csv'
+=> true
+>> data = SmarterCSV.process('spec/fixtures/sample.csv')
+=> [{:first_name=>"José", :last_name=>"Corüazón", :emoji=>"❤️", :posts=>12},
+    {:first_name=>"Jürgen", :last_name=>"Müller", :emoji=>"😐", :posts=>3},
+    {:first_name=>"Michael", :last_name=>"May", :emoji=>"😞", :posts=>7}]
+```
+Notice how SmarterCSV automatically (all defaults):
+- Normalizes headers → `downcase_header: true`, `strings_as_keys: false`
+- Strips whitespace → `strip_whitespace: true`
+- Converts numbers → `convert_values_to_numeric: true`
+- Removes empty values → `remove_empty_values: true`
+- Preserves Unicode and emoji characters
+
+**Batch Processing:**
+
+Processing large CSV files in chunks minimizes memory usage and enables powerful workflows:
+- **Database imports** — bulk insert records in batches for better performance
+- **Parallel processing** — distribute chunks across Sidekiq, Resque, or other background workers
+- **Progress tracking** — the optional `chunk_index` parameter enables progress reporting
+- **Memory efficiency** — only one chunk is held in memory at a time, regardless of file size
+
+The block receives a `chunk` (array of hashes) and an optional `chunk_index` (0-based sequence number):
+
+```ruby
+# Database bulk import
+SmarterCSV.process(filename, chunk_size: 100) do |chunk, chunk_index|
+  puts "Processing chunk #{chunk_index}..."
+  MyModel.insert_all(chunk)  # chunk is an array of hashes
+end
+
+# Parallel processing with Sidekiq
+SmarterCSV.process(filename, chunk_size: 100) do |chunk|
+  MyWorker.perform_async(chunk)  # each chunk processed in parallel
+end
+```
+
+See [Examples](docs/examples.md), [Batch Processing](docs/batch_processing.md), and [Configuration Options](docs/options.md) for more.
+
+## Requirements
+
+**Minimum Ruby Version:** >= 2.6
+
+**C Extension:** SmarterCSV includes a native C extension for accelerated CSV parsing.
+The C extension is automatically compiled on MRI Ruby. For JRuby and TruffleRuby, SmarterCSV falls back to a pure Ruby implementation.
+
 # Installation
 
 Add this line to your application's Gemfile:
