@@ -36,6 +36,9 @@ _Benchmarks: Ruby 3.4.7, M1 Apple Silicon. Memory: 39% less allocated, 43% fewer
 ## Examples
 
 ### Simple Example:
+
+SmarterCSV is designed for robustness — real-world CSV data often has inconsistent formatting, extra whitespace, and varied column separators. Its intelligent defaults automatically clean and normalize data, returning high-quality hashes ready for direct use with ActiveRecord, Sidekiq, or any data pipeline — no post-processing required. See [Parsing CSV Files in Ruby with SmarterCSV](https://tilo-sloboda.medium.com/parsing-csv-files-in-ruby-with-smartercsv-6ce66fb6cf38) for more background.
+
 ```ruby
 $ cat spec/fixtures/sample.csv
    First Name  , Last	 Name , Emoji , Posts
