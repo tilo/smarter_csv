@@ -5,9 +5,10 @@ require File.expand_path('lib/smarter_csv/version', __dir__)
 
 Gem::Specification.new do |spec|
   spec.name          = "smarter_csv"
-  spec.version       = SmarterCSV::VERSION
   spec.authors       = ["Tilo Sloboda"]
   spec.email         = ["tilo.sloboda@gmail.com"]
+  spec.version       = SmarterCSV::VERSION
+  spec.date          = Time.now.utc.strftime('%Y-%m-%d')
 
   spec.summary       = "Convenient CSV Reading and Writing"
   spec.description   = "Ruby Gem for convenient reading and writing of CSV files. It has intelligent defaults, and auto-discovery of column and row separators. It imports CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, kicking-off batch jobs with Sidekiq, parallel processing, or oploading data to S3. Similarly, writing CSV files takes Hashes, or Arrays of Hashes to create a CSV file."
