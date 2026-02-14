@@ -93,13 +93,13 @@ module SmarterCSV
           # cater for the quoted csv data containing the row separator carriage return character
           # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
           # by detecting the existence of an uneven number of quote characters
-          multiline = count_quote_chars(line, options[:quote_char]).odd?
+          multiline = count_quote_chars(line, options[:quote_char], options[:col_sep]).odd?
 
           while multiline
             next_line = fh.gets(options[:row_sep])
             if next_line.nil?
               # End of file reached. Check if quotes are balanced.
-              total_quotes = count_quote_chars(line, options[:quote_char])
+              total_quotes = count_quote_chars(line, options[:quote_char], options[:col_sep])
               if total_quotes.odd?
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
@@ -111,7 +111,7 @@ module SmarterCSV
             line += next_line
             @file_line_count += 1
 
-            multiline = count_quote_chars(line, options[:quote_char]).odd?
+            multiline = count_quote_chars(line, options[:quote_char], options[:col_sep]).odd?
           end
 
           # :nocov:
@@ -212,23 +212,40 @@ module SmarterCSV
       end
     end
 
-    def count_quote_chars(line, quote_char)
+    def count_quote_chars(line, quote_char, col_sep = ",")
       return 0 if line.nil? || quote_char.nil? || quote_char.empty?
 
       # Use C extension for performance if available (avoids creating a String object per character)
       if @has_acceleration && SmarterCSV::Parser.respond_to?(:count_quote_chars_c)
-        return SmarterCSV::Parser.count_quote_chars_c(line, quote_char)
+        return SmarterCSV::Parser.count_quote_chars_c(line, quote_char, col_sep)
       end
 
       # Fallback to Ruby implementation
       count = 0
       escaped = false
+      in_quotes = false
+      chars = line.chars
+      len = chars.size
 
-      line.each_char do |char|
+      chars.each_with_index do |char, i|
         if char == '\\' && !escaped
           escaped = true
         else
-          count += 1 if char == quote_char && !escaped
+          if char == quote_char
+            if !escaped
+              count += 1
+              in_quotes = !in_quotes
+            elsif in_quotes
+              # Backslash-escaped quote inside a quoted field: check if followed
+              # by col_sep or end-of-string. If so, it's a literal backslash +
+              # closing quote, not an escape sequence. (issue #316)
+              next_pos = i + 1
+              if next_pos >= len || line[next_pos, col_sep.size] == col_sep
+                count += 1
+                in_quotes = false
+              end
+            end
+          end
           escaped = false
         end
       end

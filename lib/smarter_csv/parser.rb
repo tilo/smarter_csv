@@ -136,8 +136,15 @@ module SmarterCSV
               if backslash_count % 2 == 0
                 # Even number of backslashes means quote is not escaped
                 in_quotes = !in_quotes
+              elsif in_quotes
+                # Odd backslashes inside a quoted field: check if followed by
+                # col_sep or end-of-line. If so, it's a literal backslash +
+                # closing quote, not an escape sequence. (issue #316)
+                next_pos = i + 1
+                if next_pos >= line_size || line[next_pos, col_sep_size] == col_sep
+                  in_quotes = false
+                end
               end
-              # Else, quote is escaped; do nothing
             end
             backslash_count = 0 # Reset after any character other than backslash
           end
