@@ -193,6 +193,14 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
         if (*p == quote_char_val) {
           if (backslash_count % 2 == 0) {
             in_quotes = !in_quotes;
+          } else if (in_quotes) {
+            // Odd backslashes inside a quoted field: check if followed by
+            // col_sep or end-of-string. If so, treat as closing quote. (issue #316)
+            char *next = p + 1;
+            if (next >= endP ||
+                (next + col_sep_len <= endP && memcmp(next, col_sepP, col_sep_len) == 0)) {
+              in_quotes = false;
+            }
           }
         }
         backslash_count = 0;
@@ -521,6 +529,14 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
             // (even number of preceding backslashes = not escaped)
             if (backslash_count % 2 == 0) {
               in_quotes = !in_quotes;
+            } else if (in_quotes) {
+              // Odd backslashes inside a quoted field: check if followed by
+              // col_sep or end-of-string. If so, treat as closing quote. (issue #316)
+              char *next = p + 1;
+              if (next >= endP ||
+                  (next + col_sep_len <= endP && memcmp(next, col_sepP, col_sep_len) == 0)) {
+                in_quotes = false;
+              }
             }
           }
           backslash_count = 0;
@@ -611,7 +627,12 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 // This is a performance optimization that replaces the Ruby each_char implementation
 // which creates a new String object for every character in the line.
 // For a 1000-char line, this eliminates ~1000 object allocations per line.
-static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char) {
+//
+// When a backslash-escaped quote (e.g. \") is followed by col_sep or end-of-string,
+// it is treated as a literal backslash + closing quote, not as an escape sequence.
+// This fixes issue #316 where a backslash as the last char in a quoted field
+// was incorrectly treated as escaping the closing quote.
+static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep) {
   if (NIL_P(line) || NIL_P(quote_char)) return INT2FIX(0);
   if (RSTRING_LEN(quote_char) == 0) return INT2FIX(0);
 
@@ -619,14 +640,32 @@ static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char) {
   long len = RSTRING_LEN(line);
   char qc = RSTRING_PTR(quote_char)[0];
 
+  const char *col_sepP = NIL_P(col_sep) ? "," : RSTRING_PTR(col_sep);
+  long col_sep_len = NIL_P(col_sep) ? 1 : RSTRING_LEN(col_sep);
+
   long count = 0;
   bool escaped = false;
+  bool in_quotes = false;
 
   for (long i = 0; i < len; i++) {
     if (str[i] == '\\' && !escaped) {
       escaped = true;
     } else {
-      if (str[i] == qc && !escaped) count++;
+      if (str[i] == qc) {
+        if (!escaped) {
+          count++;
+          in_quotes = !in_quotes;
+        } else if (in_quotes) {
+          // Backslash-escaped quote inside a quoted field: check if followed
+          // by col_sep or end-of-string. If so, treat as closing quote. (issue #316)
+          long next_pos = i + 1;
+          if (next_pos >= len ||
+              (next_pos + col_sep_len <= len && memcmp(str + next_pos, col_sepP, col_sep_len) == 0)) {
+            count++;
+            in_quotes = false;
+          }
+        }
+      }
       escaped = false;
     }
   }
@@ -641,7 +680,7 @@ void Init_smarter_csv(void) {
   Qempty_string = rb_str_new_literal("");
   rb_gc_register_address(&Qempty_string);
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 6);
-  rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 2);
+  rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
   rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 9);
 }
