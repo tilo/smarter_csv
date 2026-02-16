@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #ifndef bool
   #define bool int
@@ -34,7 +36,8 @@ VALUE Qempty_string = Qnil;
 // Cached symbol IDs for fast options hash lookups (computed once at init)
 static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
-static ID id_quote_escaping;
+static ID id_quote_escaping, id_convert_values_to_numeric;
+static ID id_only, id_except;
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   char *buf = ALLOC_N(char, len);
@@ -287,6 +290,63 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
 
 /*
  * ================================================================================
+ * try_numeric_conversion - Attempt to convert a raw C string to integer or float
+ * ================================================================================
+ *
+ * Tries to parse the trimmed field as an integer (strtol) or float (strtod).
+ * Returns the converted Ruby numeric value, or Qundef if the field is not numeric.
+ *
+ * This avoids creating a Ruby String object for fields that will become numbers,
+ * eliminating both the string allocation and the later regex + to_i/to_f in Ruby.
+ *
+ * Handles overflow: if strtol overflows (ERANGE), falls back to rb_cstr_to_inum
+ * which produces a Ruby Bignum.
+ */
+static inline VALUE try_numeric_conversion(char *trim_start, long trimmed_len) {
+  // Quick pre-check: first char must be digit, +, -, or .
+  char first = trim_start[0];
+  if (!((first >= '0' && first <= '9') || first == '+' || first == '-' || first == '.')) {
+    return Qundef;
+  }
+
+  // Need null-terminated string for strtol/strtod; use stack buffer for typical fields
+  if (trimmed_len >= 63) return Qundef;  // very long fields are unlikely to be simple numbers
+
+  char num_buf[64];
+  memcpy(num_buf, trim_start, trimmed_len);
+  num_buf[trimmed_len] = '\0';
+
+  char *endptr;
+
+  // Try integer first (most common numeric type in CSV)
+  // Don't try integer if field starts with '.' (e.g., ".5")
+  if (first != '.') {
+    errno = 0;
+    long int_val = strtol(num_buf, &endptr, 10);
+    if (endptr == num_buf + trimmed_len) {
+      // Entire string was consumed → valid integer
+      if (errno == ERANGE) {
+        // Overflow: fall back to Ruby Bignum
+        return rb_cstr_to_inum(num_buf, 10, false);
+      }
+      return LONG2NUM(int_val);
+    }
+  }
+
+  // Try float (only if contains '.')
+  if (memchr(num_buf, '.', trimmed_len)) {
+    errno = 0;
+    double float_val = strtod(num_buf, &endptr);
+    if (endptr == num_buf + trimmed_len && errno != ERANGE) {
+      return DBL2NUM(float_val);
+    }
+  }
+
+  return Qundef;  // not numeric
+}
+
+/*
+ * ================================================================================
  * rb_parse_line_to_hash - Parse CSV line directly into a Ruby Hash
  * ================================================================================
  *
@@ -356,6 +416,27 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   bool strip_ws = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strip_whitespace)));
   bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
+
+  // Numeric conversion: supports true (all), {only: [...]}, {except: [...]}
+  // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
+  int numeric_mode = 0;
+  VALUE numeric_keys = Qnil;
+  VALUE convert_opt = rb_hash_aref(options_hash, ID2SYM(id_convert_values_to_numeric));
+  if (RTEST(convert_opt)) {
+    if (RB_TYPE_P(convert_opt, T_HASH)) {
+      VALUE only_keys = rb_hash_aref(convert_opt, ID2SYM(id_only));
+      VALUE except_keys = rb_hash_aref(convert_opt, ID2SYM(id_except));
+      if (RTEST(only_keys)) {
+        numeric_mode = 2;
+        numeric_keys = rb_Array(only_keys);   // wrap single value in array if needed
+      } else if (RTEST(except_keys)) {
+        numeric_mode = 3;
+        numeric_keys = rb_Array(except_keys); // wrap single value in array if needed
+      }
+    } else {
+      numeric_mode = 1;  // convert all
+    }
+  }
 
   // Determine if backslash-escaped quotes are allowed
   bool allow_escaped_quotes = false;
@@ -431,12 +512,31 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
       long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
+      // Get the key for this field
+      VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
+
+      // Try numeric conversion before creating a Ruby string
+      if (trimmed_len > 0 && numeric_mode > 0) {
+        bool do_convert = (numeric_mode == 1) ||
+                          (numeric_mode == 2 && rb_ary_includes(numeric_keys, key) == Qtrue) ||
+                          (numeric_mode == 3 && rb_ary_includes(numeric_keys, key) != Qtrue);
+        if (do_convert) {
+          VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+          if (numeric != Qundef) {
+            rb_hash_aset(hash, key, numeric);
+            all_blank = false;
+            element_count++;
+            p = sep_pos + 1;
+            startP = p;
+            continue;
+          }
+        }
+      }
+
       // Create field value: use shared empty string for empty fields to reduce allocations
       field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
       if (all_blank && trimmed_len > 0) all_blank = false;
 
-      // Insert field directly into hash with appropriate key
-      VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
       rb_hash_aset(hash, key, field);
       element_count++;
 
@@ -446,24 +546,44 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     }
 
     /* Process the last field (no separator after it) */
-    long field_len = endP - startP;
-    char *raw_field = startP;
-    char *trim_start = raw_field;
-    char *trim_end = raw_field + field_len - 1;
+    {
+      long field_len = endP - startP;
+      char *raw_field = startP;
+      char *trim_start = raw_field;
+      char *trim_end = raw_field + field_len - 1;
 
-    if (strip_ws) {
-      while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-      while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+
+      VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
+
+      // Try numeric conversion before creating a Ruby string
+      if (trimmed_len > 0 && numeric_mode > 0) {
+        bool do_convert = (numeric_mode == 1) ||
+                          (numeric_mode == 2 && rb_ary_includes(numeric_keys, key) == Qtrue) ||
+                          (numeric_mode == 3 && rb_ary_includes(numeric_keys, key) != Qtrue);
+        if (do_convert) {
+          VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+          if (numeric != Qundef) {
+            rb_hash_aset(hash, key, numeric);
+            all_blank = false;
+            element_count++;
+            goto fast_path_done;
+          }
+        }
+      }
+
+      field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
+      if (all_blank && trimmed_len > 0) all_blank = false;
+
+      rb_hash_aset(hash, key, field);
+      element_count++;
     }
-
-    long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-    field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
-    if (all_blank && trimmed_len > 0) all_blank = false;
-
-    VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
-    rb_hash_aset(hash, key, field);
-    element_count++;
+    fast_path_done: ;
 
   } else {
     /* ========================================
@@ -514,6 +634,9 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
         long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
+        // Get the key for this field
+        VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
+
         // Create field value, handling escaped quotes if present
         if (trimmed_len == 0) {
           field = Qempty_string;
@@ -522,12 +645,28 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
           field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
           all_blank = false;
         } else {
+          // Non-quoted field: try numeric conversion before creating a Ruby string
+          if (numeric_mode > 0) {
+            bool do_convert = (numeric_mode == 1) ||
+                              (numeric_mode == 2 && rb_ary_includes(numeric_keys, key) == Qtrue) ||
+                              (numeric_mode == 3 && rb_ary_includes(numeric_keys, key) != Qtrue);
+            if (do_convert) {
+              VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+              if (numeric != Qundef) {
+                rb_hash_aset(hash, key, numeric);
+                all_blank = false;
+                element_count++;
+                p += col_sep_len;
+                startP = p;
+                backslash_count = 0;
+                continue;
+              }
+            }
+          }
           field = rb_enc_str_new(trim_start, trimmed_len, encoding);
           all_blank = false;
         }
 
-        // Insert field directly into hash
-        VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
         rb_hash_aset(hash, key, field);
         element_count++;
 
@@ -579,19 +718,36 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
     long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
+    VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
+
     if (trimmed_len == 0) {
       field = Qempty_string;
     } else if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
       field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
       all_blank = false;
     } else {
+      // Non-quoted field: try numeric conversion before creating a Ruby string
+      if (numeric_mode > 0) {
+        bool do_convert = (numeric_mode == 1) ||
+                          (numeric_mode == 2 && rb_ary_includes(numeric_keys, key) == Qtrue) ||
+                          (numeric_mode == 3 && rb_ary_includes(numeric_keys, key) != Qtrue);
+        if (do_convert) {
+          VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+          if (numeric != Qundef) {
+            rb_hash_aset(hash, key, numeric);
+            all_blank = false;
+            element_count++;
+            goto slow_path_done;
+          }
+        }
+      }
       field = rb_enc_str_new(trim_start, trimmed_len, encoding);
       all_blank = false;
     }
 
-    VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
     rb_hash_aset(hash, key, field);
     element_count++;
+    slow_path_done: ;
   }
 
   /* ----------------------------------------
@@ -737,6 +893,9 @@ void Init_smarter_csv(void) {
   id_remove_empty_hashes = rb_intern("remove_empty_hashes");
   id_remove_empty_values = rb_intern("remove_empty_values");
   id_quote_escaping = rb_intern("quote_escaping");
+  id_convert_values_to_numeric = rb_intern("convert_values_to_numeric");
+  id_only = rb_intern("only");
+  id_except = rb_intern("except");
 
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);

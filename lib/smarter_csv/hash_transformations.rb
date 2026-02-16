@@ -28,19 +28,25 @@ module SmarterCSV
 
       hash.each do |k, v|
         # Check if this key/value should be removed
-        if remove_empty_values && (has_rails ? v.blank? : blank?(v))
+        # Note: numeric values (Integer/Float) are never blank, so skip the blank check for them
+        if remove_empty_values && !v.is_a?(Numeric) && (has_rails ? v.blank? : blank?(v))
           keys_to_delete << k
           next
         end
 
-        if remove_zero_values && v.is_a?(String) && ZERO_REGEX.match?(v)
+        # Handle both string zeros ("0", "0.0") and numeric zeros (already converted by C)
+        if remove_zero_values && ((v.is_a?(String) && ZERO_REGEX.match?(v)) || (v.is_a?(Numeric) && v == 0))
           keys_to_delete << k
           next
         end
 
-        if remove_values_matching && v.is_a?(String) && remove_values_matching.match?(v)
-          keys_to_delete << k
-          next
+        # Match against string values, or against the string representation of numeric values
+        if remove_values_matching
+          str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+          if str_val && remove_values_matching.match?(str_val)
+            keys_to_delete << k
+            next
+          end
         end
 
         # Convert to numeric if requested
