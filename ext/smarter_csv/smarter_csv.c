@@ -615,6 +615,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 //
 // When quote_escaping is :backslash, backslash-escaped quotes are not counted.
 // When quote_escaping is :double_quotes (RFC 4180 mode), backslash has no special meaning.
+// NOTE: col_sep is accepted but unused — kept for API consistency with parse functions.
 static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep, VALUE allow_escaped_quotes_val) {
   if (NIL_P(line) || NIL_P(quote_char)) return INT2FIX(0);
   if (RSTRING_LEN(quote_char) == 0) return INT2FIX(0);
@@ -655,6 +656,7 @@ static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALU
 // Returns [escaped_count, rfc_count] where:
 //   escaped_count = quote chars not preceded by odd backslashes (backslash-aware)
 //   rfc_count = all quote chars (backslash has no special meaning)
+// NOTE: col_sep is accepted but unused — kept for API consistency with parse functions.
 static VALUE rb_count_quote_chars_auto(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep) {
   if (NIL_P(line) || NIL_P(quote_char)) {
     VALUE result = rb_ary_new_capa(2);
