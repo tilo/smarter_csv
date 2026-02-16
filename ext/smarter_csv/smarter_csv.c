@@ -370,9 +370,10 @@ typedef struct {
  *
  * Applies the full transformation pipeline to a single field:
  *   1. Skip empty/blank fields (when remove_empty_values is true)
- *   2. Try numeric conversion (strtol/strtod)
- *   3. Skip zero values (when remove_zero_values is true)
- *   4. Insert the final value into the hash
+ *   2. Skip zero values via string scan (when remove_zero_values is true)
+ *      Works independently of numeric conversion — matches /\A0+(?:\.0+)?\z/
+ *   3. Try numeric conversion (strtol/strtod) — avoids Ruby String allocation
+ *   4. Insert the final value into the hash as String
  *
  * For quoted fields, pass is_quoted=true — numeric conversion is skipped since
  * the raw C string may differ from the unescaped content.
@@ -416,7 +417,25 @@ static inline bool insert_field_into_hash(
     return true;
   }
 
-  // 3. Try numeric conversion before creating a Ruby string
+  // 3. String-based zero check — matches /\A0+(?:\.0+)?\z/
+  // Works independently of numeric conversion: "0", "00", "0.0", "00.00" etc.
+  if (opts->remove_zero_values) {
+    long i = 0;
+    // Must start with at least one '0'
+    if (trimmed_len > 0 && trim_start[0] == '0') {
+      while (i < trimmed_len && trim_start[i] == '0') i++;
+      if (i == trimmed_len) return false;  // all zeros, e.g. "0", "00"
+      if (trim_start[i] == '.') {
+        i++;
+        long dot_pos = i;
+        while (i < trimmed_len && trim_start[i] == '0') i++;
+        // Valid if we consumed everything AND had at least one zero after dot
+        if (i == trimmed_len && i > dot_pos) return false;  // e.g. "0.0", "00.00"
+      }
+    }
+  }
+
+  // 4. Try numeric conversion before creating a Ruby string
   if (opts->numeric_mode > 0) {
     bool do_convert = (opts->numeric_mode == 1) ||
                       (opts->numeric_mode == 2 && rb_ary_includes(opts->numeric_keys, key) == Qtrue) ||
@@ -424,13 +443,6 @@ static inline bool insert_field_into_hash(
     if (do_convert) {
       VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
       if (numeric != Qundef) {
-        // 4. Skip zero values if requested
-        if (opts->remove_zero_values) {
-          if ((RB_TYPE_P(numeric, T_FIXNUM) && FIX2LONG(numeric) == 0) ||
-              (RB_TYPE_P(numeric, T_FLOAT) && RFLOAT_VALUE(numeric) == 0.0)) {
-            return false;  // skip zero value
-          }
-        }
         rb_hash_aset(opts->hash, key, numeric);
         return true;
       }
