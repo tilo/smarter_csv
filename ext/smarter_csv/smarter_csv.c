@@ -31,6 +31,11 @@ VALUE Parser = Qnil;
 // significantly reduces object allocations and GC pressure.
 VALUE Qempty_string = Qnil;
 
+// Cached symbol IDs for fast options hash lookups (computed once at init)
+static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
+static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
+static ID id_quote_escaping;
+
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   char *buf = ALLOC_N(char, len);
   long j = 0;
@@ -322,10 +327,7 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
  * Input:  line = "john,25,boston,extra" (more fields than headers)
  * Output: [{name: "john", age: "25", city: "boston", column_4: "extra"}, 4]
  */
-static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE col_sep,
-                                    VALUE quote_char, VALUE header_prefix, VALUE has_quotes_val,
-                                    VALUE strip_ws_val, VALUE remove_empty_val, VALUE remove_empty_values_val,
-                                    VALUE allow_escaped_quotes_val) {
+static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE options_hash) {
 
   /* ----------------------------------------
    * SECTION 1: Handle nil/invalid input
@@ -342,15 +344,40 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   }
 
   /* ----------------------------------------
-   * SECTION 2: Extract parameters from Ruby objects
+   * SECTION 2: Extract options from hash and convert to C types
    * ----------------------------------------
-   * Convert Ruby objects to C types for efficient access during parsing.
+   * Options are extracted once per line using cached symbol IDs
+   * for fast hash lookups (symbol comparison is pointer equality).
    */
+  VALUE col_sep = rb_hash_aref(options_hash, ID2SYM(id_col_sep));
+  VALUE quote_char = rb_hash_aref(options_hash, ID2SYM(id_quote_char));
+  VALUE header_prefix = rb_hash_aref(options_hash, ID2SYM(id_missing_header_prefix));
+  VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
+  bool strip_ws = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strip_whitespace)));
+  bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
+  bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
+
+  // Determine if backslash-escaped quotes are allowed
+  bool allow_escaped_quotes = false;
+  if (RB_TYPE_P(quote_escaping_val, T_SYMBOL)) {
+    allow_escaped_quotes = (SYM2ID(quote_escaping_val) == rb_intern("backslash"));
+  }
+
   rb_encoding *encoding = rb_enc_get(line);      // Preserve string encoding
   char *startP = RSTRING_PTR(line);              // Pointer to start of current field
   long line_len = RSTRING_LEN(line);
   char *endP = startP + line_len;                // End of line marker
   char *p = startP;                              // Current parsing position
+
+  // Chomp: strip trailing row separator (pointer adjustment, no string mutation)
+  VALUE row_sep = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
+  if (!NIL_P(row_sep) && RB_TYPE_P(row_sep, T_STRING)) {
+    char *row_sepP = RSTRING_PTR(row_sep);
+    long row_sep_len = RSTRING_LEN(row_sep);
+    if (line_len >= row_sep_len && memcmp(endP - row_sep_len, row_sepP, row_sep_len) == 0) {
+      endP -= row_sep_len;
+    }
+  }
 
   char *col_sepP = RSTRING_PTR(col_sep);
   long col_sep_len = RSTRING_LEN(col_sep);
@@ -362,11 +389,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   const char *prefix_str = NIL_P(header_prefix) ? "column_" : RSTRING_PTR(header_prefix);
 
   long headers_len = NIL_P(headers) ? 0 : RARRAY_LEN(headers);
-  bool has_quotes = RTEST(has_quotes_val);       // Hint: does line contain quotes?
-  bool strip_ws = RTEST(strip_ws_val);           // Strip whitespace from fields?
-  bool remove_empty = RTEST(remove_empty_val);   // Skip rows with all blank values?
-  bool remove_empty_values = RTEST(remove_empty_values_val); // If true, don't add nil for missing cols
-  bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
+  // Optimization hint: check if line contains quote characters
+  bool has_quotes = (memchr(startP, quote_char_val, line_len) != NULL);
 
   /* ----------------------------------------
    * SECTION 3: Initialize hash and tracking variables
@@ -703,9 +727,20 @@ void Init_smarter_csv(void) {
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
   Qempty_string = rb_str_new_literal("");
   rb_gc_register_address(&Qempty_string);
+
+  // Cache symbol IDs for fast options hash lookups
+  id_col_sep = rb_intern("col_sep");
+  id_quote_char = rb_intern("quote_char");
+  id_row_sep = rb_intern("row_sep");
+  id_missing_header_prefix = rb_intern("missing_header_prefix");
+  id_strip_whitespace = rb_intern("strip_whitespace");
+  id_remove_empty_hashes = rb_intern("remove_empty_hashes");
+  id_remove_empty_values = rb_intern("remove_empty_values");
+  id_quote_escaping = rb_intern("quote_escaping");
+
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);
   rb_define_module_function(Parser, "count_quote_chars_auto_c", rb_count_quote_chars_auto, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
-  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 10);
+  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 3);
 }

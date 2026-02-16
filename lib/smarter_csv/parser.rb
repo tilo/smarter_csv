@@ -64,43 +64,27 @@ module SmarterCSV
       if options[:quote_escaping] == :auto
         parse_line_to_hash_auto(line, headers, options)
       else
-        has_quotes = line.include?(options[:quote_char])
-
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line,
-            headers,
-            options[:col_sep],
-            options[:quote_char],
-            options[:missing_header_prefix],
-            has_quotes,
-            options[:strip_whitespace],
-            options[:remove_empty_hashes],
-            options[:remove_empty_values],
-            options[:quote_escaping] == :backslash
-          )
+          parse_line_to_hash_c(line, headers, options)
           # :nocov:
         else
+          has_quotes = line.include?(options[:quote_char])
           parse_line_to_hash_ruby(line, headers, options, has_quotes)
         end
       end
     end
 
     def parse_line_to_hash_auto(line, headers, options)
-      has_quotes = line.include?(options[:quote_char])
-
       begin
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line, headers, options[:col_sep], options[:quote_char],
-            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
-            options[:remove_empty_hashes], options[:remove_empty_values], true
-          )
+          backslash_options = options.merge(quote_escaping: :backslash)
+          parse_line_to_hash_c(line, headers, backslash_options)
           # :nocov:
         else
+          has_quotes = line.include?(options[:quote_char])
           backslash_options = options.merge(quote_escaping: :backslash)
           parse_line_to_hash_ruby(line, headers, backslash_options, has_quotes)
         end
@@ -108,13 +92,11 @@ module SmarterCSV
         # Backslash interpretation failed — fall back to RFC 4180
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line, headers, options[:col_sep], options[:quote_char],
-            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
-            options[:remove_empty_hashes], options[:remove_empty_values], false
-          )
+          rfc_options = options.merge(quote_escaping: :double_quotes)
+          parse_line_to_hash_c(line, headers, rfc_options)
           # :nocov:
         else
+          has_quotes = line.include?(options[:quote_char])
           rfc_options = options.merge(quote_escaping: :double_quotes)
           parse_line_to_hash_ruby(line, headers, rfc_options, has_quotes)
         end
@@ -124,6 +106,9 @@ module SmarterCSV
     # Ruby implementation of parse_line_to_hash
     def parse_line_to_hash_ruby(line, headers, options, has_quotes = false)
       return [nil, 0] if line.nil?
+
+      # Chomp trailing row separator
+      line = line.chomp(options[:row_sep]) if options[:row_sep]
 
       # Parse the line into values
       elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)

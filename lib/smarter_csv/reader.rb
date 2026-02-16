@@ -119,40 +119,8 @@ module SmarterCSV
           end
           # :nocov:
 
-          line.chomp!(options[:row_sep])
-
-          # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
-          # we are now stripping whitespace inside the parse() methods
-          # we create additional columns on-the-fly when we find more data fields than headers
-          hash, data_size = parse_line_to_hash(line, @headers, options)
-
-          # Handle extra columns (more data fields than headers)
-          if data_size > @headers.size
-            if options[:strict]
-              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
-            end
-
-            # Update headers array for subsequent rows
-            while @headers.size < data_size
-              @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
-            end
-          end
-
-          # if all values were blank (hash is nil) we ignore this CSV line
+          hash = process_line_to_hash(line, options)
           next if hash.nil?
-
-          # --- HASH TRANSFORMATIONS ------------------------------------------------------------
-
-          hash = hash_transformations(hash, options)
-
-          # --- HASH VALIDATIONS ----------------------------------------------------------------
-          # will go here, and be able to:
-          #  - validate correct format of the values for fields
-          #  - required fields to be non-empty
-          #  - ...
-          # -------------------------------------------------------------------------------------
-
-          next if options[:remove_empty_hashes] && hash.empty?
 
           puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
           # optional adding of csv_line_number to the hash to help debugging
@@ -313,6 +281,45 @@ module SmarterCSV
     end
 
     private
+
+    # Parses a CSV line into a hash, applying transformations and filtering.
+    # Returns the finished hash, or nil if the row should be skipped.
+    def process_line_to_hash(line, options)
+      # --- SPLIT LINE & DATA TRANSFORMATIONS --------------------------------
+      # we are now stripping whitespace inside the parse() methods
+      # we create additional columns on-the-fly when we find more data fields than headers
+      hash, data_size = parse_line_to_hash(line, @headers, options)
+
+      # Handle extra columns (more data fields than headers)
+      if data_size > @headers.size
+        if options[:strict]
+          raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
+        end
+
+        # Update headers array for subsequent rows
+        while @headers.size < data_size
+          @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
+        end
+      end
+
+      # if all values were blank (hash is nil) we ignore this CSV line
+      return nil if hash.nil?
+
+      # --- HASH TRANSFORMATIONS ---------------------------------------------
+
+      hash = hash_transformations(hash, options)
+
+      # --- HASH VALIDATIONS -------------------------------------------------
+      # will go here, and be able to:
+      #  - validate correct format of the values for fields
+      #  - required fields to be non-empty
+      #  - ...
+      # -----------------------------------------------------------------------
+
+      return nil if options[:remove_empty_hashes] && hash.empty?
+
+      hash
+    end
 
     def enforce_utf8_encoding(line, options)
       # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
