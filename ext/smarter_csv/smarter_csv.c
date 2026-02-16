@@ -651,6 +651,50 @@ static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALU
   return LONG2FIX(count);
 }
 
+// Dual-counting for :auto quote_escaping mode.
+// Returns [escaped_count, rfc_count] where:
+//   escaped_count = quote chars not preceded by odd backslashes (backslash-aware)
+//   rfc_count = all quote chars (backslash has no special meaning)
+static VALUE rb_count_quote_chars_auto(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep) {
+  if (NIL_P(line) || NIL_P(quote_char)) {
+    VALUE result = rb_ary_new_capa(2);
+    rb_ary_push(result, INT2FIX(0));
+    rb_ary_push(result, INT2FIX(0));
+    return result;
+  }
+  if (RSTRING_LEN(quote_char) == 0) {
+    VALUE result = rb_ary_new_capa(2);
+    rb_ary_push(result, INT2FIX(0));
+    rb_ary_push(result, INT2FIX(0));
+    return result;
+  }
+
+  char *str = RSTRING_PTR(line);
+  long len = RSTRING_LEN(line);
+  char qc = RSTRING_PTR(quote_char)[0];
+
+  long rfc_count = 0;
+  long escaped_count = 0;
+  bool escaped = false;
+
+  for (long i = 0; i < len; i++) {
+    if (str[i] == qc) {
+      rfc_count++;
+      if (!escaped) escaped_count++;
+      escaped = false;
+    } else if (str[i] == '\\') {
+      escaped = !escaped;
+    } else {
+      escaped = false;
+    }
+  }
+
+  VALUE result = rb_ary_new_capa(2);
+  rb_ary_push(result, LONG2FIX(escaped_count));
+  rb_ary_push(result, LONG2FIX(rfc_count));
+  return result;
+}
+
 void Init_smarter_csv(void) {
   SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
   Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
@@ -659,6 +703,7 @@ void Init_smarter_csv(void) {
   rb_gc_register_address(&Qempty_string);
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);
+  rb_define_module_function(Parser, "count_quote_chars_auto_c", rb_count_quote_chars_auto, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
   rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 10);
 }

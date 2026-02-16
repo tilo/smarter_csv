@@ -34,6 +34,33 @@ fixture_path = 'spec/fixtures'
       end
     end
 
+    describe ".count_quote_chars_auto" do
+      let(:file) { 'something' }
+
+      it "returns [escaped_count, rfc_count] for dual counting" do
+        # No backslashes — both counts are the same
+        escaped, rfc = reader.count_quote_chars_auto("\"No\" \"Escaping\"", "\"", ",")
+        expect(escaped).to eq 4
+        expect(rfc).to eq 4
+
+        # "D\"Angelos" — backslash-aware count skips the escaped quote
+        escaped, rfc = reader.count_quote_chars_auto("\"D\\\"Angelos\"", "\"", ",")
+        expect(escaped).to eq 2
+        expect(rfc).to eq 3
+
+        # "\",Y — backslash-aware: 0 (both quotes escaped-away or... let's trace)
+        # chars: " \ " , Y
+        # " -> rfc=1, escaped: not escaped -> escaped=1
+        # \ -> escaped=true
+        # " -> rfc=2, escaped: yes -> skip, escaped=false
+        # , -> escaped=false
+        # Y -> escaped=false
+        escaped, rfc = reader.count_quote_chars_auto("\"\\\",Y", "\"", ",")
+        expect(escaped).to eq 1
+        expect(rfc).to eq 2
+      end
+    end
+
     context 'with quote_escaping: :backslash and escaped_quote_char.csv' do
       let(:file) { "#{fixture_path}/escaped_quote_char.csv" }
 

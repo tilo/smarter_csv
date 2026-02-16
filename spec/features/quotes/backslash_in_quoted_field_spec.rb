@@ -92,6 +92,103 @@
     end
 
     # =========================================================================
+    # quote_escaping: :auto — tries backslash first, falls back to RFC 4180
+    # =========================================================================
+    context 'with quote_escaping: :auto' do
+      let(:options) { { acceleration: bool, quote_escaping: :auto } }
+
+      context 'Issue #316: quoted field ending with backslash (fallback to RFC)' do
+        let(:csv) { "Col A,Col B\n\"X,Y\\\",Y" }
+
+        it 'falls back to RFC 4180 and treats backslash as literal' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:"col_a"]).to eq "X,Y\\"
+          expect(result[0][:"col_b"]).to eq "Y"
+        end
+      end
+
+      context 'quoted field containing only a backslash (fallback to RFC)' do
+        let(:csv) { "Col A,Col B\n\"\\\",Y" }
+
+        it 'falls back to RFC and parses backslash as the field value' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:"col_a"]).to eq "\\"
+          expect(result[0][:"col_b"]).to eq "Y"
+        end
+      end
+
+      context 'RFC doubled quotes still work under :auto' do
+        let(:csv) { "col_a,col_b\n\"She said \"\"hello\"\"\",note" }
+
+        it 'handles RFC doubled quotes correctly' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:col_a]).to eq 'She said "hello"'
+          expect(result[0][:col_b]).to eq "note"
+        end
+      end
+
+      context 'backslash in middle of field (not before a quote)' do
+        let(:csv) { "Col A,Col B\n\"X,Y\\ok\",Y" }
+
+        it 'preserves the backslash as literal' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:"col_a"]).to eq "X,Y\\ok"
+          expect(result[0][:"col_b"]).to eq "Y"
+        end
+      end
+
+      context 'Windows file path in quoted field (fallback to RFC)' do
+        let(:csv) { "path,label\n\"C:\\Users\\Docs\\\",important" }
+
+        it 'preserves the full Windows path' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:path]).to eq "C:\\Users\\Docs\\"
+          expect(result[0][:label]).to eq "important"
+        end
+      end
+
+      context 'multiple rows with mixed quoting styles' do
+        let(:csv) { "col_a,col_b\n\"path\\to\\\",val1\n\"normal\",val2" }
+
+        it 'handles each row independently without state leakage' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 2
+          expect(result[0][:col_a]).to eq "path\\to\\"
+          expect(result[0][:col_b]).to eq "val1"
+          expect(result[1][:col_a]).to eq "normal"
+          expect(result[1][:col_b]).to eq "val2"
+        end
+      end
+
+      context 'multiline quoted field still works under :auto' do
+        let(:csv) { "col_a,col_b\n\"line1\nline2\",val" }
+
+        it 'correctly stitches multiline fields' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:col_a]).to eq "line1\nline2"
+          expect(result[0][:col_b]).to eq "val"
+        end
+      end
+
+      context 'field ending with double backslash' do
+        let(:csv) { "Col A,Col B\n\"X,Y\\\\\",Z" }
+
+        it 'preserves both backslashes (both modes agree)' do
+          result = SmarterCSV.process(StringIO.new(csv), **options)
+          expect(result.size).to eq 1
+          expect(result[0][:"col_a"]).to eq "X,Y\\\\"
+          expect(result[0][:"col_b"]).to eq "Z"
+        end
+      end
+    end
+
+    # =========================================================================
     # quote_escaping: :backslash — MySQL/Unix convention
     # Backslash before a quote char IS an escape: \" means literal "
     # =========================================================================

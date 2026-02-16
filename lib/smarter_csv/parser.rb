@@ -13,41 +13,111 @@ module SmarterCSV
     ###
     def parse(line, options, header_size = nil)
       # puts "SmarterCSV.parse OPTIONS: #{options[:acceleration]}" if options[:verbose]
+      if options[:quote_escaping] == :auto
+        parse_with_auto_fallback(line, options, header_size)
+      else
+        has_quotes = line.include?(options[:quote_char])
+
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash)
+          [elements, elements.size]
+          # :nocov:
+        else
+          # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
+          parse_csv_line_ruby(line, options, header_size, has_quotes)
+        end
+      end
+    end
+
+    def parse_with_auto_fallback(line, options, header_size = nil)
       has_quotes = line.include?(options[:quote_char])
 
-      if options[:acceleration] && has_acceleration
-        # :nocov:
-        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash)
-        [elements, elements.size]
-        # :nocov:
-      else
-        # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
-        parse_csv_line_ruby(line, options, header_size, has_quotes)
+      begin
+        # Try backslash-escape interpretation first
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true)
+          [elements, elements.size]
+          # :nocov:
+        else
+          backslash_options = options.merge(quote_escaping: :backslash)
+          parse_csv_line_ruby(line, backslash_options, header_size, has_quotes)
+        end
+      rescue MalformedCSV
+        # Backslash interpretation failed — fall back to RFC 4180
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false)
+          [elements, elements.size]
+          # :nocov:
+        else
+          rfc_options = options.merge(quote_escaping: :double_quotes)
+          parse_csv_line_ruby(line, rfc_options, header_size, has_quotes)
+        end
       end
     end
 
     # Parse a CSV line directly into a hash, with support for extra columns.
     # Returns [hash_or_nil, data_size] where hash is nil if all values are blank.
     def parse_line_to_hash(line, headers, options)
+      if options[:quote_escaping] == :auto
+        parse_line_to_hash_auto(line, headers, options)
+      else
+        has_quotes = line.include?(options[:quote_char])
+
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          parse_line_to_hash_c(
+            line,
+            headers,
+            options[:col_sep],
+            options[:quote_char],
+            options[:missing_header_prefix],
+            has_quotes,
+            options[:strip_whitespace],
+            options[:remove_empty_hashes],
+            options[:remove_empty_values],
+            options[:quote_escaping] == :backslash
+          )
+          # :nocov:
+        else
+          parse_line_to_hash_ruby(line, headers, options, has_quotes)
+        end
+      end
+    end
+
+    def parse_line_to_hash_auto(line, headers, options)
       has_quotes = line.include?(options[:quote_char])
 
-      if options[:acceleration] && has_acceleration
-        # :nocov:
-        parse_line_to_hash_c(
-          line,
-          headers,
-          options[:col_sep],
-          options[:quote_char],
-          options[:missing_header_prefix],
-          has_quotes,
-          options[:strip_whitespace],
-          options[:remove_empty_hashes],
-          options[:remove_empty_values],
-          options[:quote_escaping] == :backslash
-        )
-        # :nocov:
-      else
-        parse_line_to_hash_ruby(line, headers, options, has_quotes)
+      begin
+        # Try backslash-escape interpretation first
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          parse_line_to_hash_c(
+            line, headers, options[:col_sep], options[:quote_char],
+            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
+            options[:remove_empty_hashes], options[:remove_empty_values], true
+          )
+          # :nocov:
+        else
+          backslash_options = options.merge(quote_escaping: :backslash)
+          parse_line_to_hash_ruby(line, headers, backslash_options, has_quotes)
+        end
+      rescue MalformedCSV
+        # Backslash interpretation failed — fall back to RFC 4180
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          parse_line_to_hash_c(
+            line, headers, options[:col_sep], options[:quote_char],
+            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
+            options[:remove_empty_hashes], options[:remove_empty_values], false
+          )
+          # :nocov:
+        else
+          rfc_options = options.merge(quote_escaping: :double_quotes)
+          parse_line_to_hash_ruby(line, headers, rfc_options, has_quotes)
+        end
       end
     end
 

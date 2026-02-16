@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Parsing Strategy](./parsing_strategy.md)
   * [**The Basic Read API**](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)    
   * [Batch Processing](././batch_processing.md)
@@ -116,4 +117,4 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 ```
 
 ----------------
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [The Basic Write API](./basic_write_api.md)
+PREVIOUS: [Parsing Strategy](./parsing_strategy.md) | NEXT: [The Basic Write API](./basic_write_api.md)

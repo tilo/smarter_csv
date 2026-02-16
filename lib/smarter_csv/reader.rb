@@ -93,14 +93,13 @@ module SmarterCSV
           # cater for the quoted csv data containing the row separator carriage return character
           # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
           # by detecting the existence of an uneven number of quote characters
-          multiline = count_quote_chars(line, options[:quote_char], options[:col_sep], options[:quote_escaping]).odd?
+          multiline = detect_multiline(line, options)
 
           while multiline
             next_line = fh.gets(options[:row_sep])
             if next_line.nil?
               # End of file reached. Check if quotes are balanced.
-              total_quotes = count_quote_chars(line, options[:quote_char], options[:col_sep], options[:quote_escaping])
-              if total_quotes.odd?
+              if detect_multiline(line, options)
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
                 # Quotes are balanced; proceed without raising an error.
@@ -111,7 +110,7 @@ module SmarterCSV
             line += next_line
             @file_line_count += 1
 
-            multiline = count_quote_chars(line, options[:quote_char], options[:col_sep], options[:quote_escaping]).odd?
+            multiline = detect_multiline(line, options)
           end
 
           # :nocov:
@@ -244,6 +243,52 @@ module SmarterCSV
       end
 
       count
+    end
+
+    # Returns [escaped_count, rfc_count] for :auto mode dual counting.
+    # escaped_count: quote chars not preceded by odd backslashes
+    # rfc_count: all quote chars (backslash has no special meaning)
+    def count_quote_chars_auto(line, quote_char, col_sep = ",")
+      return [0, 0] if line.nil? || quote_char.nil? || quote_char.empty?
+
+      if @has_acceleration && SmarterCSV::Parser.respond_to?(:count_quote_chars_auto_c)
+        return SmarterCSV::Parser.count_quote_chars_auto_c(line, quote_char, col_sep)
+      end
+
+      rfc_count = 0
+      escaped_count = 0
+      escaped = false
+
+      line.each_char do |char|
+        if char == quote_char
+          rfc_count += 1
+          escaped_count += 1 unless escaped
+          escaped = false
+        elsif char == '\\'
+          escaped = !escaped
+        else
+          escaped = false
+        end
+      end
+
+      [escaped_count, rfc_count]
+    end
+
+    private
+
+    # Determine if a line has unbalanced quotes requiring multiline stitching.
+    # For :auto mode, uses dual counting to avoid false multiline detection.
+    def detect_multiline(line, options)
+      if options[:quote_escaping] == :auto
+        escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
+        # If backslash-aware count is even → line is self-contained either way
+        # If backslash-aware count is odd AND rfc_count is also odd → truly multiline
+        # If backslash-aware count is odd AND rfc_count is even → NOT multiline
+        #   (the RFC interpretation closes all fields on this line)
+        escaped_count.odd? && rfc_count.odd?
+      else
+        count_quote_chars(line, options[:quote_char], options[:col_sep], options[:quote_escaping]).odd?
+      end
     end
 
     protected
