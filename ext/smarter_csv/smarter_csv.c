@@ -352,16 +352,28 @@ static inline VALUE try_numeric_conversion(char *trim_start, long trimmed_len) {
  * ================================================================================
  */
 typedef struct {
-  VALUE hash;
+  VALUE hash;               // Lazily allocated: starts as Qnil, allocated on first insert
   VALUE headers;
   VALUE numeric_keys;
   rb_encoding *encoding;
   const char *prefix_str;
   long headers_len;
+  long hash_capa;           // Pre-computed capacity for lazy hash allocation
   int numeric_mode;         // 0=off, 1=all, 2=only, 3=except
   bool remove_empty_values;
   bool remove_zero_values;
 } field_transform_opts;
+
+/*
+ * ensure_hash_allocated - Lazily allocate the hash on first field insertion.
+ * Avoids rb_hash_new_capa + GC registration for rows that are entirely blank
+ * or filtered out (all values removed by transforms).
+ */
+static inline void ensure_hash_allocated(field_transform_opts *opts) {
+  if (__builtin_expect(NIL_P(opts->hash), 0)) {
+    opts->hash = rb_hash_new_capa(opts->hash_capa);
+  }
+}
 
 /*
  * ================================================================================
@@ -406,6 +418,7 @@ static inline bool insert_field_into_hash(
   }
 
   if (trimmed_len == 0) {
+    ensure_hash_allocated(opts);
     rb_hash_aset(opts->hash, key, Qempty_string);
     return false;  // not a non-blank value
   }
@@ -413,6 +426,7 @@ static inline bool insert_field_into_hash(
   // 2. Quoted field: unescape and insert (no numeric conversion on raw quoted data)
   if (is_quoted) {
     VALUE field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+    ensure_hash_allocated(opts);
     rb_hash_aset(opts->hash, key, field);
     return true;
   }
@@ -443,6 +457,7 @@ static inline bool insert_field_into_hash(
     if (do_convert) {
       VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
       if (numeric != Qundef) {
+        ensure_hash_allocated(opts);
         rb_hash_aset(opts->hash, key, numeric);
         return true;
       }
@@ -451,6 +466,7 @@ static inline bool insert_field_into_hash(
 
   // 5. Not numeric: insert as string
   VALUE field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+  ensure_hash_allocated(opts);
   rb_hash_aset(opts->hash, key, field);
   return true;
 }
@@ -587,21 +603,23 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   /* ----------------------------------------
    * SECTION 3: Initialize hash and tracking variables
    * ----------------------------------------
-   * Pre-allocate hash with expected capacity for better performance.
+   * Hash is lazily allocated on first field insertion to avoid
+   * rb_hash_new_capa + GC registration for rows that are entirely blank
+   * or filtered out (all values removed by transforms).
    */
   long hash_size = headers_len > 0 ? headers_len : 16;
-  VALUE hash = rb_hash_new_capa(hash_size);      // Pre-sized hash for efficiency
   long element_count = 0;                        // Number of fields parsed
   bool all_blank = true;                         // Track if all fields are blank
 
   // Transformation options struct — shared across all field-insertion call sites
   field_transform_opts xform = {
-    .hash = hash,
+    .hash = Qnil,                                // Lazily allocated on first insert
     .headers = headers,
     .numeric_keys = numeric_keys,
     .encoding = encoding,
     .prefix_str = prefix_str,
     .headers_len = headers_len,
+    .hash_capa = hash_size,
     .numeric_mode = numeric_mode,
     .remove_empty_values = remove_empty_values,
     .remove_zero_values = remove_zero_values,
@@ -779,6 +797,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * ----------------------------------------
    * If remove_empty_hashes is enabled and all fields were blank,
    * return nil instead of the hash so the row can be skipped.
+   * With lazy allocation, if all_blank is true, xform.hash is still Qnil —
+   * no hash was ever allocated.
    */
   if (remove_empty && all_blank) {
     VALUE result = rb_ary_new_capa(2);
@@ -795,8 +815,9 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * hash_transformations, so we skip this for efficiency.
    */
   if (!remove_empty_values) {
+    ensure_hash_allocated(&xform);
     for (long i = element_count; i < headers_len; i++) {
-      rb_hash_aset(hash, rb_ary_entry(headers, i), Qnil);
+      rb_hash_aset(xform.hash, rb_ary_entry(headers, i), Qnil);
     }
   }
 
@@ -807,7 +828,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * (when element_count > headers_len) and extend headers if needed.
    */
   VALUE result = rb_ary_new_capa(2);
-  rb_ary_push(result, hash);
+  rb_ary_push(result, xform.hash);
   rb_ary_push(result, LONG2FIX(element_count));
   return result;
 }
