@@ -56,6 +56,9 @@
      |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
      | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
      | :quote_char                 |   '"'    | quotation character                                                                  |
+     | :quote_escaping             | :double_quotes | How quotes are escaped inside quoted fields.                                  |
+     |                             |          | `:double_quotes` (default, RFC 4180): only `""` escapes a quote. Backslash is literal.|
+     |                             |          | `:backslash`: `\"` also escapes a quote (MySQL/Unix convention).                     |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :headers_in_file            |  true(1) | Whether or not the file contains headers as the first line.                          |
      |                             |          | (1): if `user_provided_headers` is given, the default is `false`,                    |

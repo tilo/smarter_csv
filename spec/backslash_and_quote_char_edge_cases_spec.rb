@@ -119,8 +119,8 @@ RSpec.describe 'Backslash and quote_char edge cases' do
     end
 
     it 'handles doubled quotes at the very start of a quoted field value' do
-      # CSV: """"Hello" => "Hello
-      csv = "col\n\"\"\"\"Hello\""
+      # CSV: """Hello" => "Hello (3 quotes at start: open + doubled pair, then Hello, then close)
+      csv = "col\n\"\"\"Hello\""
       result = SmarterCSV.process(StringIO.new(csv))
 
       expect(result.length).to eq(1)
@@ -171,18 +171,11 @@ RSpec.describe 'Backslash and quote_char edge cases' do
 
     it 'parses the height example with backslash-escaped quote' do
       # CSV: "height 6\"2'"
-      # If backslash-escape is ON:  value = height 6"2'
-      # If backslash-escape is OFF: field closes after "height 6\", then 2'" is trailing garbage
+      # With quote_escaping: :backslash, \" is an escaped quote
       csv = "description\n\"height 6\\\"2'\""
-      result = SmarterCSV.process(StringIO.new(csv))
+      result = SmarterCSV.process(StringIO.new(csv), quote_escaping: :backslash)
 
       expect(result.length).to eq(1)
-      # Adapt to desired behavior:
-      # With backslash-escape ON:
-      # expect(result.first[:description]).to eq("height 6\"2'")
-      #
-      # With backslash-escape OFF:
-      # expect { ... }.to raise_error(SmarterCSV::MalformedCSV)
       expect(result.first[:description]).to be_a(String)
     end
 

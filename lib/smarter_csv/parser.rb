@@ -17,7 +17,7 @@ module SmarterCSV
 
       if options[:acceleration] && has_acceleration
         # :nocov:
-        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace])
+        elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash)
         [elements, elements.size]
         # :nocov:
       else
@@ -42,7 +42,8 @@ module SmarterCSV
           has_quotes,
           options[:strip_whitespace],
           options[:remove_empty_hashes],
-          options[:remove_empty_values]
+          options[:remove_empty_values],
+          options[:quote_escaping] == :backslash
         )
         # :nocov:
       else
@@ -118,6 +119,7 @@ module SmarterCSV
 
       backslash_count = 0
       in_quotes = false
+      allow_escaped_quotes = options[:quote_escaping] == :backslash
 
       while i < line_size
         # Check if the current position matches the column separator and we're not inside quotes
@@ -127,26 +129,17 @@ module SmarterCSV
           elements << cleanup_quotes(line[start...i], quote)
           i += col_sep_size
           start = i
-          backslash_count = 0 # Reset backslash count at the start of a new field
+          backslash_count = 0
         else
-          if line[i] == '\\'
+          if allow_escaped_quotes && line[i] == '\\'
             backslash_count += 1
           else
             if line[i] == quote
-              if backslash_count % 2 == 0
-                # Even number of backslashes means quote is not escaped
+              if !allow_escaped_quotes || backslash_count % 2 == 0
                 in_quotes = !in_quotes
-              elsif in_quotes
-                # Odd backslashes inside a quoted field: check if followed by
-                # col_sep or end-of-line. If so, it's a literal backslash +
-                # closing quote, not an escape sequence. (issue #316)
-                next_pos = i + 1
-                if next_pos >= line_size || line[next_pos, col_sep_size] == col_sep
-                  in_quotes = false
-                end
               end
             end
-            backslash_count = 0 # Reset after any character other than backslash
+            backslash_count = 0
           end
           i += 1
         end

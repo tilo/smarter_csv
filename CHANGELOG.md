@@ -1,6 +1,22 @@
 
 # SmarterCSV 1.x Change Log
 
+## Ideated Solution for Issue #316 ⚡ BREAKING CHANGE ⚡
+
+This was one way of thinking how to deal with issue #316 .. it would abandon the lenient way of CSV parsing, and go back to strict RFC4180 parsing... 
+
+Not an ideal situation because it might break some existing users..
+
+ Since v1.8.5, SmarterCSV unconditionally treated \" as an escaped quote — a non-standard convention used by MySQL and some Unix tools. However, RFC 4180 says backslash has no special meaning in CSV; only doubled quotes ("") escape a quote character. This caused regressions for users with legitimate backslashes in their data: a quoted field ending with a backslash (e.g. a Windows path like "C:\Users\") would be misinterpreted as an escaped quote, leading to MalformedCSV or EOFError (issues #252, #316). Version 1.16.0 changes the default back to RFC 4180 compliance (`:double_quotes`) and provides `quote_escaping: :backslash` for users who need the MySQL/Unix convention.
+
+### New Option
+
+ * **New option `quote_escaping`**: Controls how quotes are escaped inside quoted fields. ([issue #316](https://github.com/tilo/smarter_csv/issues/316), [issue #252](https://github.com/tilo/smarter_csv/issues/252))
+   - `:double_quotes` (default, RFC 4180 compliant): Only doubled quotes (`""`) escape a quote character. Backslash has no special meaning and is treated as a literal character.
+   - `:backslash`: Backslash-quote (`\"`) is treated as an escaped quote (MySQL/Unix convention).
+
+   This replaces the previous behavior (introduced in v1.8.5) where backslash escaping was always active, which caused regressions with CSV files containing literal backslashes in quoted fields.
+
 ## 1.15.0 (2026-02-04)
 
 * Dropping support for Ruby 2.5

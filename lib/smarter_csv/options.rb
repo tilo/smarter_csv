@@ -27,6 +27,7 @@ module SmarterCSV
       key_mapping: nil,
       missing_header_prefix: 'column_',
       quote_char: '"',
+      quote_escaping: :double_quotes,
       remove_empty_hashes: true,
       remove_empty_values: true,
       remove_unmapped_keys: false,
@@ -91,6 +92,9 @@ module SmarterCSV
       errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
       errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
       errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+      unless %i[double_quotes backslash].include?(options[:quote_escaping])
+        errors << "invalid quote_escaping: must be :double_quotes or :backslash"
+      end
       raise SmarterCSV::ValidationError, errors.inspect if errors.any?
     end
 
