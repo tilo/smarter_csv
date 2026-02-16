@@ -305,9 +305,31 @@ module SmarterCSV
       # if all values were blank (hash is nil) we ignore this CSV line
       return nil if hash.nil?
 
-      # --- HASH TRANSFORMATIONS ---------------------------------------------
+      # --- HASH TRANSFORMATIONS / POST-FILTERS --------------------------------
+      if options[:acceleration] && @has_acceleration
+        # C already handled: remove_empty_values, convert_values_to_numeric, remove_zero_values.
+        # Clean up nil/empty keys (from key_mapping setting keys to nil)
+        hash.delete(nil)
+        hash.delete('')
+        hash.delete(:"")
 
-      hash = hash_transformations(hash, options)
+        # Only these Ruby-only post-filters remain (user-provided Ruby objects):
+        if options[:remove_values_matching]
+          hash.delete_if do |_k, v|
+            str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+            str_val && options[:remove_values_matching].match?(str_val)
+          end
+        end
+
+        if options[:value_converters]
+          options[:value_converters].each do |key, converter|
+            hash[key] = converter.convert(hash[key]) if hash.key?(key)
+          end
+        end
+      else
+        # Ruby fallback: all transformations done in Ruby
+        hash = hash_transformations(hash, options)
+      end
 
       # --- HASH VALIDATIONS -------------------------------------------------
       # will go here, and be able to:
