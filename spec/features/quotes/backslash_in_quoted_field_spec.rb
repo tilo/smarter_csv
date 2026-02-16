@@ -9,8 +9,9 @@
 # quote characters ("") serve as escapes.
 #
 # The quote_escaping option controls this behavior:
-#   :double_quotes (default) — RFC 4180: backslash is literal
-#   :backslash              — MySQL/Unix: \" is an escaped quote
+#   :auto (default)    — tries backslash-escape first, falls back to RFC 4180
+#   :double_quotes     — RFC 4180: backslash is literal
+#   :backslash         — MySQL/Unix: \" is an escaped quote
 
 [true, false].each do |bool|
   describe "backslash in quoted fields with#{bool ? ' C-' : 'out '}acceleration" do
@@ -19,8 +20,8 @@
     # quote_escaping: :double_quotes (default) — RFC 4180 behavior
     # Backslash has NO special meaning; it's a literal character.
     # =========================================================================
-    context 'with quote_escaping: :double_quotes (default)' do
-      let(:options) { { acceleration: bool } }
+    context 'with quote_escaping: :double_quotes' do
+      let(:options) { { acceleration: bool, quote_escaping: :double_quotes } }
 
       context 'quoted field ending with a backslash' do
         let(:csv) { "Col A,Col B\n\"X,Y\\\",Y" }

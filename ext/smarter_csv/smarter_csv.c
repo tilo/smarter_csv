@@ -614,7 +614,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 // For a 1000-char line, this eliminates ~1000 object allocations per line.
 //
 // When quote_escaping is :backslash, backslash-escaped quotes are not counted.
-// When quote_escaping is :double_quotes (default), backslash has no special meaning.
+// When quote_escaping is :double_quotes (RFC 4180 mode), backslash has no special meaning.
 static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep, VALUE allow_escaped_quotes_val) {
   if (NIL_P(line) || NIL_P(quote_char)) return INT2FIX(0);
   if (RSTRING_LEN(quote_char) == 0) return INT2FIX(0);
