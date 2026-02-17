@@ -27,11 +27,11 @@ For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to Smarter
 
 | Comparison            | P90         | Range             |
 |-----------------------|-------------|-------------------|
-| vs SmarterCSV 1.14.4  | ~10× faster | 3× to 22× faster |
-| vs CSV.table          | ~19× faster | 6× to 67× faster |
+| vs SmarterCSV 1.14.4  | ~11× faster | 5× to 28× faster |
+| vs CSV.table          | ~22× faster | 6× to 82× faster |
 | vs CSV hashes         |  ~8× faster | 2× to 25× faster |
 
-The P90 numbers are without the extremely positive best cases, which would yield a P90 of ~20×, ~50×, ~25× respectively. 
+The P90 numbers are without the extremely positive best cases, which would yield a P90 of ~25×, ~75×, ~25× respectively.
 
 SmarterCSV also wins 13 of 16 benchmark files head-to-head against ZSV+wrapper (SIMD-accelerated C parser with Ruby wrapper to produce equivalent hash output).
 
