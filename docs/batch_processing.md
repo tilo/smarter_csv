@@ -2,8 +2,9 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
-  * [The Basic Write API](./basic_write_api.md) 
+  * [The Basic Write API](./basic_write_api.md)
   * [**Batch Processing**](././batch_processing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)

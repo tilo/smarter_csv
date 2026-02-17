@@ -47,7 +47,7 @@ static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *
   return out;
 }
 
-static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val) {
+static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val, VALUE allow_escaped_quotes_val) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
   }
@@ -82,6 +82,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 
   bool has_quotes = RTEST(has_quotes_val);
   bool strip_ws = RTEST(strip_ws_val);
+  bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
 
   // === FAST PATH: No quotes and single-character separator ===
   if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
@@ -187,11 +188,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
       startP = p;
       backslash_count = 0;
     } else {
-      if (*p == '\\') {
+      if (allow_escaped_quotes && *p == '\\') {
         backslash_count++;
       } else {
         if (*p == quote_char_val) {
-          if (backslash_count % 2 == 0) {
+          if (!allow_escaped_quotes || backslash_count % 2 == 0) {
             in_quotes = !in_quotes;
           }
         }
@@ -323,7 +324,8 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
  */
 static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE col_sep,
                                     VALUE quote_char, VALUE header_prefix, VALUE has_quotes_val,
-                                    VALUE strip_ws_val, VALUE remove_empty_val, VALUE remove_empty_values_val) {
+                                    VALUE strip_ws_val, VALUE remove_empty_val, VALUE remove_empty_values_val,
+                                    VALUE allow_escaped_quotes_val) {
 
   /* ----------------------------------------
    * SECTION 1: Handle nil/invalid input
@@ -364,6 +366,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   bool strip_ws = RTEST(strip_ws_val);           // Strip whitespace from fields?
   bool remove_empty = RTEST(remove_empty_val);   // Skip rows with all blank values?
   bool remove_empty_values = RTEST(remove_empty_values_val); // If true, don't add nil for missing cols
+  bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
 
   /* ----------------------------------------
    * SECTION 3: Initialize hash and tracking variables
@@ -512,14 +515,12 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
       } else {
         /* Not at a separator (or inside quotes) - track quote state */
 
-        if (*p == '\\') {
+        if (allow_escaped_quotes && *p == '\\') {
           // Count consecutive backslashes for escape sequence detection
           backslash_count++;
         } else {
           if (*p == quote_char_val) {
-            // Quote char toggles in_quotes state only if not escaped
-            // (even number of preceding backslashes = not escaped)
-            if (backslash_count % 2 == 0) {
+            if (!allow_escaped_quotes || backslash_count % 2 == 0) {
               in_quotes = !in_quotes;
             }
           }
@@ -607,31 +608,93 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   return result;
 }
 
-// Count quote characters in a line, respecting backslash escapes.
+// Count quote characters in a line, optionally respecting backslash escapes.
 // This is a performance optimization that replaces the Ruby each_char implementation
 // which creates a new String object for every character in the line.
 // For a 1000-char line, this eliminates ~1000 object allocations per line.
-static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char) {
+//
+// When quote_escaping is :backslash, backslash-escaped quotes are not counted.
+// When quote_escaping is :double_quotes (RFC 4180 mode), backslash has no special meaning.
+// NOTE: col_sep is accepted but unused — kept for API consistency with parse functions.
+static VALUE rb_count_quote_chars(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep, VALUE allow_escaped_quotes_val) {
   if (NIL_P(line) || NIL_P(quote_char)) return INT2FIX(0);
   if (RSTRING_LEN(quote_char) == 0) return INT2FIX(0);
 
   char *str = RSTRING_PTR(line);
   long len = RSTRING_LEN(line);
   char qc = RSTRING_PTR(quote_char)[0];
+  bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
 
   long count = 0;
-  bool escaped = false;
 
-  for (long i = 0; i < len; i++) {
-    if (str[i] == '\\' && !escaped) {
-      escaped = true;
-    } else {
-      if (str[i] == qc && !escaped) count++;
-      escaped = false;
+  if (allow_escaped_quotes) {
+    bool escaped = false;
+
+    for (long i = 0; i < len; i++) {
+      if (str[i] == '\\' && !escaped) {
+        escaped = true;
+      } else {
+        if (str[i] == qc && !escaped) {
+          count++;
+        }
+        escaped = false;
+      }
+    }
+  } else {
+    // :double_quotes mode — backslash has no special meaning, just count quote chars
+    for (long i = 0; i < len; i++) {
+      if (str[i] == qc) {
+        count++;
+      }
     }
   }
 
   return LONG2FIX(count);
+}
+
+// Dual-counting for :auto quote_escaping mode.
+// Returns [escaped_count, rfc_count] where:
+//   escaped_count = quote chars not preceded by odd backslashes (backslash-aware)
+//   rfc_count = all quote chars (backslash has no special meaning)
+// NOTE: col_sep is accepted but unused — kept for API consistency with parse functions.
+static VALUE rb_count_quote_chars_auto(VALUE self, VALUE line, VALUE quote_char, VALUE col_sep) {
+  if (NIL_P(line) || NIL_P(quote_char)) {
+    VALUE result = rb_ary_new_capa(2);
+    rb_ary_push(result, INT2FIX(0));
+    rb_ary_push(result, INT2FIX(0));
+    return result;
+  }
+  if (RSTRING_LEN(quote_char) == 0) {
+    VALUE result = rb_ary_new_capa(2);
+    rb_ary_push(result, INT2FIX(0));
+    rb_ary_push(result, INT2FIX(0));
+    return result;
+  }
+
+  char *str = RSTRING_PTR(line);
+  long len = RSTRING_LEN(line);
+  char qc = RSTRING_PTR(quote_char)[0];
+
+  long rfc_count = 0;
+  long escaped_count = 0;
+  bool escaped = false;
+
+  for (long i = 0; i < len; i++) {
+    if (str[i] == qc) {
+      rfc_count++;
+      if (!escaped) escaped_count++;
+      escaped = false;
+    } else if (str[i] == '\\') {
+      escaped = !escaped;
+    } else {
+      escaped = false;
+    }
+  }
+
+  VALUE result = rb_ary_new_capa(2);
+  rb_ary_push(result, LONG2FIX(escaped_count));
+  rb_ary_push(result, LONG2FIX(rfc_count));
+  return result;
 }
 
 void Init_smarter_csv(void) {
@@ -640,8 +703,9 @@ void Init_smarter_csv(void) {
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
   Qempty_string = rb_str_new_literal("");
   rb_gc_register_address(&Qempty_string);
-  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 6);
-  rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 2);
+  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
+  rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);
+  rb_define_module_function(Parser, "count_quote_chars_auto_c", rb_count_quote_chars_auto, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
-  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 9);
+  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 10);
 }

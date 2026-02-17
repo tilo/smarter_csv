@@ -2,6 +2,7 @@
 ### Contents
 
   * [**Introduction**](./_introduction.md)
+  * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
   * [Batch Processing](././batch_processing.md)
@@ -54,4 +55,4 @@ The CSV processing also needed to be robust against variations in the input data
   (planned feature)
 
 ---------------
-PREVIOUS [README](../README.md) | NEXT: [The Basic Read API](./basic_read_api.md)
+PREVIOUS [README](../README.md) | NEXT: [Parsing Strategy](./parsing_strategy.md)

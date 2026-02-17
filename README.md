@@ -111,6 +111,7 @@ Or install it yourself as:
 # Documentation
 
   * [Introduction](docs/_introduction.md)
+  * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)
   * [Batch Processing](./docs/batch_processing.md)
