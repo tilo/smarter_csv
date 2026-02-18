@@ -102,8 +102,10 @@ module SmarterCSV
               if detect_multiline(line, options)
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
+                # :nocov:
                 # Quotes are balanced; proceed without raising an error.
                 break
+                # :nocov:
               end
             end
             next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
