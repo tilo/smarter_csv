@@ -12,6 +12,8 @@ end
 optflags = "-O3 -flto -fomit-frame-pointer -DNDEBUG".dup
 optflags << " -march=native" unless RUBY_PLATFORM.start_with?("arm64-darwin")
 
+append_cflags('-Wno-compound-token-split-by-macro')
+
 CONFIG["optflags"] = optflags
 CONFIG["debugflags"] = ""
 
