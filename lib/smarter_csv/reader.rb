@@ -190,9 +190,9 @@ module SmarterCSV
       end
 
       # Fallback to Ruby implementation
-      count = 0
-
       if quote_escaping == :backslash
+        # Backslash mode: must walk character-by-character to track escape state
+        count = 0
         escaped = false
 
         line.each_char do |char|
@@ -205,14 +205,12 @@ module SmarterCSV
             escaped = false
           end
         end
+        count
       else
-        # :double_quotes mode — backslash has no special meaning
-        line.each_char do |char|
-          count += 1 if char == quote_char
-        end
+        # Optimization #3: double_quotes mode — use String#count (single C call,
+        # no per-character String allocation)
+        line.count(quote_char)
       end
-
-      count
     end
 
     # Returns [escaped_count, rfc_count] for :auto mode dual counting.
@@ -225,13 +223,21 @@ module SmarterCSV
         return SmarterCSV::Parser.count_quote_chars_auto_c(line, quote_char, col_sep)
       end
 
-      rfc_count = 0
+      # Optimization #3: rfc_count uses String#count (single C call)
+      rfc_count = line.count(quote_char)
+
+      # Optimization #9: if no backslashes in line, escaped_count == rfc_count
+      # (no escaping possible), skip the character-by-character walk entirely.
+      unless line.include?('\\')
+        return [rfc_count, rfc_count]
+      end
+
+      # escaped_count needs character-by-character walk for backslash tracking
       escaped_count = 0
       escaped = false
 
       line.each_char do |char|
         if char == quote_char
-          rfc_count += 1
           escaped_count += 1 unless escaped
           escaped = false
         elsif char == '\\'
@@ -248,7 +254,10 @@ module SmarterCSV
 
     # Determine if a line has unbalanced quotes requiring multiline stitching.
     # For :auto mode, uses dual counting to avoid false multiline detection.
+    # Optimization #8: skip quote counting entirely when line has no quote chars.
     def detect_multiline(line, options)
+      return false unless line.include?(options[:quote_char])
+
       if options[:quote_escaping] == :auto
         escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
         # If backslash-aware count is even → line is self-contained either way
@@ -267,10 +276,11 @@ module SmarterCSV
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
     BLANK_RE = /\A\s*\z/.freeze
 
+    # Optimization #5: fast-path empty string and nil checks before regex
     def blank?(value)
       case value
       when String
-        BLANK_RE.match?(value)
+        value.empty? || BLANK_RE.match?(value)
       when NilClass
         true
       when Array
