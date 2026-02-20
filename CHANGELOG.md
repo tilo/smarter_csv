@@ -9,7 +9,7 @@
  - 5.4× to 37.4× faster than SmarterCSV 1.14.4 (with C-acceleration)
  - 1.4× to 9.5× faster than SmarterCSV 1.14.4 (without C-acceleration, pure Ruby path)
 
- [More details here](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e)
+ [More details here](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [here](https://github.com/tilo/smarter_csv/pull/319)
 
 ## 1.15.1 (2026-02-17)
 
