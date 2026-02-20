@@ -30,7 +30,7 @@ For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to Smarter
 | vs SmarterCSV 1.14.4 (with acceleration) | 5.4× to 37.4x faster |
 | vs SmarterCSV 1.14.4 (pure Ruby)         | 1.4× to 9.5× faster  |
 | vs CSV.read  (arrays of arrays)          | 1.6x to 7.2x faster  |
-| vs CSV.table (arrays of hashes)          | 6× to 113× faster    |
+| vs CSV.table (arrays of hashes)          | 6.0× to 113.0× faster|
 | vs ZSV (arrays of hashes)                | 1.4× to 6.3× faster  |
 
  [More details here](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [here](https://github.com/tilo/smarter_csv/pull/319)
