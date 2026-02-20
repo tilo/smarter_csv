@@ -1,6 +1,16 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.15.2 (2026-02-20)
+
+* Performance Optimizations
+ - 1.6× to 7.2× faster than CSV.read
+ - 6× to 113× faster than Ruby’s CSV.table
+ - 5.4× to 37.4× faster than SmarterCSV 1.14.4 (with C-acceleration)
+ - 1.4× to 9.5× faster than SmarterCSV 1.14.4 (without C-acceleration, pure Ruby path)
+
+ [More details here](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e)
+
 ## 1.15.1 (2026-02-17)
 
 ### Bug Fix
