@@ -29,18 +29,18 @@ Learn more about this [in this section](docs/examples/row_col_sep.md).
 The simplified call to read CSV files is:
 
       ```
-         array_of_hashes = SmarterCSV.process(file_or_input, options, &block)
+         array_of_hashes = SmarterCSV.process(file_or_input, options)
 
       ```
-It can also be used with a block:
+It can also be used with a block. The block always receives an array of hashes and an optional chunk index:
 
       ```
-         SmarterCSV.process(file_or_input, options, &block) do |hash|
-            # process one row of CSV
+         SmarterCSV.process(file_or_input, options) do |array_of_hashes, chunk_index|
+            # without chunk_size, each yield contains a one-element array (one row)
          end
       ```
 
-It can also be used for processing batches of rows. An optional second block parameter provides the 0-based chunk index:
+When processing batches of rows, use the `chunk_size` option. The block receives an array of up to `chunk_size` hashes per yield:
 
       ```
          SmarterCSV.process(file_or_input, {chunk_size: 100}) do |array_of_hashes, chunk_index|
@@ -59,11 +59,11 @@ The simplified API works in most cases, but if you need access to the internal s
 
         puts reader.raw_headers
       ```
-It cal also be used with a block:
+It can also be used with a block. The block always receives an array of hashes and an optional chunk index:
 
-      ```      
+      ```
         reader = SmarterCSV::Reader.new(file_or_input, options)
-        data = reader.process do 
+        data = reader.process do |array_of_hashes, chunk_index|
            # do something here
         end
 
