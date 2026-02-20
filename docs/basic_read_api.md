@@ -39,7 +39,9 @@ It can also be used with a block. The block always receives an array of hashes a
            # without chunk_size, each yield conatins a one-element array (one row)
          end
       ```
+
 or
+
       ```
          SmarterCSV.process(file_or_input, options) do |array_of_hashes, chunk_index|
             # the chunk_index can be used to track chunks for parallel processing
