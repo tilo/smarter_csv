@@ -102,8 +102,10 @@ module SmarterCSV
               if detect_multiline(line, options)
                 raise MalformedCSV, "Unclosed quoted field detected in multiline data"
               else
+                # :nocov:
                 # Quotes are balanced; proceed without raising an error.
                 break
+                # :nocov:
               end
             end
             next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
@@ -119,40 +121,8 @@ module SmarterCSV
           end
           # :nocov:
 
-          line.chomp!(options[:row_sep])
-
-          # --- SPLIT LINE & DATA TRANSFORMATIONS ------------------------------------------------------------
-          # we are now stripping whitespace inside the parse() methods
-          # we create additional columns on-the-fly when we find more data fields than headers
-          hash, data_size = parse_line_to_hash(line, @headers, options)
-
-          # Handle extra columns (more data fields than headers)
-          if data_size > @headers.size
-            if options[:strict]
-              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
-            end
-
-            # Update headers array for subsequent rows
-            while @headers.size < data_size
-              @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
-            end
-          end
-
-          # if all values were blank (hash is nil) we ignore this CSV line
+          hash = process_line_to_hash(line, options)
           next if hash.nil?
-
-          # --- HASH TRANSFORMATIONS ------------------------------------------------------------
-
-          hash = hash_transformations(hash, options)
-
-          # --- HASH VALIDATIONS ----------------------------------------------------------------
-          # will go here, and be able to:
-          #  - validate correct format of the values for fields
-          #  - required fields to be non-empty
-          #  - ...
-          # -------------------------------------------------------------------------------------
-
-          next if options[:remove_empty_hashes] && hash.empty?
 
           puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
           # optional adding of csv_line_number to the hash to help debugging
@@ -220,9 +190,9 @@ module SmarterCSV
       end
 
       # Fallback to Ruby implementation
-      count = 0
-
       if quote_escaping == :backslash
+        # Backslash mode: must walk character-by-character to track escape state
+        count = 0
         escaped = false
 
         line.each_char do |char|
@@ -235,14 +205,12 @@ module SmarterCSV
             escaped = false
           end
         end
+        count
       else
-        # :double_quotes mode — backslash has no special meaning
-        line.each_char do |char|
-          count += 1 if char == quote_char
-        end
+        # Optimization #3: double_quotes mode — use String#count (single C call,
+        # no per-character String allocation)
+        line.count(quote_char)
       end
-
-      count
     end
 
     # Returns [escaped_count, rfc_count] for :auto mode dual counting.
@@ -255,13 +223,21 @@ module SmarterCSV
         return SmarterCSV::Parser.count_quote_chars_auto_c(line, quote_char, col_sep)
       end
 
-      rfc_count = 0
+      # Optimization #3: rfc_count uses String#count (single C call)
+      rfc_count = line.count(quote_char)
+
+      # Optimization #9: if no backslashes in line, escaped_count == rfc_count
+      # (no escaping possible), skip the character-by-character walk entirely.
+      unless line.include?('\\')
+        return [rfc_count, rfc_count]
+      end
+
+      # escaped_count needs character-by-character walk for backslash tracking
       escaped_count = 0
       escaped = false
 
       line.each_char do |char|
         if char == quote_char
-          rfc_count += 1
           escaped_count += 1 unless escaped
           escaped = false
         elsif char == '\\'
@@ -278,7 +254,10 @@ module SmarterCSV
 
     # Determine if a line has unbalanced quotes requiring multiline stitching.
     # For :auto mode, uses dual counting to avoid false multiline detection.
+    # Optimization #8: skip quote counting entirely when line has no quote chars.
     def detect_multiline(line, options)
+      return false unless line.include?(options[:quote_char])
+
       if options[:quote_escaping] == :auto
         escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
         # If backslash-aware count is even → line is self-contained either way
@@ -297,10 +276,11 @@ module SmarterCSV
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
     BLANK_RE = /\A\s*\z/.freeze
 
+    # Optimization #5: fast-path empty string and nil checks before regex
     def blank?(value)
       case value
       when String
-        BLANK_RE.match?(value)
+        value.empty? || BLANK_RE.match?(value)
       when NilClass
         true
       when Array
@@ -313,6 +293,67 @@ module SmarterCSV
     end
 
     private
+
+    # Parses a CSV line into a hash, applying transformations and filtering.
+    # Returns the finished hash, or nil if the row should be skipped.
+    def process_line_to_hash(line, options)
+      # --- SPLIT LINE & DATA TRANSFORMATIONS --------------------------------
+      # we are now stripping whitespace inside the parse() methods
+      # we create additional columns on-the-fly when we find more data fields than headers
+      hash, data_size = parse_line_to_hash(line, @headers, options)
+
+      # Handle extra columns (more data fields than headers)
+      if data_size > @headers.size
+        if options[:strict]
+          raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
+        end
+
+        # Update headers array for subsequent rows
+        while @headers.size < data_size
+          @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
+        end
+      end
+
+      # if all values were blank (hash is nil) we ignore this CSV line
+      return nil if hash.nil?
+
+      # --- HASH TRANSFORMATIONS / POST-FILTERS --------------------------------
+      if options[:acceleration] && @has_acceleration
+        # C already handled: remove_empty_values, convert_values_to_numeric, remove_zero_values.
+        # Clean up nil/empty keys (from key_mapping setting keys to nil)
+        hash.delete(nil)
+        hash.delete('')
+        hash.delete(:"")
+
+        # Only these Ruby-only post-filters remain (user-provided Ruby objects):
+        if options[:remove_values_matching]
+          hash.delete_if do |_k, v|
+            str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+            str_val && options[:remove_values_matching].match?(str_val)
+          end
+        end
+
+        if options[:value_converters]
+          options[:value_converters].each do |key, converter|
+            hash[key] = converter.convert(hash[key]) if hash.key?(key)
+          end
+        end
+      else
+        # Ruby fallback: all transformations done in Ruby
+        hash = hash_transformations(hash, options)
+      end
+
+      # --- HASH VALIDATIONS -------------------------------------------------
+      # will go here, and be able to:
+      #  - validate correct format of the values for fields
+      #  - required fields to be non-empty
+      #  - ...
+      # -----------------------------------------------------------------------
+
+      return nil if options[:remove_empty_hashes] && hash.empty?
+
+      hash
+    end
 
     def enforce_utf8_encoding(line, options)
       # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i

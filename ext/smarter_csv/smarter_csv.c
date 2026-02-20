@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #ifndef bool
   #define bool int
@@ -30,6 +32,12 @@ VALUE Parser = Qnil;
 // whitespace-only fields also become empty. Reusing a single frozen empty string
 // significantly reduces object allocations and GC pressure.
 VALUE Qempty_string = Qnil;
+
+// Cached symbol IDs for fast options hash lookups (computed once at init)
+static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
+static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
+static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
+static ID id_only, id_except;
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   char *buf = ALLOC_N(char, len);
@@ -282,6 +290,189 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
 
 /*
  * ================================================================================
+ * try_numeric_conversion - Attempt to convert a raw C string to integer or float
+ * ================================================================================
+ *
+ * Tries to parse the trimmed field as an integer (strtol) or float (strtod).
+ * Returns the converted Ruby numeric value, or Qundef if the field is not numeric.
+ *
+ * This avoids creating a Ruby String object for fields that will become numbers,
+ * eliminating both the string allocation and the later regex + to_i/to_f in Ruby.
+ *
+ * Handles overflow: if strtol overflows (ERANGE), falls back to rb_cstr_to_inum
+ * which produces a Ruby Bignum.
+ */
+static inline VALUE try_numeric_conversion(char *trim_start, long trimmed_len) {
+  // Quick pre-check: first char must be digit, +, -, or .
+  char first = trim_start[0];
+  if (!((first >= '0' && first <= '9') || first == '+' || first == '-' || first == '.')) {
+    return Qundef;
+  }
+
+  // Need null-terminated string for strtol/strtod; use stack buffer for typical fields
+  if (trimmed_len >= 63) return Qundef;  // very long fields are unlikely to be simple numbers
+
+  char num_buf[64];
+  memcpy(num_buf, trim_start, trimmed_len);
+  num_buf[trimmed_len] = '\0';
+
+  char *endptr;
+
+  // Try integer first (most common numeric type in CSV)
+  // Don't try integer if field starts with '.' (e.g., ".5")
+  if (first != '.') {
+    errno = 0;
+    long int_val = strtol(num_buf, &endptr, 10);
+    if (endptr == num_buf + trimmed_len) {
+      // Entire string was consumed → valid integer
+      if (errno == ERANGE) {
+        // Overflow: fall back to Ruby Bignum
+        return rb_cstr_to_inum(num_buf, 10, false);
+      }
+      return LONG2NUM(int_val);
+    }
+  }
+
+  // Try float (only if contains '.')
+  if (memchr(num_buf, '.', trimmed_len)) {
+    errno = 0;
+    double float_val = strtod(num_buf, &endptr);
+    if (endptr == num_buf + trimmed_len && errno != ERANGE) {
+      return DBL2NUM(float_val);
+    }
+  }
+
+  return Qundef;  // not numeric
+}
+
+/*
+ * ================================================================================
+ * Transformation options struct - passed to insert_field_into_hash to avoid
+ * repeating 10+ parameters at each of the 4 field-insertion call sites.
+ * ================================================================================
+ */
+typedef struct {
+  VALUE hash;               // Lazily allocated: starts as Qnil, allocated on first insert
+  VALUE headers;
+  VALUE numeric_keys;
+  rb_encoding *encoding;
+  const char *prefix_str;
+  long headers_len;
+  long hash_capa;           // Pre-computed capacity for lazy hash allocation
+  int numeric_mode;         // 0=off, 1=all, 2=only, 3=except
+  bool remove_empty_values;
+  bool remove_zero_values;
+} field_transform_opts;
+
+/*
+ * ensure_hash_allocated - Lazily allocate the hash on first field insertion.
+ * Avoids rb_hash_new_capa + GC registration for rows that are entirely blank
+ * or filtered out (all values removed by transforms).
+ */
+static inline void ensure_hash_allocated(field_transform_opts *opts) {
+  if (__builtin_expect(NIL_P(opts->hash), 0)) {
+    opts->hash = rb_hash_new_capa(opts->hash_capa);
+  }
+}
+
+/*
+ * ================================================================================
+ * insert_field_into_hash - Process a single parsed field and insert into hash
+ * ================================================================================
+ *
+ * Applies the full transformation pipeline to a single field:
+ *   1. Skip empty/blank fields (when remove_empty_values is true)
+ *   2. Skip zero values via string scan (when remove_zero_values is true)
+ *      Works independently of numeric conversion — matches /\A0+(?:\.0+)?\z/
+ *   3. Try numeric conversion (strtol/strtod) — avoids Ruby String allocation
+ *   4. Insert the final value into the hash as String
+ *
+ * For quoted fields, pass is_quoted=true — numeric conversion is skipped since
+ * the raw C string may differ from the unescaped content.
+ *
+ * Returns: true if a non-blank value was inserted, false otherwise.
+ *          (Used to track all_blank for remove_empty_hashes.)
+ */
+static inline bool insert_field_into_hash(
+    field_transform_opts *opts,
+    char *trim_start, long trimmed_len,
+    long element_count, bool is_quoted,
+    char quote_char_val, rb_encoding *encoding
+) {
+  VALUE key = get_key_for_index(element_count, opts->headers, opts->headers_len, opts->prefix_str);
+
+  // 1. Empty/blank field handling
+  // Check if field is blank: either zero-length, or all whitespace characters.
+  // This matches Ruby's blank? behavior (BLANK_RE = /\A\s*\z/) which considers
+  // spaces, tabs, \r, \n, \v, \f as whitespace.
+  if (opts->remove_empty_values) {
+    bool is_blank = true;
+    for (long i = 0; i < trimmed_len; i++) {
+      char c = trim_start[i];
+      if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != '\v' && c != '\f') {
+        is_blank = false;
+        break;
+      }
+    }
+    if (is_blank) return false;  // skip blank value
+  }
+
+  if (trimmed_len == 0) {
+    ensure_hash_allocated(opts);
+    rb_hash_aset(opts->hash, key, Qempty_string);
+    return false;  // not a non-blank value
+  }
+
+  // 2. Quoted field: unescape and insert (no numeric conversion on raw quoted data)
+  if (is_quoted) {
+    VALUE field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+    ensure_hash_allocated(opts);
+    rb_hash_aset(opts->hash, key, field);
+    return true;
+  }
+
+  // 3. String-based zero check — matches /\A0+(?:\.0+)?\z/
+  // Works independently of numeric conversion: "0", "00", "0.0", "00.00" etc.
+  if (opts->remove_zero_values) {
+    long i = 0;
+    // Must start with at least one '0'
+    if (trimmed_len > 0 && trim_start[0] == '0') {
+      while (i < trimmed_len && trim_start[i] == '0') i++;
+      if (i == trimmed_len) return false;  // all zeros, e.g. "0", "00"
+      if (trim_start[i] == '.') {
+        i++;
+        long dot_pos = i;
+        while (i < trimmed_len && trim_start[i] == '0') i++;
+        // Valid if we consumed everything AND had at least one zero after dot
+        if (i == trimmed_len && i > dot_pos) return false;  // e.g. "0.0", "00.00"
+      }
+    }
+  }
+
+  // 4. Try numeric conversion before creating a Ruby string
+  if (opts->numeric_mode > 0) {
+    bool do_convert = (opts->numeric_mode == 1) ||
+                      (opts->numeric_mode == 2 && rb_ary_includes(opts->numeric_keys, key) == Qtrue) ||
+                      (opts->numeric_mode == 3 && rb_ary_includes(opts->numeric_keys, key) != Qtrue);
+    if (do_convert) {
+      VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+      if (numeric != Qundef) {
+        ensure_hash_allocated(opts);
+        rb_hash_aset(opts->hash, key, numeric);
+        return true;
+      }
+    }
+  }
+
+  // 5. Not numeric: insert as string
+  VALUE field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+  ensure_hash_allocated(opts);
+  rb_hash_aset(opts->hash, key, field);
+  return true;
+}
+
+/*
+ * ================================================================================
  * rb_parse_line_to_hash - Parse CSV line directly into a Ruby Hash
  * ================================================================================
  *
@@ -322,10 +513,7 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
  * Input:  line = "john,25,boston,extra" (more fields than headers)
  * Output: [{name: "john", age: "25", city: "boston", column_4: "extra"}, 4]
  */
-static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE col_sep,
-                                    VALUE quote_char, VALUE header_prefix, VALUE has_quotes_val,
-                                    VALUE strip_ws_val, VALUE remove_empty_val, VALUE remove_empty_values_val,
-                                    VALUE allow_escaped_quotes_val) {
+static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE options_hash) {
 
   /* ----------------------------------------
    * SECTION 1: Handle nil/invalid input
@@ -342,15 +530,62 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   }
 
   /* ----------------------------------------
-   * SECTION 2: Extract parameters from Ruby objects
+   * SECTION 2: Extract options from hash and convert to C types
    * ----------------------------------------
-   * Convert Ruby objects to C types for efficient access during parsing.
+   * Options are extracted once per line using cached symbol IDs
+   * for fast hash lookups (symbol comparison is pointer equality).
    */
+  VALUE col_sep = rb_hash_aref(options_hash, ID2SYM(id_col_sep));
+  VALUE quote_char = rb_hash_aref(options_hash, ID2SYM(id_quote_char));
+  VALUE header_prefix = rb_hash_aref(options_hash, ID2SYM(id_missing_header_prefix));
+  VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
+  bool strip_ws = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strip_whitespace)));
+  bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
+  bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
+  bool remove_zero_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
+
+  // Numeric conversion: supports true (all), {only: [...]}, {except: [...]}
+  // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
+  int numeric_mode = 0;
+  VALUE numeric_keys = Qnil;
+  VALUE convert_opt = rb_hash_aref(options_hash, ID2SYM(id_convert_values_to_numeric));
+  if (RTEST(convert_opt)) {
+    if (RB_TYPE_P(convert_opt, T_HASH)) {
+      VALUE only_keys = rb_hash_aref(convert_opt, ID2SYM(id_only));
+      VALUE except_keys = rb_hash_aref(convert_opt, ID2SYM(id_except));
+      if (RTEST(only_keys)) {
+        numeric_mode = 2;
+        numeric_keys = rb_Array(only_keys);   // wrap single value in array if needed
+      } else if (RTEST(except_keys)) {
+        numeric_mode = 3;
+        numeric_keys = rb_Array(except_keys); // wrap single value in array if needed
+      }
+    } else {
+      numeric_mode = 1;  // convert all
+    }
+  }
+
+  // Determine if backslash-escaped quotes are allowed
+  bool allow_escaped_quotes = false;
+  if (RB_TYPE_P(quote_escaping_val, T_SYMBOL)) {
+    allow_escaped_quotes = (SYM2ID(quote_escaping_val) == rb_intern("backslash"));
+  }
+
   rb_encoding *encoding = rb_enc_get(line);      // Preserve string encoding
   char *startP = RSTRING_PTR(line);              // Pointer to start of current field
   long line_len = RSTRING_LEN(line);
   char *endP = startP + line_len;                // End of line marker
   char *p = startP;                              // Current parsing position
+
+  // Chomp: strip trailing row separator (pointer adjustment, no string mutation)
+  VALUE row_sep = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
+  if (!NIL_P(row_sep) && RB_TYPE_P(row_sep, T_STRING)) {
+    char *row_sepP = RSTRING_PTR(row_sep);
+    long row_sep_len = RSTRING_LEN(row_sep);
+    if (line_len >= row_sep_len && memcmp(endP - row_sep_len, row_sepP, row_sep_len) == 0) {
+      endP -= row_sep_len;
+    }
+  }
 
   char *col_sepP = RSTRING_PTR(col_sep);
   long col_sep_len = RSTRING_LEN(col_sep);
@@ -362,22 +597,33 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   const char *prefix_str = NIL_P(header_prefix) ? "column_" : RSTRING_PTR(header_prefix);
 
   long headers_len = NIL_P(headers) ? 0 : RARRAY_LEN(headers);
-  bool has_quotes = RTEST(has_quotes_val);       // Hint: does line contain quotes?
-  bool strip_ws = RTEST(strip_ws_val);           // Strip whitespace from fields?
-  bool remove_empty = RTEST(remove_empty_val);   // Skip rows with all blank values?
-  bool remove_empty_values = RTEST(remove_empty_values_val); // If true, don't add nil for missing cols
-  bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
+  // Optimization hint: check if line contains quote characters
+  bool has_quotes = (memchr(startP, quote_char_val, line_len) != NULL);
 
   /* ----------------------------------------
    * SECTION 3: Initialize hash and tracking variables
    * ----------------------------------------
-   * Pre-allocate hash with expected capacity for better performance.
+   * Hash is lazily allocated on first field insertion to avoid
+   * rb_hash_new_capa + GC registration for rows that are entirely blank
+   * or filtered out (all values removed by transforms).
    */
   long hash_size = headers_len > 0 ? headers_len : 16;
-  VALUE hash = rb_hash_new_capa(hash_size);      // Pre-sized hash for efficiency
-  VALUE field;                                   // Current field value
   long element_count = 0;                        // Number of fields parsed
   bool all_blank = true;                         // Track if all fields are blank
+
+  // Transformation options struct — shared across all field-insertion call sites
+  field_transform_opts xform = {
+    .hash = Qnil,                                // Lazily allocated on first insert
+    .headers = headers,
+    .numeric_keys = numeric_keys,
+    .encoding = encoding,
+    .prefix_str = prefix_str,
+    .headers_len = headers_len,
+    .hash_capa = hash_size,
+    .numeric_mode = numeric_mode,
+    .remove_empty_values = remove_empty_values,
+    .remove_zero_values = remove_zero_values,
+  };
 
   /* ========================================
    * SECTION 4: FAST PATH - No quotes, single-char separator
@@ -395,9 +641,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     while ((sep_pos = memchr(p, sep, endP - p))) {
       // Extract field boundaries
       long field_len = sep_pos - startP;
-      char *raw_field = startP;
-      char *trim_start = raw_field;
-      char *trim_end = raw_field + field_len - 1;
+      char *trim_start = startP;
+      char *trim_end = startP + field_len - 1;
 
       // Optional whitespace trimming (spaces and tabs only)
       if (strip_ws) {
@@ -407,13 +652,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
       long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
-      // Create field value: use shared empty string for empty fields to reduce allocations
-      field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
-      if (all_blank && trimmed_len > 0) all_blank = false;
-
-      // Insert field directly into hash with appropriate key
-      VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
-      rb_hash_aset(hash, key, field);
+      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+        all_blank = false;
       element_count++;
 
       // Move to next field
@@ -422,24 +662,22 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     }
 
     /* Process the last field (no separator after it) */
-    long field_len = endP - startP;
-    char *raw_field = startP;
-    char *trim_start = raw_field;
-    char *trim_end = raw_field + field_len - 1;
+    {
+      long field_len = endP - startP;
+      char *trim_start = startP;
+      char *trim_end = startP + field_len - 1;
 
-    if (strip_ws) {
-      while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-      while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+
+      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+        all_blank = false;
+      element_count++;
     }
-
-    long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-    field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
-    if (all_blank && trimmed_len > 0) all_blank = false;
-
-    VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
-    rb_hash_aset(hash, key, field);
-    element_count++;
 
   } else {
     /* ========================================
@@ -490,21 +728,11 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
         long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
-        // Create field value, handling escaped quotes if present
-        if (trimmed_len == 0) {
-          field = Qempty_string;
-        } else if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
-          // Field contains quotes - need to unescape doubled quotes ("" -> ")
-          field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
-          all_blank = false;
-        } else {
-          field = rb_enc_str_new(trim_start, trimmed_len, encoding);
-          all_blank = false;
-        }
+        // Determine if field contains embedded quotes (need unescape)
+        bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
 
-        // Insert field directly into hash
-        VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
-        rb_hash_aset(hash, key, field);
+        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+          all_blank = false;
         element_count++;
 
         // Move past the separator to start of next field
@@ -536,38 +764,32 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     }
 
     /* Process the last field (same logic as above) */
-    long field_len = endP - startP;
-    char *raw_field = startP;
+    {
+      long field_len = endP - startP;
+      char *raw_field = startP;
 
-    bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-    if (quoted) {
-      raw_field++;
-      field_len -= 2;
+      bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
+      if (quoted) {
+        raw_field++;
+        field_len -= 2;
+      }
+
+      char *trim_start = raw_field;
+      char *trim_end = raw_field + field_len - 1;
+
+      if (strip_ws) {
+        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+      }
+
+      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+
+      bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
+
+      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+        all_blank = false;
+      element_count++;
     }
-
-    char *trim_start = raw_field;
-    char *trim_end = raw_field + field_len - 1;
-
-    if (strip_ws) {
-      while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-      while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-    }
-
-    long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-    if (trimmed_len == 0) {
-      field = Qempty_string;
-    } else if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
-      field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
-      all_blank = false;
-    } else {
-      field = rb_enc_str_new(trim_start, trimmed_len, encoding);
-      all_blank = false;
-    }
-
-    VALUE key = get_key_for_index(element_count, headers, headers_len, prefix_str);
-    rb_hash_aset(hash, key, field);
-    element_count++;
   }
 
   /* ----------------------------------------
@@ -575,6 +797,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * ----------------------------------------
    * If remove_empty_hashes is enabled and all fields were blank,
    * return nil instead of the hash so the row can be skipped.
+   * With lazy allocation, if all_blank is true, xform.hash is still Qnil —
+   * no hash was ever allocated.
    */
   if (remove_empty && all_blank) {
     VALUE result = rb_ary_new_capa(2);
@@ -591,8 +815,9 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * hash_transformations, so we skip this for efficiency.
    */
   if (!remove_empty_values) {
+    ensure_hash_allocated(&xform);
     for (long i = element_count; i < headers_len; i++) {
-      rb_hash_aset(hash, rb_ary_entry(headers, i), Qnil);
+      rb_hash_aset(xform.hash, rb_ary_entry(headers, i), Qnil);
     }
   }
 
@@ -603,7 +828,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * (when element_count > headers_len) and extend headers if needed.
    */
   VALUE result = rb_ary_new_capa(2);
-  rb_ary_push(result, hash);
+  rb_ary_push(result, xform.hash);
   rb_ary_push(result, LONG2FIX(element_count));
   return result;
 }
@@ -703,9 +928,24 @@ void Init_smarter_csv(void) {
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
   Qempty_string = rb_str_new_literal("");
   rb_gc_register_address(&Qempty_string);
+
+  // Cache symbol IDs for fast options hash lookups
+  id_col_sep = rb_intern("col_sep");
+  id_quote_char = rb_intern("quote_char");
+  id_row_sep = rb_intern("row_sep");
+  id_missing_header_prefix = rb_intern("missing_header_prefix");
+  id_strip_whitespace = rb_intern("strip_whitespace");
+  id_remove_empty_hashes = rb_intern("remove_empty_hashes");
+  id_remove_empty_values = rb_intern("remove_empty_values");
+  id_quote_escaping = rb_intern("quote_escaping");
+  id_convert_values_to_numeric = rb_intern("convert_values_to_numeric");
+  id_remove_zero_values = rb_intern("remove_zero_values");
+  id_only = rb_intern("only");
+  id_except = rb_intern("except");
+
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);
   rb_define_module_function(Parser, "count_quote_chars_auto_c", rb_count_quote_chars_auto, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
-  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 10);
+  rb_define_module_function(Parser, "parse_line_to_hash_c", rb_parse_line_to_hash, 3);
 }

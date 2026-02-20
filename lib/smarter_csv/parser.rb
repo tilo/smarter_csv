@@ -41,8 +41,9 @@ module SmarterCSV
           [elements, elements.size]
           # :nocov:
         else
-          backslash_options = options.merge(quote_escaping: :backslash)
-          parse_csv_line_ruby(line, backslash_options, header_size, has_quotes)
+          # Optimization #4: cache merged options hashes for :auto mode
+          @backslash_options ||= options.merge(quote_escaping: :backslash)
+          parse_csv_line_ruby(line, @backslash_options, header_size, has_quotes)
         end
       rescue MalformedCSV
         # Backslash interpretation failed — fall back to RFC 4180
@@ -52,8 +53,9 @@ module SmarterCSV
           [elements, elements.size]
           # :nocov:
         else
-          rfc_options = options.merge(quote_escaping: :double_quotes)
-          parse_csv_line_ruby(line, rfc_options, header_size, has_quotes)
+          # Optimization #4: cache merged options hashes for :auto mode
+          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
+          parse_csv_line_ruby(line, @rfc_options, header_size, has_quotes)
         end
       end
     end
@@ -64,59 +66,45 @@ module SmarterCSV
       if options[:quote_escaping] == :auto
         parse_line_to_hash_auto(line, headers, options)
       else
-        has_quotes = line.include?(options[:quote_char])
-
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line,
-            headers,
-            options[:col_sep],
-            options[:quote_char],
-            options[:missing_header_prefix],
-            has_quotes,
-            options[:strip_whitespace],
-            options[:remove_empty_hashes],
-            options[:remove_empty_values],
-            options[:quote_escaping] == :backslash
-          )
+          parse_line_to_hash_c(line, headers, options)
           # :nocov:
         else
+          has_quotes = line.include?(options[:quote_char])
           parse_line_to_hash_ruby(line, headers, options, has_quotes)
         end
       end
     end
 
     def parse_line_to_hash_auto(line, headers, options)
-      has_quotes = line.include?(options[:quote_char])
-
       begin
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line, headers, options[:col_sep], options[:quote_char],
-            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
-            options[:remove_empty_hashes], options[:remove_empty_values], true
-          )
+          # Optimization #4: cache merged options hashes for :auto mode
+          @backslash_options ||= options.merge(quote_escaping: :backslash)
+          parse_line_to_hash_c(line, headers, @backslash_options)
           # :nocov:
         else
-          backslash_options = options.merge(quote_escaping: :backslash)
-          parse_line_to_hash_ruby(line, headers, backslash_options, has_quotes)
+          has_quotes = line.include?(options[:quote_char])
+          # Optimization #4: cache merged options hashes for :auto mode
+          @backslash_options ||= options.merge(quote_escaping: :backslash)
+          parse_line_to_hash_ruby(line, headers, @backslash_options, has_quotes)
         end
       rescue MalformedCSV
         # Backslash interpretation failed — fall back to RFC 4180
         if options[:acceleration] && has_acceleration
           # :nocov:
-          parse_line_to_hash_c(
-            line, headers, options[:col_sep], options[:quote_char],
-            options[:missing_header_prefix], has_quotes, options[:strip_whitespace],
-            options[:remove_empty_hashes], options[:remove_empty_values], false
-          )
+          # Optimization #4: cache merged options hashes for :auto mode
+          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
+          parse_line_to_hash_c(line, headers, @rfc_options)
           # :nocov:
         else
-          rfc_options = options.merge(quote_escaping: :double_quotes)
-          parse_line_to_hash_ruby(line, headers, rfc_options, has_quotes)
+          has_quotes = line.include?(options[:quote_char])
+          # Optimization #4: cache merged options hashes for :auto mode
+          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
+          parse_line_to_hash_ruby(line, headers, @rfc_options, has_quotes)
         end
       end
     end
@@ -125,12 +113,22 @@ module SmarterCSV
     def parse_line_to_hash_ruby(line, headers, options, has_quotes = false)
       return [nil, 0] if line.nil?
 
+      # Chomp trailing row separator
+      line = line.chomp(options[:row_sep]) if options[:row_sep]
+
       # Parse the line into values
       elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
 
-      # Check if all values are blank
-      if options[:remove_empty_hashes] && (elements.empty? || elements.all? { |v| v.nil? || v.to_s.strip.empty? })
-        return [nil, data_size]
+      # Optimization #6: elements are always String or nil from parse_csv_line_ruby,
+      # so .to_s is unnecessary. If strip_whitespace is on, fields are already
+      # stripped, so .strip is also redundant — just check .empty?.
+      if options[:remove_empty_hashes]
+        all_blank = if options[:strip_whitespace]
+                      elements.empty? || elements.all? { |v| v.nil? || v.empty? }
+                    else
+                      elements.empty? || elements.all? { |v| v.nil? || v.strip.empty? }
+                    end
+        return [nil, data_size] if all_blank
       end
 
       # Build the hash - only include keys for values that exist
@@ -176,11 +174,33 @@ module SmarterCSV
     #
     # Our convention is that empty fields are returned as empty strings, not as nil.
 
-    def parse_csv_line_ruby(line, options, header_size = nil, _has_quotes = false)
+    def parse_csv_line_ruby(line, options, header_size = nil, has_quotes = false)
       return [[], 0] if line.nil?
 
-      line_size = line.size
       col_sep = options[:col_sep]
+      strip = options[:strip_whitespace]
+
+      # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
+      # always pass this, but direct callers may not)
+      has_quotes = line.include?(options[:quote_char]) unless has_quotes
+
+      # Optimization #7: when line has no quotes, use String#split (C-implemented)
+      # to bypass the entire character-by-character loop.
+      # Note: String#split(" ") has special whitespace-collapsing behavior in Ruby,
+      # so we must use a literal string pattern only for non-space separators,
+      # or fall through to the character loop for space separators.
+      unless has_quotes || col_sep == ' '
+        if header_size && header_size <= 0
+          return [[], 0]
+        end
+        elements = line.split(col_sep, -1) # -1 preserves trailing empty fields
+        elements = elements[0, header_size] if header_size
+        elements.map!(&:strip) if strip
+        return [elements, elements.size]
+      end
+
+      # Quoted-line path: character-by-character parsing required
+      line_size = line.size
       col_sep_size = col_sep.size
       quote = options[:quote_char]
       elements = []
@@ -191,27 +211,58 @@ module SmarterCSV
       in_quotes = false
       allow_escaped_quotes = options[:quote_escaping] == :backslash
 
-      while i < line_size
-        # Check if the current position matches the column separator and we're not inside quotes
-        if line[i...i+col_sep_size] == col_sep && !in_quotes
-          break if !header_size.nil? && elements.size >= header_size
+      # Optimization #1: for the common single-char separator, use direct
+      # character comparison instead of allocating a substring via line[i...i+n].
+      if col_sep_size == 1
+        while i < line_size
+          if line[i] == col_sep && !in_quotes
+            break if !header_size.nil? && elements.size >= header_size
 
-          elements << cleanup_quotes(line[start...i], quote)
-          i += col_sep_size
-          start = i
-          backslash_count = 0
-        else
-          if allow_escaped_quotes && line[i] == '\\'
-            backslash_count += 1
-          else
-            if line[i] == quote
-              if !allow_escaped_quotes || backslash_count % 2 == 0
-                in_quotes = !in_quotes
-              end
-            end
+            field = line[start...i]
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
+            i += 1
+            start = i
             backslash_count = 0
+          else
+            if allow_escaped_quotes && line[i] == '\\'
+              backslash_count += 1
+            else
+              if line[i] == quote
+                if !allow_escaped_quotes || backslash_count % 2 == 0
+                  in_quotes = !in_quotes
+                end
+              end
+              backslash_count = 0
+            end
+            i += 1
           end
-          i += 1
+        end
+      else
+        # Multi-char col_sep: use substring comparison (original path)
+        while i < line_size
+          if line[i...i+col_sep_size] == col_sep && !in_quotes
+            break if !header_size.nil? && elements.size >= header_size
+
+            field = line[start...i]
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
+            i += col_sep_size
+            start = i
+            backslash_count = 0
+          else
+            if allow_escaped_quotes && line[i] == '\\'
+              backslash_count += 1
+            else
+              if line[i] == quote
+                if !allow_escaped_quotes || backslash_count % 2 == 0
+                  in_quotes = !in_quotes
+                end
+              end
+              backslash_count = 0
+            end
+            i += 1
+          end
         end
       end
 
@@ -224,10 +275,11 @@ module SmarterCSV
 
       # Process the remaining field
       if header_size.nil? || elements.size < header_size
-        elements << cleanup_quotes(line[start..-1], quote)
+        field = line[start..-1]
+        field = cleanup_quotes(field, quote)
+        elements << (strip ? field.strip : field)
       end
 
-      elements.map!(&:strip) if options[:strip_whitespace]
       [elements, elements.size]
     end
 
