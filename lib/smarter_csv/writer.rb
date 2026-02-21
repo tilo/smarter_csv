@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'tempfile'
+require 'stringio'
 
 module SmarterCSV
   #
@@ -42,7 +43,7 @@ module SmarterCSV
   attr_reader :options, :row_sep, :col_sep, :quote_char, :force_quotes, :discover_headers, :headers, :map_headers, :output_file
 
   class Writer
-    def initialize(file_path, options = {})
+    def initialize(file_path_or_io, options = {})
       @options = options
 
       @row_sep = options[:row_sep] || $/
@@ -68,8 +69,15 @@ module SmarterCSV
       @headers = options[:map_headers].keys if options.has_key?(:map_headers) && !options.has_key?(:headers)
       @map_headers = options[:map_headers] || {}
 
-      @output_file = File.open(file_path, 'w+')
-      @temp_file = Tempfile.new('tempfile', '/tmp')
+      # Accept a file path (String) or any IO-like object (StringIO, IO, etc.)
+      if file_path_or_io.is_a?(String)
+        @output_file = File.open(file_path_or_io, 'w+')
+        @file_opened_by_us = true
+      else
+        @output_file = file_path_or_io
+        @file_opened_by_us = false
+      end
+      @temp_file = Tempfile.new('smarter_csv')
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
     end
 
@@ -100,8 +108,8 @@ module SmarterCSV
       @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?
       @output_file.write(@temp_file.read)
       @output_file.flush
-      @output_file.close
-      @temp_file.delete
+      @output_file.close if @file_opened_by_us # only close files we opened; caller owns external IO objects
+      @temp_file.close!
     end
 
     private
