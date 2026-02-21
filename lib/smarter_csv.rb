@@ -80,13 +80,13 @@ module SmarterCSV
   # end
   #
   # rubocop:disable Lint/UnusedMethodArgument
-  def self.generate(filename, options = {}, &block)
+  def self.generate(file_path_or_io, options = {}, &block)
     raise unless block_given?
 
-    writer = Writer.new(filename, options)
+    writer = Writer.new(file_path_or_io, options)
     yield writer
   ensure
-    writer.finalize
+    writer&.finalize
   end
   # rubocop:enable Lint/UnusedMethodArgument
 end
