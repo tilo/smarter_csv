@@ -40,8 +40,17 @@ fixture_path = 'spec/fixtures'
       context "malformed quotes in content" do
         let(:csv_path) { "#{fixture_path}/malformed_data_gobbled.csv" }
 
-        it 'should raise MalformedCSV error' do
-          expect { reader.process }.to raise_error(SmarterCSV::MalformedCSV, /Unclosed quoted field detected/)
+        # In :standard mode (default), a trailing " in a value like 6'2" is a literal
+        # mid-field quote — parsed cleanly as a string.
+        it 'parses trailing quote as literal in :standard mode' do
+          data = reader.process
+          expect(data[0]).to eq({ name: "Arnold Schwarzenegger", dob: "1947-07-30", height: '6\'2"' })
+        end
+
+        # In :legacy mode, the trailing " toggles quoted state → unclosed → MalformedCSV
+        it 'raises MalformedCSV in :legacy mode' do
+          legacy_reader = SmarterCSV::Reader.new(csv_path, options.merge(quote_boundary: :legacy))
+          expect { legacy_reader.process }.to raise_error(SmarterCSV::MalformedCSV, /Unclosed quoted field detected/)
         end
       end
     end

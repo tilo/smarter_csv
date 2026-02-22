@@ -20,7 +20,7 @@ module SmarterCSV
 
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash)
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
@@ -37,7 +37,7 @@ module SmarterCSV
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true)
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
@@ -49,7 +49,7 @@ module SmarterCSV
         # Backslash interpretation failed — fall back to RFC 4180
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false)
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
@@ -210,6 +210,10 @@ module SmarterCSV
       backslash_count = 0
       in_quotes = false
       allow_escaped_quotes = options[:quote_escaping] == :backslash
+      quote_boundary_standard = options[:quote_boundary] == :standard
+      field_started = false # for boundary tracking (standard mode only)
+      row_sep = options[:row_sep]
+      row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
 
       # Optimization #1: for the common single-char separator, use direct
       # character comparison instead of allocating a substring via line[i...i+n].
@@ -224,14 +228,39 @@ module SmarterCSV
             i += 1
             start = i
             backslash_count = 0
+            field_started = false # reset for next field
           else
             if allow_escaped_quotes && line[i] == '\\'
               backslash_count += 1
+              field_started = true if quote_boundary_standard && !in_quotes
             else
               if line[i] == quote
                 if !allow_escaped_quotes || backslash_count % 2 == 0
-                  in_quotes = !in_quotes
+                  if quote_boundary_standard
+                    if in_quotes
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      next_i = i + 1
+                      if next_i >= line_size ||
+                         line[next_i] == col_sep ||
+                         (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                        in_quotes = false
+                        field_started = true
+                      end
+                      # else: quote inside quoted field → literal (handles "" doubling)
+                    elsif !field_started  # at field boundary: open quoted field
+                      in_quotes = true
+                      field_started = true
+                    end
+                    # else: mid-field quote → literal, no state change
+                  else
+                    in_quotes = !in_quotes
+                  end
                 end
+              elsif quote_boundary_standard && !in_quotes
+                # Non-quote, non-separator: track field content for boundary detection
+                # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+                field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
+                # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
             end
@@ -250,14 +279,38 @@ module SmarterCSV
             i += col_sep_size
             start = i
             backslash_count = 0
+            field_started = false # reset for next field
           else
             if allow_escaped_quotes && line[i] == '\\'
               backslash_count += 1
+              field_started = true if quote_boundary_standard && !in_quotes
             else
               if line[i] == quote
                 if !allow_escaped_quotes || backslash_count % 2 == 0
-                  in_quotes = !in_quotes
+                  if quote_boundary_standard
+                    if in_quotes
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      next_i = i + 1
+                      if next_i >= line_size ||
+                         line[next_i...next_i + col_sep_size] == col_sep ||
+                         (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                        in_quotes = false
+                        field_started = true
+                      end
+                      # else: quote inside quoted field → literal (handles "" doubling)
+                    elsif !field_started  # at field boundary: open quoted field
+                      in_quotes = true
+                      field_started = true
+                    end
+                    # else: mid-field quote → literal, no state change
+                  else
+                    in_quotes = !in_quotes
+                  end
                 end
+              elsif quote_boundary_standard && !in_quotes
+                # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+                field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
+                # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
             end

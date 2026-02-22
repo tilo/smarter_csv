@@ -323,11 +323,15 @@ module SmarterCSV
 
     # Determine if a line has unbalanced quotes requiring multiline stitching.
     # For :auto mode, uses dual counting to avoid false multiline detection.
+    # For :standard quote_boundary mode, uses a full state machine so that
+    # mid-field quotes (which are literals in standard mode) do not trigger stitching.
     # Optimization #8: skip quote counting entirely when line has no quote chars.
     def detect_multiline(line, options)
       return false unless line.include?(options[:quote_char])
 
-      if options[:quote_escaping] == :auto
+      if options[:quote_boundary] == :standard
+        detect_multiline_strict(line, options)
+      elsif options[:quote_escaping] == :auto
         escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
         # If backslash-aware count is even → line is self-contained either way
         # If backslash-aware count is odd AND rfc_count is also odd → truly multiline
@@ -337,6 +341,64 @@ module SmarterCSV
       else
         count_quote_chars(line, options[:quote_char], options[:col_sep], options[:quote_escaping]).odd?
       end
+    end
+
+    # Boundary-aware multiline detection for quote_boundary: :standard mode.
+    # Walks the line as a state machine tracking quote state only for boundary quotes.
+    # A quote only opens/closes a quoted field if it appears at a field boundary
+    # (start of field, or after leading whitespace when strip_whitespace is true).
+    # Mid-field quotes are treated as literals and do not affect quote state.
+    def detect_multiline_strict(line, options)
+      col_sep = options[:col_sep]
+      quote   = options[:quote_char]
+      strip   = options[:strip_whitespace]
+      row_sep = options[:row_sep]
+
+      col_sep_size = col_sep.size
+      row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
+      line_size    = line.size
+      in_quotes    = false
+      field_started = false
+      i = 0
+
+      while i < line_size
+        # Check for column separator (only outside quotes)
+        if !in_quotes && line[i...i + col_sep_size] == col_sep
+          field_started = false
+          i += col_sep_size
+          next
+        end
+
+        if line[i] == quote
+          if in_quotes
+            # closing quote: only valid if followed by col_sep, row_sep, or end of line
+            next_i = i + 1
+            if next_i >= line_size ||
+               line[next_i...next_i + col_sep_size] == col_sep ||
+               (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+              in_quotes     = false
+              field_started = true
+            end
+            # else: quote inside quoted field → literal (handles "" doubling)
+          elsif !field_started # at field boundary: open quoted field
+            in_quotes     = true
+            field_started = true
+          end
+          # else: mid-field quote → literal, no state change
+        elsif !in_quotes
+          # Non-quote character: track whether field has started
+          if strip
+            # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+            field_started = true unless line[i] == ' ' || line[i] == '\t'
+            # rubocop:enable Style/MultipleComparison
+          else
+            field_started = true
+          end
+        end
+        i += 1
+      end
+
+      in_quotes # true → line ends inside a quoted field → needs stitching
     end
 
     protected

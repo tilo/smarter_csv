@@ -62,6 +62,11 @@
      |                             |          | `:auto` (default): tries backslash-escape first, falls back to RFC 4180.             |
      |                             |          | `:double_quotes` (RFC 4180): only `""` escapes a quote. Backslash is literal.        |
      |                             |          | `:backslash` (MySQL/Unix): `\"` also escapes a quote.                                |
+     | :quote_boundary             | :standard| Where quote characters are recognized as field delimiters. See [Parsing Strategy](./parsing_strategy.md). |
+     |                             |          | `:standard` (default): a quote only opens a field when it is the first character     |
+     |                             |          | of the field (at a field boundary). Mid-field quotes are treated as literal characters. |
+     |                             |          | `:legacy`: any quote toggles quoted state regardless of position (old behavior,      |
+     |                             |          | kept for backwards compatibility with files that relied on this quirk).              |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :headers_in_file            |  true(1) | Whether or not the file contains headers as the first line.                          |
      |                             |          | (1): if `user_provided_headers` is given, the default is `false`,                    |

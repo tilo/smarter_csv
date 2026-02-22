@@ -6,71 +6,28 @@
 ### Write API
 
  * **Write API now accepts IO and StringIO objects** ([issue #321](https://github.com/tilo/smarter_csv/issues/321)):
-   `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object
-   in addition to a file path string. The caller retains ownership — SmarterCSV will not close it.
-   Thanks to [Kevin Southworth](https://github.com/ksouthworth) for the feature request.
-
-   ```ruby
-   # Write to StringIO (e.g. for Rails streaming responses)
-   io = StringIO.new
-   SmarterCSV.generate(io) do |csv|
-     records.each { |r| csv << r }
-   end
-   send_data io.string, type: 'text/csv'
-
-   # Write to an open file handle
-   File.open('output.csv', 'w') do |f|
-     SmarterCSV.generate(f) do |csv|
-       records.each { |r| csv << r }
-     end
-   end
-   ```
+   `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object in addition to a file path string. The caller retains ownership — SmarterCSV will not close it.
+   Thanks to [Kevin Southworth](https://github.com/ksouthworth) for the feature request. See [The Basic Write API](docs/basic_write_api.md) for examples.
 
 ### Read API
 
- * **New `on_bad_row` option — bad row quarantine**: instead of stopping on the first parse error,
-   SmarterCSV can now skip, collect, or route bad rows to a callable while continuing to process
-   the rest of the file. See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details.
-   - `on_bad_row: :raise` (default) — existing behavior, exception propagates
-   - `on_bad_row: :skip` — bad row is skipped; count available in `reader.errors[:bad_row_count]`
-   - `on_bad_row: :collect` — error records stored in `reader.errors[:bad_rows]`
-   - `on_bad_row: ->(rec) { }` — callable invoked per bad row; use for dead-letter files, metrics, etc.
+ * **New `on_bad_row` option — bad row quarantine**: continue processing after parse errors by skipping, collecting, or routing bad rows to a callable. See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details.
 
-   ```ruby
-   reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
-   result = reader.process
-   reader.errors[:bad_rows].each { |rec| puts "Bad row #{rec[:csv_line_number]}: #{rec[:error_message]}" }
-   ```
+ * **New `collect_raw_lines` option** (default: `true`): includes the raw stitched line (`raw_logical_line`) in bad row error records.
 
- * **New `collect_raw_lines` option** (default: `true`): includes `raw_logical_line` in each bad
-   row error record. Set to `false` to omit raw content from error records.
-
- * **New `bad_row_limit` option**: raises `SmarterCSV::TooManyBadRows` after the given number of
-   bad rows, allowing fail-fast behaviour while still using `:skip` or `:collect` up to the limit.
+ * **New `bad_row_limit` option**: raises `SmarterCSV::TooManyBadRows` after the given number of bad rows.
 
  * **New exception `SmarterCSV::TooManyBadRows`**: raised when `bad_row_limit` is exceeded.
 
- * **New `Reader#each` — idiomatic row-by-row Enumerator**: yields each row as a `Hash`, enabling
-   standard `Enumerable` methods (`map`, `select`, `count`, `lazy`, `each_with_index`, `each_slice`, etc.).
-   Returns an `Enumerator` when called without a block. Also available as `SmarterCSV.each`.
+ * **New `Reader#each` and `SmarterCSV.each`**: row-by-row enumerator yielding each row as a `Hash`. `Reader` now includes `Enumerable` (`map`, `select`, `lazy`, etc.). Returns an `Enumerator` when called without a block.
 
-   ```ruby
-   reader = SmarterCSV::Reader.new('data.csv')
-   reader.each { |hash| MyModel.upsert(hash) }
-   reader.select { |h| h[:country] == 'US' }
-   reader.lazy.map { |h| h[:name] }.first(10)
-   SmarterCSV.each('data.csv') { |hash| ... }
-   ```
+ * **New `Reader#each_chunk` and `SmarterCSV.each_chunk`**: chunked enumerator yielding `(Array<Hash>, chunk_index)` for batch and parallel workflows. Requires `chunk_size` in options.
 
- * **New `Reader#each_chunk` — first-class chunked Enumerator**: yields `(Array<Hash>, chunk_index)`
-   for parallel/batch workflows. Uses `chunk_size` from options; warns and defaults to
-   `SmarterCSV::Reader::DEFAULT_CHUNK_SIZE` (100) when unset. Also available as `SmarterCSV.each_chunk`.
+### New Options
 
-   ```ruby
-   reader = SmarterCSV::Reader.new('big.csv', chunk_size: 500)
-   reader.each_chunk { |chunk, i| Sidekiq.push_bulk(chunk) }
-   SmarterCSV.each_chunk('big.csv', chunk_size: 500) { |chunk, i| ... }
-   ```
+ * **New option `quote_boundary`** (default: `:standard`): controls where quotes are recognized as field delimiters. See [Parsing Strategy](docs/parsing_strategy.md) for details.
+   - `:standard` (default) — a `"` only opens/closes a field at a field boundary; mid-field quotes are literal characters. **This is a behavior change from previous versions.**
+   - `:legacy` — any `"` toggles quoted state, matching previous SmarterCSV behavior. Use this for backwards compatibility if your data relied on the old behavior.
 
 ### Bug Fixes
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**

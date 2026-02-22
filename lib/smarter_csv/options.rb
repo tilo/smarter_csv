@@ -15,8 +15,8 @@ module SmarterCSV
       auto_row_sep_chars: 500,
       bad_row_limit: nil,
       chunk_size: nil,
-      collect_raw_lines: true,
       col_sep: :auto, # was: ',',
+      collect_raw_lines: true,
       comment_regexp: nil, # was: /\A#/,
       convert_values_to_numeric: true,
       downcase_header: true,
@@ -29,6 +29,7 @@ module SmarterCSV
       key_mapping: nil,
       missing_header_prefix: 'column_',
       on_bad_row: :raise,
+      quote_boundary: :standard, # :standard (only at field boundary 👍) or :legacy (any quote toggles state 👎)
       quote_char: '"',
       quote_escaping: :auto,
       remove_empty_hashes: true,
@@ -97,6 +98,9 @@ module SmarterCSV
       errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
       unless %i[double_quotes backslash auto].include?(options[:quote_escaping])
         errors << "invalid quote_escaping: must be :double_quotes, :backslash, or :auto"
+      end
+      unless %i[legacy standard].include?(options[:quote_boundary])
+        errors << "invalid quote_boundary: must be :legacy or :standard"
       end
       obr = options[:on_bad_row]
       unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)

@@ -96,5 +96,58 @@ SmarterCSV.process("file.csv", quote_escaping: :backslash)
 
 **Note:** In `:backslash` mode, a field like `"abc\"` will raise `MalformedCSV` because the closing quote is escaped, leaving the field unclosed.
 
+## Quote Boundary: The `quote_boundary` Option
+
+Real-world CSV files sometimes contain quote characters in the middle of an unquoted field — for example, a measurement like `6'2"`, a product name like `Intel Core i5 "Raptor Lake"`, or a field with an apostrophe in a poorly-exported file. Under a naive quote parser, any `"` would toggle quoted state, causing the field to be misread and subsequent fields to be garbled.
+
+The `quote_boundary` option controls where SmarterCSV recognizes a quote as a field delimiter.
+
+### `:standard` (default)
+
+In `:standard` mode, two rules apply:
+
+- **Rule 1 — Opening**: a quote only opens a quoted field when it appears at the very start of the field (immediately after the column separator, or at the start of a line). A quote encountered after any other content is treated as a literal character.
+- **Rule 2 — Closing**: a quote only closes a quoted field when it is immediately followed by a column separator, a row separator, or end of input. A quote in any other position inside a quoted field is treated as content (enabling RFC 4180 `""` doubled-quote escaping).
+
+```ruby
+# Mid-field quote is a literal character — no state change
+csv = "product,size\nCore i5 \"Raptor Lake\",medium\n"
+SmarterCSV.process(StringIO.new(csv))
+# => [{product: 'Core i5 "Raptor Lake"', size: "medium"}]
+
+# Quote at field start opens quoted mode normally
+csv = "first,second\n\"hello, world\",other\n"
+SmarterCSV.process(StringIO.new(csv))
+# => [{first: "hello, world", second: "other"}]
+
+# RFC 4180 doubled quotes work inside a properly opened quoted field
+csv = "name\n\"She said \"\"hello\"\"\"\n"
+SmarterCSV.process(StringIO.new(csv))
+# => [{name: 'She said "hello"'}]
+```
+
+`:standard` is the default because treating mid-field quotes as literals matches how most modern CSV parsers (including Ruby's built-in `CSV` library in strict mode) handle malformed-but-common real-world data.
+
+### `:legacy`
+
+In `:legacy` mode, any quote character toggles quoted state regardless of its position in the field. This was the only behavior available before SmarterCSV 1.16.0.
+
+Use `:legacy` only if you have files that were specifically produced to rely on mid-field quote toggling, and you cannot change the source. Note that a mid-field quote with an odd total count will result in an unclosed field and a `MalformedCSV` error under `:legacy` mode.
+
+```ruby
+SmarterCSV.process("file.csv", quote_boundary: :legacy)
+```
+
+### Interaction with `quote_escaping`
+
+Both options apply simultaneously. `quote_boundary` governs *where* a quote is recognized as a delimiter; `quote_escaping` governs *how* a literal quote is represented *inside* a quoted field. They are independent:
+
+| `quote_boundary` | `quote_escaping` | Effect |
+|---|---|---|
+| `:standard` | `:auto` (default) | Standard field boundaries + auto-detect escaping style |
+| `:standard` | `:double_quotes` | Standard field boundaries + RFC 4180 only |
+| `:standard` | `:backslash` | Standard field boundaries + backslash escaping |
+| `:legacy` | `:auto` | Old toggle behavior + auto-detect escaping style |
+
 --------------
 PREVIOUS: [Introduction](./_introduction.md) | NEXT: [The Basic Read API](./basic_read_api.md)

@@ -37,7 +37,7 @@ VALUE Qempty_string = Qnil;
 static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
-static ID id_only, id_except;
+static ID id_only, id_except, id_quote_boundary;
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   char *buf = ALLOC_N(char, len);
@@ -55,7 +55,7 @@ static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *
   return out;
 }
 
-static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val, VALUE allow_escaped_quotes_val) {
+static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val, VALUE allow_escaped_quotes_val, VALUE quote_boundary_standard_val, VALUE row_sep_val) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
     return rb_ary_new();
   }
@@ -91,6 +91,10 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   bool has_quotes = RTEST(has_quotes_val);
   bool strip_ws = RTEST(strip_ws_val);
   bool allow_escaped_quotes = RTEST(allow_escaped_quotes_val);
+  bool quote_boundary_standard = RTEST(quote_boundary_standard_val);
+
+  char *row_sepP = (RB_TYPE_P(row_sep_val, T_STRING)) ? RSTRING_PTR(row_sep_val) : NULL;
+  long row_sep_len = (row_sepP) ? RSTRING_LEN(row_sep_val) : 0;
 
   // === FAST PATH: No quotes and single-character separator ===
   if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
@@ -147,6 +151,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   long backslash_count = 0;
   bool in_quotes = false;
   bool col_sep_found = true;
+  bool field_started = false;  // for quote_boundary_standard: true once field has non-boundary content
 
   while (p < endP) {
     col_sep_found = true;
@@ -195,13 +200,49 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
       p += col_sep_len;
       startP = p;
       backslash_count = 0;
+      field_started = false;  // reset for next field
     } else {
       if (allow_escaped_quotes && *p == '\\') {
         backslash_count++;
+        if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) field_started = true;
       } else {
         if (*p == quote_char_val) {
           if (!allow_escaped_quotes || backslash_count % 2 == 0) {
-            in_quotes = !in_quotes;
+            if (__builtin_expect(quote_boundary_standard, 0)) {
+              if (in_quotes) {
+                // closing quote: only valid if followed by col_sep, row_sep, or end of line
+                bool valid_close = (p + 1 >= endP);
+                if (!valid_close) {
+                  valid_close = true;
+                  for (long j = 0; j < col_sep_len; j++) {
+                    if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                  }
+                }
+                if (!valid_close && row_sep_len > 0) {
+                  valid_close = true;
+                  for (long j = 0; j < row_sep_len; j++) {
+                    if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
+                  }
+                }
+                if (valid_close) {
+                  in_quotes = false;
+                  field_started = true;
+                }
+                // else: quote inside quoted field → literal (handles "" doubling)
+              } else if (!field_started) {
+                in_quotes = true;     // opening quote at field boundary
+                field_started = true;
+              }
+              // else: mid-field quote → treat as literal
+            } else {
+              in_quotes = !in_quotes;
+            }
+          }
+        } else if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) {
+          if (strip_ws) {
+            if (*p != ' ' && *p != '\t') field_started = true;
+          } else {
+            field_started = true;
           }
         }
         backslash_count = 0;
@@ -571,6 +612,16 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     allow_escaped_quotes = (SYM2ID(quote_escaping_val) == rb_intern("backslash"));
   }
 
+  // Determine if quote_boundary: :standard is active
+  VALUE quote_boundary_val = rb_hash_aref(options_hash, ID2SYM(id_quote_boundary));
+  bool quote_boundary_standard = (RB_TYPE_P(quote_boundary_val, T_SYMBOL) &&
+                                SYM2ID(quote_boundary_val) == rb_intern("standard"));
+
+  // Row separator — needed for closing-quote boundary check (line may not be pre-chomped)
+  VALUE row_sep_val2 = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
+  char *row_sepP2 = (RB_TYPE_P(row_sep_val2, T_STRING)) ? RSTRING_PTR(row_sep_val2) : NULL;
+  long row_sep_len2 = (row_sepP2) ? RSTRING_LEN(row_sep_val2) : 0;
+
   rb_encoding *encoding = rb_enc_get(line);      // Preserve string encoding
   char *startP = RSTRING_PTR(line);              // Pointer to start of current field
   long line_len = RSTRING_LEN(line);
@@ -694,6 +745,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     long backslash_count = 0;    // Track consecutive backslashes for escape detection
     bool in_quotes = false;      // Are we inside a quoted field?
     bool col_sep_found = true;
+    bool field_started = false;  // for quote_boundary_standard: true once field has non-boundary content
 
     /* Scan through the line character by character */
     while (p < endP) {
@@ -739,6 +791,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
         p += col_sep_len;
         startP = p;
         backslash_count = 0;
+        field_started = false;   // reset for next field
 
       } else {
         /* Not at a separator (or inside quotes) - track quote state */
@@ -746,10 +799,45 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
         if (allow_escaped_quotes && *p == '\\') {
           // Count consecutive backslashes for escape sequence detection
           backslash_count++;
+          if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) field_started = true;
         } else {
           if (*p == quote_char_val) {
             if (!allow_escaped_quotes || backslash_count % 2 == 0) {
-              in_quotes = !in_quotes;
+              if (__builtin_expect(quote_boundary_standard, 0)) {
+                if (in_quotes) {
+                  // closing quote: only valid if followed by col_sep, row_sep, or end of line
+                  bool valid_close = (p + 1 >= endP);
+                  if (!valid_close) {
+                    valid_close = true;
+                    for (long j = 0; j < col_sep_len; j++) {
+                      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                    }
+                  }
+                  if (!valid_close && row_sep_len2 > 0) {
+                    valid_close = true;
+                    for (long j = 0; j < row_sep_len2; j++) {
+                      if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
+                    }
+                  }
+                  if (valid_close) {
+                    in_quotes = false;
+                    field_started = true;
+                  }
+                  // else: quote inside quoted field → literal (handles "" doubling)
+                } else if (!field_started) {
+                  in_quotes = true;     // opening quote at field boundary
+                  field_started = true;
+                }
+                // else: mid-field quote → treat as literal
+              } else {
+                in_quotes = !in_quotes;
+              }
+            }
+          } else if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) {
+            if (strip_ws) {
+              if (*p != ' ' && *p != '\t') field_started = true;
+            } else {
+              field_started = true;
             }
           }
           backslash_count = 0;
@@ -942,8 +1030,9 @@ void Init_smarter_csv(void) {
   id_remove_zero_values = rb_intern("remove_zero_values");
   id_only = rb_intern("only");
   id_except = rb_intern("except");
+  id_quote_boundary = rb_intern("quote_boundary");
 
-  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 7);
+  rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 9);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);
   rb_define_module_function(Parser, "count_quote_chars_auto_c", rb_count_quote_chars_auto, 3);
   rb_define_module_function(Parser, "zip_to_hash_c", rb_zip_to_hash, 2);
