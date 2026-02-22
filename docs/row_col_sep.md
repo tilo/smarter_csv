@@ -12,6 +12,7 @@
   * [Header Validations](./header_validations.md)
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
     
 --------------    
 

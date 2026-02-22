@@ -164,6 +164,9 @@ Style/TrailingUnderscoreVariable:
 Style/TrivialAccessors:
   Enabled: false
 
+Style/WhileUntilModifier:
+  Enabled: false
+
 # Style/UnlessModifier:
 #   Enabled: false
 

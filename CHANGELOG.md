@@ -26,6 +26,30 @@
    end
    ```
 
+### Read API
+
+ * **New `on_bad_row` option — bad row quarantine**: instead of stopping on the first parse error,
+   SmarterCSV can now skip, collect, or route bad rows to a callable while continuing to process
+   the rest of the file. See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details.
+   - `on_bad_row: :raise` (default) — existing behavior, exception propagates
+   - `on_bad_row: :skip` — bad row is skipped; count available in `reader.errors[:bad_row_count]`
+   - `on_bad_row: :collect` — error records stored in `reader.errors[:bad_rows]`
+   - `on_bad_row: ->(rec) { }` — callable invoked per bad row; use for dead-letter files, metrics, etc.
+
+   ```ruby
+   reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
+   result = reader.process
+   reader.errors[:bad_rows].each { |rec| puts "Bad row #{rec[:csv_line_number]}: #{rec[:error_message]}" }
+   ```
+
+ * **New `collect_raw_lines` option** (default: `true`): includes `raw_logical_line` in each bad
+   row error record. Set to `false` to omit raw content from error records.
+
+ * **New `bad_row_limit` option**: raises `SmarterCSV::TooManyBadRows` after the given number of
+   bad rows, allowing fail-fast behaviour while still using `:skip` or `:collect` up to the limit.
+
+ * **New exception `SmarterCSV::TooManyBadRows`**: raised when `bad_row_limit` is exceeded.
+
 ### Bug Fixes
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
  * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows

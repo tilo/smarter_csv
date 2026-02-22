@@ -12,7 +12,8 @@
   * [Header Validations](./header_validations.md)
   * [Data Transformations](./data_transformations.md)
   * [**Value Converters**](./value_converters.md)
-    
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
+
 --------------  
 
 # Using Value Converters for Reading CSV
@@ -82,4 +83,4 @@ If you use `key_mappings` and `value_converters`, make sure that the value conve
 ```
 
 --------------------
-PREVIOUS: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)
+PREVIOUS: [Data Transformations](./data_transformations.md) | NEXT: [Bad Row Quarantine](./bad_row_quarantine.md) | UP: [README](../README.md)

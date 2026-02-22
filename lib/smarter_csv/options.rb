@@ -13,7 +13,9 @@ module SmarterCSV
     DEFAULT_OPTIONS = {
       acceleration: true, # if user wants to use accelleration or not
       auto_row_sep_chars: 500,
+      bad_row_limit: nil,
       chunk_size: nil,
+      collect_raw_lines: true,
       col_sep: :auto, # was: ',',
       comment_regexp: nil, # was: /\A#/,
       convert_values_to_numeric: true,
@@ -26,6 +28,7 @@ module SmarterCSV
       keep_original_headers: false,
       key_mapping: nil,
       missing_header_prefix: 'column_',
+      on_bad_row: :raise,
       quote_char: '"',
       quote_escaping: :auto,
       remove_empty_hashes: true,
@@ -94,6 +97,10 @@ module SmarterCSV
       errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
       unless %i[double_quotes backslash auto].include?(options[:quote_escaping])
         errors << "invalid quote_escaping: must be :double_quotes, :backslash, or :auto"
+      end
+      obr = options[:on_bad_row]
+      unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)
+        errors << "invalid on_bad_row: must be :raise, :skip, :collect, or a callable"
       end
       raise SmarterCSV::ValidationError, errors.inspect if errors.any?
     end

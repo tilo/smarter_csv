@@ -30,4 +30,6 @@ module SmarterCSV
   class MalformedCSV < SmarterCSVException; end
   # Writer:
   class InvalidInputData < SmarterCSVException; end
+  # Bad-row quarantine:
+  class TooManyBadRows < SmarterCSVException; end
 end

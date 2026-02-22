@@ -90,43 +90,55 @@ module SmarterCSV
 
           next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
-          # cater for the quoted csv data containing the row separator carriage return character
-          # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
-          # by detecting the existence of an uneven number of quote characters
-          multiline = detect_multiline(line, options)
+          # Snapshot line counters before multiline stitching so error records reflect
+          # where the bad row started, not where it failed.
+          bad_row_start_csv_line  = @csv_line_count
+          bad_row_start_file_line = @file_line_count
 
-          while multiline
-            next_line = fh.gets(options[:row_sep])
-            if next_line.nil?
-              # End of file reached. Check if quotes are balanced.
-              if detect_multiline(line, options)
-                raise MalformedCSV, "Unclosed quoted field detected in multiline data"
-              else
-                # :nocov:
-                # Quotes are balanced; proceed without raising an error.
-                break
-                # :nocov:
-              end
-            end
-            next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
-            line += next_line
-            @file_line_count += 1
-
+          begin
+            # cater for the quoted csv data containing the row separator carriage return character
+            # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
+            # by detecting the existence of an uneven number of quote characters
             multiline = detect_multiline(line, options)
+
+            while multiline
+              next_line = fh.gets(options[:row_sep])
+              if next_line.nil?
+                # End of file reached. Check if quotes are balanced.
+                if detect_multiline(line, options)
+                  raise MalformedCSV, "Unclosed quoted field detected in multiline data"
+                else
+                  # :nocov:
+                  # Quotes are balanced; proceed without raising an error.
+                  break
+                  # :nocov:
+                end
+              end
+              next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
+              line += next_line
+              @file_line_count += 1
+
+              multiline = detect_multiline(line, options)
+            end
+
+            # :nocov:
+            if multiline && @verbose
+              print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
+            end
+            # :nocov:
+
+            hash = process_line_to_hash(line, options)
+            next if hash.nil?
+
+            puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
+            # optional adding of csv_line_number to the hash to help debugging
+            hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
+          rescue SmarterCSV::Error, EOFError => e
+            raise if options[:on_bad_row] == :raise
+
+            handle_bad_row(e, line, bad_row_start_csv_line, bad_row_start_file_line, options)
+            next
           end
-
-          # :nocov:
-          if multiline && @verbose
-            print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
-          end
-          # :nocov:
-
-          hash = process_line_to_hash(line, options)
-          next if hash.nil?
-
-          puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
-          # optional adding of csv_line_number to the hash to help debugging
-          hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
 
           # process the chunks or the resulting hash
           if use_chunks
@@ -359,6 +371,34 @@ module SmarterCSV
       # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
 
       line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+    end
+
+    def handle_bad_row(error, line, start_csv_line, start_file_line, options)
+      @errors[:bad_row_count] = (@errors[:bad_row_count] || 0) + 1
+
+      error_record = {
+        csv_line_number: start_csv_line,
+        file_line_number: start_file_line,
+        file_lines_consumed: @file_line_count - start_file_line + 1,
+        error_class: error.class,
+        error_message: error.message,
+      }
+      error_record[:raw_logical_line] = line if options[:collect_raw_lines]
+
+      on_bad_row = options[:on_bad_row]
+      case on_bad_row
+      when :skip
+        # counted above; nothing more to collect
+      when :collect
+        (@errors[:bad_rows] ||= []) << error_record
+      else
+        # callable
+        on_bad_row.call(error_record)
+      end
+
+      if options[:bad_row_limit] && @errors[:bad_row_count] > options[:bad_row_limit]
+        raise TooManyBadRows, "Bad row limit of #{options[:bad_row_limit]} exceeded (#{@errors[:bad_row_count]} bad rows encountered)"
+      end
     end
   end
 end
