@@ -7,9 +7,8 @@
 
  * **Write API now accepts IO and StringIO objects** ([issue #321](https://github.com/tilo/smarter_csv/issues/321)):
    `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object
-   (e.g. `StringIO`, an open `File` handle, `STDOUT`) in addition to a file path string.
-   The caller retains ownership of the IO object — SmarterCSV will not close it.
-   Thanks to Kevin Southworth ([@ksouthworth](https://github.com/ksouthworth)) for the feature request.
+   in addition to a file path string. The caller retains ownership — SmarterCSV will not close it.
+   Thanks to [Kevin Southworth](https://github.com/ksouthworth) for the feature request.
 
    ```ruby
    # Write to StringIO (e.g. for Rails streaming responses)
@@ -17,7 +16,6 @@
    SmarterCSV.generate(io) do |csv|
      records.each { |r| csv << r }
    end
-   io.rewind
    send_data io.string, type: 'text/csv'
 
    # Write to an open file handle
@@ -28,22 +26,14 @@
    end
    ```
 
-### Internal Fixes
-
- * **Portable temp file creation (fixes Windows)**: Writer now uses `Tempfile.new('smarter_csv')`
-   instead of the previously hardcoded `Tempfile.new('tempfile', '/tmp')`. The hardcoded `/tmp`
-   path does not exist on Windows, causing `SmarterCSV.generate` to raise `Errno::ENOENT` on
-   that platform. Ruby's `Tempfile` always appends a unique random suffix to the prefix string
-   (e.g. `smarter_csv20260221-27584-bnx11b`), so uniqueness is fully preserved. The system
-   temp directory is used automatically (`Dir.tmpdir`), which resolves to `/tmp` on Linux,
-   `/var/folders/...` on macOS, and `%TEMP%` on Windows.
- * **Proper temp file cleanup**: Writer now calls `Tempfile#close!` (closes file descriptor and
-   deletes) instead of `Tempfile#delete` (which only unlinked the path, leaving the fd open
-   until GC).
+### Bug Fixes
+ * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
+ * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows
+ * **Writer temp file properly cleaned up** — `Tempfile#close!` now used instead of `Tempfile#delete`
 
 ## 1.15.2 (2026-02-20)
 
-* Performance Optimizations
+### Performance Optimizations
  - 1.6× to 7.2× faster than CSV.read
  - 6× to 113× faster than Ruby’s CSV.table
  - 5.4× to 37.4× faster than SmarterCSV 1.14.4 (with C-acceleration)

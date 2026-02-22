@@ -46,32 +46,57 @@ In either case the corresponding field will be put in double-quotes.
 
 ### Simplified Interface
 
-The simplified interface takes a block:
+The simplified interface takes a block. It accepts a file path string **or any IO-compatible
+object** (`StringIO`, an open `File` handle, etc.). When an IO object is passed, the caller
+retains ownership — SmarterCSV will not close it.
 
-      ```
-        SmarterCSV.generate(filename, options) do |csv_writer|
+**Write to a file by path:**
 
-         MyModel.find_in_batches(batch_size: 100) do |batch|
-           batch.pluck(:name, :description, :instructor).each do |record|
-             csv_writer << record
-           end
-         end
+```ruby
+SmarterCSV.generate('output.csv', options) do |csv|
+  MyModel.find_in_batches(batch_size: 100) do |batch|
+    batch.each { |record| csv << record.attributes }
+  end
+end
+```
 
-       end
-     ```
+**Write to a `StringIO` (e.g. for Rails streaming responses):**
+
+```ruby
+io = StringIO.new
+SmarterCSV.generate(io) do |csv|
+  records.each { |r| csv << r }
+end
+send_data io.string, type: 'text/csv', filename: 'export.csv'
+```
+
+**Write to an already-open file handle:**
+
+```ruby
+File.open('output.csv', 'w') do |f|
+  SmarterCSV.generate(f) do |csv|
+    records.each { |r| csv << r }
+  end
+end
+```
 
 ### Full Interface
 
-      ```
-        csv_writer = SmarterCSV::Writer.new(file_path, options)
+The full interface gives you direct access to the `Writer` instance, which is useful when you
+need to call `finalize` explicitly or inspect the writer's state afterwards.
 
-        MyModel.find_in_batches(batch_size: 100) do |batch|
-          batch.pluck(:name, :description, :instructor).each do |record|
-            csv_writer << record
-          end
+```ruby
+csv_writer = SmarterCSV::Writer.new(file_path_or_io, options)
 
-        csv_writer.finalize
-      ```
+MyModel.find_in_batches(batch_size: 100) do |batch|
+  batch.each { |record| csv_writer << record.attributes }
+end
+
+csv_writer.finalize
+```
+
+The full interface also accepts an IO object in place of a file path — useful when writing to
+a `StringIO` or streaming directly to a response body without creating a temporary file.
 
 ## Advanced Features: Customizing the Output Format
 

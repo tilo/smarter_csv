@@ -69,19 +69,37 @@ module SmarterCSV
     reader.process(&block)
   end
 
-  # Convenience method for generating CSV files:
+  # Convenience method for generating CSV files or writing to any IO object.
   #
-  # SmarterCSV.generate(filename, options) do |csv_writer|
-  #   MyModel.find_in_batches(batch_size: 100) do |batch|
-  #    batch.pluck(:name, :description, :instructor).each do |record|
-  #       csv_writer << record
+  # Accepts a file path (String) or any IO-compatible object (StringIO, open File handle, etc.).
+  # The caller retains ownership of any IO object passed in — SmarterCSV will not close it.
+  #
+  # Examples:
+  #
+  #   # Write to a file by path (existing behaviour)
+  #   SmarterCSV.generate('output.csv', options) do |csv|
+  #     MyModel.find_in_batches(batch_size: 100) do |batch|
+  #       batch.each { |record| csv << record.attributes }
   #     end
   #   end
-  # end
+  #
+  #   # Write to a StringIO (e.g. for Rails streaming responses)
+  #   io = StringIO.new
+  #   SmarterCSV.generate(io) do |csv|
+  #     records.each { |r| csv << r }
+  #   end
+  #   send_data io.string, type: 'text/csv'
+  #
+  #   # Write to an already-open file handle
+  #   File.open('output.csv', 'w') do |f|
+  #     SmarterCSV.generate(f) do |csv|
+  #       records.each { |r| csv << r }
+  #     end
+  #   end
   #
   # rubocop:disable Lint/UnusedMethodArgument
   def self.generate(file_path_or_io, options = {}, &block)
-    raise unless block_given?
+    raise ArgumentError, "SmarterCSV.generate requires a block" unless block_given?
 
     writer = Writer.new(file_path_or_io, options)
     yield writer

@@ -595,6 +595,18 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
 
+    context 'when called without a block' do
+      it 'raises ArgumentError with a helpful message' do
+        expect { SmarterCSV.generate(file_path) }
+          .to raise_error(ArgumentError, "SmarterCSV.generate requires a block")
+      end
+
+      it 'raises ArgumentError with a helpful message when given a StringIO' do
+        expect { SmarterCSV.generate(StringIO.new) }
+          .to raise_error(ArgumentError, "SmarterCSV.generate requires a block")
+      end
+    end
+
     context 'with custom options and StringIO' do
       it 'respects col_sep and row_sep options' do
         io = StringIO.new
