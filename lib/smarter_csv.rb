@@ -69,6 +69,30 @@ module SmarterCSV
     reader.process(&block)
   end
 
+  # Yields each successfully parsed row as a Hash (row-by-row, Enumerable-compatible).
+  # Returns an Enumerator when called without a block.
+  #
+  # Examples:
+  #   SmarterCSV.each("data.csv") { |hash| MyModel.upsert(hash) }
+  #   SmarterCSV.each("data.csv").select { |h| h[:country] == "US" }
+  #   SmarterCSV.each("data.csv").lazy.map { |h| h[:name] }.first(10)
+  def self.each(input, options = {}, &block)
+    reader = Reader.new(input, options)
+    reader.each(&block)
+  end
+
+  # Yields each chunk as Array<Hash> plus its 0-based chunk index.
+  # Requires chunk_size to be set in options (must be >= 1).
+  # Returns an Enumerator when called without a block.
+  #
+  # Examples:
+  #   SmarterCSV.each_chunk("data.csv", chunk_size: 500) { |chunk, i| Sidekiq.push_bulk(chunk) }
+  #   SmarterCSV.each_chunk("data.csv", chunk_size: 100).with_index { |chunk, i| ... }
+  def self.each_chunk(input, options = {}, &block)
+    reader = Reader.new(input, options)
+    reader.each_chunk(&block)
+  end
+
   # Convenience method for generating CSV files or writing to any IO object.
   #
   # Accepts a file path (String) or any IO-compatible object (StringIO, open File handle, etc.).

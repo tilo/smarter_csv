@@ -82,6 +82,91 @@ It can also be used with a block. The block always receives an array of hashes a
 This allows you access to the internal state of the `reader` instance after processing.
 
 
+## Modern Enumerator API — `each`
+
+`Reader#each` is the modern, idiomatic way to read CSV rows one at a time. It always yields a single `Hash` per row and includes `Enumerable`, so every standard Ruby enumerable method works out of the box.
+
+### Simplified form
+
+```ruby
+SmarterCSV.each('data.csv', options) do |hash|
+  MyModel.upsert(hash)
+end
+```
+
+### Full form (recommended — retains reader state after processing)
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', options)
+
+reader.each do |hash|
+  MyModel.upsert(hash)
+end
+
+puts reader.headers       # accessible after processing
+puts reader.errors.inspect
+```
+
+### Returns an Enumerator when called without a block
+
+```ruby
+enum = SmarterCSV.each('data.csv', options)
+enum.to_a   # => [{ name: "Alice", ... }, { name: "Bob", ... }, ...]
+```
+
+### Enumerable methods work directly
+
+Because `Reader` includes `Enumerable`, all standard Ruby enumerable methods work:
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', options)
+
+# Filter rows
+us_users = reader.select { |h| h[:country] == 'US' }
+
+# Transform
+names = reader.map { |h| h[:name] }
+
+# Count good rows
+reader.count
+
+# Row index (0-based count of successfully parsed rows, excluding bad rows)
+reader.each_with_index do |hash, i|
+  puts "Row #{i}: #{hash[:name]}"
+end
+
+# Free chunking via Enumerable — no chunk_size needed
+reader.each_slice(100) do |batch|
+  MyModel.insert_all(batch)
+end
+```
+
+### Lazy evaluation
+
+`lazy` lets you stop early without reading the entire file:
+
+```ruby
+# Read only the first 10 rows matching a condition
+reader = SmarterCSV::Reader.new('big.csv', options)
+result = reader.lazy.select { |h| h[:status] == 'active' }.first(10)
+```
+
+### `each` ignores `chunk_size`
+
+If `chunk_size` is set in options, `each` ignores it and always yields individual `Hash` objects. Use [`each_chunk`](./batch_processing.md) for chunked batch processing.
+
+### Interaction with `on_bad_row`
+
+`each` respects all `on_bad_row` options. Bad rows are skipped (or routed to your handler) and never yielded:
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
+reader.each { |hash| MyModel.upsert(hash) }
+reader.errors[:bad_rows].each { |rec| puts "Bad row: #{rec[:error_message]}" }
+```
+
+---
+
 ## Rescue from Exceptions
 
 While SmarterCSV uses sensible defaults to process the most common CSV files, it will raise exceptions if it can not auto-detect `col_sep`, `row_sep`, or if it encounters other problems. Therefore please rescue from `SmarterCSV::Error`, and handle outliers according to your requirements.

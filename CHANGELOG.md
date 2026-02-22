@@ -50,6 +50,28 @@
 
  * **New exception `SmarterCSV::TooManyBadRows`**: raised when `bad_row_limit` is exceeded.
 
+ * **New `Reader#each` — idiomatic row-by-row Enumerator**: yields each row as a `Hash`, enabling
+   standard `Enumerable` methods (`map`, `select`, `count`, `lazy`, `each_with_index`, `each_slice`, etc.).
+   Returns an `Enumerator` when called without a block. Also available as `SmarterCSV.each`.
+
+   ```ruby
+   reader = SmarterCSV::Reader.new('data.csv')
+   reader.each { |hash| MyModel.upsert(hash) }
+   reader.select { |h| h[:country] == 'US' }
+   reader.lazy.map { |h| h[:name] }.first(10)
+   SmarterCSV.each('data.csv') { |hash| ... }
+   ```
+
+ * **New `Reader#each_chunk` — first-class chunked Enumerator**: yields `(Array<Hash>, chunk_index)`
+   for parallel/batch workflows. Uses `chunk_size` from options; warns and defaults to
+   `SmarterCSV::Reader::DEFAULT_CHUNK_SIZE` (100) when unset. Also available as `SmarterCSV.each_chunk`.
+
+   ```ruby
+   reader = SmarterCSV::Reader.new('big.csv', chunk_size: 500)
+   reader.each_chunk { |chunk, i| Sidekiq.push_bulk(chunk) }
+   SmarterCSV.each_chunk('big.csv', chunk_size: 500) { |chunk, i| ... }
+   ```
+
 ### Bug Fixes
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
  * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows

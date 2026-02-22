@@ -2,6 +2,12 @@
 
 module SmarterCSV
   class Reader
+    include Enumerable
+
+    # Default chunk size used by each_chunk when chunk_size is not explicitly set.
+    # A warning is emitted to STDERR so users know to configure it explicitly.
+    DEFAULT_CHUNK_SIZE = 100
+
     include ::SmarterCSV::Options
     include ::SmarterCSV::FileIO
     include ::SmarterCSV::AutoDetection
@@ -42,6 +48,57 @@ module SmarterCSV
       @options = process_options(given_options)
       # true if it is compiled with accelleration
       @has_acceleration = !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
+    end
+
+    # Yields each successfully parsed row as a Hash.
+    # Ignores chunk_size — always row-by-row, enabling standard Enumerable usage.
+    # Returns an Enumerator when called without a block.
+    #
+    # Examples:
+    #   reader.each { |hash| MyModel.upsert(hash) }
+    #   reader.each_with_index { |hash, i| puts "Row #{i}: #{hash}" }
+    #   reader.select { |h| h[:country] == "US" }
+    #   reader.lazy.map { |h| h[:name] }.first(10)
+    def each
+      return enum_for(:each) unless block_given?
+
+      # Force row-by-row mode regardless of chunk_size setting
+      original_chunk_size = @options[:chunk_size]
+      @options[:chunk_size] = nil
+      process { |row_array, _| yield row_array.first }
+    ensure
+      @options[:chunk_size] = original_chunk_size
+    end
+
+    # Yields each chunk as Array<Hash> plus its 0-based chunk index.
+    # Uses chunk_size from options; raises ArgumentError if chunk_size < 1.
+    # Returns an Enumerator when called without a block.
+    #
+    # Examples:
+    #   reader = SmarterCSV::Reader.new("big.csv", chunk_size: 500)
+    #   reader.each_chunk { |chunk, i| Sidekiq.push_bulk(chunk) }
+    #   reader.each_chunk.with_index { |chunk, i| puts "Chunk #{i}: #{chunk.size} rows" }
+    def each_chunk
+      chunk_size = @options[:chunk_size]
+      if chunk_size.nil?
+        warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning."
+        chunk_size = DEFAULT_CHUNK_SIZE
+      end
+      unless chunk_size.is_a?(Integer) && chunk_size >= 1
+        raise ArgumentError, "chunk_size must be an Integer >= 1 (got #{chunk_size.inspect})"
+      end
+      return enum_for(:each_chunk) unless block_given?
+
+      # Temporarily apply chunk_size (handles nil default case) and restore after
+      original_chunk_size = @options[:chunk_size]
+      @options[:chunk_size] = chunk_size
+      begin
+        # process reuses the same chunk Array (clearing it after each yield),
+        # so we dup to give callers a stable snapshot they can safely store.
+        process { |chunk, index| yield chunk.dup, index }
+      ensure
+        @options[:chunk_size] = original_chunk_size
+      end
     end
 
     def process(&block) # rubocop:disable Lint/UnusedMethodArgument
