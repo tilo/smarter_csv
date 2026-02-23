@@ -38,6 +38,8 @@ static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
 static ID id_only, id_except, id_quote_boundary;
+static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
+static ID id_backslash, id_standard;
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   char *buf = ALLOC_N(char, len);
@@ -204,11 +206,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     } else {
       if (allow_escaped_quotes && *p == '\\') {
         backslash_count++;
-        if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) field_started = true;
+        if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) field_started = true;
       } else {
         if (*p == quote_char_val) {
           if (!allow_escaped_quotes || backslash_count % 2 == 0) {
-            if (__builtin_expect(quote_boundary_standard, 0)) {
+            if (__builtin_expect(quote_boundary_standard, 1)) {
               if (in_quotes) {
                 // closing quote: only valid if followed by col_sep, row_sep, or end of line
                 bool valid_close = (p + 1 >= endP);
@@ -238,7 +240,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
               in_quotes = !in_quotes;
             }
           }
-        } else if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) {
+        } else if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) {
           if (strip_ws) {
             if (*p != ' ' && *p != '\t') field_started = true;
           } else {
@@ -579,7 +581,6 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   VALUE col_sep = rb_hash_aref(options_hash, ID2SYM(id_col_sep));
   VALUE quote_char = rb_hash_aref(options_hash, ID2SYM(id_quote_char));
   VALUE header_prefix = rb_hash_aref(options_hash, ID2SYM(id_missing_header_prefix));
-  VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
   bool strip_ws = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strip_whitespace)));
   bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
@@ -606,21 +607,10 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     }
   }
 
-  // Determine if backslash-escaped quotes are allowed
-  bool allow_escaped_quotes = false;
-  if (RB_TYPE_P(quote_escaping_val, T_SYMBOL)) {
-    allow_escaped_quotes = (SYM2ID(quote_escaping_val) == rb_intern("backslash"));
-  }
-
-  // Determine if quote_boundary: :standard is active
-  VALUE quote_boundary_val = rb_hash_aref(options_hash, ID2SYM(id_quote_boundary));
-  bool quote_boundary_standard = (RB_TYPE_P(quote_boundary_val, T_SYMBOL) &&
-                                SYM2ID(quote_boundary_val) == rb_intern("standard"));
-
-  // Row separator — needed for closing-quote boundary check (line may not be pre-chomped)
-  VALUE row_sep_val2 = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
-  char *row_sepP2 = (RB_TYPE_P(row_sep_val2, T_STRING)) ? RSTRING_PTR(row_sep_val2) : NULL;
-  long row_sep_len2 = (row_sepP2) ? RSTRING_LEN(row_sep_val2) : 0;
+  // quote_escaping and quote_boundary are only needed in Section 5 (quoted/slow path).
+  // They are declared here as forward declarations so Section 5 can set them lazily.
+  bool allow_escaped_quotes = false;   // set in Section 5 on first entry
+  bool quote_boundary_standard = false; // set in Section 5 on first entry
 
   rb_encoding *encoding = rb_enc_get(line);      // Preserve string encoding
   char *startP = RSTRING_PTR(line);              // Pointer to start of current field
@@ -628,7 +618,8 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   char *endP = startP + line_len;                // End of line marker
   char *p = startP;                              // Current parsing position
 
-  // Chomp: strip trailing row separator (pointer adjustment, no string mutation)
+  // Chomp: strip trailing row separator (pointer adjustment, no string mutation).
+  // row_sep is also reused in Section 5 for the closing-quote boundary check.
   VALUE row_sep = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
   if (!NIL_P(row_sep) && RB_TYPE_P(row_sep, T_STRING)) {
     char *row_sepP = RSTRING_PTR(row_sep);
@@ -650,6 +641,86 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   long headers_len = NIL_P(headers) ? 0 : RARRAY_LEN(headers);
   // Optimization hint: check if line contains quote characters
   bool has_quotes = (memchr(startP, quote_char_val, line_len) != NULL);
+
+  /* ----------------------------------------
+   * Column-filter bitmap for only_headers: / except_headers:
+   * ----------------------------------------
+   * keep_bitmap[i] = true  → include column i in the output hash
+   * keep_bitmap[i] = false → skip column i (no Ruby allocation at all)
+   * NULL when no filter is active — zero overhead on common path.
+   *
+   * Preferred source: options[:_keep_cols] — a Ruby Array of true/false values
+   * precomputed once in reader.rb after headers are loaded (O(1) Set lookups).
+   * Copying it here is O(headers_len) with O(1) per element — no rb_ary_includes.
+   *
+   * Fallback: build from only_headers/except_headers via rb_ary_includes (O(k)
+   * per column, k = filter list length). Used only when _keep_cols is absent.
+   *
+   * Capped at 4096 columns (stack allocation); wider CSVs fall back to the
+   * Ruby-side hash.select!/hash.reject! filter applied after return.
+   */
+  bool keep_bitmap_buf[4096];
+  bool *keep_bitmap = NULL;
+  bool keep_extra_columns = true; /* extra cols (> headers_len): keep by default */
+  bool has_only = false;          /* true when only_headers: filtering is active */
+  long early_exit_after = -1;     /* column index after which we stop; -1 = no early exit */
+
+  /* Column-filter bitmap setup.
+   *
+   * Only enters this block when column filtering is actually configured.
+   * We check _keep_cols first — it is set by reader.rb only when only_headers:/
+   * except_headers: is active, so a nil value means no filtering at all.
+   * This avoids reading only_headers/except_headers/strict on every line when
+   * the user hasn't configured any column selection (the common case).
+   *
+   * Fallback: if _keep_cols is absent (e.g. option hash passed directly without
+   * going through Reader), check only_headers/except_headers directly.
+   */
+  VALUE prebuilt = rb_hash_aref(options_hash, ID2SYM(id_keep_cols));
+  if (!NIL_P(prebuilt) && RB_TYPE_P(prebuilt, T_ARRAY)
+      && headers_len > 0 && headers_len <= 4096) {
+    /* Fast path: prebuilt boolean array from reader.rb — O(headers_len), O(1)/element */
+    keep_bitmap = keep_bitmap_buf;
+    long prebuilt_len = RARRAY_LEN(prebuilt);
+    for (long bi = 0; bi < headers_len; bi++) {
+      keep_bitmap[bi] = bi < prebuilt_len ? RTEST(rb_ary_entry(prebuilt, bi)) : false;
+    }
+    VALUE only_hdrs = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
+    has_only = RB_TYPE_P(only_hdrs, T_ARRAY) && RARRAY_LEN(only_hdrs) > 0;
+    keep_extra_columns = !has_only;
+    bool strict = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strict)));
+    if (has_only && !strict) {
+      for (long bi = headers_len - 1; bi >= 0; bi--) {
+        if (keep_bitmap[bi]) { early_exit_after = bi; break; }
+      }
+    }
+  } else if (NIL_P(prebuilt) && headers_len > 0 && headers_len <= 4096) {
+    /* Fallback: _keep_cols absent — build bitmap from only_headers/except_headers directly.
+     * This path is taken when the options hash is passed without going through Reader
+     * (e.g. direct parse_line_to_hash_c calls in tests). */
+    VALUE only_hdrs  = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
+    VALUE except_hdrs = rb_hash_aref(options_hash, ID2SYM(id_except_headers));
+    bool has_except  = RB_TYPE_P(except_hdrs, T_ARRAY) && RARRAY_LEN(except_hdrs) > 0;
+    has_only         = RB_TYPE_P(only_hdrs,  T_ARRAY) && RARRAY_LEN(only_hdrs)  > 0;
+    if (has_only || has_except) {
+      keep_bitmap = keep_bitmap_buf;
+      for (long bi = 0; bi < headers_len; bi++) {
+        VALUE hdr = rb_ary_entry(headers, bi);
+        keep_bitmap[bi] = has_only
+          ? (rb_ary_includes(only_hdrs,   hdr) == Qtrue)
+          : (rb_ary_includes(except_hdrs, hdr) != Qtrue);
+      }
+      keep_extra_columns = !has_only;
+      bool strict = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strict)));
+      if (has_only && !strict) {
+        for (long bi = headers_len - 1; bi >= 0; bi--) {
+          if (keep_bitmap[bi]) { early_exit_after = bi; break; }
+        }
+      }
+    }
+  }
+
+  bool did_early_exit = false; /* set to true when early exit fires */
 
   /* ----------------------------------------
    * SECTION 3: Initialize hash and tracking variables
@@ -703,17 +774,25 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
       long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
-      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
-        all_blank = false;
+      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+          all_blank = false;
+      }
       element_count++;
+
+      /* Early exit: all required columns already collected — stop scanning */
+      if (early_exit_after >= 0 && element_count > early_exit_after) {
+        did_early_exit = true;
+        break;
+      }
 
       // Move to next field
       p = sep_pos + 1;
       startP = p;
     }
 
-    /* Process the last field (no separator after it) */
-    {
+    /* Process the last field (no separator after it) — skip on early exit */
+    if (!did_early_exit) {
       long field_len = endP - startP;
       char *trim_start = startP;
       char *trim_end = startP + field_len - 1;
@@ -725,8 +804,10 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
       long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
 
-      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
-        all_blank = false;
+      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+          all_blank = false;
+      }
       element_count++;
     }
 
@@ -740,26 +821,59 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
      * - Escaped quotes using backslash: \"
      *
      * We must scan character-by-character to track quote state.
+     *
+     * quote_escaping and quote_boundary options are only needed here (Section 4
+     * fast path never touches them), so we extract them lazily on first Section 5 entry.
      */
+    VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
+    if (RB_TYPE_P(quote_escaping_val, T_SYMBOL)) {
+      allow_escaped_quotes = (SYM2ID(quote_escaping_val) == id_backslash);
+    }
+    VALUE quote_boundary_val = rb_hash_aref(options_hash, ID2SYM(id_quote_boundary));
+    quote_boundary_standard = (RB_TYPE_P(quote_boundary_val, T_SYMBOL) &&
+                               SYM2ID(quote_boundary_val) == id_standard);
+    /* row_sep reused from chomp above for the closing-quote boundary check */
+    char *row_sepP2 = (RB_TYPE_P(row_sep, T_STRING)) ? RSTRING_PTR(row_sep) : NULL;
+    long row_sep_len2 = (row_sepP2) ? RSTRING_LEN(row_sep) : 0;
+
+    /* Opt #5 (C-side): if backslash mode is requested but the (chomped) line contains
+     * no backslash character, backslash escaping cannot possibly affect parsing — a
+     * backslash only matters immediately before a quote char. Downgrade to RFC mode
+     * so the memchr-inside-quotes optimisation fires unconditionally for such lines.
+     * This replaces the Ruby-side line.include?('\\') pre-scan that was on the hot
+     * path: now the check happens here in C (one fast memchr), and only for lines
+     * that actually reach Section 5 (i.e. lines that contain quote characters).
+     * Unquoted lines never enter Section 5, so they pay zero cost for this check. */
+    if (allow_escaped_quotes && !memchr(startP, '\\', endP - startP)) {
+      allow_escaped_quotes = false;
+    }
+
     long i;
     long backslash_count = 0;    // Track consecutive backslashes for escape detection
     bool in_quotes = false;      // Are we inside a quoted field?
     bool col_sep_found = true;
     bool field_started = false;  // for quote_boundary_standard: true once field has non-boundary content
 
+    /* Cache first separator byte for fast pre-filtering */
+    char sep_char_slow = *col_sepP;
+
     /* Scan through the line character by character */
     while (p < endP) {
-      // Check if current position matches the column separator
-      col_sep_found = true;
-      for (i = 0; (i < col_sep_len) && (p + i < endP); i++) {
-        if (*(p + i) != *(col_sepP + i)) {
-          col_sep_found = false;
-          break;
+      // Separator check: when in_quotes we can never be at a field boundary,
+      // so skip the comparison entirely.
+      // For single-char separator: direct byte compare.
+      // For multi-char separator: pre-filter on first byte, then check the rest.
+      if (!in_quotes && *p == sep_char_slow) {
+        col_sep_found = true;
+        for (i = 1; (i < col_sep_len) && (p + i < endP); i++) {
+          if (*(p + i) != *(col_sepP + i)) { col_sep_found = false; break; }
         }
+      } else {
+        col_sep_found = false;
       }
 
-      // Found separator and not inside quotes = end of field
-      if (col_sep_found && !in_quotes) {
+      // Found separator — !in_quotes is guaranteed by the block above
+      if (col_sep_found) {
         long field_len = p - startP;
         char *raw_field = startP;
 
@@ -783,9 +897,17 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
         // Determine if field contains embedded quotes (need unescape)
         bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
 
-        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
-          all_blank = false;
+        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+            all_blank = false;
+        }
         element_count++;
+
+        /* Early exit: all required columns already collected — stop scanning */
+        if (early_exit_after >= 0 && element_count > early_exit_after) {
+          did_early_exit = true;
+          goto section5_done;
+        }
 
         // Move past the separator to start of next field
         p += col_sep_len;
@@ -796,14 +918,24 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
       } else {
         /* Not at a separator (or inside quotes) - track quote state */
 
+        /* RFC mode: inside quoted field, skip ahead to the next quote char.
+         * Everything between here and the next quote is plain field content — no
+         * separators or backslashes can appear (allow_escaped_quotes is false).
+         * memchr() is SIMD-accelerated and handles typical field lengths in 1 call. */
+        if (!allow_escaped_quotes && in_quotes) {
+          char *next_quote = (char *)memchr(p, quote_char_val, endP - p);
+          if (!next_quote) { p = endP; continue; }  /* no closing quote → unclosed */
+          p = next_quote;  /* jump to quote char; fall through to quote-handling code */
+        }
+
         if (allow_escaped_quotes && *p == '\\') {
           // Count consecutive backslashes for escape sequence detection
           backslash_count++;
-          if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) field_started = true;
+          if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) field_started = true;
         } else {
           if (*p == quote_char_val) {
             if (!allow_escaped_quotes || backslash_count % 2 == 0) {
-              if (__builtin_expect(quote_boundary_standard, 0)) {
+              if (__builtin_expect(quote_boundary_standard, 1)) {
                 if (in_quotes) {
                   // closing quote: only valid if followed by col_sep, row_sep, or end of line
                   bool valid_close = (p + 1 >= endP);
@@ -833,7 +965,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
                 in_quotes = !in_quotes;
               }
             }
-          } else if (__builtin_expect(quote_boundary_standard, 0) && !in_quotes) {
+          } else if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) {
             if (strip_ws) {
               if (*p != ' ' && *p != '\t') field_started = true;
             } else {
@@ -846,13 +978,20 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
       }
     }
 
-    // Error: unclosed quote at end of line
-    if (in_quotes) {
-      rb_raise(eMalformedCSVError, "Unclosed quoted field detected in line: %s", StringValueCStr(line));
+    section5_done:;
+    /* Unclosed quote at end of line (skip check on early exit):
+     * Signal "needs more data" — the caller stitches the next physical line and re-parses.
+     * We return [nil, -1] rather than raising so the read loop can handle multiline fields
+     * without a separate pre-scan pass (detect_multiline). */
+    if (!did_early_exit && in_quotes) {
+      VALUE result = rb_ary_new_capa(2);
+      rb_ary_push(result, Qnil);
+      rb_ary_push(result, LONG2FIX(-1));
+      return result;
     }
 
-    /* Process the last field (same logic as above) */
-    {
+    /* Process the last field (same logic as above) — skip on early exit */
+    if (!did_early_exit) {
       long field_len = endP - startP;
       char *raw_field = startP;
 
@@ -874,8 +1013,10 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
       bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
 
-      if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
-        all_blank = false;
+      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+          all_blank = false;
+      }
       element_count++;
     }
   }
@@ -905,7 +1046,9 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
   if (!remove_empty_values) {
     ensure_hash_allocated(&xform);
     for (long i = element_count; i < headers_len; i++) {
-      rb_hash_aset(xform.hash, rb_ary_entry(headers, i), Qnil);
+      if (!keep_bitmap || keep_bitmap[i]) {
+        rb_hash_aset(xform.hash, rb_ary_entry(headers, i), Qnil);
+      }
     }
   }
 
@@ -1031,6 +1174,12 @@ void Init_smarter_csv(void) {
   id_only = rb_intern("only");
   id_except = rb_intern("except");
   id_quote_boundary = rb_intern("quote_boundary");
+  id_only_headers   = rb_intern("only_headers");
+  id_except_headers = rb_intern("except_headers");
+  id_keep_cols      = rb_intern("_keep_cols");
+  id_strict         = rb_intern("strict");
+  id_backslash      = rb_intern("backslash");
+  id_standard       = rb_intern("standard");
 
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 9);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);

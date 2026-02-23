@@ -25,6 +25,8 @@
 
 ### New Options
 
+ * **New options `only_headers:` and `except_headers:`**: select which columns appear in each result hash. Excluded columns are skipped in the C hot path — no Ruby string allocation, no conversion, no hash insertion. See [Column Selection](docs/column_selection.md) for details.
+
  * **New option `quote_boundary`** (default: `:standard`): controls where quotes are recognized as field delimiters. See [Parsing Strategy](docs/parsing_strategy.md) for details.
    - `:standard` (default) — a `"` only opens/closes a field at a field boundary; mid-field quotes are literal characters. **This is a behavior change from previous versions.**
    - `:legacy` — any `"` toggles quoted state, matching previous SmarterCSV behavior. Use this for backwards compatibility if your data relied on the old behavior.
@@ -33,6 +35,28 @@
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
  * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows
  * **Writer temp file properly cleaned up** — `Tempfile#close!` now used instead of `Tempfile#delete`
+
+### Performance Optimizations
+
+New features in 1.16.0 (`quote_boundary: :standard`, `quote_escaping: :auto`) add a small per-row cost.
+The following optimizations recover that overhead and keep 1.16.0 on par with or faster than 1.15.2.
+
+ * **Hot-path inlining**: The `process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto` wrapper chain has been eliminated from the main reader loop. All routing decisions (accelerated vs Ruby, `:auto` vs fixed escaping) are now precomputed as ivars once after header processing, removing three method calls and several option-hash lookups from every data row.
+
+ * **Precomputed hot-path ivars**: `@use_acceleration`, `@hot_path_options`, `@quote_escaping_auto`, `@delete_nil_keys`, and `@delete_empty_keys` are all cached once after headers are processed. Per-row option-hash lookups are replaced by cheap ivar reads.
+
+ * **Conditional hash-key cleanup**: `hash.delete(nil)` / `hash.delete('')` guarded by `@delete_nil_keys` (set only when `key_mapping` is configured); `hash.delete(:"")` guarded by `@delete_empty_keys`. Avoids hash probes on every row when the keys can never be present.
+
+ * **C extension — lazy option lookups**: `quote_escaping` / `quote_boundary` checks moved from unconditional extraction to the quoted-field path only. Column-selection (`_keep_cols`) and `strict` lookups guarded by nil-check. Duplicate `row_sep` lookup removed.
+
+**Benchmark results** (Apple M1, Ruby 3.4.7, vs SmarterCSV 1.15.2):
+
+| Scenario | Result |
+|---|---|
+| Regression check (16 files, default options, C-accelerated) | 13/16 files measurably faster (up to 2.22×); no regressions |
+| `only_headers:` column selection, C-accelerated | **1.5×–16× faster** for wide files (up to 16× keeping 2 of 500 cols) |
+
+Full benchmark tables: [`BENCHMARK_1.16.0.md`](BENCHMARK_1.16.0.md)
 
 ## 1.15.2 (2026-02-20)
 

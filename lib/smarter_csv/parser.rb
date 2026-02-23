@@ -31,33 +31,68 @@ module SmarterCSV
     end
 
     def parse_with_auto_fallback(line, options, header_size = nil)
-      has_quotes = line.include?(options[:quote_char])
+      # Optimization #4: cache merged options hashes for :auto mode
+      @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+      @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
 
-      begin
+      # Optimization #5: if the line contains no backslash, backslash escaping cannot
+      # affect parsing (a backslash only matters immediately before a quote char).
+      # RFC 4180 and backslash modes give identical results — skip the try-backslash
+      # dance and call directly with RFC options (tighter C inner loop + memchr).
+      # has_quotes is only needed for the Ruby fallback path — C computes it internally.
+      unless line.include?('\\')
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          return [elements, elements.size]
+          # :nocov:
+        else
+          has_quotes = line.include?(options[:quote_char])
+          return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
+        end
+      end
+
+      # Line has a backslash — try backslash-escape interpretation first.
+      # has_quotes only needed for Ruby fallback path.
+      has_quotes = line.include?(options[:quote_char]) unless options[:acceleration] && has_acceleration
+
+      result = begin
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_csv_line_ruby(line, @backslash_options, header_size, has_quotes)
+          parse_csv_line_ruby(line, @quote_escaping_backslash, header_size, has_quotes)
         end
       rescue MalformedCSV
-        # Backslash interpretation failed — fall back to RFC 4180
+        # Backslash raised a hard error — fall back to RFC 4180 immediately
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
-          [elements, elements.size]
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          return [elements, elements.size]
           # :nocov:
         else
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_csv_line_ruby(line, @rfc_options, header_size, has_quotes)
+          return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
         end
       end
+
+      # Backslash sees unclosed quote (-1): RFC may still close it (e.g. header "val\")
+      if result[1] == -1
+        rfc_result = if options[:acceleration] && has_acceleration
+                       # :nocov:
+                       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+                       [elements, elements.size]
+                       # :nocov:
+                     else
+                       parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
+                     end
+        return rfc_result unless rfc_result[1] == -1
+        # Both agree line is incomplete → propagate -1
+      end
+
+      result
     end
 
     # Parse a CSV line directly into a hash, with support for extra columns.
@@ -78,35 +113,54 @@ module SmarterCSV
     end
 
     def parse_line_to_hash_auto(line, headers, options)
-      begin
-        # Try backslash-escape interpretation first
-        if options[:acceleration] && has_acceleration
-          # :nocov:
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_line_to_hash_c(line, headers, @backslash_options)
-          # :nocov:
-        else
-          has_quotes = line.include?(options[:quote_char])
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_line_to_hash_ruby(line, headers, @backslash_options, has_quotes)
+      # Optimization #4: cache merged options hashes for :auto mode
+      @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+      @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
+
+      if options[:acceleration] && has_acceleration
+        # :nocov:
+        # C path: zero Ruby string scanning on the hot path.
+        # C handles Opt #5 internally — if backslash mode is requested but the line
+        # contains no backslash, C automatically downgrades to RFC mode in Section 5
+        # (enabling the memchr-inside-quotes optimisation). For unquoted lines, Section 4
+        # fast path is taken and allow_escaped_quotes is irrelevant anyway.
+        result = parse_line_to_hash_c(line, headers, @quote_escaping_backslash)
+        if result[1] == -1 && line.include?('\\')
+          # Backslash mode sees unclosed quote on a line that contains a backslash.
+          # RFC 4180 may close it differently (e.g. "val\" is open in backslash
+          # mode but closed in RFC mode). Only try RFC when a backslash is present —
+          # if there is no backslash, both modes give identical results and the extra
+          # call is wasted work (common case: embedded-newline partial stitching lines).
+          rfc_result = parse_line_to_hash_c(line, headers, @quote_escaping_double)
+          return rfc_result unless rfc_result[1] == -1
+          # Both agree line is incomplete → propagate [nil, -1]
         end
-      rescue MalformedCSV
-        # Backslash interpretation failed — fall back to RFC 4180
-        if options[:acceleration] && has_acceleration
-          # :nocov:
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_line_to_hash_c(line, headers, @rfc_options)
-          # :nocov:
-        else
-          has_quotes = line.include?(options[:quote_char])
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_line_to_hash_ruby(line, headers, @rfc_options, has_quotes)
-        end
+        return result
+        # :nocov:
       end
+
+      # Ruby fallback path: explicit backslash/quote checks still needed
+      has_quotes = line.include?(options[:quote_char])
+      unless line.include?('\\')
+        return parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+      end
+
+      result = begin
+        parse_line_to_hash_ruby(line, headers, @quote_escaping_backslash, has_quotes)
+      rescue MalformedCSV
+        return parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+      end
+
+      # Backslash path sees an unclosed quote ([nil, -1]): RFC 4180 may still close
+      # the field — e.g. a field ending with \" is open in backslash mode but closed
+      # in RFC mode. Try RFC; if it also returns -1 both agree the line is incomplete.
+      if result[1] == -1
+        rfc_result = parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+        return rfc_result unless rfc_result[1] == -1
+        # Both interpretations agree the line is incomplete → propagate [nil, -1]
+      end
+
+      result
     end
 
     # Ruby implementation of parse_line_to_hash
@@ -118,6 +172,7 @@ module SmarterCSV
 
       # Parse the line into values
       elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
+      return [nil, -1] if data_size == -1 # unclosed quote at EOL → caller stitches next line
 
       # Optimization #6: elements are always String or nil from parse_csv_line_ruby,
       # so .to_s is unnecessary. If strip_whitespace is on, fields are already
@@ -182,7 +237,9 @@ module SmarterCSV
 
       # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
       # always pass this, but direct callers may not)
+      # rubocop:disable Style/OrAssignment
       has_quotes = line.include?(options[:quote_char]) unless has_quotes
+      # rubocop:enable Style/OrAssignment
 
       # Optimization #7: when line has no quotes, use String#split (C-implemented)
       # to bypass the entire character-by-character loop.
@@ -193,6 +250,7 @@ module SmarterCSV
         if header_size && header_size <= 0
           return [[], 0]
         end
+
         elements = line.split(col_sep, -1) # -1 preserves trailing empty fields
         elements = elements[0, header_size] if header_size
         elements.map!(&:strip) if strip
@@ -247,7 +305,7 @@ module SmarterCSV
                         field_started = true
                       end
                       # else: quote inside quoted field → literal (handles "" doubling)
-                    elsif !field_started  # at field boundary: open quoted field
+                    elsif !field_started # at field boundary: open quoted field
                       in_quotes = true
                       field_started = true
                     end
@@ -298,7 +356,7 @@ module SmarterCSV
                         field_started = true
                       end
                       # else: quote inside quoted field → literal (handles "" doubling)
-                    elsif !field_started  # at field boundary: open quoted field
+                    elsif !field_started # at field boundary: open quoted field
                       in_quotes = true
                       field_started = true
                     end
@@ -319,12 +377,9 @@ module SmarterCSV
         end
       end
 
-      # Check for unclosed quotes at the end of the line
-      if in_quotes
-        # :nocov:
-        raise MalformedCSV, "Unclosed quoted field detected in line: #{line}"
-        # :nocov:
-      end
+      # Unclosed quote at end of line: signal "needs more data" to the caller.
+      # The read loop will stitch the next physical line and re-parse rather than raising.
+      return [[], -1] if in_quotes
 
       # Process the remaining field
       if header_size.nil? || elements.size < header_size

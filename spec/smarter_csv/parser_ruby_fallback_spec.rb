@@ -2,8 +2,7 @@
 
 # Tests for Ruby fallback paths in parser.rb:
 # - parse_line_to_hash_ruby
-# - parse_line_to_hash_auto (including MalformedCSV fallback)
-# - parse_with_auto_fallback (including MalformedCSV fallback)
+# - parse_with_auto_fallback (including MalformedCSV fallback and backslash-in-header path)
 # - parse_csv_line_ruby edge cases
 
 fixture_path = 'spec/fixtures'
@@ -116,11 +115,14 @@ describe 'parser Ruby fallback paths' do
       expect(size).to eq 3
     end
 
-    it 'raises MalformedCSV for unclosed quotes' do
+    it 'returns needs-more sentinel for unclosed quotes (multiline signal)' do
+      # parse_csv_line_ruby no longer raises for unclosed quotes at EOL — it returns
+      # [[], -1] so the read loop can stitch the next physical line and re-parse
+      # instead of performing a separate detect_multiline pre-scan pass.
       options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, strip_whitespace: false}
-      expect {
-        reader.send(:parse_csv_line_ruby,'"unclosed,field', options)
-      }.to raise_error(SmarterCSV::MalformedCSV, /Unclosed quoted field/)
+      elements, size = reader.send(:parse_csv_line_ruby, '"unclosed,field', options)
+      expect(elements).to eq []
+      expect(size).to eq(-1)
     end
   end
 
@@ -139,4 +141,137 @@ describe 'parser Ruby fallback paths' do
     end
   end
 
+  describe 'parse_with_auto_fallback result path — parser.rb line 97' do
+    # parse_with_auto_fallback reaches the final `result` return (line 97) when:
+    # (a) line contains a backslash → enters the try-backslash block,
+    # (b) backslash mode parses without error and returns data_size != -1.
+    # A CSV header with a bare backslash (no surrounding quotes) satisfies both conditions.
+    it 'returns the backslash-mode result when a header contains a backslash without quotes' do
+      csv = StringIO.new("field_\\a,field_b\n1,2\n")
+      data = SmarterCSV.process(csv, acceleration: false, quote_escaping: :auto)
+      expect(data.size).to eq 1
+      expect(data[0].values).to include(1, 2)
+    end
+  end
+
+  describe 'stitch-loop RFC fallback — reader.rb line 246' do
+    # In the multiline stitch while loop (Ruby path, quote_escaping: :auto):
+    # after appending a continuation line, if the accumulated line still has data_size==-1
+    # in backslash mode AND the accumulated line contains a backslash, we try RFC mode.
+    #
+    # Trigger: a quoted field that spans two physical lines where the second line ends
+    # with \" — in backslash mode \" is an escaped literal (field stays open, -1),
+    # but in RFC mode \ is a literal and " closes the field.
+    it 'closes a multiline field via RFC fallback when continuation line has backslash-quote ending' do
+      # Physical lines:
+      #   col                ← header
+      #   "line1             ← opens quoted field, no closing quote → initial parse: -1 (both modes)
+      #   \"                 ← continuation: backslash + closing-quote + newline
+      #                         backslash mode: \" is escaped literal → still open (-1)
+      #                         RFC mode:       \ is literal, " closes field → data_size=1
+      csv = StringIO.new("col\n\"line1\n\\\"\n")
+      data = SmarterCSV.process(csv, acceleration: false, quote_escaping: :auto)
+      expect(data.size).to eq 1
+      expect(data[0][:col]).to eq "line1\n\\"
+    end
+  end
+
+end
+
+# -----------------------------------------------------------------------
+# Tests targeting previously uncovered lines in parser.rb:
+#   parse_line_to_hash        (lines 101–113)
+#   parse_line_to_hash_auto   (lines 117–163)
+#   parse_with_auto_fallback  rescue block (lines 71, 77)
+# -----------------------------------------------------------------------
+describe 'parse_line_to_hash dispatch (parser.rb lines 101–113)' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+  let(:headers) { [:col1, :col2] }
+  let(:base_opts) do
+    {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+     strip_whitespace: false, remove_empty_hashes: true, remove_empty_values: true,
+     missing_header_prefix: 'column_', acceleration: false}
+  end
+
+  it 'dispatches to parse_line_to_hash_auto when quote_escaping: :auto (line 101–102)' do
+    opts = base_opts.merge(quote_escaping: :auto)
+    hash, size = reader.send(:parse_line_to_hash, 'foo,bar', headers, opts)
+    expect(hash).to eq({col1: 'foo', col2: 'bar'})
+    expect(size).to eq 2
+  end
+
+  it 'dispatches to parse_line_to_hash_ruby when not :auto, acceleration: false (lines 109–110)' do
+    hash, size = reader.send(:parse_line_to_hash, 'foo,bar', headers, base_opts)
+    expect(hash).to eq({col1: 'foo', col2: 'bar'})
+    expect(size).to eq 2
+  end
+end
+
+describe 'parse_line_to_hash_auto (parser.rb lines 117–163)' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+  let(:headers) { [:col1, :col2] }
+  let(:auto_opts) do
+    {col_sep: ',', quote_char: '"', quote_escaping: :auto, row_sep: "\n",
+     strip_whitespace: false, remove_empty_hashes: true, remove_empty_values: true,
+     missing_header_prefix: 'column_', acceleration: false}
+  end
+
+  it 'returns double-quotes result when line has no backslash (lines 143–145)' do
+    # No backslash → fast-path RFC 4180 parse; also initialises @quote_escaping_* ivars (lines 117–118)
+    hash, size = reader.send(:parse_line_to_hash_auto, 'foo,bar', headers, auto_opts)
+    expect(hash).to eq({col1: 'foo', col2: 'bar'})
+    expect(size).to eq 2
+  end
+
+  it 'returns backslash-mode result when backslash present but not before a quote (lines 149, 163)' do
+    # Backslash in field value but not escaping a quote → backslash parse succeeds, data_size != -1
+    hash, size = reader.send(:parse_line_to_hash_auto, 'foo\\bar,baz', headers, auto_opts)
+    expect(size).to be > 0
+    expect(hash).not_to be_nil
+  end
+
+  it 'falls back to RFC when backslash mode gives -1 but RFC closes the field (lines 157–159)' do
+    # "val\" — backslash mode: \" escapes the closing " → unclosed (-1)
+    #          RFC mode:       \ is literal, " closes field → size=1
+    hash, size = reader.send(:parse_line_to_hash_auto, '"val\"', [:col1], auto_opts)
+    expect(size).to eq 1
+    expect(hash[:col1]).to eq 'val\\'
+  end
+
+  it 'propagates -1 when both modes agree the line is incomplete (lines 157–163)' do
+    # '"unclosed' → both backslash and RFC modes see an open quoted field → propagate [nil,-1]
+    hash, size = reader.send(:parse_line_to_hash_auto, '"unclosed', [:col1], auto_opts)
+    expect(size).to eq(-1)
+    expect(hash).to be_nil
+  end
+
+  it 'falls back to RFC when backslash parse_csv_line_ruby raises MalformedCSV (line 151)' do
+    # Mock parse_csv_line_ruby to raise only when called with backslash escaping
+    allow(reader).to receive(:parse_csv_line_ruby).and_wrap_original do |orig, ln, opts, *rest|
+      raise SmarterCSV::MalformedCSV, "mocked" if opts[:quote_escaping] == :backslash
+      orig.call(ln, opts, *rest)
+    end
+    hash, size = reader.send(:parse_line_to_hash_auto, 'a\\b,c', headers, auto_opts)
+    expect(size).to eq 2
+  end
+end
+
+describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' do
+  # When parse_csv_line_ruby raises MalformedCSV in backslash mode with acceleration: false,
+  # line 71 evaluates false (no acceleration) and line 77 executes the RFC fallback.
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+  let(:auto_opts) do
+    {col_sep: ',', quote_char: '"', quote_escaping: :auto, row_sep: "\n",
+     strip_whitespace: false, acceleration: false}
+  end
+
+  it 'evaluates line 71 as false and executes RFC fallback at line 77' do
+    allow(reader).to receive(:parse_csv_line_ruby).and_wrap_original do |orig, ln, opts, *rest|
+      raise SmarterCSV::MalformedCSV, "mocked" if opts[:quote_escaping] == :backslash
+      orig.call(ln, opts, *rest)
+    end
+    # Line has a backslash so the backslash path is tried and rescued
+    elements, size = reader.send(:parse_with_auto_fallback, 'a\\b,c', auto_opts)
+    expect(size).to eq 2
+  end
 end

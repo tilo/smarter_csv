@@ -10,6 +10,7 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [**Data Transformations**](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)

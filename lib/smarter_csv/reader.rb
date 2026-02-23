@@ -133,6 +133,41 @@ module SmarterCSV
         @only_headers_set   = options[:only_headers]   ? Set.new(options[:only_headers])   : nil
         @except_headers_set = options[:except_headers] ? Set.new(options[:except_headers]) : nil
 
+        # Precompute positional boolean array for the C extension so it can do O(1) per-field
+        # checks instead of calling rb_ary_includes (O(k)) for every column on every row.
+        if @only_headers_set || @except_headers_set
+          options[:_keep_cols] = @headers.map do |h|
+            @only_headers_set ? @only_headers_set.include?(h) : !@except_headers_set.include?(h)
+          end
+        end
+
+        # Precompute all hot-path strategy ivars once — eliminates per-row option lookups
+        # and method-dispatch overhead in the main loop.
+        #
+        # @quote_escaping_backslash / @quote_escaping_double may already exist if
+        # parse_with_auto_fallback ran during header parsing (lazily created there).
+        # Ensure they exist and carry the now-final _keep_cols bitmap.
+        @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+        @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
+        @quote_escaping_backslash[:_keep_cols] = options[:_keep_cols] # nil when no filtering
+        @quote_escaping_double[:_keep_cols]    = options[:_keep_cols]
+
+        @quote_escaping_auto = options[:quote_escaping] == :auto
+        @use_acceleration    = options[:acceleration] && has_acceleration
+
+        # The single options hash used on the hot path — for :auto we always try backslash
+        # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
+        @hot_path_options = @quote_escaping_auto ? @quote_escaping_backslash : options
+
+        # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
+        # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
+        # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
+        @delete_nil_keys   = !!options[:key_mapping]
+        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
+
+        # Cache quote_char as an ivar for the stitch-loop memchr guard (avoids hash lookup per continuation line).
+        @quote_char = options[:quote_char]
+
         # in case we use chunking.. we'll need to set it up..
         if options[:chunk_size].to_i > 0
           use_chunks = true
@@ -159,39 +194,104 @@ module SmarterCSV
           bad_row_start_file_line = @file_line_count
 
           begin
-            # cater for the quoted csv data containing the row separator carriage return character
-            # in which case the row data will be split across multiple lines (see the sample content in spec/fixtures/carriage_returns_rn.csv)
-            # by detecting the existence of an uneven number of quote characters
-            multiline = detect_multiline(line, options)
-
-            while multiline
-              next_line = fh.gets(options[:row_sep])
-              if next_line.nil?
-                # End of file reached. Check if quotes are balanced.
-                if detect_multiline(line, options)
-                  raise MalformedCSV, "Unclosed quoted field detected in multiline data"
-                else
-                  # :nocov:
-                  # Quotes are balanced; proceed without raising an error.
-                  break
-                  # :nocov:
-                end
+            # --- PARSE (inlined — no method-wrapper overhead on the hot path) ---
+            # Replaces: process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto
+            # All routing decisions are pre-baked into ivars set up after header processing.
+            if @use_acceleration
+              # :nocov:
+              hash, data_size = parse_line_to_hash_c(line, @headers, @hot_path_options)
+              # :auto only: if unclosed quote AND backslash present, RFC may close it differently
+              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                hash, data_size = parse_line_to_hash_c(line, @headers, @quote_escaping_double)
               end
+              # :nocov:
+            else
+              has_quotes = line.include?(options[:quote_char])
+              hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
+              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
+              end
+            end
+
+            # --- MULTILINE STITCH ---
+            # data_size == -1 means the parser saw an unclosed quoted field at end-of-line.
+            # Fetch the next physical line, append, and re-parse until the field closes.
+            while data_size == -1
+              next_line = fh.gets(options[:row_sep])
+              raise MalformedCSV, "Unclosed quoted field detected in multiline data" if next_line.nil?
+
               next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
               line += next_line
               @file_line_count += 1
+              # :nocov:
+              print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose
+              # :nocov:
 
-              multiline = detect_multiline(line, options)
+              # Opt #8 (memchr guard): if the newly appended line contains no quote character,
+              # it cannot close the currently open quoted field — skip the full re-parse and
+              # keep accumulating physical lines.  String#include? uses memchr internally (C speed).
+              next unless next_line.include?(@quote_char)
+
+              if @use_acceleration
+                # :nocov:
+                hash, data_size = parse_line_to_hash_c(line, @headers, @hot_path_options)
+                if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                  hash, data_size = parse_line_to_hash_c(line, @headers, @quote_escaping_double)
+                end
+                # :nocov:
+              else
+                has_quotes = line.include?(options[:quote_char])
+                hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
+                if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                  hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
+                end
+              end
             end
 
-            # :nocov:
-            if multiline && @verbose
-              print "\nline contains uneven number of quote chars so including content through file line %d\n" % @file_line_count
-            end
-            # :nocov:
+            # --- EXTRA COLUMNS ---
+            if data_size > @headers.size
+              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}" if options[:strict]
 
-            hash = process_line_to_hash(line, options)
+              while @headers.size < data_size
+                @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
+              end
+            end
+
             next if hash.nil?
+
+            # --- COLUMN SELECTION ---
+            hash.select! { |k, _| @only_headers_set.include?(k) }   if @only_headers_set
+            hash.reject! { |k, _| @except_headers_set.include?(k) } if @except_headers_set
+
+            # --- HASH CLEANUP & TRANSFORMATIONS ---
+            if @use_acceleration
+              # :nocov:
+              # C already applied: remove_empty_values, convert_values_to_numeric, remove_zero_values.
+              # Remove nil/"" keys left by key_mapping or empty CSV headers.
+              if @delete_nil_keys
+                hash.delete(nil)
+                hash.delete('')
+              end
+              hash.delete(:"") if @delete_empty_keys
+
+              if options[:remove_values_matching]
+                hash.delete_if do |_k, v|
+                  str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+                  str_val && options[:remove_values_matching].match?(str_val)
+                end
+              end
+
+              if options[:value_converters]
+                options[:value_converters].each do |key, converter|
+                  hash[key] = converter.convert(hash[key]) if hash.key?(key)
+                end
+              end
+              # :nocov:
+            else
+              hash = hash_transformations(hash, options)
+            end
+
+            next if options[:remove_empty_hashes] && hash.empty?
 
             puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
             # optional adding of csv_line_number to the hash to help debugging
@@ -439,6 +539,9 @@ module SmarterCSV
       # we create additional columns on-the-fly when we find more data fields than headers
       hash, data_size = parse_line_to_hash(line, @headers, options)
 
+      # Unclosed quote at end of line: signal caller to stitch next physical line
+      return :needs_more if data_size == -1
+
       # Handle extra columns (more data fields than headers)
       if data_size > @headers.size
         if options[:strict]
@@ -459,12 +562,14 @@ module SmarterCSV
       hash.reject! { |k, _| @except_headers_set.include?(k) } if @except_headers_set
 
       # --- HASH TRANSFORMATIONS / POST-FILTERS --------------------------------
-      if options[:acceleration] && @has_acceleration
+      if @use_acceleration
         # C already handled: remove_empty_values, convert_values_to_numeric, remove_zero_values.
-        # Clean up nil/empty keys (from key_mapping setting keys to nil)
-        hash.delete(nil)
-        hash.delete('')
-        hash.delete(:"")
+        # Remove nil/"" keys left by key_mapping or empty CSV headers.
+        if @delete_nil_keys
+          hash.delete(nil)
+          hash.delete('')
+        end
+        hash.delete(:"") if @delete_empty_keys
 
         # Only these Ruby-only post-filters remain (user-provided Ruby objects):
         if options[:remove_values_matching]

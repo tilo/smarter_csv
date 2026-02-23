@@ -10,6 +10,7 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
@@ -83,6 +84,12 @@
      | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
      | :missing_header_prefix      |  column_ | can be set to a string of your liking                                                |
      | :strict                     |   false  | When set to `true`, extra columns will raise MalformedCSV exception                  |
+     | :only_headers               |   nil    | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). |
+     |                             |          | Accepts a symbol, string, or array of either. Values are normalized to symbols.      |
+     |                             |          | Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:except_headers`. |
+     | :except_headers             |   nil    | Remove the listed columns from each result hash. See [Column Selection](./column_selection.md). |
+     |                             |          | Accepts a symbol, string, or array of either. Values are normalized to symbols.      |
+     |                             |          | Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:only_headers`. |
      ---------------------------------------------------------------------------------------------------------------------------------
 
 Additional 1.x Options which may be replaced in 2.0
