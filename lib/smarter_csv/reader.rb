@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'set'
+
 module SmarterCSV
   class Reader
     include Enumerable
@@ -126,6 +128,10 @@ module SmarterCSV
         puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
 
         header_validations(@headers, options)
+
+        # Precompute column filter sets for only_headers / except_headers (O(1) lookup per row)
+        @only_headers_set   = options[:only_headers]   ? Set.new(options[:only_headers])   : nil
+        @except_headers_set = options[:except_headers] ? Set.new(options[:except_headers]) : nil
 
         # in case we use chunking.. we'll need to set it up..
         if options[:chunk_size].to_i > 0
@@ -447,6 +453,10 @@ module SmarterCSV
 
       # if all values were blank (hash is nil) we ignore this CSV line
       return nil if hash.nil?
+
+      # Apply column selection (only_headers / except_headers)
+      hash.select! { |k, _| @only_headers_set.include?(k) }   if @only_headers_set
+      hash.reject! { |k, _| @except_headers_set.include?(k) } if @except_headers_set
 
       # --- HASH TRANSFORMATIONS / POST-FILTERS --------------------------------
       if options[:acceleration] && @has_acceleration

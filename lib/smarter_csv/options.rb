@@ -21,6 +21,7 @@ module SmarterCSV
       convert_values_to_numeric: true,
       downcase_header: true,
       duplicate_header_suffix: '', # was: nil,
+      except_headers: nil,
       file_encoding: 'utf-8',
       force_utf8: false,
       headers_in_file: true,
@@ -29,6 +30,7 @@ module SmarterCSV
       key_mapping: nil,
       missing_header_prefix: 'column_',
       on_bad_row: :raise,
+      only_headers: nil,
       quote_boundary: :standard, # :standard (only at field boundary 👍) or :legacy (any quote toggles state 👎)
       quote_char: '"',
       quote_escaping: :auto,
@@ -73,6 +75,10 @@ module SmarterCSV
       # fix invalid input
       @options[:invalid_byte_sequence] ||= ''
 
+      # Normalize only_headers/except_headers to arrays of symbols
+      @options[:only_headers]   = Array(@options[:only_headers]).map(&:to_sym)   if @options[:only_headers]
+      @options[:except_headers] = Array(@options[:except_headers]).map(&:to_sym) if @options[:except_headers]
+
       puts "Computed options:\n#{pp(@options)}\n" if @options[:verbose]
 
       validate_options!(@options)
@@ -105,6 +111,9 @@ module SmarterCSV
       obr = options[:on_bad_row]
       unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)
         errors << "invalid on_bad_row: must be :raise, :skip, :collect, or a callable"
+      end
+      if options[:only_headers] && options[:except_headers]
+        errors << "cannot use both :only_headers and :except_headers at the same time"
       end
       raise SmarterCSV::ValidationError, errors.inspect if errors.any?
     end
