@@ -6,7 +6,13 @@ module SmarterCSV
     # Optimization #13: byteindex (byte-position search) was added in Ruby 3.2.
     # When available, it lets Opt #10/#12 skip-ahead use byte offsets directly —
     # no conversion from byte position to character position needed.
-    BYTEINDEX_AVAILABLE = String.method_defined?(:byteindex)
+    #
+    # Restricted to MRI Ruby (RUBY_ENGINE == 'ruby'): JRuby and TruffleRuby implement
+    # byteindex but require the offset to land on a character boundary. Our byte-level
+    # loop advances i one byte at a time, so i can point to a UTF-8 continuation byte
+    # (0x80–0xBF) when Opt #10/#12 fires — which raises IndexError on those runtimes.
+    # The inline getbyte fallback below is correct for all Ruby implementations.
+    BYTEINDEX_AVAILABLE = RUBY_ENGINE == 'ruby' && String.method_defined?(:byteindex)
 
     protected
 
