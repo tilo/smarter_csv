@@ -102,6 +102,9 @@ module SmarterCSV
       errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
       errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
       errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+      if keys.include?(:quote_char) && options[:quote_char].is_a?(String) && options[:quote_char].bytesize > 1
+        errors << "invalid quote_char: must be a single byte (got #{options[:quote_char].inspect})"
+      end
       unless %i[double_quotes backslash auto].include?(options[:quote_escaping])
         errors << "invalid quote_escaping: must be :double_quotes, :backslash, or :auto"
       end

@@ -371,6 +371,89 @@ describe 'parse_line_to_hash_auto (parser.rb lines 117–163)' do
   end
 end
 
+# -----------------------------------------------------------------------
+# Tests targeting lines 334-336, 353-355:
+#   BYTEINDEX_AVAILABLE else-branch — the inline getbyte scan used when
+#   String#byteindex is unavailable (Ruby < 3.2). On Ruby 3.2+ the constant
+#   is true, so the else branch is never reached in normal runs.
+#   stub_const forces the false path so both branches are exercised.
+# -----------------------------------------------------------------------
+describe 'parse_csv_line_ruby BYTEINDEX_AVAILABLE: false fallback (lines 334-336, 353-355)' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+
+  before { stub_const('SmarterCSV::Parser::BYTEINDEX_AVAILABLE', false) }
+
+  # Opt #10 else-branch (lines 334-336): getbyte scan inside a quoted field.
+  # Triggered when in_quotes && !allow_escaped_quotes in the col_sep_size==1 loop.
+
+  it 'parses a quoted field using inline getbyte scan when byteindex unavailable (line 334-336, found)' do
+    options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+               strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+    # '"hello",world' — Opt #10 fires at i=1 (inside "hello"); getbyte scan
+    # advances through 'h','e','l','l','o' until it finds the closing '"' at i=6.
+    elements, size = reader.send(:parse_csv_line_ruby, '"hello",world', options)
+    expect(size).to eq 2
+    expect(elements[0]).to eq 'hello'
+    expect(elements[1]).to eq 'world'
+  end
+
+  it 'returns -1 for unclosed quoted field via inline getbyte scan (line 336 nil branch)' do
+    options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+               strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+    # '"unclosed' — getbyte scan exhausts the string without finding a closing '"' → nil.
+    elements, size = reader.send(:parse_csv_line_ruby, '"unclosed', options)
+    expect(size).to eq(-1)
+    expect(elements).to eq([])
+  end
+
+  # Opt #12 else-branch (lines 353-355): getbyte scan for the next col_sep.
+  # Triggered when quote_boundary_standard && field_started && !in_quotes.
+  # A mixed line (quoted field then unquoted fields) causes field_started=true
+  # after the first field closes, so Opt #12 fires on subsequent fields.
+
+  it 'parses unquoted fields via inline getbyte col_sep scan when byteindex unavailable (lines 353-355, found)' do
+    options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+               strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+    # '"q",a,b' — after the quoted 'q' field closes, 'a' sets field_started; Opt #12
+    # getbyte-scans for ',' and finds it at the next position (line 355 returns j).
+    elements, size = reader.send(:parse_csv_line_ruby, '"q",a,b', options)
+    expect(size).to eq 3
+    expect(elements).to eq ['q', 'a', 'b']
+  end
+
+  it 'returns the last field when no col_sep found in getbyte col_sep scan (line 355 nil branch)' do
+    options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+               strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+    # '"q",lastfield' — Opt #12 getbyte-scans from position 5 to end; no ',' found,
+    # scan exhausts the string and returns nil → break, trailing field extracted.
+    elements, size = reader.send(:parse_csv_line_ruby, '"q",lastfield', options)
+    expect(size).to eq 2
+    expect(elements).to eq ['q', 'lastfield']
+  end
+end
+
+# -----------------------------------------------------------------------
+# Tests targeting lines 461-462:
+#   Multi-char col_sep path + quote_escaping: :backslash + field that starts
+#   with a backslash. Existing tests use double_quotes escaping (allow_escaped_quotes
+#   is false), so lines 461-462 are never reached in those tests.
+# -----------------------------------------------------------------------
+describe 'parse_csv_line_ruby — multi-char col_sep + backslash at field start (lines 461-462)' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+
+  it 'increments backslash_count and sets field_started for backslash at field boundary (lines 461-462)' do
+    options = {col_sep: '||', quote_char: '"', quote_escaping: :backslash,
+               strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+    # '\\"x"||b' chars: \, ", x, ", |, |, b
+    # The field starts with \ (not field_started yet), so Opt #12 cannot pre-empt.
+    # line[0] == '\\' → line 461 fires (backslash_count += 1);
+    # line 462 fires (field_started = true since !in_quotes and quote_boundary_standard).
+    elements, size = reader.send(:parse_csv_line_ruby, '\\"x"||b', options)
+    expect(size).to eq 2
+    expect(elements[1]).to eq 'b'
+  end
+end
+
 describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' do
   # When parse_csv_line_ruby raises MalformedCSV in backslash mode with acceleration: false,
   # line 71 evaluates false (no acceleration) and line 77 executes the RFC fallback.

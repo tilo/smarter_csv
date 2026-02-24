@@ -3,6 +3,10 @@
 module SmarterCSV
   module Parser
     EMPTY_STRING = '' # already frozen
+    # Optimization #13: byteindex (byte-position search) was added in Ruby 3.2.
+    # When available, it lets Opt #10/#12 skip-ahead use byte offsets directly —
+    # no conversion from byte position to character position needed.
+    BYTEINDEX_AVAILABLE = String.method_defined?(:byteindex)
 
     protected
 
@@ -309,22 +313,62 @@ module SmarterCSV
       # Optimization #1: for the common single-char separator, use direct
       # character comparison instead of allocating a substring via line[i...i+n].
       if col_sep_size == 1
-        while i < line_size
+        # Optimization #13: byte-level indexing for single-char separator.
+        # col_sep and quote_char are both validated to be single-byte at option
+        # parsing time. UTF-8 multi-byte continuation bytes (0x80–0xBF) never
+        # alias ASCII delimiter bytes (0x00–0x7F), so byte scanning is safe for
+        # UTF-8 strings with ASCII delimiters — no String allocation per character.
+        col_sep_byte     = col_sep.getbyte(0)
+        quote_byte       = quote.getbyte(0)
+        bytesize         = line.bytesize
+        row_sep_bytesize = row_sep.is_a?(String) ? row_sep.bytesize : 0
+
+        while i < bytesize
           # Optimization #10: inside a quoted field with no backslash escaping, jump
-          # directly to the next quote character using String#index (C-level scan).
+          # directly to the next quote character using byteindex (C-level scan).
           # Avoids per-character Ruby iteration through long field content.
           if in_quotes && !allow_escaped_quotes
-            next_q = line.index(quote, i)
+            next_q = if BYTEINDEX_AVAILABLE
+                       line.byteindex(quote, i)
+                     else
+                       j = i
+                       j += 1 while j < bytesize && line.getbyte(j) != quote_byte
+                       j < bytesize ? j : nil
+                     end
             if next_q.nil?
-              i = line_size # no closing quote — exit loop, return [[], -1] below
+              i = bytesize # no closing quote — exit loop, return [[], -1] below
               break
             end
             i = next_q # land on the quote; fall through to normal quote-handling below
+            b = quote_byte
+
+          # Optimization #12: in :standard mode, once we know the current field is
+          # unquoted (field_started && !in_quotes), remaining quotes are literal and
+          # cannot affect parser state — jump directly to the next col_sep.
+          # Mirrors Opt #10 for the unquoted side of the same trade-off.
+          elsif quote_boundary_standard && field_started && !in_quotes
+            next_sep = if BYTEINDEX_AVAILABLE
+                         line.byteindex(col_sep, i)
+                       else
+                         j = i
+                         j += 1 while j < bytesize && line.getbyte(j) != col_sep_byte
+                         j < bytesize ? j : nil
+                       end
+            if next_sep.nil?
+              break
+            end
+
+            i = next_sep
+            b = col_sep_byte
+
+          else
+            b = line.getbyte(i)
           end
-          if line[i] == col_sep && !in_quotes
+
+          if b == col_sep_byte && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
-            field = line[start...i]
+            field = line.byteslice(start, i - start)
             field = cleanup_quotes(field, quote)
             elements << (strip ? field.strip : field)
             i += 1
@@ -332,19 +376,19 @@ module SmarterCSV
             backslash_count = 0
             field_started = false # reset for next field
           else
-            if allow_escaped_quotes && line[i] == '\\'
+            if allow_escaped_quotes && b == 92 # backslash '\\'
               backslash_count += 1
               field_started = true if quote_boundary_standard && !in_quotes
             else
-              if line[i] == quote
+              if b == quote_byte
                 if !allow_escaped_quotes || backslash_count % 2 == 0
                   if quote_boundary_standard
                     if in_quotes
                       # closing quote: only valid if followed by col_sep, row_sep, or end of line
                       next_i = i + 1
-                      if next_i >= line_size ||
-                         line[next_i] == col_sep ||
-                         (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                      if next_i >= bytesize ||
+                         line.getbyte(next_i) == col_sep_byte ||
+                         (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
                         in_quotes = false
                         field_started = true
                       end
@@ -358,16 +402,28 @@ module SmarterCSV
                     in_quotes = !in_quotes
                   end
                 end
-              elsif quote_boundary_standard && !in_quotes
-                # Non-quote, non-separator: track field content for boundary detection
+              elsif quote_boundary_standard && !in_quotes && !field_started
+                # Non-quote, non-separator: mark field as started (only needs to fire once
+                # per field — Opt #12 skips the rest once this is set).
                 # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-                field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
+                field_started = true unless strip && (b == 32 || b == 9) # ' ' == 32, '\t' == 9
                 # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
             end
             i += 1
           end
+        end
+
+        # Unclosed quote at end of line: signal "needs more data" to the caller.
+        # The read loop will stitch the next physical line and re-parse rather than raising.
+        return [[], -1] if in_quotes
+
+        # Process the remaining field
+        if header_size.nil? || elements.size < header_size
+          field = line.byteslice(start, bytesize - start)
+          field = cleanup_quotes(field, quote)
+          elements << (strip ? field.strip : field)
         end
       else
         # Multi-char col_sep: use substring comparison (original path)
@@ -381,6 +437,17 @@ module SmarterCSV
             end
             i = next_q
           end
+
+          # Optimization #12 (multi-char path): mirror of single-char path above.
+          if quote_boundary_standard && field_started && !in_quotes
+            next_sep = line.index(col_sep, i)
+            if next_sep.nil?
+              break
+            end
+
+            i = next_sep
+          end
+
           if line[i...i+col_sep_size] == col_sep && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
@@ -418,7 +485,7 @@ module SmarterCSV
                     in_quotes = !in_quotes
                   end
                 end
-              elsif quote_boundary_standard && !in_quotes
+              elsif quote_boundary_standard && !in_quotes && !field_started
                 # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
                 field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
                 # rubocop:enable Style/MultipleComparison
@@ -428,17 +495,17 @@ module SmarterCSV
             i += 1
           end
         end
-      end
 
-      # Unclosed quote at end of line: signal "needs more data" to the caller.
-      # The read loop will stitch the next physical line and re-parse rather than raising.
-      return [[], -1] if in_quotes
+        # Unclosed quote at end of line: signal "needs more data" to the caller.
+        # The read loop will stitch the next physical line and re-parse rather than raising.
+        return [[], -1] if in_quotes
 
-      # Process the remaining field
-      if header_size.nil? || elements.size < header_size
-        field = line[start..-1]
-        field = cleanup_quotes(field, quote)
-        elements << (strip ? field.strip : field)
+        # Process the remaining field
+        if header_size.nil? || elements.size < header_size
+          field = line[start..-1]
+          field = cleanup_quotes(field, quote)
+          elements << (strip ? field.strip : field)
+        end
       end
 
       [elements, elements.size]
