@@ -28,6 +28,8 @@ module SmarterCSV
       invalid_byte_sequence: '',
       keep_original_headers: false,
       key_mapping: nil,
+      strict: false,              # DEPRECATED -> use missing_headers
+      missing_headers: :auto,     # :auto (auto-generate names for extra cols) or :raise (raise HeaderSizeMismatch)
       missing_header_prefix: 'column_',
       on_bad_row: :raise,
       only_headers: nil,
@@ -44,7 +46,6 @@ module SmarterCSV
       row_sep: :auto, # was: $/,
       silence_missing_keys: false,
       skip_lines: nil,
-      strict: false,
       strings_as_keys: false,
       strip_chars_from_headers: nil,
       strip_whitespace: true,
@@ -78,6 +79,16 @@ module SmarterCSV
       # Normalize only_headers/except_headers to arrays of symbols
       @options[:only_headers]   = Array(@options[:only_headers]).map(&:to_sym)   if @options[:only_headers]
       @options[:except_headers] = Array(@options[:except_headers]).map(&:to_sym) if @options[:except_headers]
+
+      # Translate deprecated :strict option to :missing_headers
+      if given_options.key?(:strict)
+        warn "DEPRECATION WARNING: 'strict' option is deprecated and will be removed in a future version. " \
+             "Use 'missing_headers: :raise' instead of 'strict: true', or 'missing_headers: :auto' instead of 'strict: false'."
+        @options[:missing_headers] = @options[:strict] ? :raise : :auto unless given_options.key?(:missing_headers)
+      end
+
+      # Keep :strict synchronized with :missing_headers (C extension reads :strict directly)
+      @options[:strict] = (@options[:missing_headers] == :raise)
 
       puts "Computed options:\n#{pp(@options)}\n" if @options[:verbose]
 
@@ -114,6 +125,9 @@ module SmarterCSV
       obr = options[:on_bad_row]
       unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)
         errors << "invalid on_bad_row: must be :raise, :skip, :collect, or a callable"
+      end
+      unless %i[auto raise].include?(options[:missing_headers])
+        errors << "invalid missing_headers: must be :auto or :raise"
       end
       if options[:only_headers] && options[:except_headers]
         errors << "cannot use both :only_headers and :except_headers at the same time"

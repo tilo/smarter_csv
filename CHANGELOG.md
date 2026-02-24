@@ -27,6 +27,11 @@
 
  * **New options `only_headers:` and `except_headers:`**: select which columns appear in each result hash. Excluded columns are skipped in the C hot path — no Ruby string allocation, no conversion, no hash insertion. See [Column Selection](docs/column_selection.md) for details.
 
+ * **New option `missing_headers:`** (default: `:auto`): controls behavior when a data row has more columns than the header row.
+   - `:auto` (default) — extra columns are auto-named using `missing_header_prefix` (e.g. `column_7`, `column_8`, …).
+   - `:raise` — raises `SmarterCSV::HeaderSizeMismatch` on the first row with extra columns.
+   > **Deprecation:** The `strict:` option is deprecated and will be removed in a future version. Use `missing_headers: :raise` instead of `strict: true`. A deprecation warning is emitted when `strict:` is used.
+
  * **New option `quote_boundary`** (default: `:standard`): controls where quotes are recognized as field delimiters. See [Parsing Strategy](docs/parsing_strategy.md) for details.
    - `:standard` (default) — a `"` only opens/closes a field at a field boundary; mid-field quotes are literal characters. **This is a behavior change from previous versions.**
    - `:legacy` — any `"` toggles quoted state, matching previous SmarterCSV behavior. Use this for backwards compatibility if your data relied on the old behavior.

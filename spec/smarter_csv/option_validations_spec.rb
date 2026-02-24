@@ -10,6 +10,11 @@ describe 'option validations' do
     expect(data.size).to eq 5
   end
 
+  it 'raises ValidationError for invalid missing_headers value' do
+    expect { SmarterCSV.process("#{fixture_path}/basic.csv", missing_headers: :bogus) }
+      .to raise_error(SmarterCSV::ValidationError, /invalid missing_headers/)
+  end
+
   it 'raises ValidationError for invalid quote_boundary value' do
     expect { SmarterCSV.process("#{fixture_path}/basic.csv", quote_boundary: :bogus) }
       .to raise_error(SmarterCSV::ValidationError, /invalid quote_boundary/)

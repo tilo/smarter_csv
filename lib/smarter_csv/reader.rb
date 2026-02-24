@@ -250,7 +250,7 @@ module SmarterCSV
 
             # --- EXTRA COLUMNS ---
             if data_size > @headers.size
-              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}" if options[:strict]
+              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}" if options[:missing_headers] == :raise
 
               while @headers.size < data_size
                 @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
@@ -544,7 +544,7 @@ module SmarterCSV
 
       # Handle extra columns (more data fields than headers)
       if data_size > @headers.size
-        if options[:strict]
+        if options[:missing_headers] == :raise
           raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}"
         end
 

@@ -85,7 +85,9 @@
      | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
      | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
      | :missing_header_prefix      |  column_ | can be set to a string of your liking                                                |
-     | :strict                     |   false  | When set to `true`, extra columns will raise MalformedCSV exception                  |
+     | :missing_headers            |  :auto   | Behavior when a data row has more columns than the header row.                       |
+     |                             |          | `:auto` (default): auto-name extra columns using `missing_header_prefix`.            |
+     |                             |          | `:raise`: raise `HeaderSizeMismatch` on the first row with extra columns.            |
      | :only_headers               |   nil    | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). |
      |                             |          | Accepts a symbol, string, or array of either. Values are normalized to symbols.      |
      |                             |          | Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:except_headers`. |
@@ -106,6 +108,7 @@ There have been a lot of 1-offs and feature creep around these options, and goin
      |                             |          | if set to true: makes all mapped keys optional                                       |
      |                             |          | if given an array, makes only the keys listed in it optional                         |
      | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                    |
+     | :strict                     |   false  | (DEPRECATED) Use `missing_headers: :raise` instead. Will be removed in a future version. |
      | :required_headers           |   nil    | (DEPRECATED / renamed) Use `required_keys` instead                                   |
      |                             |          | or an exception is raised   No validation if nil is given.                           |
      | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
