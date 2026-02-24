@@ -170,7 +170,41 @@ module SmarterCSV
       # Chomp trailing row separator
       line = line.chomp(options[:row_sep]) if options[:row_sep]
 
-      # Parse the line into values
+      col_sep = options[:col_sep]
+      strip   = options[:strip_whitespace]
+      prefix  = options[:missing_header_prefix]
+
+      # Optimization #11: for unquoted lines, build the hash in one pass directly
+      # from String#split — no intermediate array returned from parse_csv_line_ruby
+      # and no second iteration to convert array → hash. Saves one Array allocation
+      # + one full-row iteration per row (most impactful on wide-column files).
+      unless has_quotes || col_sep == ' '
+        fields = line.split(col_sep, -1)
+        n = fields.size
+
+        if options[:remove_empty_hashes]
+          all_blank = fields.empty? || fields.all? { |v| v.strip.empty? }
+          return [nil, n] if all_blank
+        end
+
+        hash = {}
+        i = 0
+        while i < n
+          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = strip ? fields[i].strip : fields[i]
+          i += 1
+        end
+
+        unless options[:remove_empty_values]
+          while i < headers.size
+            hash[headers[i]] = nil
+            i += 1
+          end
+        end
+
+        return [hash, n]
+      end
+
+      # Quoted/complex path: parse into elements array, then build hash.
       elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
       return [nil, -1] if data_size == -1 # unclosed quote at EOL → caller stitches next line
 
@@ -178,7 +212,7 @@ module SmarterCSV
       # so .to_s is unnecessary. If strip_whitespace is on, fields are already
       # stripped, so .strip is also redundant — just check .empty?.
       if options[:remove_empty_hashes]
-        all_blank = if options[:strip_whitespace]
+        all_blank = if strip
                       elements.empty? || elements.all? { |v| v.nil? || v.empty? }
                     else
                       elements.empty? || elements.all? { |v| v.nil? || v.strip.empty? }
@@ -186,22 +220,21 @@ module SmarterCSV
         return [nil, data_size] if all_blank
       end
 
-      # Build the hash - only include keys for values that exist
+      # Build the hash — integer-index while loop avoids enumerator overhead vs each_with_index
+      n = elements.size
       hash = {}
-      elements.each_with_index do |value, i|
-        key = if i < headers.size
-                headers[i]
-              else
-                "#{options[:missing_header_prefix]}#{i + 1}".to_sym
-              end
-        hash[key] = value
+      i = 0
+      while i < n
+        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = elements[i]
+        i += 1
       end
 
       # Add nil for missing columns only when remove_empty_values is false
       # (when true, nils would be removed anyway by hash_transformations)
       unless options[:remove_empty_values]
-        (elements.size...headers.size).each do |i|
+        while i < headers.size
           hash[headers[i]] = nil
+          i += 1
         end
       end
 
@@ -277,6 +310,17 @@ module SmarterCSV
       # character comparison instead of allocating a substring via line[i...i+n].
       if col_sep_size == 1
         while i < line_size
+          # Optimization #10: inside a quoted field with no backslash escaping, jump
+          # directly to the next quote character using String#index (C-level scan).
+          # Avoids per-character Ruby iteration through long field content.
+          if in_quotes && !allow_escaped_quotes
+            next_q = line.index(quote, i)
+            if next_q.nil?
+              i = line_size # no closing quote — exit loop, return [[], -1] below
+              break
+            end
+            i = next_q # land on the quote; fall through to normal quote-handling below
+          end
           if line[i] == col_sep && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
@@ -328,6 +372,15 @@ module SmarterCSV
       else
         # Multi-char col_sep: use substring comparison (original path)
         while i < line_size
+          # Optimization #10 (multi-char path): same skip-ahead as single-char path above.
+          if in_quotes && !allow_escaped_quotes
+            next_q = line.index(quote, i)
+            if next_q.nil?
+              i = line_size
+              break
+            end
+            i = next_q
+          end
           if line[i...i+col_sep_size] == col_sep && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 

@@ -14,6 +14,8 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [**Bad Row Quarantine**](./bad_row_quarantine.md)
+  * [Examples](./examples.md)
+  * [SmarterCSV over the Years](./history.md)
 
 --------------
 
@@ -193,4 +195,4 @@ puts "Bad rows: #{reader.errors[:bad_row_count]}"
 ```
 
 --------------------
-PREVIOUS: [Value Converters](./value_converters.md) | UP: [README](../README.md)
+PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)

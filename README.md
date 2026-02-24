@@ -136,6 +136,7 @@ Or install it yourself as:
   * [Faster Parsing CSV with Parallel Processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing) by [Jack lin](https://github.com/xjlin0/)
   * The original [Stackoverflow Question](https://stackoverflow.com/questions/7788618/update-mongodb-with-array-from-csv-join-table/7788746#7788746) that inspired SmarterCSV
   * [The original post](http://www.unixgods.org/Ruby/process_csv_as_hashes.html) for SmarterCSV
+  * [SmarterCSV over the Years](docs/history.md) — version timeline and performance journey (11×–119× faster than v1.6.1)
 
 # [ChangeLog](./CHANGELOG.md)
 

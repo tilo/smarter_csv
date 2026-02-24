@@ -124,6 +124,118 @@ describe 'parser Ruby fallback paths' do
       expect(elements).to eq []
       expect(size).to eq(-1)
     end
+
+    # --- Optimization #10: String#index skip-ahead inside quoted fields ---
+
+    it 'correctly parses a long quoted field (skip-ahead optimization)' do
+      long_content = 'x' * 10_000
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      elements, size = reader.send(:parse_csv_line_ruby, "\"#{long_content}\",after", options)
+      expect(size).to eq 2
+      expect(elements[0]).to eq long_content
+      expect(elements[1]).to eq 'after'
+    end
+
+    it 'handles doubled quotes ("") inside a long quoted field (skip-ahead + cleanup_quotes)' do
+      # Each segment: 100 x-chars followed by "" (doubled quote).
+      # After cleanup_quotes, "" becomes a single ".
+      segment   = 'x' * 100 + '""'
+      raw_inner = segment * 10                       # 1000 x-chars + 20 doubled quotes
+      expected  = raw_inner.gsub('""', '"')
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      elements, size = reader.send(:parse_csv_line_ruby, "\"#{raw_inner}\"", options)
+      expect(size).to eq 1
+      expect(elements[0]).to eq expected
+    end
+
+    it 'returns -1 (unclosed) for a long quoted field with no closing quote (skip-ahead nil branch)' do
+      long_content = 'y' * 5_000
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      elements, size = reader.send(:parse_csv_line_ruby, "\"#{long_content}", options)
+      expect(size).to eq(-1)
+    end
+
+    it 'skip-ahead works with multi-char col_sep and long quoted field' do
+      long_content = 'z' * 1_000
+      options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      elements, size = reader.send(:parse_csv_line_ruby, "\"#{long_content}\"||after", options)
+      expect(size).to eq 2
+      expect(elements[0]).to eq long_content
+      expect(elements[1]).to eq 'after'
+    end
+
+    it 'returns -1 for unclosed quote with multi-char col_sep (skip-ahead nil branch, multi-char path)' do
+      options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      elements, size = reader.send(:parse_csv_line_ruby, '"unclosed||field', options)
+      expect(size).to eq(-1)
+    end
+  end
+
+  describe 'parse_line_to_hash_ruby — Optimization #11 (direct hash construction)' do
+    let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+
+    it 'strips whitespace in the unquoted direct path when strip_whitespace: true' do
+      headers = [:a, :b, :c]
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+                 strip_whitespace: true, remove_empty_hashes: false, remove_empty_values: true,
+                 missing_header_prefix: 'column_'}
+      result, size = reader.send(:parse_line_to_hash_ruby, " hello , world , ! ", headers, options)
+      expect(size).to eq 3
+      expect(result[:a]).to eq 'hello'
+      expect(result[:b]).to eq 'world'
+      expect(result[:c]).to eq '!'
+    end
+
+    it 'does not strip whitespace in the unquoted direct path when strip_whitespace: false' do
+      headers = [:a, :b]
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+                 strip_whitespace: false, remove_empty_hashes: false, remove_empty_values: true,
+                 missing_header_prefix: 'column_'}
+      result, _size = reader.send(:parse_line_to_hash_ruby, " hello , world ", headers, options)
+      expect(result[:a]).to eq ' hello '
+      expect(result[:b]).to eq ' world '
+    end
+
+    it 'uses the quoted path (not direct path) when col_sep is a space' do
+      headers = [:a, :b]
+      options = {col_sep: ' ', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+                 strip_whitespace: false, remove_empty_hashes: false, remove_empty_values: true,
+                 missing_header_prefix: 'column_'}
+      # Space-sep lines go through parse_csv_line_ruby (not String#split direct path)
+      result, size = reader.send(:parse_line_to_hash_ruby, 'foo bar', headers, options)
+      expect(size).to eq 2
+      expect(result[:a]).to eq 'foo'
+      expect(result[:b]).to eq 'bar'
+    end
+
+    it 'returns nil for all-blank unquoted row when remove_empty_hashes: true (direct path)' do
+      headers = [:a, :b]
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+                 strip_whitespace: false, remove_empty_hashes: true, remove_empty_values: true,
+                 missing_header_prefix: 'column_'}
+      result, _size = reader.send(:parse_line_to_hash_ruby, ',', headers, options)
+      expect(result).to be_nil
+    end
+
+    it 'fills missing columns with nil in the quoted path when remove_empty_values: false' do
+      # A line with a quote character goes through the quoted path (not the direct unquoted path).
+      # When the row has fewer fields than headers, nil-padding must still apply.
+      headers = [:a, :b, :c, :d]
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, row_sep: "\n",
+                 strip_whitespace: false, remove_empty_hashes: false, remove_empty_values: false,
+                 missing_header_prefix: 'column_', quote_boundary: :standard}
+      result, size = reader.send(:parse_line_to_hash_ruby, '"x",y', headers, options, true)
+      expect(size).to eq 2
+      expect(result[:a]).to eq 'x'
+      expect(result[:b]).to eq 'y'
+      expect(result[:c]).to be_nil
+      expect(result[:d]).to be_nil
+    end
   end
 
   describe 'parse_with_auto_fallback rescue path (Ruby)' do
@@ -251,7 +363,10 @@ describe 'parse_line_to_hash_auto (parser.rb lines 117–163)' do
       raise SmarterCSV::MalformedCSV, "mocked" if opts[:quote_escaping] == :backslash
       orig.call(ln, opts, *rest)
     end
-    hash, size = reader.send(:parse_line_to_hash_auto, 'a\\b,c', headers, auto_opts)
+    # Line must have a quote so parse_line_to_hash_ruby takes the quoted path
+    # (which calls parse_csv_line_ruby). Unquoted lines now use the direct-split
+    # path and never call parse_csv_line_ruby, so the mock would never fire.
+    hash, size = reader.send(:parse_line_to_hash_auto, '"val\\",c', headers, auto_opts)
     expect(size).to eq 2
   end
 end

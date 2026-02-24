@@ -14,8 +14,10 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
-    
---------------   
+  * [Examples](./examples.md)
+  * [SmarterCSV over the Years](./history.md)
+
+--------------
 
 # Header Validations
 
@@ -51,4 +53,4 @@ end
 ```
 
 ----------------
-PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Data Transformations](./data_transformations.md)
+PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Column Selection](./column_selection.md)
