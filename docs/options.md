@@ -25,13 +25,13 @@
 
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :row_sep                    |   $/      | Separates rows; Defaults to your OS row separator. `/n` on UNIX, `/r/n` oon Windows | 
-     | :col_sep                    |   ","     | Separates each value in a row                                  | 
+     | :row_sep                    |   $/      | Separates rows; Defaults to your OS row separator. `/n` on UNIX, `/r/n` oon Windows |
+     | :col_sep                    |   ","     | Separates each value in a row                                  |
      | :quote_char                 |   '"'     | To quote CSV fields.                                           |
      | :force_quotes               |   false   | Forces each individual value to be quoted |
      | :headers                    |    []     | You can provide the specific list of keys from the input you'd like to be used as headers in the CSV file |
      |                             |           | ⚠️ This disables automatic header detection!                    |
-     | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. | 
+     | :map_headers                |    {}     | Similar to `headers`, but also maps each desired key to a user-specified value that is uesd as the header. |
      |                             |           | ⚠️ This disables automatic header detection!                    |
      | :value_converters           |    nil    | allows to define lambdas to programmatically modify values       |
      |                             |           | * either for specific `key` names                                |
@@ -46,87 +46,150 @@
 
 ## CSV Reading
 
+### File Input & Encoding
+
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :chunk_size                 |   nil    | if set, determines the desired chunk-size (defaults to nil, no chunk processing)     |
-     |                             |          |                                                                                      |
-     | :file_encoding              |   utf-8  | Set the file encoding eg.: 'windows-1252' or 'iso-8859-1'                            |
-     | :invalid_byte_sequence      |   ''     | what to replace invalid byte sequences with                                          |
-     | :force_utf8                 |   false  | force UTF-8 encoding of all lines (including headers) in the CSV file                |
-     | :skip_lines                 |   nil    | how many lines to skip before the first line or header line is processed             |
-     | :comment_regexp             |   nil    | regular expression to ignore comment lines (see NOTE on CSV header), e.g./\A#/       |
+     | :file_encoding              |   utf-8  | Set the file encoding e.g.: 'windows-1252' or 'iso-8859-1'                           |
+     | :invalid_byte_sequence      |   ''     | What to replace invalid byte sequences with                                          |
+     | :force_utf8                 |   false  | Force UTF-8 encoding of all lines (including headers) in the CSV file                |
+
+### File Layout
+
+     | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :col_sep                    |  :auto   | column separator (default was ',')                                                   |
-     | :row_sep                    |  :auto   | row separator or record separator (previous default was system's $/ , which defaulted to "\n") |
-     |                             |          | This can also be set to :auto, but will process the whole cvs file first  (slow!)    |
-     | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil or 0 means whole file. |
-     | :quote_char                 |   '"'    | quotation character                                                                  |
-     | :quote_escaping             | :auto    | How quotes are escaped inside quoted fields. See [Parsing Strategy](./parsing_strategy.md). |
-     |                             |          | `:auto` (default): tries backslash-escape first, falls back to RFC 4180.             |
-     |                             |          | `:double_quotes` (RFC 4180): only `""` escapes a quote. Backslash is literal.        |
-     |                             |          | `:backslash` (MySQL/Unix): `\"` also escapes a quote.                                |
-     | :quote_boundary             | :standard| Where quote characters are recognized as field delimiters. See [Parsing Strategy](./parsing_strategy.md). |
-     |                             |          | `:standard` (default): a quote only opens a field when it is the first character     |
-     |                             |          | of the field (at a field boundary). Mid-field quotes are treated as literal characters. |
-     |                             |          | `:legacy`: any quote toggles quoted state regardless of position (old behavior,      |
-     |                             |          | kept for backwards compatibility with files that relied on this quirk).              |
+     | :skip_lines                 |   nil    | How many lines to skip before the first line or header line is processed             |
+     | :comment_regexp             |   nil    | Regular expression to ignore comment lines (e.g. `/\A#/`). See NOTE on CSV header.  |
+     | :chunk_size                 |   nil    | If set, data is yielded in chunks of this many rows instead of all at once.          |
+     |                             |          | Use with `SmarterCSV.each_chunk` for memory-efficient batch processing.              |
+
+### Separators
+
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :col_sep                    |  :auto   | Column separator. `:auto` detects from file content (default was `','`).             |
+     | :row_sep                    |  :auto   | Row / record separator. `:auto` detects from file content.                           |
+     |                             |          | Manual detection reads the whole file first (slow on large files).                   |
+     | :auto_row_sep_chars         |   500    | How many characters to analyze when using `:row_sep => :auto`. nil/0 = whole file.  |
+
+### Quoting
+
+See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling.
+
+     | Option                      | Default   |  Explanation                                                                        |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :quote_char                 |   '"'     | Quotation character. Must be a single byte.                                         |
+     | :quote_escaping             |  :auto    | How quotes are escaped inside quoted fields.                                        |
+     |                             |           | `:auto` (default): tries backslash-escape first, falls back to RFC 4180.            |
+     |                             |           | `:double_quotes` (RFC 4180): only `""` escapes a quote. Backslash is literal.       |
+     |                             |           | `:backslash` (MySQL/Unix): `\"` also escapes a quote.                               |
+     | :quote_boundary             | :standard | Where quote characters are recognized as field delimiters.                          |
+     |                             |           | `:standard` (default): a quote only opens a field at a field boundary (first char). |
+     |                             |           | Mid-field quotes are treated as literal characters.                                 |
+     |                             |           | `:legacy`: any quote toggles quoted state regardless of position (old behavior).    |
+
+### Headers
+
+     | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
      | :headers_in_file            |  true(1) | Whether or not the file contains headers as the first line.                          |
-     |                             |          | (1): if `user_provided_headers` is given, the default is `false`,                    |
-     |                             |          | unless you specify it to be explicitly `true`.                                       |
-     |                             |          | This prevents losing the first line of data, which is otherwise assumed to be a header. |
-     | :duplicate_header_suffix    |   ''     | Adds numbers to duplicated headers and separates them by the given suffix.           |
-     |                             |          | Set this to nil to raise `DuplicateHeaders` error instead (previous behavior)        |
+     |                             |          | (1): if `user_provided_headers` is given, the default is `false`                     |
+     |                             |          | unless you set it explicitly to `true`.                                              |
      | :user_provided_headers      |   nil    | *careful with that axe!*                                                             |
-     |                             |          | user provided Array of header strings or symbols, to define                          |
-     |                             |          | what headers should be used, overriding any in-file headers.                         |
-     |                             |          | You can not combine the :user_provided_headers and :key_mapping options              |
-     | :remove_empty_hashes        |   true   | remove / ignore any hashes which don't have any key/value pairs or all empty values  |
-     | :verbose                    |   false  | print out line number while processing (to track down problems in input files)       |
-     | :with_line_numbers          |   false  | add :csv_line_number to each data hash                                               |
-     | :missing_header_prefix      |  column_ | can be set to a string of your liking                                                |
+     |                             |          | User-provided Array of header strings or symbols, overriding any in-file headers.   |
+     |                             |          | Cannot be combined with `:key_mapping`.                                              |
+     | :duplicate_header_suffix    |   ''     | Adds numbers to duplicated headers, separated by this suffix.                        |
+     |                             |          | Set to `nil` to raise `DuplicateHeaders` error instead (previous behavior).          |
+     | :downcase_header            |   true   | Downcase all column headers.                                                         |
+     | :strings_as_keys            |   false  | Use strings instead of symbols as keys in the result hashes.                         |
+     | :keep_original_headers      |   false  | Keep the original headers from the CSV file as-is.                                   |
+     |                             |          | Disables other flags that manipulate header fields.                                  |
+     | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line                          |
+     |                             |          | (e.g. if headers are quoted).                                                        |
+     | :missing_header_prefix      | column_  | Prefix for auto-generated column names when extra columns are found.                 |
      | :missing_headers            |  :auto   | Behavior when a data row has more columns than the header row.                       |
      |                             |          | `:auto` (default): auto-name extra columns using `missing_header_prefix`.            |
      |                             |          | `:raise`: raise `HeaderSizeMismatch` on the first row with extra columns.            |
-     | :only_headers               |   nil    | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). |
-     |                             |          | Accepts a symbol, string, or array of either. Values are normalized to symbols.      |
-     |                             |          | Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:except_headers`. |
-     | :except_headers             |   nil    | Remove the listed columns from each result hash. See [Column Selection](./column_selection.md). |
-     |                             |          | Accepts a symbol, string, or array of either. Values are normalized to symbols.      |
-     |                             |          | Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:only_headers`. |
-     ---------------------------------------------------------------------------------------------------------------------------------
 
-Additional 1.x Options which may be replaced in 2.0
-
-There have been a lot of 1-offs and feature creep around these options, and going forward we'll strive to have a simpler, but more flexible way to address these features.
-
+### Header Mapping & Validation
 
      | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :key_mapping                |   nil    | a hash which maps headers from the CSV file to keys in the result hash               |
-     | :silence_missing_keys        |   false  | ignore missing keys in `key_mapping`                                                |
-     |                             |          | if set to true: makes all mapped keys optional                                       |
-     |                             |          | if given an array, makes only the keys listed in it optional                         |
-     | :required_keys              |   nil    | An array. Specify the required names AFTER header transformation.                    |
-     | :strict                     |   false  | (DEPRECATED) Use `missing_headers: :raise` instead. Will be removed in a future version. |
-     | :required_headers           |   nil    | (DEPRECATED / renamed) Use `required_keys` instead                                   |
-     |                             |          | or an exception is raised   No validation if nil is given.                           |
-     | :remove_unmapped_keys       |   false  | when using :key_mapping option, should non-mapped keys / columns be removed?         |
-     | :downcase_header            |   true   | downcase all column headers                                                          |
-     | :strings_as_keys            |   false  | use strings instead of symbols as the keys in the result hashes                      |
-     | :strip_whitespace           |   true   | remove whitespace before/after values and headers                                    |
-     | :keep_original_headers      |   false  | keep the original headers from the CSV-file as-is.                                   |
-     |                             |          | Disables other flags manipulating the header fields.                                 |
-     | :strip_chars_from_headers   |   nil    | RegExp to remove extraneous characters from the header line (e.g. if headers are quoted) |
+     | :key_mapping                |   nil    | A hash mapping CSV headers to keys in the result hash.                               |
+     | :silence_missing_keys       |   false  | Ignore missing keys in `key_mapping`.                                                |
+     |                             |          | `true`: makes all mapped keys optional.                                              |
+     |                             |          | Array: makes only the listed keys optional.                                          |
+     | :remove_unmapped_keys       |   false  | When using `key_mapping`, remove columns that have no mapping.                       |
+     | :required_keys              |   nil    | Array of key names (after header transformation) that must be present.               |
+     |                             |          | Raises an exception if any required key is missing. No validation if nil.            |
+
+### Column Selection
+
+     | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
-     | :value_converters           |   nil    | supply a hash of :header => KlassName; the class needs to implement self.convert(val)|
-     | :remove_empty_values        |   true   | remove values which have nil or empty strings as values                              |
-     | :remove_zero_values         |   false  | remove values which have a numeric value equal to zero / 0                           |
-     | :remove_values_matching     |   nil    | removes key/value pairs if value matches given regular expressions. e.g.:            |
-     |                             |          | /^\$0\.0+$/ to match $0.00 , or /^#VALUE!$/ to match errors in Excel spreadsheets    |
-     | :convert_values_to_numeric  |   true   | converts strings containing Integers or Floats to the appropriate class              |
-     |                             |          |      also accepts either {:except => [:key1,:key2]} or {:only => :key3}              |
+     | :only_headers               |   nil    | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). |
+     |                             |          | Accepts a symbol, string, or array of either. Normalized to symbols.                 |
+     |                             |          | Uses post-mapping names (after `key_mapping:` is applied).                           |
+     |                             |          | Cannot be combined with `:except_headers`.                                           |
+     | :except_headers             |   nil    | Remove the listed columns from each result hash. See [Column Selection](./column_selection.md). |
+     |                             |          | Accepts a symbol, string, or array of either. Normalized to symbols.                 |
+     |                             |          | Uses post-mapping names (after `key_mapping:` is applied).                           |
+     |                             |          | Cannot be combined with `:only_headers`.                                             |
+
+### Value Transformations
+
+     | Option                      | Default  |  Explanation                                                                         |
      ---------------------------------------------------------------------------------------------------------------------------------
+     | :strip_whitespace           |   true   | Remove whitespace before/after values and headers.                                   |
+     | :convert_values_to_numeric  |   true   | Convert strings containing integers or floats to the appropriate numeric type.       |
+     |                             |          | Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns.       |
+     | :value_converters           |   nil    | Hash of `:header => ClassName`; each class must implement `self.convert(value)`.     |
+     |                             |          | See [Value Converters](./value_converters.md) for details.                           |
+     | :remove_empty_values        |   true   | Remove key/value pairs where the value is nil or an empty string.                    |
+     | :remove_zero_values         |   false  | Remove key/value pairs where the numeric value equals zero.                          |
+     | :remove_values_matching     |   nil    | Remove key/value pairs where the value matches the given regular expression.         |
+     |                             |          | e.g. `/^\$0\.0+$/` to match `$0.00`, or `/^#VALUE!$/` for Excel errors.             |
+     | :remove_empty_hashes        |   true   | Remove result hashes that have no key/value pairs or all-empty values.               |
+
+### Error Handling
+
+See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
+
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :on_bad_row                 |  :raise  | Behavior when a row raises a parse error.                                            |
+     |                             |          | `:raise` (default): re-raise the exception, stopping processing.                     |
+     |                             |          | `:skip`: skip the bad row and continue; only counters are updated.                   |
+     |                             |          | `:collect`: skip the bad row and append an error record to `reader.errors[:bad_rows]`.|
+     |                             |          | callable: called with the error record per bad row; processing continues.            |
+     | :collect_raw_lines          |   true   | When collecting bad rows, include the raw stitched line in the error record.         |
+     | :bad_row_limit              |   nil    | If set, raises `SmarterCSV::TooManyBadRows` after this many bad rows.                |
+
+### Output & Diagnostics
+
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :with_line_numbers          |   false  | Add `:csv_line_number` to each result hash.                                          |
+     | :verbose                    |   false  | Print line number while processing (useful for tracking down problems).              |
+
+### Performance
+
+     | Option                      | Default  |  Explanation                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :acceleration               |   true   | Use the C extension for parsing (MRI Ruby only).                                     |
+     |                             |          | Set to `false` to force the pure-Ruby fallback (always used on JRuby/TruffleRuby).  |
+
+---
+
+## Deprecated Options
+
+These options are still accepted but emit a deprecation warning. They will be removed in a future version.
+
+     | Option                      | Default  |  Replacement                                                                         |
+     ---------------------------------------------------------------------------------------------------------------------------------
+     | :strict                     |   false  | Use `missing_headers: :raise` instead of `strict: true`.                            |
+     |                             |          | Use `missing_headers: :auto` instead of `strict: false`.                            |
+     | :required_headers           |   nil    | Renamed to `:required_keys`. Use `required_keys:` instead.                           |
 
 -------------
 PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md)
