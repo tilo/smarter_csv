@@ -15,11 +15,12 @@
 
 **Read API**
 New optional interfaces to read CSV:
+
+ * **New `SmarterCSV.parse(csv_string, options)`**: parse a CSV string directly without wrapping in `StringIO`. Drop-in equivalent of `CSV.parse(str, headers: true, header_converters: :symbol)` — with numeric conversion included. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
+
  * **New `Reader#each` and `SmarterCSV.each`**: row-by-row enumerator yielding each row as a `Hash`. `Reader` now includes `Enumerable` (`map`, `select`, `lazy`, etc.). Returns an `Enumerator` when called without a block.
 
  * **New `Reader#each_chunk` and `SmarterCSV.each_chunk`**: chunked enumerator yielding `(Array<Hash>, chunk_index)` for batch and parallel workflows. Requires `chunk_size` in options.
-
- * **New `SmarterCSV.parse(csv_string, options)`**: parse a CSV string directly without wrapping in `StringIO`. Drop-in equivalent of `CSV.parse(str, headers: true, header_converters: :symbol)` — with numeric conversion included. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
 
 New options for reading CSV:
  * **New `on_bad_row` option — bad row quarantine**: continue processing after parse errors by skipping, collecting, or routing bad rows to a callable. See [Bad Row Quarantine](docs/bad_row_quarantine.md).
