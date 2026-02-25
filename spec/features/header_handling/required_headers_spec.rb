@@ -36,8 +36,7 @@ describe 'required_headers -> required_keys' do
     it 'prints a deprecation warning when required_headers is used' do
       options[:required_headers] = [:first_name]
 
-      expect_any_instance_of(SmarterCSV::Options).to receive(:puts).with a_string_matching(/DEPRECATION WARNING/)
-      reader.process
+      expect { reader.process }.to output(/DEPRECATION WARNING/).to_stderr
     end
   end
 

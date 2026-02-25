@@ -69,6 +69,19 @@ module SmarterCSV
     reader.process(&block)
   end
 
+  # Convenience method for parsing a CSV string directly.
+  # Equivalent to SmarterCSV.process(StringIO.new(csv_string), options).
+  #
+  # Example:
+  #   data = SmarterCSV.parse("name,age\nAlice,30\nBob,25")
+  #   # => [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+  #
+  #   SmarterCSV.parse("name,age\nAlice,30") { |chunk| chunk.each { |h| puts h } }
+  #
+  def self.parse(csv_string, options = {}, &block)
+    process(StringIO.new(csv_string), options, &block)
+  end
+
   # Yields each successfully parsed row as a Hash (row-by-row, Enumerable-compatible).
   # Returns an Enumerator when called without a block.
   #

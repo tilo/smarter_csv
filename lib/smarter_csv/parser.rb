@@ -128,12 +128,12 @@ module SmarterCSV
       @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
 
       if options[:acceleration] && has_acceleration
-        # :nocov:
         # C path: zero Ruby string scanning on the hot path.
         # C handles Opt #5 internally — if backslash mode is requested but the line
         # contains no backslash, C automatically downgrades to RFC mode in Section 5
         # (enabling the memchr-inside-quotes optimisation). For unquoted lines, Section 4
         # fast path is taken and allow_escaped_quotes is irrelevant anyway.
+        # :nocov:
         result = parse_line_to_hash_c(line, headers, @quote_escaping_backslash)
         if result[1] == -1 && line.include?('\\')
           # Backslash mode sees unclosed quote on a line that contains a backslash.
@@ -145,8 +145,8 @@ module SmarterCSV
           return rfc_result unless rfc_result[1] == -1
           # Both agree line is incomplete → propagate [nil, -1]
         end
-        return result
         # :nocov:
+        return result
       end
 
       # Ruby fallback path: explicit backslash/quote checks still needed

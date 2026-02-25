@@ -24,14 +24,12 @@ module SmarterCSV
     attr_reader :enforce_utf8, :has_rails, :has_acceleration
     attr_reader :errors, :warnings, :headers, :raw_header, :result
 
-    # :nocov:
     # rubocop:disable Naming/MethodName
     def headerA
       warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
       @headerA
     end
     # rubocop:enable Naming/MethodName
-    # :nocov:
 
     # first parameter: filename or input object which responds to readline method
     def initialize(input, given_options = {})
@@ -83,7 +81,7 @@ module SmarterCSV
     def each_chunk
       chunk_size = @options[:chunk_size]
       if chunk_size.nil?
-        warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning."
+        warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning." unless @options[:verbose] == :quiet
         chunk_size = DEFAULT_CHUNK_SIZE
       end
       unless chunk_size.is_a?(Integer) && chunk_size >= 1
@@ -111,7 +109,7 @@ module SmarterCSV
         fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
-          puts 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+          warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
         end
 
         # auto-detect the row separator
@@ -125,7 +123,7 @@ module SmarterCSV
         @headers, _header_size = process_headers(fh, options)
         @headerA = @headers # @headerA is deprecated, use @headers
 
-        puts "Effective headers:\n#{pp(@headers)}\n" if @verbose
+        $stderr.puts "Effective headers:\n#{pp(@headers)}\n" if @verbose == :debug
 
         header_validations(@headers, options)
 
@@ -184,7 +182,7 @@ module SmarterCSV
           # replace invalid byte sequence in UTF-8 with question mark to avoid errors
           line = enforce_utf8_encoding(line, options) if @enforce_utf8
 
-          print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose
+          $stderr.print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose == :debug
 
           next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
 
@@ -198,13 +196,11 @@ module SmarterCSV
             # Replaces: process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto
             # All routing decisions are pre-baked into ivars set up after header processing.
             if @use_acceleration
-              # :nocov:
               hash, data_size = parse_line_to_hash_c(line, @headers, @hot_path_options)
               # :auto only: if unclosed quote AND backslash present, RFC may close it differently
               if @quote_escaping_auto && data_size == -1 && line.include?('\\')
                 hash, data_size = parse_line_to_hash_c(line, @headers, @quote_escaping_double)
               end
-              # :nocov:
             else
               has_quotes = line.include?(options[:quote_char])
               hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
@@ -223,9 +219,7 @@ module SmarterCSV
               next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
               line += next_line
               @file_line_count += 1
-              # :nocov:
-              print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose
-              # :nocov:
+              $stderr.print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose == :debug
 
               # Opt #8 (memchr guard): if the newly appended line contains no quote character,
               # it cannot close the currently open quoted field — skip the full re-parse and
@@ -265,7 +259,6 @@ module SmarterCSV
 
             # --- HASH CLEANUP & TRANSFORMATIONS ---
             if @use_acceleration
-              # :nocov:
               # C already applied: remove_empty_values, convert_values_to_numeric, remove_zero_values.
               # Remove nil/"" keys left by key_mapping or empty CSV headers.
               if @delete_nil_keys
@@ -274,10 +267,18 @@ module SmarterCSV
               end
               hash.delete(:"") if @delete_empty_keys
 
-              if options[:remove_values_matching]
-                hash.delete_if do |_k, v|
-                  str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                  str_val && options[:remove_values_matching].match?(str_val)
+              if (matcher = options[:nil_values_matching])
+                if options[:remove_empty_values]
+                  hash.delete_if do |_k, v|
+                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+                    str_val && matcher.match?(str_val)
+                  end
+                else
+                  hash.each_key do |k|
+                    v = hash[k]
+                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+                    hash[k] = nil if str_val && matcher.match?(str_val)
+                  end
                 end
               end
 
@@ -286,14 +287,13 @@ module SmarterCSV
                   hash[key] = converter.convert(hash[key]) if hash.key?(key)
                 end
               end
-              # :nocov:
             else
               hash = hash_transformations(hash, options)
             end
 
             next if options[:remove_empty_hashes] && hash.empty?
 
-            puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == '2' # very verbose setting
+            $stderr.puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == :debug
             # optional adding of csv_line_number to the hash to help debugging
             hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
           rescue SmarterCSV::Error, EOFError => e
@@ -332,7 +332,7 @@ module SmarterCSV
         end
 
         # print new line to retain last processing line message
-        print "\n" if @verbose
+        $stderr.print "\n" if @verbose == :debug
 
         # handling of last chunk:
         if !chunk.nil? && chunk.size > 0
@@ -572,10 +572,18 @@ module SmarterCSV
         hash.delete(:"") if @delete_empty_keys
 
         # Only these Ruby-only post-filters remain (user-provided Ruby objects):
-        if options[:remove_values_matching]
-          hash.delete_if do |_k, v|
-            str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-            str_val && options[:remove_values_matching].match?(str_val)
+        if (matcher = options[:nil_values_matching])
+          if options[:remove_empty_values]
+            hash.delete_if do |_k, v|
+              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+              str_val && matcher.match?(str_val)
+            end
+          else
+            hash.each_key do |k|
+              v = hash[k]
+              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+              hash[k] = nil if str_val && matcher.match?(str_val)
+            end
           end
         end
 

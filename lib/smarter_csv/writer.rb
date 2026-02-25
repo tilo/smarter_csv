@@ -77,8 +77,16 @@ module SmarterCSV
         @output_file = file_path_or_io
         @file_opened_by_us = false
       end
-      @temp_file = Tempfile.new('smarter_csv')
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
+
+      if !@discover_headers && !@headers.empty?
+        # Headers are fully known at construction time — write the header line immediately
+        # and stream data rows directly to @output_file, bypassing the temp file entirely.
+        @temp_file = nil
+        write_header_line
+      else
+        @temp_file = Tempfile.new('smarter_csv')
+      end
     end
 
     def <<(data)
@@ -90,29 +98,34 @@ module SmarterCSV
       when NilClass
         # ignore
       else
-        # :nocov:
         raise InvalidInputData, "Invalid data type: #{data.class}. Must be a Hash or an Array."
-        # :nocov:
       end
     end
 
     def finalize
-      mapped_headers = @headers.map { |header| @map_headers[header] || header }
-
-      mapped_headers = @headers.map { |header| @header_converter.call(header) } if @header_converter
-
-      force_quotes = @quote_headers || @force_quotes
-      mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
-
-      @temp_file.rewind
-      @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?
-      @output_file.write(@temp_file.read)
+      if @temp_file
+        # Header-discovery mode: headers were accumulated while writing rows;
+        # now prepend the header line and copy the buffered rows to the output.
+        write_header_line
+        @temp_file.rewind
+        @output_file.write(@temp_file.read)
+        @temp_file.close!
+      end
+      # In direct-write mode (@temp_file == nil) the header line and all data rows
+      # were already written to @output_file — nothing left to do but flush and close.
       @output_file.flush
       @output_file.close if @file_opened_by_us # only close files we opened; caller owns external IO objects
-      @temp_file.close!
     end
 
     private
+
+    def write_header_line
+      mapped_headers = @headers.map { |header| @map_headers[header] || header }
+      mapped_headers = @headers.map { |header| @header_converter.call(header) } if @header_converter
+      force_quotes = @quote_headers || @force_quotes
+      mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
+      @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?
+    end
 
     def process_hash(hash)
       if @discover_headers
@@ -135,7 +148,7 @@ module SmarterCSV
         escape_csv_field(value, @force_quotes) # for backwards compatibility
       end
 
-      @temp_file.write(ordered_row.join(@col_sep) + @row_sep) unless ordered_row.empty?
+      (@temp_file || @output_file).write(ordered_row.join(@col_sep) + @row_sep) unless ordered_row.empty?
     end
 
     def map_value(key, value)

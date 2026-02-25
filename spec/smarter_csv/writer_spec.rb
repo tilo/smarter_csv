@@ -82,6 +82,20 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
 
+    context 'when invalid data type is passed in' do
+      it 'raises InvalidInputData for a String' do
+        expect do
+          SmarterCSV.generate(file_path) { |csv| csv << "not a hash" }
+        end.to raise_error(SmarterCSV::InvalidInputData, /Invalid data type.*String/)
+      end
+
+      it 'raises InvalidInputData for an Integer' do
+        expect do
+          SmarterCSV.generate(file_path) { |csv| csv << 42 }
+        end.to raise_error(SmarterCSV::InvalidInputData, /Invalid data type.*Integer/)
+      end
+    end
+
     context 'simplest case: one hash given' do
       let(:options) { {} }
       let(:data) do
@@ -653,6 +667,88 @@ RSpec.describe SmarterCSV::Writer do
           end
         end.to raise_error(RuntimeError, "something went wrong")
         expect(io).not_to be_closed
+      end
+    end
+  end
+
+  context 'direct-write mode (known headers, no temp file)' do
+    # When headers: or map_headers: is provided (and discover_headers is not forced true),
+    # the Writer skips the temp file and streams the header line + data rows directly to
+    # the output IO. This is verified by inspecting the StringIO content *before* finalize.
+
+    let(:row_sep) { $/ }
+
+    context 'with explicit headers:' do
+      it 'writes the header line to the output immediately, before finalize' do
+        io = StringIO.new
+        SmarterCSV::Writer.new(io, headers: [:name, :age])
+        # Header must already be present — no finalize called yet
+        io.rewind
+        expect(io.string).to eq("name,age#{row_sep}")
+      end
+
+      it 'streams each data row to the output immediately, before finalize' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:name, :age])
+        writer << { name: 'Alice', age: 30 }
+        io.rewind
+        expect(io.string).to eq("name,age#{row_sep}Alice,30#{row_sep}")
+      end
+
+      it 'produces the same final output as header-discovery mode' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:name, :age])
+        writer << { name: 'Alice', age: 30 }
+        writer << { name: 'Bob', age: 25 }
+        writer.finalize
+        io.rewind
+        expect(io.string).to eq("name,age#{row_sep}Alice,30#{row_sep}Bob,25#{row_sep}")
+      end
+
+      it 'does not close the StringIO after finalize' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:name, :age])
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        expect(io).not_to be_closed
+      end
+    end
+
+    context 'with map_headers:' do
+      it 'writes mapped header names immediately, before finalize' do
+        io = StringIO.new
+        SmarterCSV::Writer.new(io, map_headers: { name: 'Full Name', age: 'Age' })
+        io.rewind
+        expect(io.string).to eq("Full Name,Age#{row_sep}")
+      end
+
+      it 'produces correct final output' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, map_headers: { name: 'Full Name', age: 'Age' })
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        expect(io.string).to eq("Full Name,Age#{row_sep}Alice,30#{row_sep}")
+      end
+    end
+
+    context 'with header_converter: and known headers' do
+      it 'applies the header_converter immediately' do
+        io = StringIO.new
+        SmarterCSV::Writer.new(io,
+                               headers: [:name, :age],
+                               header_converter: ->(h) { h.to_s.upcase })
+        io.rewind
+        expect(io.string).to eq("NAME,AGE#{row_sep}")
+      end
+    end
+
+    context 'with force_quotes: and known headers' do
+      it 'quotes the header line immediately' do
+        io = StringIO.new
+        SmarterCSV::Writer.new(io, headers: [:name, :age], force_quotes: true)
+        io.rewind
+        expect(io.string).to eq("\"name\",\"age\"#{row_sep}")
       end
     end
   end

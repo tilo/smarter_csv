@@ -17,16 +17,26 @@ module SmarterCSV
 
       remove_empty_values = options[:remove_empty_values] == true
       remove_zero_values = options[:remove_zero_values]
-      remove_values_matching = options[:remove_values_matching]
+      nil_values_matching = options[:nil_values_matching]
       convert_to_numeric = options[:convert_values_to_numeric]
       value_converters = options[:value_converters]
 
       # Early return if no transformations needed
-      return hash unless remove_empty_values || remove_zero_values || remove_values_matching || convert_to_numeric || value_converters
+      return hash unless remove_empty_values || remove_zero_values || nil_values_matching || convert_to_numeric || value_converters
 
       keys_to_delete = []
 
       hash.each do |k, v|
+        # Nil-ify values matching the pattern (keeps the key; remove_empty_values handles deletion)
+        if nil_values_matching
+          str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+          if str_val && nil_values_matching.match?(str_val)
+            hash[k] = nil
+            v = nil
+            # fall through: remove_empty_values will delete the key if true
+          end
+        end
+
         # Check if this key/value should be removed
         # Note: numeric values (Integer/Float) are never blank, so skip the blank check for them
         if remove_empty_values && !v.is_a?(Numeric) && (has_rails ? v.blank? : blank?(v))
@@ -38,15 +48,6 @@ module SmarterCSV
         if remove_zero_values && ((v.is_a?(String) && ZERO_REGEX.match?(v)) || (v.is_a?(Numeric) && v == 0))
           keys_to_delete << k
           next
-        end
-
-        # Match against string values, or against the string representation of numeric values
-        if remove_values_matching
-          str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-          if str_val && remove_values_matching.match?(str_val)
-            keys_to_delete << k
-            next
-          end
         end
 
         # Convert to numeric if requested
@@ -75,7 +76,7 @@ module SmarterCSV
     # def hash_transformations(hash, options)
     #   remove_empty_values = options[:remove_empty_values] == true
     #   remove_zero_values = options[:remove_zero_values]
-    #   remove_values_matching = options[:remove_values_matching]
+    #   nil_values_matching = options[:nil_values_matching]    # replaces deprecated remove_values_matching
     #   convert_to_numeric = options[:convert_values_to_numeric]
     #   value_converters = options[:value_converters]
     #
@@ -83,7 +84,7 @@ module SmarterCSV
     #     next if k.nil? || k == '' || k == :""
     #     next if remove_empty_values && (has_rails ? v.blank? : blank?(v))
     #     next if remove_zero_values && v.is_a?(String) && ZERO_REGEX.match?(v)
-    #     next if remove_values_matching && remove_values_matching.match?(v)
+    #     next if nil_values_matching && nil_values_matching.match?(v)
     #
     #     if convert_to_numeric && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
     #       if v.is_a?(String)

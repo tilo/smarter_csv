@@ -152,11 +152,11 @@ RSpec.describe SmarterCSV::Reader do
       expect(result.keys).to include(:column_3)
     end
 
-    it 'raises HeaderSizeMismatch for extra columns when strict: true (lines 547–548)' do
-      r = make_reader("col1,col2\n", strict: true)
-      expect {
+    it 'raises HeaderSizeMismatch for extra columns when missing_headers: :raise (lines 547–548)' do
+      r = make_reader("col1,col2\n", missing_headers: :raise)
+      expect do
         r.send(:process_line_to_hash, "x,y,z", r.options)
-      }.to raise_error(SmarterCSV::HeaderSizeMismatch)
+      end.to raise_error(SmarterCSV::HeaderSizeMismatch)
     end
 
     it 'returns nil for an all-blank row (line 558)' do
@@ -165,23 +165,23 @@ RSpec.describe SmarterCSV::Reader do
       expect(result).to be_nil
     end
 
-    it 'selects only specified columns when only_headers is set (line 561)' do
-      r = make_reader("col1,col2\n", only_headers: [:col1])
+    it 'selects only specified columns when headers: { only: } is set (line 561)' do
+      r = make_reader("col1,col2\n", headers: { only: [:col1] })
       result = r.send(:process_line_to_hash, "foo,bar", r.options)
       expect(result).to eq({col1: 'foo'})
       expect(result.key?(:col2)).to be false
     end
 
-    it 'excludes specified columns when except_headers is set (line 562)' do
-      r = make_reader("col1,col2\n", except_headers: [:col2])
+    it 'excludes specified columns when headers: { except: } is set (line 562)' do
+      r = make_reader("col1,col2\n", headers: { except: [:col2] })
       result = r.send(:process_line_to_hash, "foo,bar", r.options)
       expect(result).to eq({col1: 'foo'})
       expect(result.key?(:col2)).to be false
     end
 
     it 'returns nil when hash is empty after transformations with remove_empty_hashes: true (line 599)' do
-      # remove_values_matching: /.*/ removes every string value → empty hash → line 599 returns nil
-      r = make_reader("col1,col2\n", remove_values_matching: /.*/, remove_empty_hashes: true)
+      # nil_values_matching: /.*/ nils every string value → empty hash → line 599 returns nil
+      r = make_reader("col1,col2\n", nil_values_matching: /.*/, remove_empty_hashes: true)
       result = r.send(:process_line_to_hash, "foo,bar", r.options)
       expect(result).to be_nil
     end
@@ -211,11 +211,22 @@ RSpec.describe SmarterCSV::Reader do
         expect(result.key?(nil)).to be false
       end
 
-      it 'removes values matching regex in the acceleration path (lines 575–578)' do
+      it 'nils values matching regex in the acceleration path (lines 575–578)' do
         r = make_accel_reader("col1,col2\n")
-        opts = r.options.merge(remove_values_matching: /^foo$/)
+        opts = r.options.merge(nil_values_matching: /^foo$/)
         result = r.send(:process_line_to_hash, "foo,bar", opts)
+        # remove_empty_values: true (default) → nil-ified value is then removed
         expect(result.key?(:col1)).to be false
+        expect(result[:col2]).to eq 'bar'
+      end
+
+      it 'keeps key with nil value when remove_empty_values: false in the acceleration path (lines 590–593)' do
+        r = make_accel_reader("col1,col2\n")
+        opts = r.options.merge(nil_values_matching: /^foo$/, remove_empty_values: false)
+        result = r.send(:process_line_to_hash, "foo,bar", opts)
+        # remove_empty_values: false → key retained, value set to nil
+        expect(result.key?(:col1)).to be true
+        expect(result[:col1]).to be_nil
         expect(result[:col2]).to eq 'bar'
       end
 

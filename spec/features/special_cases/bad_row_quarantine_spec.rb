@@ -9,7 +9,7 @@ describe 'Bad row quarantine (on_bad_row option)' do
 
   [true, false].each do |bool|
     context "with#{bool ? ' C-' : 'out '}acceleration" do
-      let(:base_options) { { acceleration: bool, strict: true } }
+      let(:base_options) { { acceleration: bool, missing_headers: :raise } }
 
       # ------------------------------------------------------------------
       # Default behavior: :raise
@@ -18,6 +18,33 @@ describe 'Bad row quarantine (on_bad_row option)' do
         it 'raises on the first bad row' do
           reader = SmarterCSV::Reader.new(quarantine_csv, base_options)
           expect { reader.process }.to raise_error(SmarterCSV::HeaderSizeMismatch)
+        end
+
+        it 'raises when on_bad_row: :raise is set explicitly' do
+          reader = SmarterCSV::Reader.new(quarantine_csv, base_options.merge(on_bad_row: :raise))
+          expect { reader.process }.to raise_error(SmarterCSV::HeaderSizeMismatch)
+        end
+
+        it 'stops processing on the first bad row — good rows before it are still yielded' do
+          rows_yielded = []
+          reader = SmarterCSV::Reader.new(quarantine_csv, base_options)
+          expect do
+            reader.process { |rows, _| rows_yielded.concat(rows) }
+          end.to raise_error(SmarterCSV::Error)
+          # John (row 2) is yielded before Jane (row 3) triggers the raise
+          expect(rows_yielded.map { |r| r[:name] }).to eq %w[John]
+        end
+
+        it 'does not record anything in reader.errors' do
+          reader = SmarterCSV::Reader.new(quarantine_csv, base_options)
+          expect { reader.process }.to raise_error(SmarterCSV::Error)
+          expect(reader.errors[:bad_row_count]).to be_nil
+          expect(reader.errors[:bad_rows]).to be_nil
+        end
+
+        it 'raises with a message identifying the offending line' do
+          reader = SmarterCSV::Reader.new(quarantine_csv, base_options)
+          expect { reader.process }.to raise_error(SmarterCSV::HeaderSizeMismatch, /line \d+/)
         end
       end
 
@@ -74,7 +101,7 @@ describe 'Bad row quarantine (on_bad_row option)' do
           reader = SmarterCSV::Reader.new(quarantine_csv, options)
           reader.process
           rec = reader.errors[:bad_rows].first
-          expect(rec[:csv_line_number]).to eq 3      # header=1, John=2, Jane=3
+          expect(rec[:csv_line_number]).to eq 3 # header=1, John=2, Jane=3
           expect(rec[:file_line_number]).to eq 3
           expect(rec[:file_lines_consumed]).to eq 1
           expect(rec[:error_class]).to eq SmarterCSV::HeaderSizeMismatch
@@ -133,7 +160,7 @@ describe 'Bad row quarantine (on_bad_row option)' do
           received = nil
           options = base_options.merge(
             on_bad_row: ->(rec) { received = rec },
-            collect_raw_lines: false,
+            collect_raw_lines: false
           )
 
           reader = SmarterCSV::Reader.new(quarantine_csv, options)

@@ -119,14 +119,14 @@ describe 'Reader#each and Reader#each_chunk enumerator API' do
         # Interaction with on_bad_row
         # ----------------------------------------------------------------
         it 'skips bad rows when on_bad_row: :skip' do
-          options = base_options.merge(strict: true, on_bad_row: :skip)
+          options = base_options.merge(missing_headers: :raise, on_bad_row: :skip)
           reader = SmarterCSV::Reader.new(quarantine_csv, options)
           names = reader.map { |row| row[:name] }
           expect(names).to eq %w[John Mike]
         end
 
         it 'each_with_index index only counts good rows (excluding bad rows)' do
-          options = base_options.merge(strict: true, on_bad_row: :skip)
+          options = base_options.merge(missing_headers: :raise, on_bad_row: :skip)
           reader = SmarterCSV::Reader.new(quarantine_csv, options)
           indices = []
           reader.each_with_index { |_row, i| indices << i }
@@ -238,7 +238,7 @@ describe 'Reader#each and Reader#each_chunk enumerator API' do
         # Interaction with on_bad_row
         # ----------------------------------------------------------------
         it 'skips bad rows in chunks when on_bad_row: :skip' do
-          options = base_options.merge(strict: true, on_bad_row: :skip, chunk_size: 10)
+          options = base_options.merge(missing_headers: :raise, on_bad_row: :skip, chunk_size: 10)
           reader = SmarterCSV::Reader.new(quarantine_csv, options)
           all_rows = reader.each_chunk.flat_map { |chunk, _| chunk }
           expect(all_rows.map { |r| r[:name] }).to eq %w[John Mike]
