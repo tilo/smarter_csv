@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -101,8 +102,8 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 
 | Option | Default | Explanation |
 |--------|---------|-------------|
-| `:only_headers` | `nil` | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). Accepts a symbol, string, or array of either (normalized to symbols). Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:except_headers`. |
-| `:except_headers` | `nil` | Remove the listed columns from each result hash. See [Column Selection](./column_selection.md). Accepts a symbol, string, or array of either (normalized to symbols). Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `:only_headers`. |
+| `headers: { only: }` | `nil` | Keep only the listed columns in each result hash. See [Column Selection](./column_selection.md). Accepts a symbol, string, or array of either (normalized to symbols). Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `headers: { except: }`. |
+| `headers: { except: }` | `nil` | Remove the listed columns from each result hash. See [Column Selection](./column_selection.md). Accepts a symbol, string, or array of either (normalized to symbols). Uses post-mapping names (after `key_mapping:` is applied). Cannot be combined with `headers: { only: }`. |
 
 ### Value Transformations
 
@@ -113,7 +114,7 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 | `:value_converters` | `nil` | Hash of `:header => ClassName`; each class must implement `self.convert(value)`. See [Value Converters](./value_converters.md). |
 | `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil` or an empty string. |
 | `:remove_zero_values` | `false` | Remove key/value pairs where the numeric value equals zero. |
-| `:remove_values_matching` | `nil` | Remove key/value pairs where the value matches the given regular expression. e.g. `/^\$0\.0+$/` to match `$0.00`, or `/^#VALUE!$/` for Excel errors. |
+| `:nil_values_matching` | `nil` | Set matching values to `nil`. Accepts a regular expression matched against the string representation of each value (e.g. `/\ANAN\z/` for NaN, `/\A#VALUE!\z/` for Excel errors). With `remove_empty_values: true` (default), nil-ified values are then removed. With `remove_empty_values: false`, the key is retained with a `nil` value. |
 | `:remove_empty_hashes` | `true` | Remove result hashes that have no key/value pairs or all-empty values. |
 
 ### Error Handling
@@ -131,7 +132,7 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:with_line_numbers` | `false` | Add `:csv_line_number` to each result hash. |
-| `:verbose` | `false` | Print line number while processing (useful for tracking down problems). |
+| `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. |
 
 ### Performance
 
@@ -149,6 +150,9 @@ These options are still accepted but emit a deprecation warning. They will be re
 |--------|---------|-------------|
 | `:strict` | `false` | Use `missing_headers: :raise` instead of `strict: true`, or `missing_headers: :auto` instead of `strict: false`. |
 | `:required_headers` | `nil` | Renamed to `:required_keys`. Use `required_keys:` instead. |
+| `:remove_values_matching` | `nil` | Renamed to `:nil_values_matching`. Use `nil_values_matching:` instead. |
+| `verbose: true` | — | Use `verbose: :debug` instead. |
+| `verbose: false` | — | Use `verbose: :normal` (or omit — it is the default) instead. |
 
 -------------
 PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md)

@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [**Parsing Strategy**](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -153,4 +154,4 @@ Both options apply simultaneously. `quote_boundary` governs *where* a quote is r
 | `:legacy` | `:auto` | Old toggle behavior + auto-detect escaping style |
 
 --------------
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [The Basic Read API](./basic_read_api.md)
+PREVIOUS: [Migrating from Ruby CSV](./migrating_from_csv.md) | NEXT: [The Basic Read API](./basic_read_api.md)

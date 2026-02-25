@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [**The Basic Read API**](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)    
@@ -36,6 +37,18 @@ The simplified call to read CSV files is:
          array_of_hashes = SmarterCSV.process(file_or_input, options)
 
       ```
+
+To parse a CSV **string** directly (no file needed), use `SmarterCSV.parse`:
+
+      ```
+         array_of_hashes = SmarterCSV.parse(csv_string, options)
+
+      ```
+
+This is equivalent to `SmarterCSV.process(StringIO.new(csv_string), options)` and is the
+idiomatic replacement for `CSV.parse(str, headers: true, header_converters: :symbol)`.
+See [Migrating from Ruby CSV](./migrating_from_csv.md) for a full comparison.
+
 It can also be used with a block. The block always receives an array of hashes and an optional chunk index:
 
       ```

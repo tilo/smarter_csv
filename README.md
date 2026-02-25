@@ -40,6 +40,22 @@ _Benchmarks: 16 CSV files (43k–80k rows), Ruby 3.4.7, Apple M1. Memory: 39% le
 See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
 
 
+## Switching from Ruby CSV?
+
+It's a one-line change:
+
+```ruby
+# Before
+rows = CSV.table('data.csv').map(&:to_h)
+
+# After — up to 119× faster, same symbol keys
+rows = SmarterCSV.process('data.csv')
+```
+
+`SmarterCSV.parse(string)` works like `CSV.parse(string, headers: true, header_converters: :symbol)` — with numeric conversion included by default.
+
+See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
+
 ## Examples
 
 ### Simple Example:
@@ -118,6 +134,7 @@ Or install it yourself as:
 # Documentation
 
   * [Introduction](docs/_introduction.md)
+  * [**Migrating from Ruby CSV**](docs/migrating_from_csv.md)
   * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)

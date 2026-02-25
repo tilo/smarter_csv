@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -54,7 +55,7 @@ The first gem release was **v1.0.1 on 2012-07-30**.
 | **1.15.0** | **2026-02-04** | **Major C-extension rewrite — ~5× faster than 1.14.4; 39% less memory** |
 | 1.15.1  | 2026-02-17 | Fix for backslash in quoted fields (`quote_escaping:` option) |
 | 1.15.2  | 2026-02-20 | Further C-path optimisations; 5.4×–37.4× faster than 1.14.4 |
-| **1.16.0** | **2026** | **`only_headers:` / `except_headers:` column selection (up to 16×); Ruby-path Opt #10 & #11** |
+| **1.16.0** | **2026** | **`headers: { only: }` / `headers: { except: }` column selection (up to 16×); `nil_values_matching:`; Ruby-path Opt #10 & #11** |
 
 ---
 
@@ -68,11 +69,11 @@ All times are **C-accelerated** except the `1.6.1` column (no C extension existe
 | fmap.csv                    |   50k |    14 |        2.130 |       0.873 |        0.748 |        0.076 |        0.065 |  **32.8x** |
 | sample_10M.csv              |   50k |     4 |        1.291 |       0.661 |        0.471 |        0.064 |        0.050 |  **25.8x** |
 | zipcode.csv                 |   44k |     7 |        1.572 |       0.797 |        0.581 |        0.087 |        0.057 |  **27.6x** |
-| NONPILOT_BASIC.csv          |   50k |    13 |        3.746 |       1.053 |        1.608 |        0.109 |        0.078 |  **48.0x** |
-| NONPILOT_CERT.csv           |   50k |    17 |        3.831 |       1.018 |        1.520 |        0.092 |        0.078 |  **49.1x** |
-| PILOT_BASIC.csv             |   50k |    13 |        3.793 |       1.083 |        1.709 |        0.100 |        0.087 |  **43.6x** |
-| PILOT_CERT.csv              |   50k |   116 |       21.612 |       2.763 |        8.425 |        0.206 |        0.200 | **108.1x** |
-| PILOT_CERT_50k.csv          |   50k |   116 |       21.682 |       2.734 |        8.456 |        0.206 |        0.205 | **105.8x** |
+| PEOPLE_IMPORT_NB.csv        |   50k |    13 |        3.746 |       1.053 |        1.608 |        0.109 |        0.078 |  **48.0x** |
+| PEOPLE_IMPORT_NC.csv        |   50k |    17 |        3.831 |       1.018 |        1.520 |        0.092 |        0.078 |  **49.1x** |
+| PEOPLE_IMPORT_B.csv         |   50k |    13 |        3.793 |       1.083 |        1.709 |        0.100 |        0.087 |  **43.6x** |
+| PEOPLE_IMPORT_C.csv         |   50k |   116 |       21.612 |       2.763 |        8.425 |        0.206 |        0.200 | **108.1x** |
+| PEOPLE_IMPORT_C_50k.csv     |   50k |   116 |       21.682 |       2.734 |        8.456 |        0.206 |        0.205 | **105.8x** |
 | wide_500_cols_20k.csv       |   20k |   500 |       39.755 |       9.532 |       19.383 |        1.574 |        1.377 |  **28.9x** |
 | long_fields_20k.csv         |   20k |     3 |        5.698 |       1.112 |        3.054 |        0.111 |        0.048 | **118.7x** |
 | whitespace_heavy_20k.csv    |   20k |    10 |        1.335 |       0.393 |        0.596 |        0.032 |        0.030 |  **44.5x** |
@@ -86,8 +87,8 @@ All times are **C-accelerated** except the `1.6.1` column (no C extension existe
 
 **Highlights:**
 - `long_fields_20k` (long quoted fields): **118.7x** — the field-scanning optimisations (`memchr` in C, `String#index` skip-ahead in Ruby) make long quoted fields essentially free to skip.
-- `PILOT_CERT` / `PILOT_CERT_50k` (116 columns): **~106–108x** — wide rows benefit from every per-field saving multiplied across all columns.
-- `wide_500_cols_20k` went from **39.8 seconds → 1.4 seconds** — and with `only_headers:` keeping just 2 of those 500 columns it drops further to **~0.1 seconds** (an additional ~16x on top).
+- `PEOPLE_IMPORT_C` / `PEOPLE_IMPORT_C_50k` (116 columns): **~106–108x** — wide rows benefit from every per-field saving multiplied across all columns.
+- `wide_500_cols_20k` went from **39.8 seconds → 1.4 seconds** — and with `headers: { only: }` keeping just 2 of those 500 columns it drops further to **~0.1 seconds** (an additional ~16x on top).
 - `embedded_newlines` shows the smallest gain (**11.7x**) — multi-line stitching is bounded by I/O and the line-counting loop, not field parsing.
 
 ---

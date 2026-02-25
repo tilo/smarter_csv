@@ -5,6 +5,15 @@
 
 ### Write API
 
+ * **Writer streaming mode when headers are known upfront**: When `headers:` or `map_headers:`
+   is provided (making header discovery unnecessary), `SmarterCSV::Writer` now skips the
+   internal temp file entirely. The header line is written to the output immediately on
+   construction, and each subsequent `<<` call streams data rows directly to the output.
+   This eliminates the temp-file copy step in `finalize` and makes writing to network
+   streams or `$stdout` with known headers fully streaming.
+   No API change — existing code that provides `headers:` or `map_headers:` benefits
+   automatically.
+
  * **Write API now accepts IO and StringIO objects** ([issue #321](https://github.com/tilo/smarter_csv/issues/321)):
    `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object in addition to a file path string. The caller retains ownership — SmarterCSV will not close it.
    Thanks to [Kevin Southworth](https://github.com/ksouthworth) for the feature request. See [The Basic Write API](docs/basic_write_api.md) for examples.
@@ -23,9 +32,14 @@
 
  * **New `Reader#each_chunk` and `SmarterCSV.each_chunk`**: chunked enumerator yielding `(Array<Hash>, chunk_index)` for batch and parallel workflows. Requires `chunk_size` in options.
 
+ * **New `SmarterCSV.parse(csv_string, options)` convenience method**: parse a CSV string directly without wrapping in `StringIO`. Drop-in equivalent of `CSV.parse(str, headers: true, header_converters: :symbol)` — with numeric conversion included by default. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
+
 ### New Options
 
- * **New options `only_headers:` and `except_headers:`**: select which columns appear in each result hash. Excluded columns are skipped in the C hot path — no Ruby string allocation, no conversion, no hash insertion. See [Column Selection](docs/column_selection.md) for details.
+ * **New `headers: { only: }` and `headers: { except: }` options**: select which columns appear in each result hash. Excluded columns are skipped in the C hot path — no Ruby string allocation, no conversion, no hash insertion. See [Column Selection](docs/column_selection.md) for details.
+
+ * **New `nil_values_matching:` option** (replaces deprecated `remove_values_matching:`): set matching values to `nil` based on a regular expression matched against each value's string representation. With the default `remove_empty_values: true`, nil-ified values are then removed (same net behavior as `remove_values_matching:`). With `remove_empty_values: false`, the key is retained in the hash with a `nil` value — useful for sentinel values like NaN or `#VALUE!` where you want the key present but the value nil.
+   > **Deprecation:** `remove_values_matching:` still works but emits a deprecation warning. It will be removed in a future version.
 
  * **New option `missing_headers:`** (default: `:auto`): controls behavior when a data row has more columns than the header row.
    - `:auto` (default) — extra columns are auto-named using `missing_header_prefix` (e.g. `column_7`, `column_8`, …).
@@ -35,6 +49,13 @@
  * **New option `quote_boundary`** (default: `:standard`): controls where quotes are recognized as field delimiters. See [Parsing Strategy](docs/parsing_strategy.md) for details.
    - `:standard` (default) — a `"` only opens/closes a field at a field boundary; mid-field quotes are literal characters. **This is a behavior change from previous versions.**
    - `:legacy` — any `"` toggles quoted state, matching previous SmarterCSV behavior. Use this for backwards compatibility if your data relied on the old behavior.
+
+ * **`verbose:` option now uses symbol levels** (default changed from `false` to `:normal`): finer-grained control over warnings and diagnostic output.
+   - `:quiet` — suppress all warnings and behavioral notices (recommended for production use)
+   - `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**
+   - `:debug` — `:normal` + print computed options and per-row diagnostics to stderr
+   - `nil` — silently treated as `:normal`; passing `nil` or omitting `verbose:` entirely is the recommended way to accept the default with no noise
+   > **Deprecation:** `verbose: true` and `verbose: false` still work but emit a deprecation warning. Use `verbose: :debug` and `verbose: :normal` respectively.
 
 ### Bug Fixes
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
@@ -59,7 +80,7 @@ The following optimizations recover that overhead and keep 1.16.0 on par with or
 | Scenario | Result |
 |---|---|
 | Regression check (16 files, default options, C-accelerated) | 13/16 files measurably faster (up to 2.22×); no regressions |
-| `only_headers:` column selection, C-accelerated | **1.5×–16× faster** for wide files (up to 16× keeping 2 of 500 cols) |
+| `headers: { only: }` column selection, C-accelerated | **1.5×–16× faster** for wide files (up to 16× keeping 2 of 500 cols) |
 
 Full benchmark tables: [`BENCHMARK_1.16.0.md`](BENCHMARK_1.16.0.md)
 
