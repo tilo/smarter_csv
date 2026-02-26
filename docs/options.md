@@ -126,6 +126,7 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | `:on_bad_row` | `:raise` | Behavior when a row raises a parse error. `:raise` (default): re-raise, stopping processing. `:skip`: skip the bad row and continue. `:collect`: skip and append an error record to `reader.errors[:bad_rows]`. callable: called with the error record per bad row; processing continues. |
 | `:collect_raw_lines` | `true` | When collecting bad rows, include the raw stitched line in the error record. |
 | `:bad_row_limit` | `nil` | If set, raises `SmarterCSV::TooManyBadRows` after this many bad rows. |
+| `:field_size_limit` | `nil` | Maximum size of any extracted field in bytes. `nil` means no limit. Raises `SmarterCSV::FieldSizeLimitExceeded` (handled by `on_bad_row`) if a field or accumulating multiline buffer exceeds this size. Prevents DoS from runaway quoted fields or huge inline payloads. See [Bad Row Quarantine](./bad_row_quarantine.md#limiting-field-size-field_size_limit). |
 
 ### Output & Diagnostics
 

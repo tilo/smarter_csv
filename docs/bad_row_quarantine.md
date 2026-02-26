@@ -29,6 +29,7 @@ rows in whatever way suits your application.
 ## What counts as a bad row
 
 - Malformed CSV (unclosed quoted fields, unterminated multiline rows)
+- A field that exceeds `field_size_limit` (see [Limiting field size](#limiting-field-size-field_size_limit))
 - Extra columns when running in `strict: true` mode
 - Any `SmarterCSV::Error` or `EOFError` raised during row parsing
 
@@ -194,6 +195,87 @@ reader.process do |chunk, index|
 end
 puts "Bad rows: #{reader.errors[:bad_row_count]}"
 ```
+
+## Limiting field size: `field_size_limit`
+
+Real-world CSV files sometimes contain unexpectedly large fields — either intentionally
+(a DoS attempt) or accidentally (a forgotten closing quote, a JSON blob in a cell, a notes
+field that ran away). Without a limit, SmarterCSV will happily stitch together physical lines
+until it either finds the closing quote or reaches end-of-file, potentially consuming hundreds
+of megabytes.
+
+`field_size_limit` sets a hard cap (in bytes) on the size of any individual extracted field.
+The default is `nil` (no limit). When a field exceeds the limit a
+`SmarterCSV::FieldSizeLimitExceeded` exception is raised — and because it inherits from
+`SmarterCSV::Error`, the `on_bad_row` option handles it exactly like any other parse error.
+
+### The three cases it prevents
+
+**1. Huge inline field** — a single-line field containing a large payload (e.g. a JSON blob,
+a base64-encoded file, or a runaway notes column):
+
+```csv
+id,payload
+1,"{... 500 KB of JSON ...}"
+```
+
+**2. Quoted field spanning many embedded newlines** — a legitimate multiline field in a
+poorly exported file that happens to be enormous:
+
+```csv
+ticket_id,notes
+42,"Customer wrote:
+... (thousands of lines of chat history) ...
+"
+```
+
+**3. Never-closing quoted field** — a missing closing quote causes the parser to stitch every
+subsequent physical line into one logical row until EOF:
+
+```csv
+id,comment
+1,"this quote never closes
+2,this entire row is now inside the field
+3,and this one too ...
+```
+
+Without `field_size_limit`, case 3 reads the entire rest of the file into memory. With the
+limit set, the stitch loop raises `FieldSizeLimitExceeded` as soon as the accumulating buffer
+crosses the threshold.
+
+### Usage
+
+```ruby
+# Raise immediately on any oversized field (default on_bad_row: :raise)
+SmarterCSV.process('data.csv', field_size_limit: 1_000_000)  # 1 MB per field
+
+# Skip oversized rows and continue
+SmarterCSV.process('data.csv', field_size_limit: 1_000_000, on_bad_row: :skip)
+
+# Collect oversized rows for inspection
+reader = SmarterCSV::Reader.new('data.csv',
+  field_size_limit: 1_000_000,
+  on_bad_row: :collect,
+)
+result = reader.process
+reader.errors[:bad_rows].each do |rec|
+  Rails.logger.warn "Oversized field on row #{rec[:csv_line_number]}: #{rec[:error_message]}"
+end
+```
+
+### What "bytes" means here
+
+The limit is checked against `String#bytesize` (raw byte count), not character count.
+For ASCII content they are identical. For multi-byte UTF-8 content (e.g. CJK characters)
+bytesize is larger than the character count — so the limit is a memory cap, not a
+character cap, which is what matters for DoS protection.
+
+### Performance
+
+`field_size_limit` is zero-overhead when not set (the default `nil` short-circuits all
+checks). When set, a single integer comparison is performed per logical row; the per-field
+scan only runs when the raw line is large enough to potentially contain an oversized field.
+Normal rows (where the entire line fits within the limit) bypass per-field checking entirely.
 
 --------------------
 PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)

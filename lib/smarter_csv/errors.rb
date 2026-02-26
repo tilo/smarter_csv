@@ -2,11 +2,13 @@
 
 module SmarterCSV
   class Error < StandardError; end # new code should rescue this instead
+
   # Reader:
   class SmarterCSVException < Error; end # for backwards compatibility
   class HeaderSizeMismatch < SmarterCSVException; end
   class IncorrectOption < SmarterCSVException; end
   class ValidationError < SmarterCSVException; end
+
   class DuplicateHeaders < SmarterCSVException
     attr_reader :headers
 
@@ -28,8 +30,11 @@ module SmarterCSV
   class NoColSepDetected < SmarterCSVException; end
   class KeyMappingError < SmarterCSVException; end
   class MalformedCSV < SmarterCSVException; end
+  class FieldSizeLimitExceeded < SmarterCSVException; end
+
   # Writer:
   class InvalidInputData < SmarterCSVException; end
+
   # Bad-row quarantine:
   class TooManyBadRows < SmarterCSVException; end
 end

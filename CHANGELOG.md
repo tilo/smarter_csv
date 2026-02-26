@@ -58,6 +58,8 @@ Other:
 
 ### New Performance Features
 
+ * **New `field_size_limit:` option** (default: `nil`): hard cap on the size of any extracted field in bytes. Raises `SmarterCSV::FieldSizeLimitExceeded` if a field or accumulating multiline buffer exceeds the limit — preventing DoS from runaway quoted fields (a missing closing quote can otherwise cause the parser to read the entire rest of the file into memory). Works with `on_bad_row: :skip/:collect` to continue processing after an oversized field. See [Bad Row Quarantine](docs/bad_row_quarantine.md#limiting-field-size-field_size_limit).
+
  * **New `headers: { only: }` and `headers: { except: }` options**: select which columns appear in each result hash. Excluded columns are skipped in the C hot path — no Ruby string allocation, no conversion, no hash insertion. See [Column Selection](docs/column_selection.md).
 
 **Benchmark** (Apple M1, Ruby 3.4.7, C-accelerated): **1.5×–16× faster** for wide files when using `headers: { only: }` (up to 16× keeping 2 of 500 cols).

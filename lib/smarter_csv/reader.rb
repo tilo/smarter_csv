@@ -165,6 +165,8 @@ module SmarterCSV
 
         # Cache quote_char as an ivar for the stitch-loop memchr guard (avoids hash lookup per continuation line).
         @quote_char = options[:quote_char]
+        # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
+        @field_size_limit = options[:field_size_limit]
 
         # in case we use chunking.. we'll need to set it up..
         if options[:chunk_size].to_i > 0
@@ -221,6 +223,13 @@ module SmarterCSV
               @file_line_count += 1
               $stderr.print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose == :debug
 
+              # DoS guard: prevent runaway multiline accumulation (vectors: never-closing quote, huge embedded content)
+              if @field_size_limit && line.bytesize > @field_size_limit
+                raise SmarterCSV::FieldSizeLimitExceeded,
+                      "Multiline field exceeds field_size_limit of #{@field_size_limit} bytes " \
+                      "(accumulated #{line.bytesize} bytes)"
+              end
+
               # Opt #8 (memchr guard): if the newly appended line contains no quote character,
               # it cannot close the currently open quoted field — skip the full re-parse and
               # keep accumulating physical lines.  String#include? uses memchr internally (C speed).
@@ -252,6 +261,18 @@ module SmarterCSV
             end
 
             next if hash.nil?
+
+            # --- FIELD SIZE LIMIT CHECK ---
+            # Pre-filter: if the raw line fits within the limit, no individual field can exceed it
+            # (a field is always a substring of its row). Only iterate over values for large rows.
+            if @field_size_limit && line.bytesize > @field_size_limit
+              hash.each_value do |v|
+                if v.is_a?(String) && v.bytesize > @field_size_limit
+                  raise SmarterCSV::FieldSizeLimitExceeded,
+                        "Field exceeds field_size_limit of #{@field_size_limit} bytes (got #{v.bytesize} bytes)"
+                end
+              end
+            end
 
             # --- COLUMN SELECTION ---
             hash.select! { |k, _| @only_headers_set.include?(k) }   if @only_headers_set

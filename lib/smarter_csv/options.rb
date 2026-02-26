@@ -21,6 +21,9 @@ module SmarterCSV
       convert_values_to_numeric: true,
       downcase_header: true,
       duplicate_header_suffix: '', # was: nil,
+      field_size_limit: nil, # Integer (bytes) or nil for no limit. Raises FieldSizeLimitExceeded if any
+      #                          extracted field exceeds this size. Prevents DoS from runaway quoted
+      #                          fields (unbounded multiline stitching) or huge inline payloads.
       file_encoding: 'utf-8',
       force_utf8: false,
       headers_in_file: true,
@@ -174,6 +177,10 @@ module SmarterCSV
       end
       unless %i[legacy standard].include?(options[:quote_boundary])
         errors << "invalid quote_boundary: must be :legacy or :standard"
+      end
+      fsl = options[:field_size_limit]
+      unless fsl.nil? || (fsl.is_a?(Integer) && fsl > 0)
+        errors << "invalid field_size_limit: must be nil or a positive Integer (got #{fsl.inspect})"
       end
       obr = options[:on_bad_row]
       unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)
