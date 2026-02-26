@@ -10,8 +10,23 @@ Gem::Specification.new do |spec|
   spec.version       = SmarterCSV::VERSION
   spec.date          = Time.now.utc.strftime('%Y-%m-%d')
 
-  spec.summary       = "Convenient CSV Reading and Writing"
-  spec.description   = "Ruby Gem for convenient reading and writing of CSV files. It has intelligent defaults, and auto-discovery of column and row separators. It imports CSV Files as Array(s) of Hashes, suitable for direct processing with ActiveRecord, kicking-off batch jobs with Sidekiq, parallel processing, or oploading data to S3. Similarly, writing CSV files takes Hashes, or Arrays of Hashes to create a CSV file."
+  spec.summary = "Fastest end-to-end CSV ingestion for Ruby with smart defaults and Rails-ready hash output"
+  spec.description = <<~DESC
+    SmarterCSV is a high-performance CSV reader and writer for Ruby focused on
+    fastest end-to-end ingestion — not just parsing. It returns ready-to-use
+    hashes with configurable header and value transformations, intelligent
+    defaults, and automatic delimiter discovery.
+
+    Built for real-world data pipelines, SmarterCSV supports chunked processing
+    for large files, streaming via Enumerable APIs, and C acceleration
+    to optimize the full ingestion path (parsing + hash construction +
+    conversions).
+
+    Designed to handle messy user-uploaded CSV while remaining easy to integrate
+    with Rails, ActiveRecord imports, Sidekiq jobs, parallel processing, and
+    S3-based workflows.
+  DESC
+
   spec.homepage      = "https://github.com/tilo/smarter_csv"
   spec.license       = 'MIT'
 
