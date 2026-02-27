@@ -3,19 +3,20 @@
 
   ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
 
- SmarterCSV provides a convenient interface for reading and writing CSV files and data.
+  SmarterCSV is a high-performance CSV reader and writer for Ruby focused on fastest end-to-end CSV ingestion — not just parsing.
 
- Unlike traditional CSV parsing methods, SmarterCSV focuses on representing the data for each row as a Ruby hash, which lends itself perfectly for direct use with ActiveRecord, Sidekiq, and JSON stores such as S3. For large files it supports processing CSV data in chunks of array-of-hashes, which allows parallel or batch processing of the data.
+  Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
- Its powerful interface is designed to simplify and optimize the process of handling CSV data, and allows for highly customizable and efficient data processing by enabling the user to easily map CSV headers to Hash keys, skip unwanted rows, and transform data on-the-fly. 
+  The library includes intelligent defaults, automatic detection of column and row separators, and flexible header/value transformations. These features eliminate much of the boilerplate typically required when working with CSV data and help keep ingestion code concise and maintainable.
 
- This results in a more readable, maintainable, and performant codebase. Whether you're dealing with large datasets or complex data transformations, SmarterCSV streamlines CSV operations, making it an invaluable tool for developers seeking to enhance their data processing workflows.
+  For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines. The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
 
-  When writing CSV data to file, it similarly takes arrays of hashes, and converts them to a CSV file.
+  The interface is intentionally designed to robustly handle messy real-world CSV while keeping application code clean. Developers can easily map headers, skip unwanted rows, quarantine problematic data, and transform values on the fly without building custom post-processing pipelines.
 
-One user wrote:
+  When exporting data, SmarterCSV converts arrays of hashes back into properly formatted CSV, maintaining the same focus on convenience and correctness.
 
-  > *Best gem for CSV for us yet. [...] taking an import process from 7+ hours to about 3 minutes. [...] Smarter CSV was a big part and helped clean up our code ALOT*
+**User Testimonial:**
+  > “Best gem for CSV for us yet. […] taking an import process from 7+ hours to about 3 minutes. […] SmarterCSV was a big part and helped clean up our code A LOT.”
 
 ## Performance
 
