@@ -3,7 +3,7 @@
 
   ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
 
-  SmarterCSV is a high-performance CSV reader and writer for Ruby focused on fastest end-to-end CSV ingestion — not just parsing.
+  SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fastest end-to-end CSV ingestion — not just parsing.
 
   ⭐ If SmarterCSV saved you hours of import time, please star the repo.
 
