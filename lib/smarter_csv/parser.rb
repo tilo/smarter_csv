@@ -188,6 +188,12 @@ module SmarterCSV
       # from String#split — no intermediate array returned from parse_csv_line_ruby
       # and no second iteration to convert array → hash. Saves one Array allocation
       # + one full-row iteration per row (most impactful on wide-column files).
+      #
+      # Optimization #14: when remove_empty_values is set (default: true), skip
+      # empty fields inline during hash building instead of inserting them and
+      # deleting later in hash_transformations. With strip_whitespace: true
+      # (default), v.empty? after strip catches both empty and whitespace-only
+      # fields without a regex. Most impactful on sparse files (many empty fields).
       unless has_quotes || col_sep == ' '
         fields = line.split(col_sep, -1)
         n = fields.size
@@ -197,14 +203,18 @@ module SmarterCSV
           return [nil, n] if all_blank
         end
 
+        remove_empty = options[:remove_empty_values]
         hash = {}
         i = 0
         while i < n
-          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = strip ? fields[i].strip : fields[i]
+          v = strip ? fields[i].strip : fields[i]
+          unless remove_empty && v.empty?
+            hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
+          end
           i += 1
         end
 
-        unless options[:remove_empty_values]
+        unless remove_empty
           while i < headers.size
             hash[headers[i]] = nil
             i += 1
@@ -374,9 +384,21 @@ module SmarterCSV
           if b == col_sep_byte && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
-            field = line.byteslice(start, i - start)
-            field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # Optimization #15: for quoted fields, extract content directly without
+            # surrounding quotes to avoid the double allocation of byteslice + field[1..-2]
+            # inside cleanup_quotes. Safe because the line is pre-chomped and the state
+            # machine has already found and validated the closing quote.
+            field_len = i - start
+            if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(i - 1) == quote_byte
+              field = line.byteslice(start + 1, field_len - 2)
+              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
+              field.strip! if strip  # in-place: no extra allocation; safe on fresh byteslice
+              elements << field
+            else
+              field = line.byteslice(start, field_len)
+              field = cleanup_quotes(field, quote)
+              elements << (strip ? field.strip : field)  # cleanup_quotes may return frozen EMPTY_STRING
+            end
             i += 1
             start = i
             backslash_count = 0
@@ -427,9 +449,18 @@ module SmarterCSV
 
         # Process the remaining field
         if header_size.nil? || elements.size < header_size
-          field = line.byteslice(start, bytesize - start)
-          field = cleanup_quotes(field, quote)
-          elements << (strip ? field.strip : field)
+          # Optimization #15 (final field): same direct extraction; safe because line is pre-chomped.
+          field_len = bytesize - start
+          if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(bytesize - 1) == quote_byte
+            field = line.byteslice(start + 1, field_len - 2)
+            field.gsub!(doubled_quote(quote), quote)
+            field.strip! if strip
+            elements << field
+          else
+            field = line.byteslice(start, field_len)
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
+          end
         end
       else
         # Multi-char col_sep: use substring comparison (original path)
@@ -457,9 +488,18 @@ module SmarterCSV
           if line[i...i+col_sep_size] == col_sep && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
-            field = line[start...i]
-            field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # Optimization #15 (multi-char path): same direct extraction using character indexing.
+            field_len = i - start
+            if field_len >= 2 && line[start] == quote && line[i - 1] == quote
+              field = line[start + 1...i - 1]
+              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
+              field.strip! if strip
+              elements << field
+            else
+              field = line[start...i]
+              field = cleanup_quotes(field, quote)
+              elements << (strip ? field.strip : field)
+            end
             i += col_sep_size
             start = i
             backslash_count = 0
@@ -508,9 +548,18 @@ module SmarterCSV
 
         # Process the remaining field
         if header_size.nil? || elements.size < header_size
-          field = line[start..-1]
-          field = cleanup_quotes(field, quote)
-          elements << (strip ? field.strip : field)
+          # Optimization #15 (multi-char final field): same direct extraction; line is pre-chomped.
+          field_len = line_size - start
+          if field_len >= 2 && line[start] == quote && line[line_size - 1] == quote
+            field = line[start + 1..line_size - 2]
+            field.gsub!(doubled_quote(quote), quote)
+            field.strip! if strip
+            elements << field
+          else
+            field = line[start..-1]
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
+          end
         end
       end
 
