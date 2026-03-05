@@ -203,22 +203,18 @@ module SmarterCSV
           return [nil, n] if all_blank
         end
 
+        # Batch-strip using C-level map! — faster than per-element strip inside the loop
+        fields.map!(&:strip) if strip
+
         remove_empty = options[:remove_empty_values]
         hash = {}
-        i = 0
-        while i < n
-          v = strip ? fields[i].strip : fields[i]
-          unless remove_empty && v.empty?
-            hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
-          end
-          i += 1
+        fields.each_with_index do |v, i|  # C-level iteration, faster than Ruby while counter loop
+          next if remove_empty && v.empty?
+          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
         end
 
         unless remove_empty
-          while i < headers.size
-            hash[headers[i]] = nil
-            i += 1
-          end
+          (n...headers.size).each { |i| hash[headers[i]] = nil }
         end
 
         return [hash, n]
