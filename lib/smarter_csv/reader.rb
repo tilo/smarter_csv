@@ -243,7 +243,13 @@ module SmarterCSV
                 end
                 # :nocov:
               else
-                has_quotes = line.include?(options[:quote_char])
+                # Optimization #18: use detect_multiline as a cheap gate before attempting a full
+                # Ruby re-parse on the growing stitched line. detect_multiline_strict now uses
+                # byteindex skip-ahead (Opt #17) and is faster than parse_line_to_hash_ruby on
+                # the same content. Saves N-2 wasted full parses per multiline row.
+                next if detect_multiline(line, options)
+
+                has_quotes = true # we know the line has quotes — we've been stitching a quoted field
                 hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
                 if @quote_escaping_auto && data_size == -1 && line.include?('\\')
                   hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
@@ -475,54 +481,136 @@ module SmarterCSV
     # A quote only opens/closes a quoted field if it appears at a field boundary
     # (start of field, or after leading whitespace when strip_whitespace is true).
     # Mid-field quotes are treated as literals and do not affect quote state.
+    #
+    # Optimization #17: single-char col_sep fast path uses byteindex skip-ahead
+    # (mirrors Opt #10/#12 in parse_csv_line_ruby) so that:
+    #   - inside a quoted field: jump directly to next quote char via C-level byteindex
+    #   - inside an unquoted field: jump directly to next col_sep via C-level byteindex
+    # This makes detect_multiline_strict competitive with parse_csv_line_ruby on the same
+    # content, enabling it to serve as a cheap gate in the stitch loop (Opt #18).
     def detect_multiline_strict(line, options)
       col_sep = options[:col_sep]
       quote   = options[:quote_char]
       strip   = options[:strip_whitespace]
       row_sep = options[:row_sep]
 
-      col_sep_size = col_sep.size
-      row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
-      line_size    = line.size
-      in_quotes    = false
+      col_sep_size  = col_sep.size
+      row_sep_size  = row_sep.is_a?(String) ? row_sep.size : 0
+      in_quotes     = false
       field_started = false
-      i = 0
 
-      while i < line_size
-        # Check for column separator (only outside quotes)
-        if !in_quotes && line[i...i + col_sep_size] == col_sep
-          field_started = false
-          i += col_sep_size
-          next
-        end
+      if col_sep_size == 1
+        # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17)
+        col_sep_byte     = col_sep.getbyte(0)
+        quote_byte       = quote.getbyte(0)
+        row_sep_bytesize = row_sep.is_a?(String) ? row_sep.bytesize : 0
+        bytesize         = line.bytesize
+        byteindex_available = SmarterCSV::Parser::BYTEINDEX_AVAILABLE
+        i = 0
 
-        if line[i] == quote
+        while i < bytesize
           if in_quotes
-            # closing quote: only valid if followed by col_sep, row_sep, or end of line
-            next_i = i + 1
-            if next_i >= line_size ||
-               line[next_i...next_i + col_sep_size] == col_sep ||
-               (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
-              in_quotes     = false
+            # Opt #10 mirror: jump directly to next quote using C-level byteindex (MRI Ruby ≥ 3.2).
+            # Fallback for older Ruby / JRuby: manual getbyte loop — kept inline to avoid
+            # method-call frame overhead in this hot loop (see BYTEINDEX_AVAILABLE in parser.rb).
+            next_q = if byteindex_available
+                       line.byteindex(quote, i)
+                     else
+                       j = i
+                       j += 1 while j < bytesize && line.getbyte(j) != quote_byte
+                       j < bytesize ? j : nil
+                     end
+            return true if next_q.nil? # no closing quote → line is incomplete
+
+            i = next_q
+            b = quote_byte
+          elsif field_started
+            # Opt #12 mirror: unquoted field in progress — jump to next col_sep using C-level
+            # byteindex (MRI Ruby ≥ 3.2). Fallback for older Ruby / JRuby: manual getbyte loop —
+            # kept inline for the same reason as the Opt #10 mirror above.
+            next_sep = if byteindex_available
+                         line.byteindex(col_sep, i)
+                       else
+                         j = i
+                         j += 1 while j < bytesize && line.getbyte(j) != col_sep_byte
+                         j < bytesize ? j : nil
+                       end
+            break if next_sep.nil? # no more separators → end of line, not multiline
+
+            i = next_sep
+            b = col_sep_byte
+          else
+            b = line.getbyte(i)
+          end
+
+          if b == col_sep_byte && !in_quotes
+            field_started = false
+          elsif b == quote_byte
+            if in_quotes
+              # closing quote: only valid if followed by col_sep, row_sep, or end of line
+              next_i = i + 1
+              if next_i >= bytesize ||
+                 line.getbyte(next_i) == col_sep_byte ||
+                 (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
+                in_quotes     = false
+                field_started = true
+              end
+              # else: quote inside quoted field → literal (handles "" doubling)
+            elsif !field_started # at field boundary: open quoted field
+              in_quotes     = true
               field_started = true
             end
-            # else: quote inside quoted field → literal (handles "" doubling)
-          elsif !field_started # at field boundary: open quoted field
-            in_quotes     = true
-            field_started = true
-          end
-          # else: mid-field quote → literal, no state change
-        elsif !in_quotes
-          # Non-quote character: track whether field has started
-          if strip
-            # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-            field_started = true unless line[i] == ' ' || line[i] == '\t'
-            # rubocop:enable Style/MultipleComparison
+            # else: mid-field quote → literal, no state change
           else
-            field_started = true
+            unless in_quotes
+              # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+              field_started = true unless strip && (b == 32 || b == 9) # ' ' == 32, '\t' == 9
+              # rubocop:enable Style/MultipleComparison
+            end
           end
+          i += 1
         end
-        i += 1
+      else
+        # Multi-char col_sep: character-by-character (original path)
+        line_size = line.size
+        i = 0
+
+        while i < line_size
+          # Check for column separator (only outside quotes)
+          if !in_quotes && line[i...i + col_sep_size] == col_sep
+            field_started = false
+            i += col_sep_size
+            next
+          end
+
+          if line[i] == quote
+            if in_quotes
+              # closing quote: only valid if followed by col_sep, row_sep, or end of line
+              next_i = i + 1
+              if next_i >= line_size ||
+                 line[next_i...next_i + col_sep_size] == col_sep ||
+                 (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                in_quotes     = false
+                field_started = true
+              end
+              # else: quote inside quoted field → literal (handles "" doubling)
+            elsif !field_started # at field boundary: open quoted field
+              in_quotes     = true
+              field_started = true
+            end
+            # else: mid-field quote → literal, no state change
+          elsif !in_quotes
+            # Non-quote character: track whether field has started
+            if strip
+              # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+              field_started = true unless line[i] == ' ' || line[i] == '\t'
+              # rubocop:enable Style/MultipleComparison
+            else
+              field_started = true
+            end
+          end
+          i += 1
+        end
       end
 
       in_quotes # true → line ends inside a quoted field → needs stitching
