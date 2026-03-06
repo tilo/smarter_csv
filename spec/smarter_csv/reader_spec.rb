@@ -121,6 +121,90 @@ RSpec.describe SmarterCSV::Reader do
       opts = base_opts.merge(strip_whitespace: true)
       expect(reader.send(:detect_multiline_strict, 'a,"hello"', opts)).to eq false
     end
+
+    # ------------------------------------------------------------------
+    # Byteindex fallback paths (lines 548–550, 563–565)
+    #
+    # When BYTEINDEX_AVAILABLE is false (older Ruby / JRuby), detect_multiline_strict
+    # falls back to manual getbyte loops instead of String#byteindex.
+    # Stub the constant to force the fallback on any Ruby version.
+    # ------------------------------------------------------------------
+    context 'byteindex fallback (BYTEINDEX_AVAILABLE: false)' do
+      before { stub_const('SmarterCSV::Parser::BYTEINDEX_AVAILABLE', false) }
+
+      # lines 548–550: getbyte loop searching for next quote byte (in_quotes = true)
+      # lines 563–565: getbyte loop searching for next col_sep byte (field_started = true)
+      it 'returns false for a properly closed quoted field (covers both getbyte loops)' do
+        # "hello" opens (in_quotes → lines 548-550 getbyte loop finds closing quote),
+        # then ,world with field_started=true (lines 563-565 getbyte loop finds next sep)
+        expect(reader.send(:detect_multiline_strict, '"hello",world', base_opts)).to eq false
+      end
+
+      it 'returns true when the getbyte loop reaches end without finding a quote (lines 548-550, nil path)' do
+        # No closing quote: getbyte loop exhausts the string → next_q.nil? → return true
+        expect(reader.send(:detect_multiline_strict, '"unclosed', base_opts)).to eq true
+      end
+
+      it 'returns false for an unquoted line (covers lines 563-565, no col_sep found → break)' do
+        # field_started=true after 'h', getbyte loop searches for col_sep byte,
+        # finds none after the last field → next_sep.nil? → break; returns false
+        expect(reader.send(:detect_multiline_strict, 'hello,world', base_opts)).to eq false
+      end
+    end
+
+    # ------------------------------------------------------------------
+    # Multi-char col_sep path (lines 603–641)
+    #
+    # When col_sep.size > 1, detect_multiline_strict uses a character-by-character
+    # loop with substring comparison rather than the byteindex fast path.
+    # ------------------------------------------------------------------
+    context 'multi-char col_sep (lines 603–641)' do
+      let(:multi_opts) { {col_sep: '<=>', quote_char: '"', row_sep: "\n", strip_whitespace: false} }
+
+      # line 609: col_sep match outside quotes
+      # lines 626-629: opening quote at field boundary
+      # lines 616-624: closing quote followed by col_sep
+      # lines 631, 637-638: non-quote char sets field_started (strip: false)
+      it 'returns false for a balanced quoted field (lines 609, 616-629, 631, 638)' do
+        expect(reader.send(:detect_multiline_strict, '"hello"<=>world', multi_opts)).to eq false
+      end
+
+      # lines 615-629: quote opens field; no closing quote → in_quotes still true → returns true
+      it 'returns true for an unclosed quoted field with multi-char col_sep' do
+        expect(reader.send(:detect_multiline_strict, '"unclosed', multi_opts)).to eq true
+      end
+
+      # lines 619: closing quote at end-of-line (next_i >= line_size branch)
+      it 'returns false when closing quote is at end of line with no trailing sep' do
+        expect(reader.send(:detect_multiline_strict, '"hello"', multi_opts)).to eq false
+      end
+
+      # lines 631, 633, 635: non-quote char outside quotes, strip: true
+      # Space/tab must NOT set field_started; other chars must.
+      it 'handles strip_whitespace: true — space skips field_started, letter sets it (line 635)' do
+        opts = multi_opts.merge(strip_whitespace: true)
+        # Leading space before quoted field: space must not set field_started so the
+        # opening quote is still recognised as a boundary → field closes cleanly.
+        expect(reader.send(:detect_multiline_strict, ' "hello"<=>world', opts)).to eq false
+      end
+
+      it 'handles unquoted fields with multi-char col_sep and strip_whitespace: false (line 638)' do
+        expect(reader.send(:detect_multiline_strict, 'hello<=>world', multi_opts)).to eq false
+      end
+
+      # line 641: i += 1 at bottom of loop (incremented on every non-sep iteration)
+      it 'handles multiple fields and a trailing unquoted field' do
+        expect(reader.send(:detect_multiline_strict, '"a"<=>b<=>c', multi_opts)).to eq false
+      end
+
+      # line 621: closing quote followed by row_sep (not col_sep, not end-of-string)
+      # Conditions: next_i < line_size (not EOL), next chars != col_sep, but == row_sep
+      it 'closes field when closing quote is followed by row_sep (line 621)' do
+        opts = multi_opts.merge(row_sep: "\n")
+        # "hello"\n — next_i=7 is within bounds, line[7..9] != "<=>" but line[7] == "\n"
+        expect(reader.send(:detect_multiline_strict, "\"hello\"\n", opts)).to eq false
+      end
+    end
   end
 
   describe 'process_line_to_hash (private)' do

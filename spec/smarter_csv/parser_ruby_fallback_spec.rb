@@ -454,6 +454,51 @@ describe 'parse_csv_line_ruby — multi-char col_sep + backslash at field start 
   end
 end
 
+# -----------------------------------------------------------------------
+# cleanup_quotes (parser.rb line 571)
+#
+# cleanup_quotes is a private helper called from parse_csv_line_ruby when
+# the Opt #15 fast path (field_len >= 2 with opening+closing quote bytes)
+# does not apply. Line 571 — `field = field[1..-2]` — strips the surrounding
+# quote characters when the field string starts AND ends with the quote char.
+# -----------------------------------------------------------------------
+describe 'cleanup_quotes (parser.rb line 571)' do
+  # Reuse the same Klass helper that includes SmarterCSV::Parser
+  let(:instance) do
+    klass = Class.new { include SmarterCSV::Parser }
+    klass.new
+  end
+
+  it 'returns nil for a nil field (line 566)' do
+    expect(instance.send(:cleanup_quotes, nil, '"')).to be_nil
+  end
+
+  it 'returns empty string for an empty field (line 567)' do
+    expect(instance.send(:cleanup_quotes, '', '"')).to eq ''
+  end
+
+  # line 571: field starts AND ends with quote → outer quotes stripped
+  it 'strips surrounding quote characters (line 571)' do
+    expect(instance.send(:cleanup_quotes, '"hello"', '"')).to eq 'hello'
+  end
+
+  # line 571 + line 575: outer quotes stripped AND inner "" unescaped to "
+  it 'strips outer quotes and unescapes doubled inner quotes (lines 571, 575)' do
+    expect(instance.send(:cleanup_quotes, '"say ""hi"""', '"')).to eq 'say "hi"'
+  end
+
+  # line 571 NOT taken: field doesn't have matching surrounding quotes.
+  # Use +"..." (unary-plus mutable string) because in production fields come from
+  # byteslice which is always mutable, but frozen_string_literal: true freezes literals.
+  it 'leaves a field unchanged when it does not have surrounding quotes' do
+    expect(instance.send(:cleanup_quotes, +'hello', '"')).to eq 'hello'
+  end
+
+  it 'works with a custom quote character' do
+    expect(instance.send(:cleanup_quotes, "'hello'", "'")).to eq 'hello'
+  end
+end
+
 describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' do
   # When parse_csv_line_ruby raises MalformedCSV in backslash mode with acceleration: false,
   # line 71 evaluates false (no acceleration) and line 77 executes the RFC fallback.
