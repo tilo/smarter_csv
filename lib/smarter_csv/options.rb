@@ -35,6 +35,9 @@ module SmarterCSV
       missing_header_prefix: 'column_',
       nil_values_matching: nil,   # regex: set matching values to nil (key kept); pairs with remove_empty_values
       on_bad_row: :raise,
+      on_chunk: nil,    # callable: fired after each chunk is parsed, before yielding to the block
+      on_complete: nil, # callable: fired once after the entire file is processed
+      on_start: nil,    # callable: fired once before the first row is parsed
       quote_boundary: :standard, # :standard (only at field boundary 👍) or :legacy (any quote toggles state 👎)
       quote_char: '"',
       quote_escaping: :auto,
@@ -185,6 +188,10 @@ module SmarterCSV
       obr = options[:on_bad_row]
       unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)
         errors << "invalid on_bad_row: must be :raise, :skip, :collect, or a callable"
+      end
+      %i[on_start on_chunk on_complete].each do |hook|
+        val = options[hook]
+        errors << "invalid #{hook}: must be nil or a callable" if !val.nil? && !val.respond_to?(:call)
       end
       unless %i[auto raise].include?(options[:missing_headers])
         errors << "invalid missing_headers: must be :auto or :raise"

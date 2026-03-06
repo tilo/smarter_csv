@@ -178,6 +178,24 @@ module SmarterCSV
           use_chunks = false
         end
 
+        # --- INSTRUMENTATION HOOKS ---
+        # on_start / on_chunk / on_complete are optional callables (nil by default).
+        # Hooks only fire from `process` (library-controlled iteration). Enumerator
+        # modes (each / each_chunk) do not fire hooks — the caller owns the lifecycle.
+        _on_start    = options[:on_start]
+        _on_chunk    = options[:on_chunk]
+        _on_complete = options[:on_complete]
+        _start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if _on_start || _on_complete
+
+        if _on_start
+          _input_meta = if @input.is_a?(String)
+                          { input: @input, file_size: (File.size(@input) rescue nil) }
+                        else
+                          { input: @input.class.name, file_size: nil }
+                        end
+          _on_start.call(_input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
+        end
+
         # now on to processing all the rest of the lines in the CSV file:
         while (line = next_line_with_counts(fh, options))
 
@@ -335,6 +353,7 @@ module SmarterCSV
             chunk << hash # append temp result to chunk
 
             if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
+              _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
               # do something with the chunk
               if block_given?
                 yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -363,6 +382,7 @@ module SmarterCSV
 
         # handling of last chunk:
         if !chunk.nil? && chunk.size > 0
+          _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
           # do something with the chunk
           if block_given?
             yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -371,6 +391,15 @@ module SmarterCSV
           end
           @chunk_count += 1
           # chunk = [] # initialize for next chunk of data
+        end
+
+        if _on_complete
+          _on_complete.call({
+            total_rows:   @csv_line_count,
+            total_chunks: @chunk_count,
+            duration:     Process.clock_gettime(Process::CLOCK_MONOTONIC) - _start_time,
+            bad_rows:     @errors[:bad_row_count] || 0,
+          })
         end
       ensure
         fh.close if fh.respond_to?(:close)

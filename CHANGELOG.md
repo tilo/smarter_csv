@@ -25,6 +25,8 @@ New optional interfaces to read CSV:
 New options for reading CSV:
  * **New `on_bad_row` option — bad row quarantine**: continue processing after parse errors by skipping, collecting, or routing bad rows to a callable. See [Bad Row Quarantine](docs/bad_row_quarantine.md).
 
+ * **New instrumentation hooks `on_start`, `on_chunk`, `on_complete`**: optional callables for observing file processing without wrapping call sites in timing code. `on_start` fires before the first row; `on_chunk` fires after each chunk is parsed (chunked mode only); `on_complete` fires after the file is exhausted with total rows, duration, and bad row count. Hooks are available on `SmarterCSV.process` only (enumerator modes do not fire hooks). See [Instrumentation Hooks](docs/instrumentation.md).
+
  * **New `collect_raw_lines` option** (default: `true`): includes the raw stitched line (`raw_logical_line`) in bad row error records.
 
  * **New `bad_row_limit` option**: raises `SmarterCSV::TooManyBadRows` after the given number of bad rows. Defaults to unlimited (no raised error).

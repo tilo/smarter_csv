@@ -278,4 +278,4 @@ scan only runs when the raw line is large enough to potentially contain an overs
 Normal rows (where the entire line fits within the limit) bypass per-field checking entirely.
 
 --------------------
-PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)
+PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Instrumentation Hooks](./instrumentation.md) | UP: [README](../README.md)
