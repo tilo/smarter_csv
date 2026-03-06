@@ -79,6 +79,8 @@ module SmarterCSV
     #   reader.each_chunk { |chunk, i| Sidekiq.push_bulk(chunk) }
     #   reader.each_chunk.with_index { |chunk, i| puts "Chunk #{i}: #{chunk.size} rows" }
     def each_chunk
+      return enum_for(:each_chunk) unless block_given?
+
       chunk_size = @options[:chunk_size]
       if chunk_size.nil?
         warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning." unless @options[:verbose] == :quiet
@@ -87,7 +89,6 @@ module SmarterCSV
       unless chunk_size.is_a?(Integer) && chunk_size >= 1
         raise ArgumentError, "chunk_size must be an Integer >= 1 (got #{chunk_size.inspect})"
       end
-      return enum_for(:each_chunk) unless block_given?
 
       # Temporarily apply chunk_size (handles nil default case) and restore after
       original_chunk_size = @options[:chunk_size]

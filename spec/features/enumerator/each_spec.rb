@@ -227,6 +227,13 @@ describe 'Reader#each and Reader#each_chunk enumerator API' do
           expect(reader.each_chunk).to be_a(Enumerator)
         end
 
+        it 'returns an Enumerator without side effects when chunk_size is nil (no warning emitted)' do
+          # Obtaining the Enumerator must not trigger the "chunk_size not set" warning.
+          # The warning should only fire when the Enumerator is actually iterated.
+          reader = SmarterCSV::Reader.new(chunked_csv, base_options)
+          expect { reader.each_chunk }.not_to output.to_stderr
+        end
+
         it 'Enumerator can be chained with with_index' do
           options = base_options.merge(chunk_size: 5)
           reader = SmarterCSV::Reader.new(chunked_csv, options)

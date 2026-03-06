@@ -6,8 +6,8 @@ fixture_path = 'spec/fixtures'
 
 # Tests for quote_boundary: :standard option.
 #
-# In :legacy mode (default), any " character toggles in/out of quoted state.
-# In :standard mode, a quote only opens a quoted field when it appears at the
+# In :legacy mode, any " character toggles in/out of quoted state.
+# In :standard mode (the default), a quote only opens a quoted field when it appears at the
 # start of the field (before any content). Mid-field quotes are treated as
 # literal characters. Closing a quoted field (any " while in_quotes) is always
 # valid in standard mode.
@@ -20,9 +20,9 @@ fixture_path = 'spec/fixtures'
     let(:base_options) { { acceleration: bool } }
 
     # ----------------------------------------------------------------
-    # :legacy mode (default) — baseline, existing behavior preserved
+    # :legacy mode — baseline, existing behavior preserved
     # ----------------------------------------------------------------
-    describe "quote_boundary: :legacy (default)" do
+    describe "quote_boundary: :legacy (non-default)" do
       it ':standard is the default value' do
         reader = SmarterCSV::Reader.new(StringIO.new("a,b\n1,2\n"), base_options)
         expect(reader.options[:quote_boundary]).to eq(:standard)

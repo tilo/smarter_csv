@@ -134,7 +134,7 @@ Style/SpecialGlobalVars: # DANGER: unsafe rule!!
   Enabled: false
 
 Style/StderrPuts:
-  Enabled: false # DANGER: unsave rule!! we DO NOT want warn here
+  Enabled: false # DANGER: unsafe rule!! we DO NOT want warn here
 
 Style/StringConcatenation:
   Enabled: false
