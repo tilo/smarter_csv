@@ -52,9 +52,14 @@ In either case the corresponding field will be put in double-quotes.
 
 ### Simplified Interface
 
-The simplified interface takes a block. It accepts a file path string **or any IO-compatible
-object** (`StringIO`, an open `File` handle, etc.). When an IO object is passed, the caller
-retains ownership — SmarterCSV will not close it.
+The simplified interface takes a block. The first argument can be:
+
+* A **`String`** path — SmarterCSV opens the file and closes it when done.
+* A **`Pathname`** (or any object responding to `#to_path`) — treated the same as a String path.
+* Any **IO-like object** responding to `#write` (e.g. `StringIO`, an open `File` handle, a
+  socket) — SmarterCSV writes to it but does **not** close it; the caller retains ownership.
+
+Passing anything else raises `ArgumentError` immediately.
 
 **Write to a file by path:**
 
@@ -63,6 +68,15 @@ SmarterCSV.generate('output.csv', options) do |csv|
   MyModel.find_in_batches(batch_size: 100) do |batch|
     batch.each { |record| csv << record.attributes }
   end
+end
+```
+
+**Write to a file using a `Pathname`:**
+
+```ruby
+require 'pathname'
+SmarterCSV.generate(Pathname('output.csv'), options) do |csv|
+  records.each { |r| csv << r }
 end
 ```
 
@@ -101,8 +115,8 @@ end
 csv_writer.finalize
 ```
 
-The full interface also accepts an IO object in place of a file path — useful when writing to
-a `StringIO` or streaming directly to a response body without creating a temporary file.
+The full interface accepts the same argument types as the simplified interface: a String path,
+a `Pathname`, or any IO-like object responding to `#write`.
 
 ## Advanced Features: Customizing the Output Format
 

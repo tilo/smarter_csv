@@ -669,6 +669,41 @@ RSpec.describe SmarterCSV::Writer do
         expect(io).not_to be_closed
       end
     end
+
+    context 'with a path-like object responding to #to_path (but not #write)' do
+      # Use a minimal stand-in rather than Pathname, because Pathname#write exists in Ruby stdlib
+      # and would be mis-detected as an IO object by the respond_to?(:write) check.
+      # NOTE: Pathname also responds to #write (Ruby stdlib), so the current respond_to?(:write)
+      # check in Writer#initialize catches it before the #to_path branch, mis-treating it as IO.
+      let(:path_like) { Struct.new(:to_path).new(file_path) }
+
+      it 'writes CSV content to the file' do
+        SmarterCSV.generate(path_like) do |csv|
+          data.each { |row| csv << row }
+        end
+        output = File.read(file_path)
+        expect(output).to eq("name,age#{row_sep}Alice,30#{row_sep}Bob,25#{row_sep}")
+      end
+
+      it 'closes the file after finalize' do
+        writer = SmarterCSV::Writer.new(path_like)
+        writer << data.first
+        writer.finalize
+        expect(File.read(file_path)).to include("Alice")
+      end
+    end
+
+    context 'with an invalid argument type' do
+      it 'raises ArgumentError immediately with a descriptive message for Integer' do
+        expect { SmarterCSV::Writer.new(42) }
+          .to raise_error(ArgumentError, /SmarterCSV::Writer expects.*got Integer/)
+      end
+
+      it 'raises ArgumentError immediately with a descriptive message for Symbol' do
+        expect { SmarterCSV::Writer.new(:some_path) }
+          .to raise_error(ArgumentError, /SmarterCSV::Writer expects.*got Symbol/)
+      end
+    end
   end
 
   context 'direct-write mode (known headers, no temp file)' do

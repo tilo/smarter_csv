@@ -50,6 +50,12 @@ describe 'options processing' do
           expect(clean.process_options(verbose: :debug)[:verbose]).to eq :debug
         end.not_to output(/DEPRECATION/).to_stderr
       end
+
+      it 'normalizes an unknown verbose value to :normal with a warning' do
+        expect do
+          expect(clean.process_options(verbose: :loud)[:verbose]).to eq :normal
+        end.to output(/WARNING.*unknown verbose value.*:loud/i).to_stderr
+      end
     end
 
     it 'it has the correct default options, when no input is given' do

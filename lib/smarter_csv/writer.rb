@@ -69,13 +69,25 @@ module SmarterCSV
       @headers = options[:map_headers].keys if options.has_key?(:map_headers) && !options.has_key?(:headers)
       @map_headers = options[:map_headers] || {}
 
-      # Accept a file path (String) or any IO-like object (StringIO, IO, etc.)
-      if file_path_or_io.is_a?(String)
-        @output_file = File.open(file_path_or_io, 'w+')
-        @file_opened_by_us = true
-      else
+      # Accept an IO-like object (StringIO, IO, etc.) or any path-like object (String, Pathname, etc.)
+      if file_path_or_io.respond_to?(:write)
+        # External IO handed in — we should not close it ourselves.
         @output_file = file_path_or_io
         @file_opened_by_us = false
+      else
+        path =
+          if file_path_or_io.respond_to?(:to_path)
+            file_path_or_io.to_path
+          elsif file_path_or_io.is_a?(String)
+            file_path_or_io
+          else
+            raise ArgumentError,
+                  "SmarterCSV::Writer expects an IO-like object (responding to #write) " \
+                  "or a path-like object (responding to #to_path or being a String), " \
+                  "but got #{file_path_or_io.class}"
+          end
+        @output_file = File.open(path, 'w+')
+        @file_opened_by_us = true
       end
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
 

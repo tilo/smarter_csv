@@ -93,6 +93,20 @@ fixture_path = 'spec/fixtures'
       end.to raise_error(SmarterCSV::ValidationError, /cannot use both/)
     end
 
+    # --- element type validation ---
+
+    it 'raises ValidationError when headers: { only: } contains non-String/Symbol elements' do
+      expect do
+        SmarterCSV.process("#{fixture_path}/basic.csv", base_options.merge(headers: { only: [1, 2] }))
+      end.to raise_error(SmarterCSV::ValidationError, /only.*String or Symbol/i)
+    end
+
+    it 'raises ValidationError when headers: { except: } contains non-String/Symbol elements' do
+      expect do
+        SmarterCSV.process("#{fixture_path}/basic.csv", base_options.merge(headers: { except: [1, 2] }))
+      end.to raise_error(SmarterCSV::ValidationError, /except.*String or Symbol/i)
+    end
+
     # --- interaction with key_mapping ---
 
     context "headers: { only: } uses post-mapping names" do

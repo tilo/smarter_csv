@@ -96,6 +96,9 @@ module SmarterCSV
       when true
         warn "DEPRECATION WARNING: verbose: true is deprecated. Use verbose: :debug instead."
         @options[:verbose] = :debug
+      else
+        warn "WARNING: unknown verbose value #{@options[:verbose].inspect}, defaulting to :normal. Valid values: :quiet, :normal, :debug."
+        @options[:verbose] = :normal
       end
 
       # fix invalid input
@@ -118,8 +121,18 @@ module SmarterCSV
       end
 
       # Normalize only_headers/except_headers to arrays of symbols (internal names, read by C extension)
-      @options[:only_headers]   = Array(@options[:only_headers]).map(&:to_sym)   if @options[:only_headers]
-      @options[:except_headers] = Array(@options[:except_headers]).map(&:to_sym) if @options[:except_headers]
+      if @options[:only_headers]
+        values = Array(@options[:only_headers])
+        bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
+        raise SmarterCSV::ValidationError, "headers: { only: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
+        @options[:only_headers] = values.map(&:to_sym)
+      end
+      if @options[:except_headers]
+        values = Array(@options[:except_headers])
+        bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
+        raise SmarterCSV::ValidationError, "headers: { except: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
+        @options[:except_headers] = values.map(&:to_sym)
+      end
 
       # Deprecation: remove_values_matching → nil_values_matching
       # Old behavior: removes the key-value pair entirely.
