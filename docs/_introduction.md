@@ -2,6 +2,7 @@
 ### Contents
 
   * [**Introduction**](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -10,10 +11,15 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
-    
---------------  
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Instrumentation Hooks](./instrumentation.md)
+  * [Examples](./examples.md)
+  * [SmarterCSV over the Years](./history.md)
+
+--------------
 
 # SmarterCSV Introduction
 
@@ -55,4 +61,4 @@ The CSV processing also needed to be robust against variations in the input data
   (planned feature)
 
 ---------------
-PREVIOUS [README](../README.md) | NEXT: [Parsing Strategy](./parsing_strategy.md)
+PREVIOUS [README](../README.md) | NEXT: [Migrating from Ruby CSV](./migrating_from_csv.md)

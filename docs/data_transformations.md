@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -10,10 +11,15 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [**Data Transformations**](./data_transformations.md)
   * [Value Converters](./value_converters.md)
-    
---------------    
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Instrumentation Hooks](./instrumentation.md)
+  * [Examples](./examples.md)
+  * [SmarterCSV over the Years](./history.md)
+
+--------------
 
 # Data Transformations
 
@@ -41,13 +47,19 @@ This will return the column `:zip` as a string with all digits intact.
 `remove_zero_values` is disabled by default.
 When enabled, it removes key/value pairs which have a numeric value equal to zero.
 
-## Remove Values Matching
-`remove_values_matching` is disabled by default. 
-When enabled, this can help removing key/value pairs from result hashes which would cause problems. 
+## Nil Values Matching
+`nil_values_matching` is disabled by default.
+When enabled, values matching the given regular expression are set to `nil`. With the default
+`remove_empty_values: true`, those key/value pairs are then removed. With `remove_empty_values: false`,
+the key is retained with a `nil` value — useful when you need to distinguish "field was absent"
+from "field had a sentinel value".
 
 e.g.
- * `remove_values_matching: /^\$0\.0+$/` would remove $0.00 
- * `remove_values_matching: /^#VALUE!$/` would remove errors from Excel spreadsheets 
+ * `nil_values_matching: /^\$0\.0+$/` would nil-ify (and by default remove) $0.00
+ * `nil_values_matching: /^(NaN|#VALUE!)$/` would nil-ify NaN and Excel errors
+
+> **Deprecated:** `remove_values_matching:` still works but emits a deprecation warning.
+> Use `nil_values_matching:` instead.
 
 ## Empty Hashes
 
@@ -58,4 +70,4 @@ By default SmarterCSV uses `remove_empty_hashes: true` to remove these empty has
 This can be set to `false`, to keep these empty hashes in the results.
 
 -------------------
-PREVIOUS: [Header Validations](./header_validations.md) | NEXT: [Value Converters](./value_converters.md)
+PREVIOUS: [Column Selection](./column_selection.md) | NEXT: [Value Converters](./value_converters.md)

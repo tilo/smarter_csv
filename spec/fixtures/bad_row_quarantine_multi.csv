@@ -1,0 +1,5 @@
+name,age,city
+John,30,New York
+Jane,25,Boston,EXTRA_DATA
+Mike,35,Chicago,ALSO_EXTRA
+Bob,40,Seattle

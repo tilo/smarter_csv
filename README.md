@@ -28,20 +28,36 @@ SmarterCSV is designed for **real-world CSV processing**, returning fully usable
 
 For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to SmarterCSV.
 
-| Comparison                               | Range                |
-|------------------------------------------|----------------------|
-| vs SmarterCSV 1.14.4 (with acceleration) | 5.4× to 37.4x faster |
-| vs SmarterCSV 1.14.4 (pure Ruby)         | 1.4× to 9.5× faster  |
-| vs CSV.read  (arrays of arrays)          | 1.6x to 7.2x faster  |
-| vs CSV.table (arrays of hashes)          | 6.0× to 113.0× faster|
-| vs ZSV (arrays of hashes)                | 1.4× to 6.3× faster  |
+| Comparison (SmarterCSV 1.16.0, C-accelerated)  | Range                   |
+|-------------------------------------------------|-------------------------|
+| vs SmarterCSV 1.14.4 (with C acceleration)      | 9.4× to 63.6× faster   |
+| vs SmarterCSV 1.14.4 (Ruby path)                | 1.7× to 10.6× faster   |
+| vs CSV.read  (arrays of arrays)                 | 1.8× to 7.5× faster    |
+| vs CSV.table (arrays of hashes)                 | 6.4× to 118.7× faster  |
+| vs ZSV (arrays of hashes, equiv. output)        | 1.1× to 6.6× faster †  |
 
-SmarterCSV also wins 14 of 16 benchmark files head-to-head against ZSV+wrapper (SIMD-accelerated C parser with Ruby wrapper to produce equivalent hash output).
+† SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output.
 
 _Benchmarks: 16 CSV files (43k–80k rows), Ruby 3.4.7, Apple M1. Memory: 39% less allocated, 43% fewer objects._
 
- See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
+See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
 
+
+## Switching from Ruby CSV?
+
+It's a one-line change:
+
+```ruby
+# Before
+rows = CSV.table('data.csv').map(&:to_h)
+
+# After — up to 119× faster, same symbol keys
+rows = SmarterCSV.process('data.csv')
+```
+
+`SmarterCSV.parse(string)` works like `CSV.parse(string, headers: true, header_converters: :symbol)` — with numeric conversion included by default.
+
+See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
 
 ## Examples
 
@@ -121,6 +137,7 @@ Or install it yourself as:
 # Documentation
 
   * [Introduction](docs/_introduction.md)
+  * [**Migrating from Ruby CSV**](docs/migrating_from_csv.md)
   * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)
@@ -139,6 +156,7 @@ Or install it yourself as:
   * [Faster Parsing CSV with Parallel Processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing) by [Jack lin](https://github.com/xjlin0/)
   * The original [Stackoverflow Question](https://stackoverflow.com/questions/7788618/update-mongodb-with-array-from-csv-join-table/7788746#7788746) that inspired SmarterCSV
   * [The original post](http://www.unixgods.org/Ruby/process_csv_as_hashes.html) for SmarterCSV
+  * [SmarterCSV over the Years](docs/history.md) — version timeline and performance journey (11×–119× faster than v1.6.1)
 
 # [ChangeLog](./CHANGELOG.md)
 

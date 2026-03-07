@@ -42,4 +42,23 @@ describe ':comment_regexp option' do
     expect(data.first[:h1]).to eq 'a'
     expect(data.first[:h2]).to eq "b\r\n#c"
   end
+
+  # comment_regexp is matched against the raw physical line.
+  # A quoted field whose VALUE starts with '#' must NOT be skipped — the raw
+  # line starts with '"', not '#', so the regex does not match.
+  # (Mirrors Ruby CSV test_regexp_quoted from test/csv/parse/test_skip_lines.rb)
+  it 'does not skip a row whose quoted field value starts with #' do
+    csv = "category,value\n\"#sales\",100\n"
+    data = SmarterCSV.process(StringIO.new(csv), comment_regexp: /\A#/)
+    expect(data.size).to eq 1
+    expect(data[0][:category]).to eq '#sales'
+    expect(data[0][:value]).to eq 100
+  end
+
+  it 'skips an unquoted line starting with # but not a quoted one in the same file' do
+    csv = "category,value\n#this is a comment\n\"#sales\",100\n"
+    data = SmarterCSV.process(StringIO.new(csv), comment_regexp: /\A#/)
+    expect(data.size).to eq 1
+    expect(data[0][:category]).to eq '#sales'
+  end
 end

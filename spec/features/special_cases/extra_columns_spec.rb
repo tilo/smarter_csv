@@ -12,13 +12,50 @@ describe 'CSV file with more columns that shown in header' do
       let(:options) { { acceleration: bool } }
       let(:reader) { SmarterCSV::Reader.new(csv_path, options) }
 
-      context "when strict mode" do
+      context "when strict mode (deprecated :strict option)" do
         before do
           options.merge!(strict: true)
         end
 
         it "raises an exception" do
           expect{reader.process}.to raise_exception SmarterCSV::HeaderSizeMismatch, "extra columns detected on line 2"
+        end
+
+        it "emits a deprecation warning" do
+          expect { SmarterCSV::Reader.new(csv_path, options.merge(strict: true)) }
+            .to output(/DEPRECATION WARNING.*strict.*missing_headers/i).to_stderr
+        end
+      end
+
+      context "when missing_headers: :raise (new API)" do
+        before do
+          options.merge!(missing_headers: :raise)
+        end
+
+        it "raises HeaderSizeMismatch" do
+          expect { SmarterCSV::Reader.new(csv_path, options).process }
+            .to raise_error(SmarterCSV::HeaderSizeMismatch, /extra columns detected/)
+        end
+
+        it "does not emit a deprecation warning" do
+          expect { SmarterCSV::Reader.new(csv_path, options) }
+            .not_to output(/DEPRECATION WARNING/).to_stderr
+        end
+      end
+
+      context "when missing_headers: :auto (new API, default)" do
+        before do
+          options.merge!(missing_headers: :auto)
+        end
+
+        it "auto-generates column names without raising" do
+          reader.process
+          expect(reader.headers).to include(:column_7, :column_8)
+        end
+
+        it "does not emit a deprecation warning" do
+          expect { SmarterCSV::Reader.new(csv_path, options) }
+            .not_to output(/DEPRECATION WARNING/).to_stderr
         end
       end
 

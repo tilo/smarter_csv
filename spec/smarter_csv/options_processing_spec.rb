@@ -8,12 +8,53 @@ describe 'options processing' do
     context "when verbose mode" do
       let(:options) { {chunk_size: 10, verbose: true} }
 
-      it 'prints out given options in verbose mode' do
-        allow($stdout).to receive(:puts)
-        expect($stdout).to receive(:puts).with(/User provided options:/)
-        expect($stdout).to receive(:puts).with(/Computed options:/)
-        generated_options = instance.process_options(options)
-        expect(generated_options[:chunk_size]).to eq 10
+      it 'prints out given options in verbose mode (verbose: true → :debug)' do
+        expect do
+          generated_options = instance.process_options(options)
+          expect(generated_options[:chunk_size]).to eq 10
+        end.to output(/DEPRECATION WARNING.*User provided options:.*Computed options:/m).to_stderr
+      end
+    end
+
+    describe 'verbose level normalization' do
+      # Use a clean instance (no verbose in constructor options) so only the
+      # process_options call under test contributes output.
+      let(:clean) { SmarterCSV::Reader.new('something', {}) }
+
+      it 'normalizes verbose: true to :debug with a deprecation warning' do
+        expect do
+          expect(clean.process_options(verbose: true)[:verbose]).to eq :debug
+        end.to output(/DEPRECATION WARNING.*verbose: true.*verbose: :debug/m).to_stderr
+      end
+
+      it 'normalizes verbose: false to :normal with a deprecation warning' do
+        expect do
+          expect(clean.process_options(verbose: false)[:verbose]).to eq :normal
+        end.to output(/DEPRECATION WARNING.*verbose: false.*verbose: :normal/m).to_stderr
+      end
+
+      it 'normalizes verbose: nil to :normal silently (nil means not set)' do
+        expect do
+          expect(clean.process_options(verbose: nil)[:verbose]).to eq :normal
+        end.not_to output(/DEPRECATION WARNING/).to_stderr
+      end
+
+      it 'keeps :quiet as :quiet without warning' do
+        expect do
+          expect(clean.process_options(verbose: :quiet)[:verbose]).to eq :quiet
+        end.not_to output(/DEPRECATION/).to_stderr
+      end
+
+      it 'keeps :debug as :debug without warning' do
+        expect do
+          expect(clean.process_options(verbose: :debug)[:verbose]).to eq :debug
+        end.not_to output(/DEPRECATION/).to_stderr
+      end
+
+      it 'normalizes an unknown verbose value to :normal with a warning' do
+        expect do
+          expect(clean.process_options(verbose: :loud)[:verbose]).to eq :normal
+        end.to output(/WARNING.*unknown verbose value.*:loud/i).to_stderr
       end
     end
 

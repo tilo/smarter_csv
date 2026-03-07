@@ -3,6 +3,16 @@
 module SmarterCSV
   module Parser
     EMPTY_STRING = '' # already frozen
+    # Optimization #13: byteindex (byte-position search) was added in Ruby 3.2.
+    # When available, it lets Opt #10/#12 skip-ahead use byte offsets directly —
+    # no conversion from byte position to character position needed.
+    #
+    # Restricted to MRI Ruby (RUBY_ENGINE == 'ruby'): JRuby and TruffleRuby implement
+    # byteindex but require the offset to land on a character boundary. Our byte-level
+    # loop advances i one byte at a time, so i can point to a UTF-8 continuation byte
+    # (0x80–0xBF) when Opt #10/#12 fires — which raises IndexError on those runtimes.
+    # The inline getbyte fallback below is correct for all Ruby implementations.
+    BYTEINDEX_AVAILABLE = RUBY_ENGINE == 'ruby' && String.method_defined?(:byteindex)
 
     protected
 
@@ -20,7 +30,7 @@ module SmarterCSV
 
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash)
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
@@ -31,33 +41,68 @@ module SmarterCSV
     end
 
     def parse_with_auto_fallback(line, options, header_size = nil)
-      has_quotes = line.include?(options[:quote_char])
+      # Optimization #4: cache merged options hashes for :auto mode
+      @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+      @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
 
-      begin
+      # Optimization #5: if the line contains no backslash, backslash escaping cannot
+      # affect parsing (a backslash only matters immediately before a quote char).
+      # RFC 4180 and backslash modes give identical results — skip the try-backslash
+      # dance and call directly with RFC options (tighter C inner loop + memchr).
+      # has_quotes is only needed for the Ruby fallback path — C computes it internally.
+      unless line.include?('\\')
+        if options[:acceleration] && has_acceleration
+          # :nocov:
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          return [elements, elements.size]
+          # :nocov:
+        else
+          has_quotes = line.include?(options[:quote_char])
+          return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
+        end
+      end
+
+      # Line has a backslash — try backslash-escape interpretation first.
+      # has_quotes only needed for Ruby fallback path.
+      has_quotes = line.include?(options[:quote_char]) unless options[:acceleration] && has_acceleration
+
+      result = begin
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true)
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_csv_line_ruby(line, @backslash_options, header_size, has_quotes)
+          parse_csv_line_ruby(line, @quote_escaping_backslash, header_size, has_quotes)
         end
       rescue MalformedCSV
-        # Backslash interpretation failed — fall back to RFC 4180
+        # Backslash raised a hard error — fall back to RFC 4180 immediately
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false)
-          [elements, elements.size]
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          return [elements, elements.size]
           # :nocov:
         else
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_csv_line_ruby(line, @rfc_options, header_size, has_quotes)
+          return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
         end
       end
+
+      # Backslash sees unclosed quote (-1): RFC may still close it (e.g. header "val\")
+      if result[1] == -1
+        rfc_result = if options[:acceleration] && has_acceleration
+                       # :nocov:
+                       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+                       [elements, elements.size]
+                       # :nocov:
+                     else
+                       parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
+                     end
+        return rfc_result unless rfc_result[1] == -1
+        # Both agree line is incomplete → propagate -1
+      end
+
+      result
     end
 
     # Parse a CSV line directly into a hash, with support for extra columns.
@@ -78,35 +123,54 @@ module SmarterCSV
     end
 
     def parse_line_to_hash_auto(line, headers, options)
-      begin
-        # Try backslash-escape interpretation first
-        if options[:acceleration] && has_acceleration
-          # :nocov:
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_line_to_hash_c(line, headers, @backslash_options)
-          # :nocov:
-        else
-          has_quotes = line.include?(options[:quote_char])
-          # Optimization #4: cache merged options hashes for :auto mode
-          @backslash_options ||= options.merge(quote_escaping: :backslash)
-          parse_line_to_hash_ruby(line, headers, @backslash_options, has_quotes)
+      # Optimization #4: cache merged options hashes for :auto mode
+      @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+      @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
+
+      if options[:acceleration] && has_acceleration
+        # C path: zero Ruby string scanning on the hot path.
+        # C handles Opt #5 internally — if backslash mode is requested but the line
+        # contains no backslash, C automatically downgrades to RFC mode in Section 5
+        # (enabling the memchr-inside-quotes optimisation). For unquoted lines, Section 4
+        # fast path is taken and allow_escaped_quotes is irrelevant anyway.
+        # :nocov:
+        result = parse_line_to_hash_c(line, headers, @quote_escaping_backslash)
+        if result[1] == -1 && line.include?('\\')
+          # Backslash mode sees unclosed quote on a line that contains a backslash.
+          # RFC 4180 may close it differently (e.g. "val\" is open in backslash
+          # mode but closed in RFC mode). Only try RFC when a backslash is present —
+          # if there is no backslash, both modes give identical results and the extra
+          # call is wasted work (common case: embedded-newline partial stitching lines).
+          rfc_result = parse_line_to_hash_c(line, headers, @quote_escaping_double)
+          return rfc_result unless rfc_result[1] == -1
+          # Both agree line is incomplete → propagate [nil, -1]
         end
-      rescue MalformedCSV
-        # Backslash interpretation failed — fall back to RFC 4180
-        if options[:acceleration] && has_acceleration
-          # :nocov:
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_line_to_hash_c(line, headers, @rfc_options)
-          # :nocov:
-        else
-          has_quotes = line.include?(options[:quote_char])
-          # Optimization #4: cache merged options hashes for :auto mode
-          @rfc_options ||= options.merge(quote_escaping: :double_quotes)
-          parse_line_to_hash_ruby(line, headers, @rfc_options, has_quotes)
-        end
+        # :nocov:
+        return result
       end
+
+      # Ruby fallback path: explicit backslash/quote checks still needed
+      has_quotes = line.include?(options[:quote_char])
+      unless line.include?('\\')
+        return parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+      end
+
+      result = begin
+        parse_line_to_hash_ruby(line, headers, @quote_escaping_backslash, has_quotes)
+      rescue MalformedCSV
+        return parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+      end
+
+      # Backslash path sees an unclosed quote ([nil, -1]): RFC 4180 may still close
+      # the field — e.g. a field ending with \" is open in backslash mode but closed
+      # in RFC mode. Try RFC; if it also returns -1 both agree the line is incomplete.
+      if result[1] == -1
+        rfc_result = parse_line_to_hash_ruby(line, headers, @quote_escaping_double, has_quotes)
+        return rfc_result unless rfc_result[1] == -1
+        # Both interpretations agree the line is incomplete → propagate [nil, -1]
+      end
+
+      result
     end
 
     # Ruby implementation of parse_line_to_hash
@@ -116,14 +180,55 @@ module SmarterCSV
       # Chomp trailing row separator
       line = line.chomp(options[:row_sep]) if options[:row_sep]
 
-      # Parse the line into values
+      col_sep = options[:col_sep]
+      strip   = options[:strip_whitespace]
+      prefix  = options[:missing_header_prefix]
+
+      # Optimization #11: for unquoted lines, build the hash in one pass directly
+      # from String#split — no intermediate array returned from parse_csv_line_ruby
+      # and no second iteration to convert array → hash. Saves one Array allocation
+      # + one full-row iteration per row (most impactful on wide-column files).
+      #
+      # Optimization #14: when remove_empty_values is set (default: true), skip
+      # empty fields inline during hash building instead of inserting them and
+      # deleting later in hash_transformations. With strip_whitespace: true
+      # (default), v.empty? after strip catches both empty and whitespace-only
+      # fields without a regex. Most impactful on sparse files (many empty fields).
+      unless has_quotes || col_sep == ' '
+        fields = line.split(col_sep, -1)
+        n = fields.size
+
+        if options[:remove_empty_hashes]
+          all_blank = fields.empty? || fields.all? { |v| v.strip.empty? }
+          return [nil, n] if all_blank
+        end
+
+        # Batch-strip using C-level map! — faster than per-element strip inside the loop
+        fields.map!(&:strip) if strip
+
+        remove_empty = options[:remove_empty_values]
+        hash = {}
+        fields.each_with_index do |v, i|  # C-level iteration, faster than Ruby while counter loop
+          next if remove_empty && v.empty?
+          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
+        end
+
+        unless remove_empty
+          (n...headers.size).each { |i| hash[headers[i]] = nil }
+        end
+
+        return [hash, n]
+      end
+
+      # Quoted/complex path: parse into elements array, then build hash.
       elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
+      return [nil, -1] if data_size == -1 # unclosed quote at EOL → caller stitches next line
 
       # Optimization #6: elements are always String or nil from parse_csv_line_ruby,
       # so .to_s is unnecessary. If strip_whitespace is on, fields are already
       # stripped, so .strip is also redundant — just check .empty?.
       if options[:remove_empty_hashes]
-        all_blank = if options[:strip_whitespace]
+        all_blank = if strip
                       elements.empty? || elements.all? { |v| v.nil? || v.empty? }
                     else
                       elements.empty? || elements.all? { |v| v.nil? || v.strip.empty? }
@@ -131,22 +236,21 @@ module SmarterCSV
         return [nil, data_size] if all_blank
       end
 
-      # Build the hash - only include keys for values that exist
+      # Build the hash — integer-index while loop avoids enumerator overhead vs each_with_index
+      n = elements.size
       hash = {}
-      elements.each_with_index do |value, i|
-        key = if i < headers.size
-                headers[i]
-              else
-                "#{options[:missing_header_prefix]}#{i + 1}".to_sym
-              end
-        hash[key] = value
+      i = 0
+      while i < n
+        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = elements[i]
+        i += 1
       end
 
       # Add nil for missing columns only when remove_empty_values is false
       # (when true, nils would be removed anyway by hash_transformations)
       unless options[:remove_empty_values]
-        (elements.size...headers.size).each do |i|
+        while i < headers.size
           hash[headers[i]] = nil
+          i += 1
         end
       end
 
@@ -182,7 +286,9 @@ module SmarterCSV
 
       # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
       # always pass this, but direct callers may not)
+      # rubocop:disable Style/OrAssignment
       has_quotes = line.include?(options[:quote_char]) unless has_quotes
+      # rubocop:enable Style/OrAssignment
 
       # Optimization #7: when line has no quotes, use String#split (C-implemented)
       # to bypass the entire character-by-character loop.
@@ -193,6 +299,7 @@ module SmarterCSV
         if header_size && header_size <= 0
           return [[], 0]
         end
+
         elements = line.split(col_sep, -1) # -1 preserves trailing empty fields
         elements = elements[0, header_size] if header_size
         elements.map!(&:strip) if strip
@@ -210,74 +317,246 @@ module SmarterCSV
       backslash_count = 0
       in_quotes = false
       allow_escaped_quotes = options[:quote_escaping] == :backslash
+      quote_boundary_standard = options[:quote_boundary] == :standard
+      field_started = false # for boundary tracking (standard mode only)
+      row_sep = options[:row_sep]
+      row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
 
       # Optimization #1: for the common single-char separator, use direct
       # character comparison instead of allocating a substring via line[i...i+n].
       if col_sep_size == 1
-        while i < line_size
-          if line[i] == col_sep && !in_quotes
+        # Optimization #13: byte-level indexing for single-char separator.
+        # col_sep and quote_char are both validated to be single-byte at option
+        # parsing time. UTF-8 multi-byte continuation bytes (0x80–0xBF) never
+        # alias ASCII delimiter bytes (0x00–0x7F), so byte scanning is safe for
+        # UTF-8 strings with ASCII delimiters — no String allocation per character.
+        col_sep_byte     = col_sep.getbyte(0)
+        quote_byte       = quote.getbyte(0)
+        bytesize         = line.bytesize
+        row_sep_bytesize = row_sep.is_a?(String) ? row_sep.bytesize : 0
+
+        while i < bytesize
+          # Optimization #10: inside a quoted field with no backslash escaping, jump
+          # directly to the next quote character using byteindex (C-level scan).
+          # Avoids per-character Ruby iteration through long field content.
+          if in_quotes && !allow_escaped_quotes
+            next_q = if BYTEINDEX_AVAILABLE
+                       line.byteindex(quote, i)
+                     else
+                       j = i
+                       j += 1 while j < bytesize && line.getbyte(j) != quote_byte
+                       j < bytesize ? j : nil
+                     end
+            if next_q.nil?
+              i = bytesize # no closing quote — exit loop, return [[], -1] below
+              break
+            end
+            i = next_q # land on the quote; fall through to normal quote-handling below
+            b = quote_byte
+
+          # Optimization #12: in :standard mode, once we know the current field is
+          # unquoted (field_started && !in_quotes), remaining quotes are literal and
+          # cannot affect parser state — jump directly to the next col_sep.
+          # Mirrors Opt #10 for the unquoted side of the same trade-off.
+          elsif quote_boundary_standard && field_started && !in_quotes
+            next_sep = if BYTEINDEX_AVAILABLE
+                         line.byteindex(col_sep, i)
+                       else
+                         j = i
+                         j += 1 while j < bytesize && line.getbyte(j) != col_sep_byte
+                         j < bytesize ? j : nil
+                       end
+            if next_sep.nil?
+              break
+            end
+
+            i = next_sep
+            b = col_sep_byte
+
+          else
+            b = line.getbyte(i)
+          end
+
+          if b == col_sep_byte && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
-            field = line[start...i]
-            field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # Optimization #15: for quoted fields, extract content directly without
+            # surrounding quotes to avoid the double allocation of byteslice + field[1..-2]
+            # inside cleanup_quotes. Safe because the line is pre-chomped and the state
+            # machine has already found and validated the closing quote.
+            field_len = i - start
+            if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(i - 1) == quote_byte
+              field = line.byteslice(start + 1, field_len - 2)
+              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
+              field.strip! if strip  # in-place: no extra allocation; safe on fresh byteslice
+              elements << field
+            else
+              field = line.byteslice(start, field_len)
+              field = cleanup_quotes(field, quote)
+              elements << (strip ? field.strip : field)  # cleanup_quotes may return frozen EMPTY_STRING
+            end
             i += 1
             start = i
             backslash_count = 0
+            field_started = false # reset for next field
           else
-            if allow_escaped_quotes && line[i] == '\\'
+            if allow_escaped_quotes && b == 92 # backslash '\\'
               backslash_count += 1
+              field_started = true if quote_boundary_standard && !in_quotes
             else
-              if line[i] == quote
+              if b == quote_byte
                 if !allow_escaped_quotes || backslash_count % 2 == 0
-                  in_quotes = !in_quotes
+                  if quote_boundary_standard
+                    if in_quotes
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      next_i = i + 1
+                      if next_i >= bytesize ||
+                         line.getbyte(next_i) == col_sep_byte ||
+                         (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
+                        in_quotes = false
+                        field_started = true
+                      end
+                      # else: quote inside quoted field → literal (handles "" doubling)
+                    elsif !field_started # at field boundary: open quoted field
+                      in_quotes = true
+                      field_started = true
+                    end
+                    # else: mid-field quote → literal, no state change
+                  else
+                    in_quotes = !in_quotes
+                  end
                 end
+              elsif quote_boundary_standard && !in_quotes && !field_started
+                # Non-quote, non-separator: mark field as started (only needs to fire once
+                # per field — Opt #12 skips the rest once this is set).
+                # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+                field_started = true unless strip && (b == 32 || b == 9) # ' ' == 32, '\t' == 9
+                # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
             end
             i += 1
+          end
+        end
+
+        # Unclosed quote at end of line: signal "needs more data" to the caller.
+        # The read loop will stitch the next physical line and re-parse rather than raising.
+        return [[], -1] if in_quotes
+
+        # Process the remaining field
+        if header_size.nil? || elements.size < header_size
+          # Optimization #15 (final field): same direct extraction; safe because line is pre-chomped.
+          field_len = bytesize - start
+          if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(bytesize - 1) == quote_byte
+            field = line.byteslice(start + 1, field_len - 2)
+            field.gsub!(doubled_quote(quote), quote)
+            field.strip! if strip
+            elements << field
+          else
+            field = line.byteslice(start, field_len)
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
           end
         end
       else
         # Multi-char col_sep: use substring comparison (original path)
         while i < line_size
+          # Optimization #10 (multi-char path): same skip-ahead as single-char path above.
+          if in_quotes && !allow_escaped_quotes
+            next_q = line.index(quote, i)
+            if next_q.nil?
+              i = line_size
+              break
+            end
+            i = next_q
+          end
+
+          # Optimization #12 (multi-char path): mirror of single-char path above.
+          if quote_boundary_standard && field_started && !in_quotes
+            next_sep = line.index(col_sep, i)
+            if next_sep.nil?
+              break
+            end
+
+            i = next_sep
+          end
+
           if line[i...i+col_sep_size] == col_sep && !in_quotes
             break if !header_size.nil? && elements.size >= header_size
 
-            field = line[start...i]
-            field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # Optimization #15 (multi-char path): same direct extraction using character indexing.
+            field_len = i - start
+            if field_len >= 2 && line[start] == quote && line[i - 1] == quote
+              field = line[start + 1...i - 1]
+              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
+              field.strip! if strip
+              elements << field
+            else
+              field = line[start...i]
+              field = cleanup_quotes(field, quote)
+              elements << (strip ? field.strip : field)
+            end
             i += col_sep_size
             start = i
             backslash_count = 0
+            field_started = false # reset for next field
           else
             if allow_escaped_quotes && line[i] == '\\'
               backslash_count += 1
+              field_started = true if quote_boundary_standard && !in_quotes
             else
               if line[i] == quote
                 if !allow_escaped_quotes || backslash_count % 2 == 0
-                  in_quotes = !in_quotes
+                  if quote_boundary_standard
+                    if in_quotes
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      next_i = i + 1
+                      if next_i >= line_size ||
+                         line[next_i...next_i + col_sep_size] == col_sep ||
+                         (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                        in_quotes = false
+                        field_started = true
+                      end
+                      # else: quote inside quoted field → literal (handles "" doubling)
+                    elsif !field_started # at field boundary: open quoted field
+                      in_quotes = true
+                      field_started = true
+                    end
+                    # else: mid-field quote → literal, no state change
+                  else
+                    in_quotes = !in_quotes
+                  end
                 end
+              elsif quote_boundary_standard && !in_quotes && !field_started
+                # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+                field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
+                # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
             end
             i += 1
           end
         end
-      end
 
-      # Check for unclosed quotes at the end of the line
-      if in_quotes
-        # :nocov:
-        raise MalformedCSV, "Unclosed quoted field detected in line: #{line}"
-        # :nocov:
-      end
+        # Unclosed quote at end of line: signal "needs more data" to the caller.
+        # The read loop will stitch the next physical line and re-parse rather than raising.
+        return [[], -1] if in_quotes
 
-      # Process the remaining field
-      if header_size.nil? || elements.size < header_size
-        field = line[start..-1]
-        field = cleanup_quotes(field, quote)
-        elements << (strip ? field.strip : field)
+        # Process the remaining field
+        if header_size.nil? || elements.size < header_size
+          # Optimization #15 (multi-char final field): same direct extraction; line is pre-chomped.
+          field_len = line_size - start
+          if field_len >= 2 && line[start] == quote && line[line_size - 1] == quote
+            field = line[start + 1..line_size - 2]
+            field.gsub!(doubled_quote(quote), quote)
+            field.strip! if strip
+            elements << field
+          else
+            field = line[start..-1]
+            field = cleanup_quotes(field, quote)
+            elements << (strip ? field.strip : field)
+          end
+        end
       end
 
       [elements, elements.size]

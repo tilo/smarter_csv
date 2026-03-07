@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [**The Basic Write API**](./basic_write_api.md)
@@ -10,10 +11,15 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
-    
---------------  
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Instrumentation Hooks](./instrumentation.md)
+  * [Examples](./examples.md)
+  * [SmarterCSV over the Years](./history.md)
+
+--------------
 
 # SmarterCSV Basic Write API
 
@@ -46,32 +52,71 @@ In either case the corresponding field will be put in double-quotes.
 
 ### Simplified Interface
 
-The simplified interface takes a block:
+The simplified interface takes a block. The first argument can be:
 
-      ```
-        SmarterCSV.generate(filename, options) do |csv_writer|
+* A **`String`** path — SmarterCSV opens the file and closes it when done.
+* A **`Pathname`** (or any object responding to `#to_path`) — treated the same as a String path.
+* Any **IO-like object** responding to `#write` (e.g. `StringIO`, an open `File` handle, a
+  socket) — SmarterCSV writes to it but does **not** close it; the caller retains ownership.
 
-         MyModel.find_in_batches(batch_size: 100) do |batch|
-           batch.pluck(:name, :description, :instructor).each do |record|
-             csv_writer << record
-           end
-         end
+Passing anything else raises `ArgumentError` immediately.
 
-       end
-     ```
+**Write to a file by path:**
+
+```ruby
+SmarterCSV.generate('output.csv', options) do |csv|
+  MyModel.find_in_batches(batch_size: 100) do |batch|
+    batch.each { |record| csv << record.attributes }
+  end
+end
+```
+
+**Write to a file using a `Pathname`:**
+
+```ruby
+require 'pathname'
+SmarterCSV.generate(Pathname('output.csv'), options) do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+**Write to a `StringIO` (e.g. for Rails streaming responses):**
+
+```ruby
+io = StringIO.new
+SmarterCSV.generate(io) do |csv|
+  records.each { |r| csv << r }
+end
+send_data io.string, type: 'text/csv', filename: 'export.csv'
+```
+
+**Write to an already-open file handle:**
+
+```ruby
+File.open('output.csv', 'w') do |f|
+  SmarterCSV.generate(f) do |csv|
+    records.each { |r| csv << r }
+  end
+end
+```
 
 ### Full Interface
 
-      ```
-        csv_writer = SmarterCSV::Writer.new(file_path, options)
+The full interface gives you direct access to the `Writer` instance, which is useful when you
+need to call `finalize` explicitly or inspect the writer's state afterwards.
 
-        MyModel.find_in_batches(batch_size: 100) do |batch|
-          batch.pluck(:name, :description, :instructor).each do |record|
-            csv_writer << record
-          end
+```ruby
+csv_writer = SmarterCSV::Writer.new(file_path_or_io, options)
 
-        csv_writer.finalize
-      ```
+MyModel.find_in_batches(batch_size: 100) do |batch|
+  batch.each { |record| csv_writer << record.attributes }
+end
+
+csv_writer.finalize
+```
+
+The full interface accepts the same argument types as the simplified interface: a String path,
+a `Pathname`, or any IO-like object responding to `#write`.
 
 ## Advanced Features: Customizing the Output Format
 
