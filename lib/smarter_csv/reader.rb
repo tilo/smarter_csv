@@ -132,12 +132,20 @@ module SmarterCSV
         @only_headers_set   = options[:only_headers]   ? Set.new(options[:only_headers])   : nil
         @except_headers_set = options[:except_headers] ? Set.new(options[:except_headers]) : nil
 
-        # Precompute positional boolean array for the C extension so it can do O(1) per-field
-        # checks instead of calling rb_ary_includes (O(k)) for every column on every row.
+        # Precompute column-filter bitmap for the C extension.
+        #
+        # The bitmap is a loop invariant — headers and filter settings never change between rows.
+        # We store it as a packed binary String so C can copy it with a single memcpy instead of
+        # N rb_ary_entry calls per row.  early_exit_after and keep_extra_cols are pre-stored so
+        # C reads them with O(1) hash lookups rather than recomputing per row.
         if @only_headers_set || @except_headers_set
-          options[:_keep_cols] = @headers.map do |h|
-            @only_headers_set ? @only_headers_set.include?(h) : !@except_headers_set.include?(h)
-          end
+          keep_flags = @headers.map { |h| @only_headers_set ? @only_headers_set.include?(h) : !@except_headers_set.include?(h) }
+          options[:_keep_bitmap]       = keep_flags.map { |f| f ? 1 : 0 }.pack('C*').freeze
+          options[:_keep_extra_cols]   = @only_headers_set ? false : true
+          options[:_early_exit_after]  = (@only_headers_set && !options[:strict]) ? (keep_flags.rindex(true) || -1) : -1
+          options[:_keep_cols]         = nil   # nil signals C: "filter active, check _keep_bitmap"
+        else
+          options[:_keep_cols] = false  # sentinel: no filtering active — C skips all bitmap paths
         end
 
         # Precompute all hot-path strategy ivars once — eliminates per-row option lookups
@@ -145,11 +153,13 @@ module SmarterCSV
         #
         # @quote_escaping_backslash / @quote_escaping_double may already exist if
         # parse_with_auto_fallback ran during header parsing (lazily created there).
-        # Ensure they exist and carry the now-final _keep_cols bitmap.
+        # Ensure they exist and carry the now-final bitmap keys.
         @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
         @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
-        @quote_escaping_backslash[:_keep_cols] = options[:_keep_cols] # nil when no filtering
-        @quote_escaping_double[:_keep_cols]    = options[:_keep_cols]
+        %i[_keep_cols _keep_bitmap _keep_extra_cols _early_exit_after].each do |k|
+          @quote_escaping_backslash[k] = options[k]
+          @quote_escaping_double[k]    = options[k]
+        end
 
         @quote_escaping_auto = options[:quote_escaping] == :auto
         @use_acceleration    = options[:acceleration] && has_acceleration

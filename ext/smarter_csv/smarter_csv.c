@@ -39,6 +39,7 @@ static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
 static ID id_only, id_except, id_quote_boundary;
 static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
+static ID id_keep_bitmap, id_keep_extra_cols, id_early_exit_after_sym;
 static ID id_backslash, id_standard;
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
@@ -242,7 +243,11 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
           }
         } else if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) {
           if (strip_ws) {
-            if (*p != ' ' && *p != '\t') field_started = true;
+            if (*p != ' ' && *p != '\t') {
+              field_started = true;
+            } else if (!field_started) {
+              startP = p + 1; /* advance past leading whitespace so quote-detection at extraction sees the quote */
+            }
           } else {
             field_started = true;
           }
@@ -436,7 +441,7 @@ static inline void ensure_hash_allocated(field_transform_opts *opts) {
  * Returns: true if a non-blank value was inserted, false otherwise.
  *          (Used to track all_blank for remove_empty_hashes.)
  */
-static inline bool insert_field_into_hash(
+static inline __attribute__((always_inline)) bool insert_field_into_hash(
     field_transform_opts *opts,
     char *trim_start, long trimmed_len,
     long element_count, bool is_quoted,
@@ -656,10 +661,17 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * Fallback: build from only_headers/except_headers via rb_ary_includes (O(k)
    * per column, k = filter list length). Used only when _keep_cols is absent.
    *
-   * Capped at 4096 columns (stack allocation); wider CSVs fall back to the
-   * Ruby-side hash.select!/hash.reject! filter applied after return.
+   * Capped at 4096 columns; wider CSVs fall back to the Ruby-side
+   * hash.select!/hash.reject! filter applied after return.
+   *
+   * The bitmap is a loop invariant: headers and filter settings never change between rows.
+   * reader.rb precomputes it once as a packed binary String (_keep_bitmap) and also
+   * pre-stores keep_extra_cols and early_exit_after, so C just does 3 hash lookups +
+   * one memcpy instead of N rb_ary_entry calls on every row.
+   *
+   * alloca() keeps the allocation conditional: no-filter path never calls alloca(), so
+   * the frame stays well below 4 KB and ___chkstk_darwin never fires on ARM64 macOS.
    */
-  bool keep_bitmap_buf[4096];
   bool *keep_bitmap = NULL;
   bool keep_extra_columns = true; /* extra cols (> headers_len): keep by default */
   bool has_only = false;          /* true when only_headers: filtering is active */
@@ -667,49 +679,67 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
   /* Column-filter bitmap setup.
    *
-   * Only enters this block when column filtering is actually configured.
-   * We check _keep_cols first — it is set by reader.rb only when only_headers:/
-   * except_headers: is active, so a nil value means no filtering at all.
-   * This avoids reading only_headers/except_headers/strict on every line when
-   * the user hasn't configured any column selection (the common case).
+   * _keep_cols is the gate key — checked with a single rb_hash_aref on every row:
+   *   false (default) → no filtering; skip everything instantly.  ← COMMON CASE, zero overhead
+   *   nil             → filter active (reader.rb path): check _keep_bitmap for the fast bitmap.
+   *   Array           → backward-compat: direct C API callers passing _keep_cols as an Array.
    *
-   * Fallback: if _keep_cols is absent (e.g. option hash passed directly without
-   * going through Reader), check only_headers/except_headers directly.
+   * When _keep_cols is absent from the hash (nil from rb_hash_aref), it falls through to
+   * deriving the bitmap from only_headers/except_headers directly (manual options hashes).
+   *
+   * only_headers: / except_headers: are RARELY used options.  The common path (no filtering)
+   * pays exactly one rb_hash_aref and nothing else.
    */
-  VALUE prebuilt = rb_hash_aref(options_hash, ID2SYM(id_keep_cols));
-  if (!NIL_P(prebuilt) && RB_TYPE_P(prebuilt, T_ARRAY)
-      && headers_len > 0 && headers_len <= 4096) {
-    /* Fast path: prebuilt boolean array from reader.rb — O(headers_len), O(1)/element */
-    keep_bitmap = keep_bitmap_buf;
-    long prebuilt_len = RARRAY_LEN(prebuilt);
-    for (long bi = 0; bi < headers_len; bi++) {
-      keep_bitmap[bi] = bi < prebuilt_len ? RTEST(rb_ary_entry(prebuilt, bi)) : false;
-    }
-    VALUE only_hdrs = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
-    has_only = RB_TYPE_P(only_hdrs, T_ARRAY) && RARRAY_LEN(only_hdrs) > 0;
-    keep_extra_columns = !has_only;
-    bool strict = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strict)));
-    if (has_only && !strict) {
-      for (long bi = headers_len - 1; bi >= 0; bi--) {
-        if (keep_bitmap[bi]) { early_exit_after = bi; break; }
+  VALUE keep_cols_val = rb_hash_aref(options_hash, ID2SYM(id_keep_cols));
+  if (keep_cols_val != Qfalse) {
+    /* Not false: either nil (filter active / absent) or Array (backward-compat). */
+    if (NIL_P(keep_cols_val)) {
+      /* nil: reader.rb filter path — check _keep_bitmap, or fall back to deriving it. */
+      VALUE prebuilt_bitmap = rb_hash_aref(options_hash, ID2SYM(id_keep_bitmap));
+      if (RB_TYPE_P(prebuilt_bitmap, T_STRING)
+          && headers_len > 0 && RSTRING_LEN(prebuilt_bitmap) >= headers_len) {
+        /* Precomputed binary bitmap from reader.rb — one memcpy replaces N rb_ary_entry calls.
+         * Copy before any Ruby API calls that could trigger GC compaction. */
+        keep_bitmap = (bool *)alloca((size_t)headers_len * sizeof(bool));
+        memcpy(keep_bitmap, RSTRING_PTR(prebuilt_bitmap), (size_t)headers_len * sizeof(bool));
+        VALUE kec = rb_hash_aref(options_hash, ID2SYM(id_keep_extra_cols));
+        keep_extra_columns = NIL_P(kec) ? true : RTEST(kec);
+        VALUE exa = rb_hash_aref(options_hash, ID2SYM(id_early_exit_after_sym));
+        early_exit_after = RB_INTEGER_TYPE_P(exa) ? NUM2LONG(exa) : -1;
+        has_only = !keep_extra_columns;
+      } else if (headers_len > 0 && headers_len <= 4096) {
+        /* Last resort: derive from only_headers/except_headers directly.
+         * Only reached when options hash is built manually without any _keep_* keys. */
+        VALUE only_hdrs  = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
+        VALUE except_hdrs = rb_hash_aref(options_hash, ID2SYM(id_except_headers));
+        bool has_except  = RB_TYPE_P(except_hdrs, T_ARRAY) && RARRAY_LEN(except_hdrs) > 0;
+        has_only         = RB_TYPE_P(only_hdrs,  T_ARRAY) && RARRAY_LEN(only_hdrs)  > 0;
+        if (has_only || has_except) {
+          keep_bitmap = (bool *)alloca((size_t)headers_len * sizeof(bool));
+          for (long bi = 0; bi < headers_len; bi++) {
+            VALUE hdr = rb_ary_entry(headers, bi);
+            keep_bitmap[bi] = has_only
+              ? (rb_ary_includes(only_hdrs,   hdr) == Qtrue)
+              : (rb_ary_includes(except_hdrs, hdr) != Qtrue);
+          }
+          keep_extra_columns = !has_only;
+          bool strict = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strict)));
+          if (has_only && !strict) {
+            for (long bi = headers_len - 1; bi >= 0; bi--) {
+              if (keep_bitmap[bi]) { early_exit_after = bi; break; }
+            }
+          }
+        }
       }
-    }
-  } else if (NIL_P(prebuilt) && headers_len > 0 && headers_len <= 4096) {
-    /* Fallback: _keep_cols absent — build bitmap from only_headers/except_headers directly.
-     * This path is taken when the options hash is passed without going through Reader
-     * (e.g. direct parse_line_to_hash_c calls in tests). */
-    VALUE only_hdrs  = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
-    VALUE except_hdrs = rb_hash_aref(options_hash, ID2SYM(id_except_headers));
-    bool has_except  = RB_TYPE_P(except_hdrs, T_ARRAY) && RARRAY_LEN(except_hdrs) > 0;
-    has_only         = RB_TYPE_P(only_hdrs,  T_ARRAY) && RARRAY_LEN(only_hdrs)  > 0;
-    if (has_only || has_except) {
-      keep_bitmap = keep_bitmap_buf;
+    } else if (RB_TYPE_P(keep_cols_val, T_ARRAY) && headers_len > 0 && headers_len <= 4096) {
+      /* Backward-compat: _keep_cols Array from direct C API callers — O(headers_len) Ruby calls */
+      keep_bitmap = (bool *)alloca((size_t)headers_len * sizeof(bool));
+      long prebuilt_len = RARRAY_LEN(keep_cols_val);
       for (long bi = 0; bi < headers_len; bi++) {
-        VALUE hdr = rb_ary_entry(headers, bi);
-        keep_bitmap[bi] = has_only
-          ? (rb_ary_includes(only_hdrs,   hdr) == Qtrue)
-          : (rb_ary_includes(except_hdrs, hdr) != Qtrue);
+        keep_bitmap[bi] = bi < prebuilt_len ? RTEST(rb_ary_entry(keep_cols_val, bi)) : false;
       }
+      VALUE only_hdrs = rb_hash_aref(options_hash, ID2SYM(id_only_headers));
+      has_only = RB_TYPE_P(only_hdrs, T_ARRAY) && RARRAY_LEN(only_hdrs) > 0;
       keep_extra_columns = !has_only;
       bool strict = RTEST(rb_hash_aref(options_hash, ID2SYM(id_strict)));
       if (has_only && !strict) {
@@ -719,6 +749,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
       }
     }
   }
+  /* else: _keep_cols is false — no filtering, keep_bitmap stays NULL. COMMON CASE. */
 
   bool did_early_exit = false; /* set to true when early exit fires */
 
@@ -761,12 +792,10 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
 
     /* Loop through each field by finding separator positions */
     while ((sep_pos = memchr(p, sep, endP - p))) {
-      // Extract field boundaries
       long field_len = sep_pos - startP;
       char *trim_start = startP;
       char *trim_end = startP + field_len - 1;
 
-      // Optional whitespace trimming (spaces and tabs only)
       if (strip_ws) {
         while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
         while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
@@ -780,13 +809,11 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
       }
       element_count++;
 
-      /* Early exit: all required columns already collected — stop scanning */
       if (early_exit_after >= 0 && element_count > early_exit_after) {
         did_early_exit = true;
         break;
       }
 
-      // Move to next field
       p = sep_pos + 1;
       startP = p;
     }
@@ -967,7 +994,11 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
             }
           } else if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) {
             if (strip_ws) {
-              if (*p != ' ' && *p != '\t') field_started = true;
+              if (*p != ' ' && *p != '\t') {
+                field_started = true;
+              } else if (!field_started) {
+                startP = p + 1; /* advance past leading whitespace so quote-detection at extraction sees the quote */
+              }
             } else {
               field_started = true;
             }
@@ -1176,8 +1207,11 @@ void Init_smarter_csv(void) {
   id_quote_boundary = rb_intern("quote_boundary");
   id_only_headers   = rb_intern("only_headers");
   id_except_headers = rb_intern("except_headers");
-  id_keep_cols      = rb_intern("_keep_cols");
-  id_strict         = rb_intern("strict");
+  id_keep_cols          = rb_intern("_keep_cols");
+  id_keep_bitmap        = rb_intern("_keep_bitmap");
+  id_keep_extra_cols    = rb_intern("_keep_extra_cols");
+  id_early_exit_after_sym = rb_intern("_early_exit_after");
+  id_strict             = rb_intern("strict");
   id_backslash      = rb_intern("backslash");
   id_standard       = rb_intern("standard");
 

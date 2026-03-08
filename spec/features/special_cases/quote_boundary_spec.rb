@@ -155,6 +155,62 @@ fixture_path = 'spec/fixtures'
         expect(data[0]).to eq({ a: 1, b: "two" })
       end
 
+      # Leading whitespace before opening quote (the HackerNews "spaces that defeat quotes" case):
+      #   RFC CSV          JSON strings
+      #   a,"b c"          "a", "b c"        ← quote at field boundary: quoted
+      #   a, "b c"         "a", " \"b c\""   ← RFC: space shifts boundary; quote is literal
+      #
+      # SmarterCSV with strip_whitespace: true (default) advances start past the whitespace
+      # without marking field_started, so the quote still opens a quoted field.
+      # Result: {header1: "a", header2: "b c"} — same as the no-space case.
+      it 'treats a single space before opening quote as insignificant (strip_whitespace: true)' do
+        reader = SmarterCSV::Reader.new(
+          StringIO.new("header1,header2\na, \"b c\"\n"),
+          standard_options
+        )
+        data = reader.process
+        expect(data[0]).to eq({ header1: "a", header2: "b c" })
+      end
+
+      it 'treats multiple spaces before opening quote as insignificant (strip_whitespace: true)' do
+        # e.g. array.join(", ") producing extra padding spaces
+        reader = SmarterCSV::Reader.new(
+          StringIO.new("header1,header2\na,   \"b c\"\n"),
+          standard_options
+        )
+        data = reader.process
+        expect(data[0]).to eq({ header1: "a", header2: "b c" })
+      end
+
+      it 'treats a tab before opening quote as insignificant (strip_whitespace: true)' do
+        reader = SmarterCSV::Reader.new(
+          StringIO.new("header1,header2\na,\t\"b c\"\n"),
+          standard_options
+        )
+        data = reader.process
+        expect(data[0]).to eq({ header1: "a", header2: "b c" })
+      end
+
+      it 'treats mixed tabs and spaces before opening quote as insignificant (strip_whitespace: true)' do
+        reader = SmarterCSV::Reader.new(
+          StringIO.new("header1,header2\na,\t \"b c\"\n"),
+          standard_options
+        )
+        data = reader.process
+        expect(data[0]).to eq({ header1: "a", header2: "b c" })
+      end
+
+      # With strip_whitespace: false the whitespace IS content, so field_started becomes
+      # true before the quote is seen — the quote is then a mid-field literal.
+      it 'treats space before opening quote as content (strip_whitespace: false)' do
+        reader = SmarterCSV::Reader.new(
+          StringIO.new("header1,header2\na, \"b c\"\n"),
+          standard_options.merge(strip_whitespace: false)
+        )
+        data = reader.process
+        expect(data[0]).to eq({ header1: "a", header2: ' "b c"' })
+      end
+
       # --- Multiline detection is also boundary-aware ---
       # A mid-field quote must NOT trigger multiline stitching.
       it 'does not trigger multiline stitching for a mid-field quote' do

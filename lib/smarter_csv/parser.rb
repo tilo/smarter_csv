@@ -430,7 +430,11 @@ module SmarterCSV
                 # Non-quote, non-separator: mark field as started (only needs to fire once
                 # per field — Opt #12 skips the rest once this is set).
                 # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-                field_started = true unless strip && (b == 32 || b == 9) # ' ' == 32, '\t' == 9
+                if strip && (b == 32 || b == 9) # ' ' == 32, '\t' == 9
+                  start = i + 1 # advance past leading whitespace so the quote check at extraction sees the quote
+                else
+                  field_started = true
+                end
                 # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
@@ -529,7 +533,11 @@ module SmarterCSV
                 end
               elsif quote_boundary_standard && !in_quotes && !field_started
                 # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-                field_started = true unless strip && (line[i] == ' ' || line[i] == '\t')
+                if strip && (line[i] == ' ' || line[i] == '\t')
+                  start = i + 1 # advance past leading whitespace so the quote check at extraction sees the quote
+                else
+                  field_started = true
+                end
                 # rubocop:enable Style/MultipleComparison
               end
               backslash_count = 0
