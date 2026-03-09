@@ -85,7 +85,7 @@ typedef struct {
   VALUE numeric_keys;          /* Qnil when not used */
 } parse_context_t;
 
-static void parse_context_mark(void *ptr) {
+__attribute__((cold)) static void parse_context_mark(void *ptr) {
   parse_context_t *ctx = (parse_context_t *)ptr;
 #if defined(RUBY_API_VERSION_MAJOR) && (RUBY_API_VERSION_MAJOR > 2 || (RUBY_API_VERSION_MAJOR == 2 && RUBY_API_VERSION_MINOR >= 7))
   rb_gc_mark_movable(ctx->headers);
@@ -97,20 +97,20 @@ static void parse_context_mark(void *ptr) {
 }
 
 #if defined(RUBY_API_VERSION_MAJOR) && (RUBY_API_VERSION_MAJOR > 2 || (RUBY_API_VERSION_MAJOR == 2 && RUBY_API_VERSION_MINOR >= 7))
-static void parse_context_compact(void *ptr) {
+__attribute__((cold)) static void parse_context_compact(void *ptr) {
   parse_context_t *ctx = (parse_context_t *)ptr;
   ctx->headers      = rb_gc_location(ctx->headers);
   ctx->numeric_keys = rb_gc_location(ctx->numeric_keys);
 }
 #endif
 
-static void parse_context_free(void *ptr) {
+__attribute__((cold)) static void parse_context_free(void *ptr) {
   parse_context_t *ctx = (parse_context_t *)ptr;
   if (ctx->keep_bitmap) xfree(ctx->keep_bitmap);
   xfree(ctx);
 }
 
-static size_t parse_context_memsize(const void *ptr) {
+__attribute__((cold)) static size_t parse_context_memsize(const void *ptr) {
   const parse_context_t *ctx = (const parse_context_t *)ptr;
   size_t sz = sizeof(parse_context_t);
   if (ctx->keep_bitmap) sz += (size_t)ctx->keep_bitmap_len * sizeof(bool);
@@ -652,7 +652,7 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
  * Input:  line = "john,25,boston,extra" (more fields than headers)
  * Output: [{name: "john", age: "25", city: "boston", column_4: "extra"}, 4]
  */
-static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE options_hash) {
+__attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE options_hash) {
 
   /* ----------------------------------------
    * SECTION 1: Handle nil/invalid input
@@ -1221,7 +1221,7 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
  * headers are known.  The returned context is passed to parse_line_to_hash_ctx_c
  * on every row, eliminating ~10 rb_hash_aref calls per row.
  * ================================================================================ */
-static VALUE rb_new_parse_context(VALUE self, VALUE headers, VALUE options_hash) {
+__attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE headers, VALUE options_hash) {
   parse_context_t *ctx;
   VALUE ctx_obj = TypedData_Make_Struct(rb_cObject, parse_context_t, &parse_context_type, ctx);
 
@@ -1387,7 +1387,7 @@ static VALUE rb_new_parse_context(VALUE self, VALUE headers, VALUE options_hash)
  * headers_len is re-read each call from RARRAY_LEN(ctx->headers) to handle extra
  * column growth without requiring a context rebuild.
  * ================================================================================ */
-static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE line, VALUE ctx_obj) {
+__attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE line, VALUE ctx_obj) {
   parse_context_t *ctx;
   TypedData_Get_Struct(ctx_obj, parse_context_t, &parse_context_type, ctx);
 

@@ -11,6 +11,9 @@ end
 
 optflags = "-O3 -flto -fomit-frame-pointer -DNDEBUG".dup
 optflags << " -march=native" unless RUBY_PLATFORM.start_with?("arm64-darwin")
+# -fno-semantic-interposition: GCC/Clang only (not MSVC). Allows intra-library
+# calls to bypass the PLT on Linux and enables more aggressive LTO inlining.
+optflags << " -fno-semantic-interposition" unless RUBY_PLATFORM.include?("mswin")
 
 append_cflags('-Wno-compound-token-split-by-macro')
 
