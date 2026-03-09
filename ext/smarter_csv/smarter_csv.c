@@ -881,52 +881,79 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
     char sep = *col_sepP;
     char *sep_pos = NULL;
 
-    /* Loop through each field by finding separator positions */
-    while ((sep_pos = memchr(p, sep, endP - p))) {
-      long field_len = sep_pos - startP;
-      char *trim_start = startP;
-      char *trim_end = startP + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+    /* Loop through each field by finding separator positions.
+     * Two sub-paths to avoid per-field overhead in the common case:
+     *   (a) no filter + no early exit → pure memchr loop, zero extra branches
+     *   (b) filter active             → bitmap/early-exit checks per field
+     */
+    if (__builtin_expect(keep_bitmap == NULL && early_exit_after < 0, 1)) {
+      /* --- (a) Common path: no column filter, no early exit --- */
+      while ((sep_pos = memchr(p, sep, endP - p))) {
+        long field_len   = sep_pos - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
+        element_count++;
+        p = sep_pos + 1; startP = p;
       }
-      element_count++;
-
-      if (early_exit_after >= 0 && element_count > early_exit_after) {
-        did_early_exit = true;
-        break;
-      }
-
-      p = sep_pos + 1;
-      startP = p;
-    }
-
-    /* Process the last field (no separator after it) — skip on early exit */
-    if (!did_early_exit) {
-      long field_len = endP - startP;
-      char *trim_start = startP;
-      char *trim_end = startP + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+      /* Process last field */
+      {
+        long field_len   = endP - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
+        element_count++;
       }
-      element_count++;
+    } else {
+      /* --- (b) Filter path: column bitmap and/or early exit active --- */
+      while ((sep_pos = memchr(p, sep, endP - p))) {
+        long field_len   = sep_pos - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+            all_blank = false;
+        }
+        element_count++;
+        if (early_exit_after >= 0 && element_count > early_exit_after) {
+          did_early_exit = true;
+          break;
+        }
+        p = sep_pos + 1; startP = p;
+      }
+      /* Process last field — skip on early exit */
+      if (!did_early_exit) {
+        long field_len   = endP - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+            all_blank = false;
+        }
+        element_count++;
+      }
     }
 
   } else {
@@ -1447,56 +1474,82 @@ static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE line, VALUE ctx_obj) {
 
   /* ========================================
    * SECTION 4: FAST PATH - No quotes, single-char separator
+   * Two sub-paths to avoid per-field overhead in the common case:
+   *   (a) no filter + no early exit → pure memchr loop, zero extra branches
+   *   (b) filter active             → bitmap/early-exit checks per field
    * ======================================== */
   if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
-    char sep     = *col_sepP;
+    char sep      = *col_sepP;
     char *sep_pos = NULL;
 
-    while ((sep_pos = memchr(p, sep, endP - p))) {
-      long  field_len  = sep_pos - startP;
-      char *trim_start = startP;
-      char *trim_end   = startP + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+    if (__builtin_expect(keep_bitmap == NULL && early_exit_after < 0, 1)) {
+      /* --- (a) Common path: no column filter, no early exit --- */
+      while ((sep_pos = memchr(p, sep, endP - p))) {
+        long  field_len  = sep_pos - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
+        element_count++;
+        p = sep_pos + 1; startP = p;
       }
-      element_count++;
-
-      if (early_exit_after >= 0 && element_count > early_exit_after) {
-        did_early_exit = true;
-        break;
-      }
-
-      p      = sep_pos + 1;
-      startP = p;
-    }
-
-    /* Process the last field — skip on early exit */
-    if (!did_early_exit) {
-      long  field_len  = endP - startP;
-      char *trim_start = startP;
-      char *trim_end   = startP + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+      /* Process last field */
+      {
+        long  field_len  = endP - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
+        element_count++;
       }
-      element_count++;
+    } else {
+      /* --- (b) Filter path: column bitmap and/or early exit active --- */
+      while ((sep_pos = memchr(p, sep, endP - p))) {
+        long  field_len  = sep_pos - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+            all_blank = false;
+        }
+        element_count++;
+        if (early_exit_after >= 0 && element_count > early_exit_after) {
+          did_early_exit = true;
+          break;
+        }
+        p = sep_pos + 1; startP = p;
+      }
+      /* Process last field — skip on early exit */
+      if (!did_early_exit) {
+        long  field_len  = endP - startP;
+        char *trim_start = startP;
+        char *trim_end   = startP + field_len - 1;
+        if (strip_ws) {
+          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+        }
+        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
+            all_blank = false;
+        }
+        element_count++;
+      }
     }
 
   } else {
