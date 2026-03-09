@@ -175,6 +175,16 @@ module SmarterCSV
         # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
         @hot_path_options = @quote_escaping_auto ? @quote_escaping_backslash : options
 
+        # Build ParseContext objects once after headers are known.
+        # Eliminates ~10 rb_hash_aref calls per row by pre-baking all loop-invariant
+        # options into a C struct accessed via direct pointer dereference.
+        if @use_acceleration
+          hot_opts    = @hot_path_options
+          double_opts = @quote_escaping_double
+          @parse_ctx        = SmarterCSV::Parser.new_parse_context_c(@headers, hot_opts)
+          @parse_ctx_double = SmarterCSV::Parser.new_parse_context_c(@headers, double_opts)
+        end
+
         # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
         # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
         # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
@@ -234,10 +244,10 @@ module SmarterCSV
             # Replaces: process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto
             # All routing decisions are pre-baked into ivars set up after header processing.
             if @use_acceleration
-              hash, data_size = parse_line_to_hash_c(line, @headers, @hot_path_options)
+              hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
               # :auto only: if unclosed quote AND backslash present, RFC may close it differently
               if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                hash, data_size = parse_line_to_hash_c(line, @headers, @quote_escaping_double)
+                hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
               end
             else
               has_quotes = line.include?(options[:quote_char])
@@ -273,9 +283,9 @@ module SmarterCSV
 
               if @use_acceleration
                 # :nocov:
-                hash, data_size = parse_line_to_hash_c(line, @headers, @hot_path_options)
+                hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
                 if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                  hash, data_size = parse_line_to_hash_c(line, @headers, @quote_escaping_double)
+                  hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
                 end
                 # :nocov:
               else
