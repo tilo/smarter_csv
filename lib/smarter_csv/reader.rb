@@ -146,6 +146,9 @@ module SmarterCSV
           options[:_keep_cols]         = nil   # nil signals C: "filter active, check _keep_bitmap"
         else
           options[:_keep_cols] = false  # sentinel: no filtering active — C skips all bitmap paths
+          # Do NOT insert _keep_bitmap/_keep_extra_cols/_early_exit_after when unused.
+          # Keeping the options hash as small as possible avoids hash table resize and
+          # keeps all 10 per-row rb_hash_aref lookups hitting the same cache lines.
         end
 
         # Precompute all hot-path strategy ivars once — eliminates per-row option lookups
@@ -153,12 +156,16 @@ module SmarterCSV
         #
         # @quote_escaping_backslash / @quote_escaping_double may already exist if
         # parse_with_auto_fallback ran during header parsing (lazily created there).
-        # Ensure they exist and carry the now-final bitmap keys.
+        # Ensure they exist and carry the now-final _keep_cols (and bitmap keys only when active).
         @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
         @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
-        %i[_keep_cols _keep_bitmap _keep_extra_cols _early_exit_after].each do |k|
-          @quote_escaping_backslash[k] = options[k]
-          @quote_escaping_double[k]    = options[k]
+        @quote_escaping_backslash[:_keep_cols] = options[:_keep_cols]
+        @quote_escaping_double[:_keep_cols]    = options[:_keep_cols]
+        if @only_headers_set || @except_headers_set
+          %i[_keep_bitmap _keep_extra_cols _early_exit_after].each do |k|
+            @quote_escaping_backslash[k] = options[k]
+            @quote_escaping_double[k]    = options[k]
+          end
         end
 
         @quote_escaping_auto = options[:quote_escaping] == :auto
