@@ -198,6 +198,98 @@ This example puts double-quotes around all String-value data, but leaves other t
 
 Note that when you're customizing putting quote-chars around fields, you need to `disable_auto_quoting`.
 
+## Handling Nil, Empty, and Missing Values
+
+By default, both `nil` values and empty-string values are written as an empty field.
+Use the `write_nil_value:` and `write_empty_value:` options to substitute a different string.
+
+### `write_nil_value`
+
+Specifies the string written when a hash value is `nil`. Defaults to `''` (empty field).
+
+```ruby
+SmarterCSV.generate('output.csv', write_nil_value: 'N/A') do |csv|
+  csv << { name: 'Alice', score: nil }
+  csv << { name: 'Bob',   score: 42   }
+end
+# output:
+# name,score
+# Alice,N/A
+# Bob,42
+```
+
+### `write_empty_value`
+
+Specifies the string written when a hash value is an empty string `''`. Defaults to `''`.
+This also applies to **missing keys**: if the row hash does not contain a key that appears
+in the headers, the field defaults to `''` and `write_empty_value:` is substituted.
+
+```ruby
+SmarterCSV.generate('output.csv', write_empty_value: 'EMPTY') do |csv|
+  csv << { name: 'Alice', city: ''    }   # explicit empty string
+  csv << { name: 'Bob'                }   # :city key missing entirely
+end
+# output:
+# name,city
+# Alice,EMPTY
+# Bob,EMPTY
+```
+
+### Using both together
+
+```ruby
+options = { write_nil_value: 'NULL', write_empty_value: '-' }
+SmarterCSV.generate('output.csv', options) do |csv|
+  csv << { name: 'Alice', score: nil, city: '' }
+end
+# output:
+# name,score,city
+# Alice,NULL,-
+```
+
+> **Note:** `write_nil_value:` is applied first. `write_empty_value:` only fires when the
+> value is a non-nil empty string, so the two options are independent.
+
+## File Encoding and BOM
+
+### `encoding`
+
+Specifies the encoding used when opening the output file (e.g. `'UTF-8'`, `'ISO-8859-1'`,
+`'Windows-1252'`). Only applies when writing to a file path or `Pathname`; ignored when an
+IO object is passed in. Defaults to the system encoding.
+
+```ruby
+SmarterCSV.generate('output.csv', encoding: 'UTF-8') do |csv|
+  csv << { city: 'Ångström', country: 'Sweden' }
+end
+```
+
+```ruby
+# Produce a Windows-1252 file for legacy consumers
+SmarterCSV.generate('output.csv', encoding: 'Windows-1252') do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+### `write_bom`
+
+When `true`, prepends a UTF-8 BOM (`\xEF\xBB\xBF`) to the very beginning of the output.
+Defaults to `false`.
+
+A BOM is useful when the CSV will be opened in **Microsoft Excel**, which uses the BOM as a
+signal to interpret the file as UTF-8 rather than the system code page. Without a BOM, Excel
+may display accented characters and non-Latin scripts as garbage.
+
+```ruby
+SmarterCSV.generate('export_for_excel.csv', encoding: 'UTF-8', write_bom: true) do |csv|
+  csv << { name: 'Ångström', value: 99 }
+end
+# The file begins with 0xEF 0xBB 0xBF followed by the header line.
+```
+
+> **Note:** Only use `write_bom: true` with UTF-8 output. Adding a UTF-8 BOM to a
+> non-UTF-8 file will corrupt it.
+
 ## More Examples
 
 Check out the [RSpec tests](../spec/smarter_csv/writer_spec.rb) for more examples.

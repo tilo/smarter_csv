@@ -42,6 +42,15 @@ Other:
 
  * **Write API now accepts IO and StringIO objects** ([issue #321](https://github.com/tilo/smarter_csv/issues/321)): `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object in addition to a file path. The caller retains ownership. See [The Basic Write API](docs/basic_write_api.md).
 
+New options for writing CSV:
+ * **New `encoding:` option**: specifies the file encoding (e.g. `'UTF-8'`, `'ISO-8859-1'`) passed to `File.open`. Only applies when writing to a file path; ignored for IO objects. Defaults to the system encoding.
+
+ * **New `write_nil_value:` option** (default: `''`): string written in place of `nil` field values. E.g. `write_nil_value: 'N/A'` emits `N/A` wherever a hash value is `nil`.
+
+ * **New `write_empty_value:` option** (default: `''`): string written in place of empty-string field values. Also applies to missing keys (a key present in the headers but absent from the row hash). E.g. `write_empty_value: 'EMPTY'`.
+
+ * **New `write_bom:` option** (default: `false`): when `true`, prepends a UTF-8 BOM (`\xEF\xBB\xBF`) to the output. Useful for Excel compatibility with non-ASCII content.
+
 ### New Options
 
  * **New `nil_values_matching:` option** (replaces deprecated `remove_values_matching:`): set matching values to `nil` via regex. With `remove_empty_values: true` (default), nil-ified values are removed. With `remove_empty_values: false`, the key is retained with a `nil` value. This gives more flexibility in handling `nil` values. See [Options](docs/options.md).

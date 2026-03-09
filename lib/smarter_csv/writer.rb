@@ -34,6 +34,12 @@ module SmarterCSV
   #   force_quotes: defaults to false
   #   map_headers: defaults to {}, can be a hash of key -> value mappings
   #   value_converters: optional hash of key -> lambda to control serialization
+  #   encoding: optional encoding string for the output file, e.g. 'UTF-8', 'ISO-8859-1'
+  #             defaults to nil (system default). Only applies when writing to a file path.
+  #   write_nil_value: string written in place of nil field values (default: '')
+  #   write_empty_value: string written in place of empty-string field values (default: '')
+  #   write_bom: when true, prepends a UTF-8 BOM (\xEF\xBB\xBF) to the output (default: false)
+  #              Useful for Excel compatibility with non-ASCII content.
 
   # IMPORTANT NOTES:
   #  * Data hashes could contain strings or symbols as keys.
@@ -53,6 +59,10 @@ module SmarterCSV
       @quote_headers = options[:quote_headers] == true
       @disable_auto_quoting = options[:disable_auto_quoting] == true
       @value_converters = options[:value_converters] || {}
+      @encoding = options[:encoding]
+      @write_nil_value = options.fetch(:write_nil_value, '')
+      @write_empty_value = options.fetch(:write_empty_value, '')
+      @write_bom = options[:write_bom] == true
       @map_all_keys = @value_converters.has_key?(:_all)
       @mapped_keys = @value_converters.keys - [:_all]
       @header_converter = options[:header_converter]
@@ -86,7 +96,8 @@ module SmarterCSV
                   "or a path-like object (responding to #to_path or being a String), " \
                   "but got #{file_path_or_io.class}"
           end
-        @output_file = File.open(path, 'w+')
+        mode = @encoding ? "w+:#{@encoding}" : 'w+'
+        @output_file = File.open(path, mode)
         @file_opened_by_us = true
       end
       @quote_regex = Regexp.union(@col_sep, @row_sep, @quote_char)
@@ -95,6 +106,7 @@ module SmarterCSV
         # Headers are fully known at construction time — write the header line immediately
         # and stream data rows directly to @output_file, bypassing the temp file entirely.
         @temp_file = nil
+        @output_file.write("\xEF\xBB\xBF") if @write_bom
         write_header_line
       else
         @temp_file = Tempfile.new('smarter_csv')
@@ -118,6 +130,7 @@ module SmarterCSV
       if @temp_file
         # Header-discovery mode: headers were accumulated while writing rows;
         # now prepend the header line and copy the buffered rows to the output.
+        @output_file.write("\xEF\xBB\xBF") if @write_bom
         write_header_line
         @temp_file.rewind
         @output_file.write(@temp_file.read)
@@ -156,6 +169,9 @@ module SmarterCSV
 
         # then apply general mapping rules
         value = map_all_values(header, value) if @map_all_keys
+
+        value = @write_nil_value if value.nil?
+        value = @write_empty_value if !value.nil? && value.respond_to?(:empty?) && value.empty?
 
         escape_csv_field(value, @force_quotes) # for backwards compatibility
       end

@@ -787,4 +787,176 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
   end
+
+  # ── New writer options ──────────────────────────────────────────────────────
+
+  describe 'write_nil_value option' do
+    let(:row_sep) { $/ }
+
+    context 'in direct-write mode (known headers)' do
+      it 'replaces nil field values with the given string' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:a, :b, :c], write_nil_value: 'N/A')
+        writer << { a: 'foo', b: nil, c: 'bar' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,N/A,bar')
+      end
+
+      it 'defaults to empty string for nil values when no option given' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:a, :b])
+        writer << { a: 'foo', b: nil }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,')
+      end
+    end
+
+    context 'in discovery mode' do
+      it 'replaces nil field values with the given string' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, write_nil_value: 'N/A')
+        writer << { a: 'foo', b: nil, c: 'bar' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,N/A,bar')
+      end
+    end
+  end
+
+  describe 'write_empty_value option' do
+    let(:row_sep) { $/ }
+
+    context 'in direct-write mode (known headers)' do
+      it 'replaces empty string field values with the given string' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:a, :b, :c], write_empty_value: 'EMPTY')
+        writer << { a: 'foo', b: '', c: 'bar' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,EMPTY,bar')
+      end
+
+      it 'does not affect nil values (write_nil_value handles those)' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: [:a, :b], write_nil_value: 'NIL', write_empty_value: 'EMPTY')
+        writer << { a: nil, b: '' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('NIL,EMPTY')
+      end
+
+      it 'applies write_empty_value to missing keys (which default to empty string)' do
+        io = StringIO.new
+        # headers has :c but the row does not — missing key defaults to '' which should be substituted
+        writer = SmarterCSV::Writer.new(io, headers: [:a, :b, :c], write_empty_value: 'MISSING')
+        writer << { a: 'foo', b: 'bar' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,bar,MISSING')
+      end
+    end
+
+    context 'in discovery mode' do
+      it 'replaces empty string field values with the given string' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, write_empty_value: 'EMPTY')
+        writer << { a: 'foo', b: '', c: 'bar' }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[1]).to eq('foo,EMPTY,bar')
+      end
+    end
+  end
+
+  describe 'encoding option' do
+    let(:tmp_path) { '/tmp/test_encoding_output.csv' }
+
+    after(:each) { File.delete(tmp_path) if File.exist?(tmp_path) }
+
+    it 'opens the output file with the specified encoding' do
+      writer = SmarterCSV::Writer.new(tmp_path, headers: [:name], encoding: 'UTF-8')
+      writer << { name: 'Ångström' }
+      writer.finalize
+      # File should be readable back as UTF-8 without errors
+      content = File.read(tmp_path, encoding: 'UTF-8')
+      expect(content).to include('Ångström')
+    end
+
+    it 'writes ISO-8859-1 encoded content when encoding is set' do
+      writer = SmarterCSV::Writer.new(tmp_path, headers: [:name], encoding: 'ISO-8859-1')
+      writer << { name: 'caf'.encode('ISO-8859-1') }
+      writer.finalize
+      raw = File.binread(tmp_path)
+      # header line 'name' is pure ASCII, data row contains 'caf'
+      expect(raw).to include('name')
+      expect(raw).to include('caf')
+    end
+
+    it 'uses system default encoding when encoding option is not given' do
+      writer = SmarterCSV::Writer.new(tmp_path, headers: [:a])
+      writer << { a: 'test' }
+      writer.finalize
+      expect(File.exist?(tmp_path)).to be true
+      expect(File.read(tmp_path)).to include('test')
+    end
+  end
+
+  describe 'write_bom option' do
+    let(:row_sep) { $/ }
+    let(:bom) { "\xEF\xBB\xBF" }
+
+    it 'prepends a UTF-8 BOM in discovery mode' do
+      io = StringIO.new
+      writer = SmarterCSV::Writer.new(io, write_bom: true)
+      writer << { name: 'Ångström', value: 42 }
+      writer.finalize
+      io.rewind
+      raw = io.string
+      expect(raw).to start_with(bom)
+      lines = raw.sub(bom, '').split(row_sep)
+      expect(lines[0]).to eq('name,value')
+      expect(lines[1]).to eq('Ångström,42')
+    end
+
+    it 'prepends a UTF-8 BOM in direct-write mode (known headers)' do
+      io = StringIO.new
+      writer = SmarterCSV::Writer.new(io, headers: [:name, :value], write_bom: true)
+      writer << { name: 'Ångström', value: 42 }
+      writer.finalize
+      io.rewind
+      raw = io.string
+      expect(raw).to start_with(bom)
+      lines = raw.sub(bom, '').split(row_sep)
+      expect(lines[0]).to eq('name,value')
+      expect(lines[1]).to eq('Ångström,42')
+    end
+
+    it 'writes the BOM exactly once (not duplicated)' do
+      io = StringIO.new
+      writer = SmarterCSV::Writer.new(io, write_bom: true)
+      writer << { x: 1 }
+      writer.finalize
+      io.rewind
+      raw = io.string
+      expect(raw.scan(bom).length).to eq(1)
+    end
+
+    it 'does not prepend a BOM when write_bom is false (default)' do
+      io = StringIO.new
+      writer = SmarterCSV::Writer.new(io, headers: [:name])
+      writer << { name: 'test' }
+      writer.finalize
+      io.rewind
+      expect(io.string).not_to start_with("\xEF\xBB\xBF")
+    end
+  end
 end
