@@ -225,63 +225,114 @@ Similar to the `headers` option, you can define `map_headers` in order to rename
 
 ### Per Key Value Converters
 
+Using per-key value converters, you can control how specific hash keys in your data are
+serialized in the output. Each converter is a lambda that receives the field value and
+returns the string to write.
 
-Using per-key value converters, you can control how specific hash keys in your data are converted in the output.
+**Boolean to string:**
 
-Example 1:
-
-```
-      options = {
-        value_converters: {
-          active: ->(v) { !!v ? 'YES' : 'NO' },
-        }
-      }
-```
-
-This maps the boolean value of the hash key `:active` into strings `"YES"`, `"NO"`.
-
-Example 2:
-
-```
-      options = {
-        value_converters: {
-          active: ->(v) { !!v ? '✅' : '❌' },
-          balance: ->(v) do
-            case v
-            when Float
-              '$%.2f' % v.round(2)
-            when Integer
-              "$#{v}"
-            else
-              v.to_s
-            end
-          end,
-        }
-      }
+```ruby
+SmarterCSV.generate('output.csv', value_converters: { active: ->(v) { v ? 'YES' : 'NO' } }) do |csv|
+  csv << { name: 'Alice', active: true  }
+  csv << { name: 'Bob',   active: false }
+end
+# output:
+# name,active
+# Alice,YES
+# Bob,NO
 ```
 
-This maps the hash key `:balance` to a string. Floats are rounded and displayed with 2 decimals and prefixed by `$`. Integers are prefixed by `$`.
-The boolean value of the key `:active` is mapped into an emoji.
+**Date/Time formatting:**
+
+```ruby
+SmarterCSV.generate('output.csv', value_converters: { created_at: ->(v) { v&.strftime('%Y-%m-%d') } }) do |csv|
+  csv << { name: 'Alice', created_at: Time.now }
+end
+# output:
+# name,created_at
+# Alice,2026-03-09
+```
+
+**Numeric formatting:**
+
+```ruby
+balance_converter = ->(v) do
+  case v
+  when Float   then '$%.2f' % v.round(2)
+  when Integer then "$#{v}"
+  else              v.to_s
+  end
+end
+
+SmarterCSV.generate('output.csv', value_converters: { balance: balance_converter }) do |csv|
+  csv << { name: 'Alice', balance: 1234.5 }
+  csv << { name: 'Bob',   balance: 500    }
+end
+# output:
+# name,balance
+# Alice,$1234.50
+# Bob,$500
+```
+
+**Reusing the same converter across multiple keys:**
+
+```ruby
+date_converter = ->(v) { v&.strftime('%Y-%m-%d') }
+
+SmarterCSV.generate('output.csv', value_converters: { created_at: date_converter, updated_at: date_converter }) do |csv|
+  csv << { name: 'Alice', created_at: Time.now, updated_at: Time.now }
+end
+```
 
 ### Global Value Converters
 
-You can also use the special keyword `:_all` to define transformations that are applied to each field of the CSV file.
+The special key `:_all` defines a transformation applied to every field, after any
+per-key converters have run. It receives both the key and the value.
 
+**Stripping whitespace from all string fields:**
+
+```ruby
+SmarterCSV.generate('output.csv', value_converters: { _all: ->(_k, v) { v.is_a?(String) ? v.strip : v } }) do |csv|
+  csv << { name: '  Alice  ', city: ' NYC ' }
+end
+# output:
+# name,city
+# Alice,NYC
 ```
-      options = {
-        value_converters: {        
-          disable_auto_quoting: true, # ⚠️ Important: turn off auto-quoting because we're messing with it below
-          active: ->(v) { !!v ? 'YES' : 'NO' },
-          _all: ->(_k, v) { v.is_a?(String) ? "\"#{v}\"" : v } # only double-quote string fields
-        }  
-      }
+
+**Combining per-key and global converters** — per-key runs first, `:_all` runs after:
+
+```ruby
+options = {
+  value_converters: {
+    active:   ->(v) { v ? 'YES' : 'NO' },
+    _all:     ->(_k, v) { v.to_s.upcase },
+  }
+}
+
+SmarterCSV.generate('output.csv', options) do |csv|
+  csv << { name: 'Alice', city: 'nyc', active: true }
+end
+# output:
+# name,city,active
+# ALICE,NYC,YES
 ```
 
-Using the `:_all` keyword, you can set up rules to convert all hash keys. This is applied after all per-key conversions are made.
+**Custom quoting with `:_all`** — when taking manual control of quoting, disable
+auto-quoting to avoid double-quoting:
 
-This example puts double-quotes around all String-value data, but leaves other types unchanged.
+```ruby
+options = {
+  disable_auto_quoting: true,
+  value_converters: {
+    active: ->(v) { v ? 'YES' : 'NO' },
+    _all:   ->(_k, v) { v.is_a?(String) ? "\"#{v}\"" : v },
+  }
+}
+```
 
-Note that when you're customizing putting quote-chars around fields, you need to `disable_auto_quoting`.
+> **Note:** `disable_auto_quoting: true` is a top-level option, not part of
+> `value_converters:`. Only disable it when you are taking full control of quoting yourself.
 
 ## Handling Nil, Empty, and Missing Values
 
