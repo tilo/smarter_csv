@@ -107,14 +107,21 @@ module SmarterCSV
     reader.each_chunk(&block)
   end
 
-  # Convenience method for generating CSV files or writing to any IO object.
+  # Convenience method for generating CSV files, IO objects, or in-memory strings.
   #
-  # Accepts a file path (String) or any IO-compatible object (StringIO, open File handle, etc.).
+  # When called WITHOUT a first argument, generates CSV in memory and returns it as a String.
+  # When called WITH a file path (String/Pathname) or any IO-compatible object (StringIO,
+  # open File handle, etc.), writes to that destination and returns nil.
   # The caller retains ownership of any IO object passed in — SmarterCSV will not close it.
   #
   # Examples:
   #
-  #   # Write to a file by path (existing behaviour)
+  #   # Return CSV as a String (no file argument)
+  #   csv_string = SmarterCSV.generate(options) do |csv|
+  #     records.each { |r| csv << r }
+  #   end
+  #
+  #   # Write to a file by path
   #   SmarterCSV.generate('output.csv', options) do |csv|
   #     MyModel.find_in_batches(batch_size: 100) do |batch|
   #       batch.each { |record| csv << record.attributes }
@@ -136,13 +143,33 @@ module SmarterCSV
   #   end
   #
   # rubocop:disable Lint/UnusedMethodArgument
-  def self.generate(file_path_or_io, options = {}, &block)
+  def self.generate(file_path_or_io = nil, options = {}, &block)
     raise ArgumentError, "SmarterCSV.generate requires a block" unless block_given?
 
-    writer = Writer.new(file_path_or_io, options)
-    yield writer
-  ensure
-    writer&.finalize
+    # When called as generate(options_hash) { }, the hash lands in file_path_or_io
+    if file_path_or_io.is_a?(Hash)
+      options = file_path_or_io
+      file_path_or_io = nil
+    end
+
+    if file_path_or_io.nil?
+      # No destination given — write to an in-memory StringIO and return the result as a String.
+      io = StringIO.new
+      writer = Writer.new(io, options)
+      begin
+        yield writer
+      ensure
+        writer&.finalize  # must finalize before reading io.string
+      end
+      io.string
+    else
+      writer = Writer.new(file_path_or_io, options)
+      begin
+        yield writer
+      ensure
+        writer&.finalize
+      end
+    end
   end
   # rubocop:enable Lint/UnusedMethodArgument
 end

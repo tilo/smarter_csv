@@ -54,12 +54,31 @@ In either case the corresponding field will be put in double-quotes.
 
 The simplified interface takes a block. The first argument can be:
 
+* **Omitted** — SmarterCSV writes to an internal `StringIO` and returns the CSV as a `String`.
 * A **`String`** path — SmarterCSV opens the file and closes it when done.
 * A **`Pathname`** (or any object responding to `#to_path`) — treated the same as a String path.
 * Any **IO-like object** responding to `#write` (e.g. `StringIO`, an open `File` handle, a
   socket) — SmarterCSV writes to it but does **not** close it; the caller retains ownership.
 
 Passing anything else raises `ArgumentError` immediately.
+
+**Generate a CSV String directly (no file argument):**
+
+```ruby
+csv_string = SmarterCSV.generate do |csv|
+  csv << { name: 'Alice', age: 30 }
+  csv << { name: 'Bob',   age: 25 }
+end
+# => "name,age\nAlice,30\nBob,25\n"
+```
+
+Options can be passed as the first argument when no destination is given:
+
+```ruby
+csv_string = SmarterCSV.generate(col_sep: ';', row_sep: "\r\n") do |csv|
+  records.each { |r| csv << r }
+end
+```
 
 **Write to a file by path:**
 

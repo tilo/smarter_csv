@@ -619,6 +619,43 @@ RSpec.describe SmarterCSV::Writer do
         expect { SmarterCSV.generate(StringIO.new) }
           .to raise_error(ArgumentError, "SmarterCSV.generate requires a block")
       end
+
+      it 'raises ArgumentError when called with no arguments and no block' do
+        expect { SmarterCSV.generate }
+          .to raise_error(ArgumentError, "SmarterCSV.generate requires a block")
+      end
+    end
+
+    context 'when called with no destination (returns String)' do
+      it 'returns CSV as a String' do
+        result = SmarterCSV.generate do |csv|
+          data.each { |row| csv << row }
+        end
+        expect(result).to eq("name,age#{row_sep}Alice,30#{row_sep}Bob,25#{row_sep}")
+      end
+
+      it 'returns a String, not nil' do
+        result = SmarterCSV.generate { |csv| csv << { a: 1 } }
+        expect(result).to be_a(String)
+      end
+
+      it 'respects options' do
+        result = SmarterCSV.generate(col_sep: ';', row_sep: "\r\n") do |csv|
+          data.each { |row| csv << row }
+        end
+        expect(result).to eq("name;age\r\nAlice;30\r\nBob;25\r\n")
+      end
+
+      it 'returns an empty string when no rows are written' do
+        result = SmarterCSV.generate { |_csv| }
+        expect(result).to eq('')
+      end
+
+      it 'still raises when the block raises' do
+        expect do
+          SmarterCSV.generate { |_csv| raise 'boom' }
+        end.to raise_error(RuntimeError, 'boom')
+      end
     end
 
     context 'with custom options and StringIO' do

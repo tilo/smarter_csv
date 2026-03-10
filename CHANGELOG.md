@@ -42,6 +42,8 @@ Other:
 
  * **Write API now accepts IO and StringIO objects** ([issue #321](https://github.com/tilo/smarter_csv/issues/321)): `SmarterCSV.generate` and `SmarterCSV::Writer.new` now accept any `IO`-compatible object in addition to a file path. The caller retains ownership. See [The Basic Write API](docs/basic_write_api.md).
 
+ * **`SmarterCSV.generate` returns a String when called without a destination**: omit the first argument and the CSV is written to an internal buffer and returned as a `String` — no `StringIO` boilerplate needed. Options hash can be passed as the first argument in this form. Existing call signatures are unchanged.
+
 New options for writing CSV:
  * **New `encoding:` option**: specifies the file encoding (e.g. `'UTF-8'`, `'ISO-8859-1'`) passed to `File.open`. Only applies when writing to a file path; ignored for IO objects. Defaults to the system encoding.
 
