@@ -499,6 +499,74 @@ describe 'cleanup_quotes (parser.rb line 571)' do
   end
 end
 
+# -----------------------------------------------------------------------
+# Tests targeting line 537 (multi-char col_sep path):
+#   quote_boundary_standard && !in_quotes && !field_started && strip &&
+#   (line[i] == ' ' || line[i] == '\t')
+#   → start = i + 1   # advance past leading whitespace so the quote
+#                      # check at extraction sees the quote character
+#
+# This branch only fires when:
+#   - col_sep is multi-char (else branch at line 465)
+#   - quote_boundary: :standard
+#   - strip_whitespace: true
+#   - field has not yet started
+#   - current char is a space or tab
+# -----------------------------------------------------------------------
+describe 'parse_csv_line_ruby — multi-char col_sep, quote_boundary :standard, strip: true, leading whitespace (line 537)' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+  let(:base_opts) do
+    {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
+     strip_whitespace: true, row_sep: "\n", quote_boundary: :standard}
+  end
+
+  # Leading space before a quoted field: start is advanced past the space (line 537),
+  # so extraction sees the opening quote and strips it correctly.
+  it 'treats a field with a leading space before a quote as quoted (line 537)' do
+    # ' "hello"||world' — space at i=0 fires line 537 → start=1; quote at i=1 opens field
+    elements, size = reader.send(:parse_csv_line_ruby, ' "hello"||world', base_opts)
+    expect(size).to eq 2
+    expect(elements[0]).to eq 'hello'
+    expect(elements[1]).to eq 'world'
+  end
+
+  it 'treats a field with a leading tab before a quote as quoted (line 537)' do
+    # "\t\"hello\"||world" — tab at i=0 fires line 537 → start=1; quote at i=1 opens field
+    elements, size = reader.send(:parse_csv_line_ruby, "\t\"hello\"||world", base_opts)
+    expect(size).to eq 2
+    expect(elements[0]).to eq 'hello'
+    expect(elements[1]).to eq 'world'
+  end
+
+  it 'handles multiple leading spaces before a quoted field (line 537 fires repeatedly)' do
+    # '  "hi"||b' — two spaces each advance start; quote at i=2 opens field
+    elements, size = reader.send(:parse_csv_line_ruby, '  "hi"||b', base_opts)
+    expect(size).to eq 2
+    expect(elements[0]).to eq 'hi'
+    expect(elements[1]).to eq 'b'
+  end
+
+  it 'handles leading whitespace on all fields (line 537 fires for each field)' do
+    # ' "a"|| "b"|| "c"' — every field has a leading space before a quote
+    elements, size = reader.send(:parse_csv_line_ruby, ' "a"|| "b"|| "c"', base_opts)
+    expect(size).to eq 3
+    expect(elements).to eq ['a', 'b', 'c']
+  end
+
+  # When strip is false the condition is not met; the space marks the field as started
+  # (else branch at line 539), so the quote is treated as a literal mid-field char.
+  it 'does not advance start when strip_whitespace is false (else branch at line 539)' do
+    no_strip_opts = base_opts.merge(strip_whitespace: false)
+    # ' "hello"||world' — space makes field_started=true; quote is mid-field literal;
+    # field extracted as ' "hello"' (unquoted path); cleanup_quotes leaves it unchanged
+    # since it starts with a space, not a quote.
+    elements, size = reader.send(:parse_csv_line_ruby, ' "hello"||world', no_strip_opts)
+    expect(size).to eq 2
+    expect(elements[0]).to eq ' "hello"'
+    expect(elements[1]).to eq 'world'
+  end
+end
+
 describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' do
   # When parse_csv_line_ruby raises MalformedCSV in backslash mode with acceleration: false,
   # line 71 evaluates false (no acceleration) and line 77 executes the RFC fallback.
