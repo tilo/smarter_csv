@@ -23,68 +23,154 @@
 
 # Using Value Converters for Reading CSV
 
-Value Converters allow you to do custom transformations specific rows, to help you massage the data so it fits the expectations of your down-stream process, such as creating a DB record.
+Value converters let you transform raw CSV strings into the types your downstream code
+expects — dates, booleans, numbers, Money objects, whatever you need. They run per-key,
+after SmarterCSV has parsed and mapped the headers.
 
-If you use `key_mappings` and `value_converters`, make sure that the value converters references the keys based on the final mapped name, not the original name in the CSV file.
+A converter is either a **lambda** (for simple inline cases) or a **class** implementing
+`self.convert(value)` (for reusable, independently testable converters). Both forms are
+fully supported.
+
+The examples throughout this page use the following fixture file:
+
+```
+first,last,date,price,member
+Ben,Miller,10/30/1998,$44.50,TRUE
+Tom,Turner,2/1/2011,$15.99,False
+Ken,Smith,01/09/2013,$199.99,true
+```
+
+> **Key mapping interaction:** if you use `key_mapping:`, converters must reference the
+> **mapped** key name, not the original CSV header name. The mapping runs first; converters
+> see the final key.
+
+## Lambda Converters
+
+Lambdas are the quickest way to define a converter inline.
+
+**Boolean:**
 
 ```ruby
-    $ cat spec/fixtures/with_dates.csv
-    first,last,date,price,member
-    Ben,Miller,10/30/1998,$44.50,TRUE
-    Tom,Turner,2/1/2011,$15.99,False
-    Ken,Smith,01/09/2013,$199.99,true
+bool = ->(v) { v&.match?(/\Atrue\z/i) }
 
-    $ irb
-    > require 'smarter_csv'
-    > require 'date'
+data = SmarterCSV.process('records.csv', value_converters: { active: bool, verified: bool })
+# "TRUE"  => true
+# "false" => false
+# nil     => nil  (& guard handles missing/empty fields)
+```
 
-    # define a custom converter class, which implements self.convert(value)
-    class DateConverter
-      def self.convert(value)
-        Date.strptime( value, '%m/%d/%Y') # parses custom date format into Date instance
-      end
+**Strip currency symbol and convert to Float:**
+
+```ruby
+dollar = ->(v) { v&.sub('$', '')&.to_f }
+
+data = SmarterCSV.process('records.csv', value_converters: { price: dollar, tax: dollar })
+# "$44.50" => 44.5
+# nil      => nil
+```
+
+**Reusing the same lambda across multiple keys:**
+
+```ruby
+date = ->(v) { v ? Date.strptime(v, '%m/%d/%Y') : nil }
+
+data = SmarterCSV.process('records.csv', value_converters: { start_date: date, end_date: date })
+```
+
+**`key_mapping` + `value_converters` — always use the mapped name:**
+
+```ruby
+# CSV header is "MemberSince" — mapped to :member_since
+options = {
+  key_mapping:      { membersince: :member_since },
+  value_converters: { member_since: ->(v) { v ? Date.strptime(v, '%m/%d/%Y') : nil } },
+}
+data = SmarterCSV.process('records.csv', options)
+```
+
+## Handling nil and Empty Fields
+
+Converters receive the raw string value from the CSV field. If a field is blank or missing,
+the value passed to your converter may be `nil` or `""`. Always guard against this:
+
+```ruby
+# Safe: returns nil for blank fields instead of raising
+price = ->(v) { v&.sub('$', '')&.to_f }
+
+# Unsafe: raises NoMethodError when v is nil
+price = ->(v) { v.sub('$', '').to_f }
+```
+
+For class-based converters, add an explicit guard at the top of `self.convert`:
+
+```ruby
+def self.convert(value)
+  return nil if value.nil? || value.empty?
+  # ... rest of conversion
+end
+```
+
+## Class-Based Converters
+
+For converters you want to reuse across the codebase or test independently, define a class
+with a `self.convert(value)` class method:
+
+```ruby
+require 'date'
+
+class DateConverter
+  def self.convert(value)
+    return nil if value.nil? || value.empty?
+    Date.strptime(value, '%m/%d/%Y')
+  end
+end
+
+class DollarConverter
+  def self.convert(value)
+    return nil if value.nil? || value.empty?
+    value.sub('$', '').to_f
+  end
+end
+
+class BooleanConverter
+  def self.convert(value)
+    case value
+    when /\Atrue\z/i  then true
+    when /\Afalse\z/i then false
     end
+  end
+end
 
-    class DollarConverter
-      def self.convert(value)
-        value.sub('$','').to_f # strips the dollar sign and creates a Float value
-      end
-    end
+options = {
+  value_converters: {
+    date:   DateConverter,
+    price:  DollarConverter,
+    member: BooleanConverter,
+  }
+}
+data = SmarterCSV.process('spec/fixtures/with_dates.csv', options)
 
-    require 'money'
-    class MoneyConverter
-      def self.convert(value)
-        # depending on locale you might want to also remove the indicator for thousands, e.g. comma 
-        Money.from_amount(value.gsub(/[\s\$]/,'').to_f) # creates a Money instance (based on cents)
-      end
-    end
+data.first[:date]   #=> #<Date: 1998-10-30>
+data.first[:price]  #=> 44.5
+data.first[:member] #=> true
+```
 
-    class BooleanConverter
-      def self.convert(value)
-        case value
-        when /true/i
-          true
-        when /false/i
-          false
-        else
-          nil
-        end
-      end
-    end
+## Money Converter
 
-    options = {value_converters: {date: DateConverter, price: DollarConverter, member: BooleanConverter}}
-    data = SmarterCSV.process("spec/fixtures/with_dates.csv", options)
-    first_record = data.first
-    first_record[:date]
-      => #<Date: 1998-10-30 ((2451117j,0s,0n),+0s,2299161j)>
-    first_record[:date].class
-      => Date
-    first_record[:price]
-      => 44.50
-    first_record[:price].class
-      => Float
-    first_record[:member]
-      => true
+For applications using the [`money`](https://github.com/RubyMoney/money) gem:
+
+```ruby
+require 'money'
+
+class MoneyConverter
+  def self.convert(value)
+    return nil if value.nil? || value.empty?
+    # remove currency symbol and thousands separators before converting
+    Money.from_amount(value.gsub(/[\s$,]/, '').to_f)
+  end
+end
+
+data = SmarterCSV.process('invoices.csv', value_converters: { amount: MoneyConverter })
 ```
 
 ## Why there are no built-in Date / Time / DateTime converters

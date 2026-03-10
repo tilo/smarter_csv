@@ -334,6 +334,121 @@ options = {
 > **Note:** `disable_auto_quoting: true` is a top-level option, not part of
 > `value_converters:`. Only disable it when you are taking full control of quoting yourself.
 
+## Serializing Dates, Money, and Units
+
+Ruby's default `to_s` is often not enough when writing dates, monetary values, or measured
+quantities to CSV. The target format depends on your consumer — a downstream system, a
+locale, or a spreadsheet audience. Use `value_converters:` to take explicit control.
+
+### Dates and Times
+
+`Date#to_s` produces ISO 8601 (`2026-03-09`), which is unambiguous and safe as a default.
+Use a converter when you need a different format:
+
+```ruby
+# ISO 8601 (default to_s — shown for clarity)
+iso   = ->(v) { v&.strftime('%Y-%m-%d') }
+
+# US format: MM/DD/YYYY
+us    = ->(v) { v&.strftime('%m/%d/%Y') }
+
+# European format: DD.MM.YYYY
+eu    = ->(v) { v&.strftime('%d.%m.%Y') }
+
+# Human-readable with time
+full  = ->(v) { v&.strftime('%d %b %Y %H:%M') }
+
+SmarterCSV.generate('output.csv', value_converters: { issued_on: eu, expires_at: full }) do |csv|
+  csv << { name: 'Alice', issued_on: Date.new(2026, 3, 9), expires_at: Time.now }
+end
+# output:
+# name,issued_on,expires_at
+# Alice,09.03.2026,09 Mar 2026 14:32
+```
+
+The `&.` safe-navigation operator ensures a `nil` date field produces an empty cell
+rather than raising `NoMethodError`.
+
+### Money
+
+`Money#to_s` (from the [`money`](https://github.com/RubyMoney/money) gem) returns the
+fractional amount as a string (e.g. `"4450"` for $44.50 stored in cents) — almost never
+what a CSV consumer expects. Always use an explicit converter:
+
+```ruby
+# Raw decimal amount — most portable, easy to re-import
+amount_only = ->(v) { v&.to_d&.to_s }           # "44.50"
+
+# With currency symbol — for human-readable exports
+with_symbol = ->(v) { v ? v.format : nil }        # "$44.50", "€44,50" (locale-aware via money gem)
+
+# Amount + currency code — for multi-currency files
+with_code   = ->(v) { v ? "#{v.currency.iso_code} #{v.to_d}" : nil }  # "USD 44.50", "EUR 12.00"
+```
+
+Choose the right format for your consumer:
+
+```ruby
+# Single-currency export (e.g. internal finance tool)
+SmarterCSV.generate('export.csv', value_converters: { price: amount_only, tax: amount_only }) do |csv|
+  records.each { |r| csv << r }
+end
+
+# Multi-currency export (e.g. cross-border invoicing)
+SmarterCSV.generate('export.csv', value_converters: { price: with_code, tax: with_code }) do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+> **Tip:** for re-importable CSV files, prefer `amount_only` — a bare decimal is
+> unambiguous and can be parsed back without stripping symbols or handling locale-specific
+> separators. Reserve `with_symbol` for human-readable exports that will not be re-parsed.
+
+### Unit Conversions
+
+Value converters are not limited to formatting — they can perform any transformation,
+including unit conversions. A common case is exporting sensor or weather data that is
+stored internally in one unit but must be delivered in another.
+
+**Fahrenheit to Celsius:**
+
+```ruby
+f_to_c = ->(v) { v ? ((v - 32) * 5.0 / 9).round(1) : nil }
+
+options = {
+  map_headers:      { temperature: :temperature_c },
+  value_converters: { temperature: f_to_c },
+}
+
+SmarterCSV.generate('weather.csv', options) do |csv|
+  csv << { city: 'New York',   temperature: 32  }   # freezing
+  csv << { city: 'Phoenix',    temperature: 104 }   # hot
+  csv << { city: 'Paris',      temperature: 68  }
+end
+# output:
+# city,temperature_c
+# New York,0.0
+# Phoenix,40.0
+# Paris,20.0
+```
+
+The same pattern applies to any unit pair — kilometers to miles, kilograms to pounds,
+meters per second to km/h, and so on:
+
+```ruby
+miles_to_km = ->(v) { v ? (v * 1.60934).round(2) : nil }
+lbs_to_kg   = ->(v) { v ? (v * 0.453592).round(2) : nil }
+
+options = {
+  map_headers:      { distance: :distance_km, weight: :weight_kg },
+  value_converters: { distance: miles_to_km,  weight: lbs_to_kg  },
+}
+
+SmarterCSV.generate('measurements.csv', options) do |csv|
+  records.each { |r| csv << r }
+end
+```
+
 ## Handling Nil, Empty, and Missing Values
 
 By default, both `nil` values and empty-string values are written as an empty field.
