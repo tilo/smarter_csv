@@ -2,6 +2,7 @@
 
 require 'tempfile'
 require 'stringio'
+require 'set'
 
 module SmarterCSV
   #
@@ -55,6 +56,7 @@ module SmarterCSV
       @row_sep = options[:row_sep] || $/
       @col_sep = options[:col_sep] || ','
       @quote_char = options[:quote_char] || '"'
+      @escaped_quote_char = @quote_char * 2
       @force_quotes = options[:force_quotes] == true
       @quote_headers = options[:quote_headers] == true
       @disable_auto_quoting = options[:disable_auto_quoting] == true
@@ -64,7 +66,7 @@ module SmarterCSV
       @write_empty_value = options.fetch(:write_empty_value, '')
       @write_bom = options[:write_bom] == true
       @map_all_keys = @value_converters.has_key?(:_all)
-      @mapped_keys = @value_converters.keys - [:_all]
+      @mapped_keys = Set.new(@value_converters.keys - [:_all])
       @header_converter = options[:header_converter]
 
       @discover_headers = true
@@ -176,7 +178,7 @@ module SmarterCSV
         escape_csv_field(value, @force_quotes) # for backwards compatibility
       end
 
-      (@temp_file || @output_file).write(ordered_row.join(@col_sep) + @row_sep) unless ordered_row.empty?
+      (@temp_file || @output_file).write(ordered_row.join(@col_sep) << @row_sep) unless ordered_row.empty?
     end
 
     def map_value(key, value)
@@ -192,9 +194,9 @@ module SmarterCSV
       return str if @disable_auto_quoting && !force_quotes
 
       # double-quote fields if we force that, or if the field contains the comma, new-line, or quote character
-      contains_special_char = str.to_s.match(@quote_regex)
+      contains_special_char = str.match(@quote_regex)
       if force_quotes || contains_special_char
-        str = str.gsub(@quote_char, @quote_char * 2) if contains_special_char # escape double-quote
+        str = str.gsub(@quote_char, @escaped_quote_char) if contains_special_char # escape double-quote
 
         "\"#{str}\""
       else
