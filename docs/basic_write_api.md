@@ -31,6 +31,72 @@ To generate a CSV file, we use the `<<` operator to append new data to the file.
 
 The input operator for adding data to a CSV file `<<` can handle single hashes, array-of-hashes, or array-of-arrays-of-hashes, and can be called one or multiple times in order to create a file.
 
+### Hashes, Not Arrays — and Why It Matters for Data Integrity
+
+Ruby's `CSV` library lets you write raw arrays: `csv << ["Alice", 30, "NYC"]`. SmarterCSV
+deliberately does not support this, because positional array writing is an open invitation
+to silent data corruption.
+
+Consider what happens when a column is added:
+
+```ruby
+# Originally:
+headers = [:name, :age, :city]
+
+# Later, a column is inserted:
+headers = [:name, :age, :country, :city]
+
+# But the array rows were never updated:
+csv << ["Alice", 30, "NYC"]    # "NYC" now lands under :country, not :city
+csv << ["Bob",   25, "London"] # same silent mis-alignment
+```
+
+There is no error. The CSV looks valid. The data is wrong. This class of bug — a silent off-by-one column mis-alignment — is completely undetectable from the output file alone.
+
+SmarterCSV avoids this entirely by requiring hashes, where every value is explicitly bound to its column name:
+
+```ruby
+csv << { name: 'Alice', age: 30, city: 'NYC' }
+```
+
+Adding or reordering columns cannot silently shift values. A missing key produces an empty
+field in the correct column. The mapping is always explicit.
+
+**Providing `headers:` enforces column order.** When you pass `headers:`, the Writer always
+outputs columns in exactly that order — regardless of the order keys appear in the hash.
+This is the right tool when column order matters:
+
+```ruby
+options = { headers: [:country, :city, :name, :age] }
+
+SmarterCSV.generate('output.csv', options) do |csv|
+  # Hash key order is irrelevant — output follows the headers order
+  csv << { name: 'Alice', age: 30, city: 'NYC',    country: 'USA' }
+  csv << { name: 'Bob',   age: 25, city: 'London',  country: 'UK'  }
+end
+
+# output:
+# country,city,name,age
+# USA,NYC,Alice,30
+# UK,London,Bob,25
+```
+
+This is the correct way to write CSV when column order matters: declare the headers
+explicitly and let the Writer enforce them. No positional assumptions, no off-by-one risk.
+
+If you already have data in arrays, convert to hashes first using your headers as keys.
+This forces the key-to-column mapping to be explicit and visible at the one place where
+it can actually be verified — instead of being implicit in the position of every value:
+
+```ruby
+headers = [:name, :age, :city]
+rows    = [["Alice", 30, "NYC"], ["Bob", 25, "London"]]
+
+csv_string = SmarterCSV.generate do |csv|
+  rows.each { |row| csv << headers.zip(row).to_h }
+end
+```
+
 ### Auto-Discovery of Headers
 
 By default, the `SmarterCSV::Writer` discovers all keys that are present in the input data, and as they become know, appends them to the CSV headers. This ensures that all data will be included in the output CSV file.
