@@ -660,7 +660,7 @@ module SmarterCSV
             # Non-quote character: track whether field has started
             if strip
               # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-              field_started = true unless line[i] == ' ' || line[i] == '\t'
+              field_started = true unless line[i] == ' ' || line[i] == "\t"
               # rubocop:enable Style/MultipleComparison
             else
               field_started = true

@@ -533,7 +533,7 @@ module SmarterCSV
                 end
               elsif quote_boundary_standard && !in_quotes && !field_started
                 # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
-                if strip && (line[i] == ' ' || line[i] == '\t')
+                if strip && (line[i] == ' ' || line[i] == "\t")
                   start = i + 1 # advance past leading whitespace so the quote check at extraction sees the quote
                 else
                   field_started = true

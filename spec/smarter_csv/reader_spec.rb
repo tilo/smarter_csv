@@ -116,6 +116,12 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.send(:detect_multiline_strict, ' "hello"', opts)).to eq false
     end
 
+    it 'does not set field_started for a leading tab before opening quote when strip: true (line 624, b==9)' do
+      # "\t\"hello\"" — tab (byte 9) skips field_started via b==9 check; quote opens field cleanly
+      opts = base_opts.merge(strip_whitespace: true)
+      expect(reader.send(:detect_multiline_strict, "\t\"hello\"", opts)).to eq false
+    end
+
     it 'sets field_started for non-whitespace character when strip: true (line 498)' do
       # 'a' triggers field_started=true via the strip branch (line[i] != ' ' and != \t)
       opts = base_opts.merge(strip_whitespace: true)
@@ -181,11 +187,17 @@ RSpec.describe SmarterCSV::Reader do
 
       # lines 631, 633, 635: non-quote char outside quotes, strip: true
       # Space/tab must NOT set field_started; other chars must.
-      it 'handles strip_whitespace: true — space skips field_started, letter sets it (line 635)' do
+      it 'handles strip_whitespace: true — space skips field_started, letter sets it (line 663)' do
         opts = multi_opts.merge(strip_whitespace: true)
         # Leading space before quoted field: space must not set field_started so the
         # opening quote is still recognised as a boundary → field closes cleanly.
         expect(reader.send(:detect_multiline_strict, ' "hello"<=>world', opts)).to eq false
+      end
+
+      it 'handles strip_whitespace: true — tab skips field_started (line 663, "\t" branch)' do
+        opts = multi_opts.merge(strip_whitespace: true)
+        # Leading tab before quoted field: tab must not set field_started (fixed bug: was '\t').
+        expect(reader.send(:detect_multiline_strict, "\t\"hello\"<=>world", opts)).to eq false
       end
 
       it 'handles unquoted fields with multi-char col_sep and strip_whitespace: false (line 638)' do
