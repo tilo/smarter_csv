@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module SmarterCSV
-  VERSION = "1.16.0.dev4"
+  VERSION = "1.16.0.dev10"
 end
