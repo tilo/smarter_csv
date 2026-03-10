@@ -339,9 +339,11 @@ end
 
 ### `encoding`
 
-Specifies the encoding used when opening the output file (e.g. `'UTF-8'`, `'ISO-8859-1'`,
-`'Windows-1252'`). Only applies when writing to a file path or `Pathname`; ignored when an
-IO object is passed in. Defaults to the system encoding.
+Specifies the encoding used when opening the output file. Only applies when writing to a
+file path or `Pathname`; ignored when an IO object is passed in. Defaults to the system
+encoding.
+
+**Simple encoding** — sets the external (file) encoding:
 
 ```ruby
 SmarterCSV.generate('output.csv', encoding: 'UTF-8') do |csv|
@@ -349,12 +351,28 @@ SmarterCSV.generate('output.csv', encoding: 'UTF-8') do |csv|
 end
 ```
 
+**Transcoding** — use `'external:internal'` notation to automatically transcode from your
+Ruby strings' encoding to the target file encoding. This is Ruby's standard
+`File.open` encoding syntax:
+
 ```ruby
-# Produce a Windows-1252 file for legacy consumers
-SmarterCSV.generate('output.csv', encoding: 'Windows-1252') do |csv|
+# Ruby strings are UTF-8; write a Windows-1252 file for legacy consumers.
+# Ruby will transcode each string automatically on write.
+SmarterCSV.generate('output.csv', encoding: 'Windows-1252:UTF-8') do |csv|
   records.each { |r| csv << r }
 end
 ```
+
+```ruby
+# Transcode UTF-8 strings into ISO-8859-1
+SmarterCSV.generate('output.csv', encoding: 'ISO-8859-1:UTF-8') do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+> **Note:** Transcoding raises `Encoding::UndefinedConversionError` if a character in your
+> data cannot be represented in the target encoding (e.g. a Chinese character written to
+> ISO-8859-1). Handle this with a value converter if you need lossy substitution.
 
 ### `write_bom`
 

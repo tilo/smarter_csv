@@ -36,6 +36,7 @@ module SmarterCSV
   #   map_headers: defaults to {}, can be a hash of key -> value mappings
   #   value_converters: optional hash of key -> lambda to control serialization
   #   encoding: optional encoding string for the output file, e.g. 'UTF-8', 'ISO-8859-1'
+  #             supports Ruby's 'external:internal' transcoding notation, e.g. 'ISO-8859-1:UTF-8'
   #             defaults to nil (system default). Only applies when writing to a file path.
   #   write_nil_value: string written in place of nil field values (default: '')
   #   write_empty_value: string written in place of empty-string field values (default: '')

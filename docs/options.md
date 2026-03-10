@@ -38,7 +38,7 @@
 | `:discover_headers` | `true` | Automatically detects all keys in the input before writing the header. Do not set to `false` manually. ⚠️ |
 | `:disable_auto_quoting` | `false` | Manually disables auto-quoting of special characters. ⚠️ Use with care! |
 | `:quote_headers` | `false` | Force quoting all headers (only needed in rare cases). |
-| `:encoding` | `nil` | File encoding passed to `File.open` when writing to a path (e.g. `'UTF-8'`, `'ISO-8859-1'`, `'Windows-1252'`). `nil` uses the system default. Ignored when an IO object is passed directly. |
+| `:encoding` | `nil` | File encoding passed to `File.open` when writing to a path (e.g. `'UTF-8'`, `'ISO-8859-1'`). Supports Ruby's `'external:internal'` transcoding notation (e.g. `'ISO-8859-1:UTF-8'`) to automatically transcode UTF-8 strings into the target encoding. `nil` uses the system default. Ignored when an IO object is passed directly. |
 | `:write_nil_value` | `''` | String written in place of `nil` field values. E.g. `write_nil_value: 'N/A'`. |
 | `:write_empty_value` | `''` | String written in place of empty-string field values, including missing keys. E.g. `write_empty_value: 'EMPTY'`. |
 | `:write_bom` | `false` | Prepends a UTF-8 BOM (`\xEF\xBB\xBF`) to the output. Use with `encoding: 'UTF-8'` for Excel compatibility. |
