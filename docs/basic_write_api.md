@@ -410,6 +410,12 @@ Value converters are not limited to formatting — they can perform any transfor
 including unit conversions. A common case is exporting sensor or weather data that is
 stored internally in one unit but must be delivered in another.
 
+Notice how `map_headers:` and `value_converters:` work together as two sides of the same
+coin: the converter transforms the data into the target unit, and the renamed header tells
+the reader exactly what unit they are looking at. Neither is useful without the other —
+correct data with a misleading header is just as wrong as a correct header with unconverted
+data.
+
 **Fahrenheit to Celsius:**
 
 ```ruby
