@@ -27,6 +27,7 @@ module SmarterCSV
     end
   end
 
+  class EmptyFileError < SmarterCSVException; end
   class NoColSepDetected < SmarterCSVException; end
   class KeyMappingError < SmarterCSVException; end
   class MalformedCSV < SmarterCSVException; end
