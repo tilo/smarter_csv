@@ -26,6 +26,39 @@
 
 By default SmarterCSV assumes that a CSV file has headers, and it automatically normalizes the headers and transforms them into Ruby symbols. You can completely customize or override this (see below).
 
+## Header Transformation Pipeline
+
+When a CSV file is opened, the header line passes through the following steps in order:
+
+```
+[user_provided_headers] ──► skips steps below; uses your array directly
+         │
+         ▼ (when headers come from the file)
+comment_regexp ──► strip_chars_from_headers ──► split on col_sep
+    ──► strip quote_char ──► strip_whitespace
+    ──► [unless keep_original_headers]: gsub spaces/dashes→_ ──► downcase_header
+    ──► disambiguate_headers ──► symbolize ──► key_mapping
+```
+
+| Step | Option | Default | Description |
+|------|--------|---------|-------------|
+| 1 | `comment_regexp` | `nil` | Strips a comment prefix from the raw header line (e.g. `# ` at start) |
+| 2 | `strip_chars_from_headers` | `nil` | Removes characters matching a regexp from the raw header line (e.g. `/[\-"]/`) |
+| 3 | *(split)* | `col_sep` | Splits the header line into individual column tokens |
+| 4 | `quote_char` | `"` | Strips surrounding quote characters from each token |
+| 5 | `strip_whitespace` | `true` | Strips leading/trailing whitespace from each header |
+| 6 | *(normalize)* | — | Replaces spaces and dashes with `_` (`keep_original_headers` skips this and steps 7–9) |
+| 7 | `downcase_header` | `true` | Downcases each header string |
+| 8 | `duplicate_header_suffix` | `''` | Renames empty headers to `column_N`; appends suffix+number to duplicates |
+| 9 | `strings_as_keys` | `false` | Converts headers to symbols (skipped if `true` or `keep_original_headers`) |
+| 10 | `key_mapping` | `nil` | Renames or drops headers; use post-transformation key names as input |
+
+> `user_provided_headers` bypasses all file header reading and transformation entirely — your array is used as-is. Versions >1.13 automatically set `headers_in_file: false` when `user_provided_headers` is given; if the file has a header row you want to skip, set `headers_in_file: true` explicitly.
+
+See [Configuration Options](./options.md) for full option reference.
+
+---
+
 ## Header Normalization
 
 When processing the headers, it transforms them into Ruby symbols, stripping extra spaces, lower-casing them and replacing spaces with underscores. e.g. " \t Annual Sales  " becomes `:annual_sales`. (see Notes below)

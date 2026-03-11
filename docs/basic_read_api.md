@@ -206,6 +206,22 @@ See [Data Transformations](./data_transformations.md) and [Value Converters](./v
 
 ---
 
+## Header Transformation Pipeline
+
+Before any data rows are processed, the header line passes through these steps:
+
+```
+comment_regexp → strip_chars_from_headers → split on col_sep → strip quote_char
+    → strip_whitespace → [gsub spaces/dashes→_ → downcase_header]
+    → disambiguate_headers → symbolize → key_mapping
+```
+
+`user_provided_headers` bypasses the file header and all transformation steps — your array is used as-is.
+
+See [Header Transformations](./header_transformations.md) for the full step-by-step table and options.
+
+---
+
 ## Rescue from Exceptions
 
 While SmarterCSV uses sensible defaults to process the most common CSV files, it will raise exceptions if it can not auto-detect `col_sep`, `row_sep`, or if it encounters other problems. Therefore please rescue from `SmarterCSV::Error`, and handle outliers according to your requirements.

@@ -91,6 +91,18 @@ Notice how SmarterCSV automatically (all defaults):
 - Removes empty values → `remove_empty_values: true`
 - Preserves Unicode and emoji characters
 
+### Header Transformation Pipeline
+
+Once the header line is read, SmarterCSV normalizes it through these steps:
+
+```
+comment_regexp → strip_chars_from_headers → split on col_sep → strip quote_char
+    → strip_whitespace → [gsub spaces/dashes→_ → downcase_header]
+    → disambiguate_headers → symbolize → key_mapping
+```
+
+`user_provided_headers` bypasses all of the above. Each step is individually configurable. See [Header Transformations](docs/header_transformations.md) for the full step-by-step table and options.
+
 ### Value Transformation Pipeline
 
 After each row is parsed, SmarterCSV applies a transformation pipeline to field values:
