@@ -129,6 +129,7 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 | Government open data portals | Semicolons as separator, Latin-1, inconsistent quoting | ✅ / 🔘 | `col_sep: :auto` handles semicolons; specify `file_encoding:` if non-UTF-8. |
 | Bioinformatics (VCF-derived) | Thousands of columns (one sample per column) | ✅ | No column count limit in the parsing hot path. |
 | Apple iTunes DB export† | CTRL-A col separator, CTRL-B row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/` |
+| UNIX DB Dumps† | CTRL-A col separator, CTRL-B row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/` |
 | QuickBooks exports | Windows-1252 encoding, currency-formatted values | 🔘 | Specify `file_encoding: 'windows-1252'`. Currency values like `"$1,234.56"` stay as strings. |
 | Shopify / WooCommerce | Pipe-delimited values within a field (`tag1\|tag2\|tag3`) | 🔘 | Use `value_converters` to split on `\|` for the relevant column. |
 | Qualtrics / SurveyMonkey | 200–800 columns, multi-row headers, HTML in values | 🔘 | Multi-row headers require pre-processing; HTML in values left as-is (use value_converters to strip). |
