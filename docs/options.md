@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -161,4 +162,3 @@ These options are still accepted but emit a deprecation warning. They will be re
 | `verbose: false` | — | Use `verbose: :normal` (or omit — it is the default) instead. |
 
 -------------
-PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md)

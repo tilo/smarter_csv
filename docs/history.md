@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [**SmarterCSV over the Years**](./history.md)
 
 --------------
@@ -102,4 +103,3 @@ All times are **C-accelerated** except the `1.6.1` column (no C extension existe
 - [Faster Parsing CSV with Parallel Processing](http://xjlin0.github.io/tech/2015/05/25/faster-parsing-csv-with-parallel-processing) by [Jack Lin](https://github.com/xjlin0/)
 
 --------------------
-PREVIOUS: [Examples](./examples.md) | UP: [README](../README.md)

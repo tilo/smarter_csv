@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -70,4 +71,3 @@ By default SmarterCSV uses `remove_empty_hashes: true` to remove these empty has
 This can be set to `false`, to keep these empty hashes in the results.
 
 -------------------
-PREVIOUS: [Column Selection](./column_selection.md) | NEXT: [Value Converters](./value_converters.md)

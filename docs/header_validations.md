@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -55,4 +56,3 @@ end
 ```
 
 ----------------
-PREVIOUS: [Header Transformations](./header_transformations.md) | NEXT: [Column Selection](./column_selection.md)

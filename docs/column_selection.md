@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -153,4 +154,3 @@ saves very little work, so benchmark results for `headers: { except: }` are typi
 
 ---
 
-PREVIOUS: [Header Validations](./header_validations.md) | NEXT: [Data Transformations](./data_transformations.md)

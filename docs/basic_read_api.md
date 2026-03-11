@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -228,4 +229,3 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 ```
 
 ----------------
-PREVIOUS: [Parsing Strategy](./parsing_strategy.md) | NEXT: [The Basic Write API](./basic_write_api.md)

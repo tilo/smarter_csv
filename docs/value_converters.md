@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -215,4 +216,3 @@ with Rails' I18n locale configuration. For natural-language date strings, consid
 [`chronic`](https://github.com/mojombo/chronic).
 
 --------------------
-PREVIOUS: [Data Transformations](./data_transformations.md) | NEXT: [Bad Row Quarantine](./bad_row_quarantine.md) | UP: [README](../README.md)

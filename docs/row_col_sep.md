@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -109,4 +110,3 @@ In this example, we use `comment_regexp` to filter out and ignore any lines star
 ```
 
 ----------------
-PREVIOUS: [Configuration Options](./options.md) | NEXT: [Header Transformations](./header_transformations.md)

@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -186,4 +187,3 @@ reader.errors[:bad_rows].each { |rec| puts "Line #{rec[:csv_line_number]}: #{rec
 See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 
 ----------------
-PREVIOUS: [The Basic Write API](./basic_write_api.md)  | NEXT: [Configuration Options](./options.md)

@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -283,4 +284,3 @@ _Benchmarks: 16 CSV files (43k–80k rows), Ruby 3.4.7, Apple M1._
 
 ---
 
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Parsing Strategy](./parsing_strategy.md)

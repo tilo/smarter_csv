@@ -17,6 +17,7 @@
   * [Bad Row Quarantine](./bad_row_quarantine.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
 
 --------------
@@ -61,4 +62,3 @@ The CSV processing also needed to be robust against variations in the input data
   (planned feature)
 
 ---------------
-PREVIOUS [README](../README.md) | NEXT: [Migrating from Ruby CSV](./migrating_from_csv.md)
