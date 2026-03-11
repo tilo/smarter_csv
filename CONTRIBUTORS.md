@@ -1,4 +1,4 @@
-# A Big Thank You to all 59 Contributors!!
+# A Big Thank You to all 61 Contributors!!
 
 
 A Big Thank you to everyone who filed issues, sent comments, and who contributed with pull requests:
@@ -62,3 +62,5 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Felipe Cabezudo](https://github.com/felipekb)
  * [Skye Shaw](https://github.com/sshaw)
  * [Mark Bumiller](https://github.com/makrsmark)
+ * [Tophe](https://github.com/tophe)
+ * [Dom Lebron](https://github.com/biglebronski)
