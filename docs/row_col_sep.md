@@ -59,7 +59,7 @@ This data format uses CTRL-A as the column separator, and CTRL-B as the record s
 ```ruby
     filename = '/tmp/itunes_db_dump'   
     options = {
-      :col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
+      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
       :chunk_size => 100 , :key_mapping => {export_date: nil, name: :genre},
     }
     n = SmarterCSV.process(filename, options) do |chunk|
@@ -100,7 +100,7 @@ In this example, we use `comment_regexp` to filter out and ignore any lines star
     # Consider a file with CRTL-A as col_separator, and with CTRL-B\n as record_separator (hello iTunes!)
     filename = '/tmp/strange_db_dump'   
     options = {
-      :col_sep => "\cA", :row_sep => "\cB\n", :comment_regexp => /^#/,
+      :col_sep => "\cA", :row_sep => "\cB", :comment_regexp => /^#/,
       :chunk_size => 100 , :key_mapping => {:export_date => nil, :name => :genre},
     }
     n = SmarterCSV.process(filename, options) do |chunk|

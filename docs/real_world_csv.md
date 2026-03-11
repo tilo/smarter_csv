@@ -128,13 +128,20 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 | Excel `Save As CSV` | UTF-8 BOM, RFC 4180 quoting, 1,048,576 row limit | ✅ | BOM stripped, quoting handled. Row limit is an Excel constraint — SmarterCSV will parse whatever Excel wrote. |
 | Government open data portals | Semicolons as separator, Latin-1, inconsistent quoting | ✅ / 🔘 | `col_sep: :auto` handles semicolons; specify `file_encoding:` if non-UTF-8. |
 | Bioinformatics (VCF-derived) | Thousands of columns (one sample per column) | ✅ | No column count limit in the parsing hot path. |
-| Apple iTunes DB export | CTRL-A col separator, CTRL-B`\n` row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB\n", comment_regexp: /^#/` |
+| Apple iTunes DB export† | CTRL-A col separator, CTRL-B row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/` |
 | QuickBooks exports | Windows-1252 encoding, currency-formatted values | 🔘 | Specify `file_encoding: 'windows-1252'`. Currency values like `"$1,234.56"` stay as strings. |
 | Shopify / WooCommerce | Pipe-delimited values within a field (`tag1\|tag2\|tag3`) | 🔘 | Use `value_converters` to split on `\|` for the relevant column. |
 | Qualtrics / SurveyMonkey | 200–800 columns, multi-row headers, HTML in values | 🔘 | Multi-row headers require pre-processing; HTML in values left as-is (use value_converters to strip). |
 | Gzipped CSV (`.csv.gz`) | Compressed file | 🔘 | Decompress and pass the resulting IO object: `SmarterCSV.process(Zlib::GzipReader.open(path))`. |
 | HTTP streaming | Parsing from a live HTTP response | 🔘 | Pass any IO-compatible object that responds to `#gets`. |
 
+†: Legacy Apple DB Dump and older UNIX data dumps:
+
+```
+col_sep = "\x01" # CTRL-A
+row_sep = "\x02" # CTRL-B
+comment_prefix = "#"
+```
 ---
 
 ## Quick Reference: Common Option Combinations
