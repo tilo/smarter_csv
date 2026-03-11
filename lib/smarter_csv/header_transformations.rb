@@ -29,12 +29,19 @@ module SmarterCSV
       counts = Hash.new(0)
       empty_count = 0
       prefix = options[:missing_header_prefix] || 'column_'
+      # Pre-collect non-blank header names so auto-generated names can avoid collisions.
+      used = headers.reject { |h| blank?(h) }
       headers.map do |header|
         if blank?(header)
           # Empty headers use missing_header_prefix (e.g. "column_1", "column_2") so they
           # produce a usable key instead of :"" which gets silently deleted downstream.
-          empty_count += 1
-          "#{prefix}#{empty_count}"
+          # Skip ahead if the generated name collides with an existing header.
+          begin
+            empty_count += 1
+            candidate = "#{prefix}#{empty_count}"
+          end while used.include?(candidate)
+          used << candidate
+          candidate
         else
           counts[header] += 1
           counts[header] > 1 ? "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}" : header

@@ -53,6 +53,33 @@ describe 'empty headers in CSV file' do
     end
   end
 
+  it 'skips ahead when auto-generated name collides with an existing header' do
+    data = SmarterCSV.parse("column_1,name,\nAlbert,Bernard,Cecil\n")
+    expect(data.first).to eq({ column_1: 'Albert', name: 'Bernard', column_2: 'Cecil' })
+  end
+
+  it 'skips multiple collisions to find the next available name' do
+    data = SmarterCSV.parse("column_1,column_2,\nAlbert,Bernard,Cecil\n")
+    expect(data.first).to eq({ column_1: 'Albert', column_2: 'Bernard', column_3: 'Cecil' })
+  end
+
+  it 'assigns column_N keys when all headers are empty' do
+    data = SmarterCSV.parse(",,,\n1,2,3,4\n")
+    expect(data.first).to eq({ column_1: 1, column_2: 2, column_3: 3, column_4: 4 })
+  end
+
+  it 'produces string keys with keep_original_headers: true' do
+    data = SmarterCSV.parse("name,,\nCarl,Edward,Sagan\n", keep_original_headers: true)
+    expect(data.first).to eq({ 'name' => 'Carl', 'column_1' => 'Edward', 'column_2' => 'Sagan' })
+    expect(data.first.keys.map(&:class).uniq).to eq [String]
+  end
+
+  it 'produces string keys with strings_as_keys: true' do
+    data = SmarterCSV.parse("name,,\nCarl,Edward,Sagan\n", strings_as_keys: true)
+    expect(data.first).to eq({ 'name' => 'Carl', 'column_1' => 'Edward', 'column_2' => 'Sagan' })
+    expect(data.first.keys.map(&:class).uniq).to eq [String]
+  end
+
   it 'handles a mix of named, empty, and duplicate headers' do
     data = SmarterCSV.parse("name,name,,name\nAlbert,Bernard,Cecil,Daniel\n")
     expect(data.first[:name]).to eq 'Albert'
