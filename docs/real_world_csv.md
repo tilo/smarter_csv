@@ -82,7 +82,7 @@ Headers in production files are rarely as clean as you'd expect. They carry unit
 | Headers with spaces and special characters (`Revenue (USD)`) | ✅ | Spaces and dashes normalized to underscores → `:revenue_(usd)`. Parentheses, slashes, etc. are preserved. |
 | Extra data columns beyond the header row | ✅ | Auto-generates `column_N` names for extra fields. Controlled by `missing_headers:` option. |
 | No header row at all | 🔘 | Use `headers_in_file: false, user_provided_headers: [:col1, :col2, ...]`. Common in raw database dumps and fixed-format legacy exports. |
-| Repeated header row mid-file | ❌ | Happens when files are assembled with `cat chunk_1.csv chunk_2.csv > full.csv`. The repeated header line is silently treated as a data row, producing a hash like `{name: "name", age: "age"}`. Pre-process to strip repeated headers before parsing. |
+| Repeated header row mid-file | ❌ | Happens when files are assembled with `cat chunk_1.csv chunk_2.csv > full.csv`. The repeated header line is silently treated as a data row, producing a hash like `{name: "name", age: "age"}`. Pre-process to strip repeated headers before parsing, or post-process filtering out the data hashes containing header information. |
 
 ---
 
@@ -93,9 +93,9 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 | Issue | Status | Notes |
 |-------|--------|-------|
 | Integer and float conversion | ✅ | `convert_values_to_numeric: true` (default). `"42"` → `42`, `"3.14"` → `3.14`. |
-| Currency symbols in values (`$1,234.56`) | ✅ | Won't match the numeric pattern — safely left as a string. |
-| Percentage values (`12.5%`) | ✅ | Won't match the numeric pattern — safely left as a string. |
-| Leading zeros (ZIP codes, phone numbers, SKUs, account numbers) | 🔘 | `convert_values_to_numeric: { except: [:zip, :phone, :sku] }`. Without this, `"01234"` becomes `1234`. One of the most common silent data loss bugs in CSV processing. |
+| Currency symbols in values (`$1,234.56`, `€1.234,56`) | ✅ / 🔘| Won't match the numeric pattern — safely left as a string. Use `value_converters` if numeric value is needed.|
+| Percentage values (`12.5%`) | ✅ / 🔘| Won't match the numeric pattern — safely left as a string. Use `value_converters` if numeric value is needed.|
+| Leading zeros (ZIP codes, phone numbers, SKUs, account numbers) | 🔘 | `convert_values_to_numeric: { except: [:zip, :phone, :sku] }`. Without this, `"01234"` becomes `1234`. One of the most common silent data loss bugs in CSV processing! US ZIP codes have leading zeroes. |
 | NULL / empty value variants (`NULL`, `\N`, `N/A`, `(null)`, `#N/A`) | 🔘 | Use `nil_values_matching: /\A(NULL\\|\\N\|N\/A\|#N\/A\|\\(null\\))\z/i`. Without configuration these are left as literal strings. |
 | Date values (`2023-01-15`, `01/02/2023`, `Jan 2, 2023`) | 🔘 | Use `value_converters` with a date parsing lambda. SmarterCSV does not auto-convert dates — format ambiguity (`01/02/2023` = Jan 2 or Feb 1?) makes auto-conversion unsafe. |
 | Boolean variants (`Y/N`, `Yes/No`, `TRUE/FALSE`, `1/0`, `X/` in SAP) | 🔘 | Use `value_converters` for the relevant columns. |
@@ -126,11 +126,11 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 | MySQL `SELECT INTO OUTFILE` | Backslash quote escaping | ✅ | `quote_escaping: :auto` default. |
 | PostgreSQL `COPY TO` | Backslash quote escaping, `\N` for NULL | ✅ / 🔘 | Escaping handled automatically; `\N` as nil requires `nil_values_matching`. |
 | Excel `Save As CSV` | UTF-8 BOM, RFC 4180 quoting, 1,048,576 row limit | ✅ | BOM stripped, quoting handled. Row limit is an Excel constraint — SmarterCSV will parse whatever Excel wrote. |
+| Government open data portals | Semicolons as separator, Latin-1, inconsistent quoting | ✅ / 🔘 | `col_sep: :auto` handles semicolons; specify `file_encoding:` if non-UTF-8. |
+| Bioinformatics (VCF-derived) | Thousands of columns (one sample per column) | ✅ | No column count limit in the parsing hot path. |
 | QuickBooks exports | Windows-1252 encoding, currency-formatted values | 🔘 | Specify `file_encoding: 'windows-1252'`. Currency values like `"$1,234.56"` stay as strings. |
 | Shopify / WooCommerce | Pipe-delimited values within a field (`tag1\|tag2\|tag3`) | 🔘 | Use `value_converters` to split on `\|` for the relevant column. |
 | Qualtrics / SurveyMonkey | 200–800 columns, multi-row headers, HTML in values | 🔘 | Multi-row headers require pre-processing; HTML in values left as-is (use value_converters to strip). |
-| Government open data portals | Semicolons as separator, Latin-1, inconsistent quoting | ✅ / 🔘 | `col_sep: :auto` handles semicolons; specify `file_encoding:` if non-UTF-8. |
-| Bioinformatics (VCF-derived) | Thousands of columns (one sample per column) | ✅ | No column count limit in the parsing hot path. |
 | Gzipped CSV (`.csv.gz`) | Compressed file | 🔘 | Decompress and pass the resulting IO object: `SmarterCSV.process(Zlib::GzipReader.open(path))`. |
 | HTTP streaming | Parsing from a live HTTP response | 🔘 | Pass any IO-compatible object that responds to `#gets`. |
 
