@@ -197,6 +197,8 @@ row_sep = "\x02" # CTRL-B
 comment_prefix = "#"
 ```
 
+This is a clever design: since CTRL-A and CTRL-B never appear in normal text, fields never need quoting or escaping — eliminating an entire class of parsing ambiguity.
+
 ---
 
 ## Pathological Cases ❌
