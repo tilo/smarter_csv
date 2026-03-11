@@ -2,6 +2,65 @@
 
 fixture_path = 'spec/fixtures'
 
+# CSV with empty headers: "name,,"
+# empty_headers.csv:
+#   name,,
+#   Carl,Edward,Sagan
+
+describe 'empty headers in CSV file' do
+  it 'assigns column_N keys to empty headers using missing_header_prefix (default)' do
+    data = SmarterCSV.process("#{fixture_path}/empty_headers.csv")
+    expect(data.size).to eq 1
+    expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', column_2: 'Sagan' })
+  end
+
+  it 'does not silently drop values for empty headers' do
+    data = SmarterCSV.process("#{fixture_path}/empty_headers.csv")
+    expect(data.first.size).to eq 3
+    expect(data.first.values).to eq ['Carl', 'Edward', 'Sagan']
+  end
+
+  it 'respects a custom missing_header_prefix' do
+    data = SmarterCSV.process("#{fixture_path}/empty_headers.csv", missing_header_prefix: 'field_')
+    expect(data.first).to eq({ name: 'Carl', field_1: 'Edward', field_2: 'Sagan' })
+  end
+
+  # With strip_whitespace: true (default), whitespace-only headers are stripped to ""
+  # before disambiguate_headers runs, where blank?() catches them.
+  context 'with whitespace-only headers (strip_whitespace: true, default)' do
+    it 'treats a spaces-only header ("  ") as blank and auto-names it' do
+      data = SmarterCSV.parse("name,  ,value\nCarl,Edward,Sagan\n")
+      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+    end
+
+    it 'treats a tab-only header ("\t") as blank and auto-names it' do
+      data = SmarterCSV.parse("name,\t,value\nCarl,Edward,Sagan\n")
+      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+    end
+  end
+
+  # With strip_whitespace: false, whitespace-only headers are NOT stripped first.
+  # header_transformations normalizes them to "" before gsub so they don't become "_".
+  context 'with whitespace-only headers (strip_whitespace: false)' do
+    it 'treats a spaces-only header ("  ") as blank and auto-names it' do
+      data = SmarterCSV.parse("name,  ,value\nCarl,Edward,Sagan\n", strip_whitespace: false)
+      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+    end
+
+    it 'treats a tab-only header ("\t") as blank and auto-names it' do
+      data = SmarterCSV.parse("name,\t,value\nCarl,Edward,Sagan\n", strip_whitespace: false)
+      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+    end
+  end
+
+  it 'handles a mix of named, empty, and duplicate headers' do
+    data = SmarterCSV.parse("name,name,,name\nAlbert,Bernard,Cecil,Daniel\n")
+    expect(data.first[:name]).to eq 'Albert'
+    expect(data.first[:column_1]).to eq 'Cecil'
+    expect(data.first.size).to eq 4
+  end
+end
+
 describe 'duplicate headers' do
   describe 'without special handling / default behavior' do
     it 'does not raise error when duplicate_header_suffix is given' do

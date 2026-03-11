@@ -8,6 +8,9 @@ module SmarterCSV
       header_array.map!{|x| x.strip} if options[:strip_whitespace]
 
       unless options[:keep_original_headers]
+        # Normalize whitespace-only headers to "" before gsub so they are treated as
+        # blank/missing by disambiguate_headers rather than converted to "_".
+        header_array.map!{|x| blank?(x) ? '' : x} unless options[:strip_whitespace]
         header_array.map!{|x| x.gsub(/\s+|-+/, '_')}
         header_array.map!{|x| x.downcase} if options[:downcase_header]
       end
@@ -24,9 +27,18 @@ module SmarterCSV
 
     def disambiguate_headers(headers, options)
       counts = Hash.new(0)
+      empty_count = 0
+      prefix = options[:missing_header_prefix] || 'column_'
       headers.map do |header|
-        counts[header] += 1
-        counts[header] > 1 ? "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}" : header
+        if blank?(header)
+          # Empty headers use missing_header_prefix (e.g. "column_1", "column_2") so they
+          # produce a usable key instead of :"" which gets silently deleted downstream.
+          empty_count += 1
+          "#{prefix}#{empty_count}"
+        else
+          counts[header] += 1
+          counts[header] > 1 ? "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}" : header
+        end
       end
     end
 

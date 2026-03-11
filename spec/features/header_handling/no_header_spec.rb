@@ -8,11 +8,14 @@ describe 'no header in file' do
   context 'without special options' do
     let(:options) { {} }
 
-    it 'raises an exception' do
-      # there is no good way to detect a file has no header line,
-      # but there is a chance that some fields are empty, which causes a uplicateHeaders exception
-      #
-      expect{ data }.to raise_exception(SmarterCSV::DuplicateHeaders)
+    it 'does not raise an exception (first data row is treated as headers)' do
+      # There is no good way to detect a file has no header line.
+      # Previously, this accidentally raised DuplicateHeaders because empty headers
+      # with duplicate_header_suffix: '' (default) produced a name that collided with a
+      # data field ("" + "" + 2 = "2", which was also a header).
+      # Now that empty headers get auto-named via missing_header_prefix (e.g. column_1,
+      # column_2), there is no collision and no exception is raised.
+      expect{ data }.not_to raise_exception
     end
   end
 
