@@ -127,14 +127,31 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 | PostgreSQL `COPY TO` | Backslash quote escaping, `\N` for NULL | ✅ / 🔘 | Escaping handled automatically; `\N` as nil requires `nil_values_matching`. |
 | Excel `Save As CSV` | UTF-8 BOM, RFC 4180 quoting, 1,048,576 row limit | ✅ | BOM stripped, quoting handled. Row limit is an Excel constraint — SmarterCSV will parse whatever Excel wrote. |
 | Government open data portals | Semicolons as separator, Latin-1, inconsistent quoting | ✅ / 🔘 | `col_sep: :auto` handles semicolons; specify `file_encoding:` if non-UTF-8. |
+| US Census Bureau | Very large files (millions of rows), heavily coded values | ✅ | Use `chunk_size:` for memory-efficient processing. |
+| SEC EDGAR | Pipe-delimited, UTF-8, clean format | ✅ | `col_sep: :auto` detects the pipe separator. |
+| US Treasury / USASpending.gov | Large files, many empty columns, dollar amounts as plain strings | ✅ | Works out of the box; `remove_empty_values: true` (default) drops empty columns. |
+| World Bank / IMF data exports | 4–5 preamble rows (title, source, notes) before the header | 🔘 | `skip_lines: N` to skip the preamble. N is typically 4 for World Bank, 5 for IMF. |
+| Australian ABS (Bureau of Statistics) | UTF-8 BOM, preamble metadata rows before the header | 🔘 | BOM stripped automatically; use `skip_lines: N` for the preamble. |
 | Bioinformatics (VCF-derived) | Thousands of columns (one sample per column) | ✅ | No column count limit in the parsing hot path. |
+| Stripe / Coinbase / modern fintechs | Clean UTF-8 CSV, ISO 8601 dates, no BOM | ✅ | No special configuration needed. |
 | Apple iTunes DB export† | CTRL-A col separator, CTRL-B row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/` |
 | UNIX DB Dumps† | CTRL-A col separator, CTRL-B row separator, `#` comment lines | 🔘 | `col_sep: "\cA", row_sep: "\cB", comment_regexp: /^#/` |
 | QuickBooks exports | Windows-1252 encoding, currency-formatted values | 🔘 | Specify `file_encoding: 'windows-1252'`. Currency values like `"$1,234.56"` stay as strings. |
 | Shopify / WooCommerce | Pipe-delimited values within a field (`tag1\|tag2\|tag3`) | 🔘 | Use `value_converters` to split on `\|` for the relevant column. |
 | Qualtrics / SurveyMonkey | 200–800 columns, multi-row headers, HTML in values | 🔘 | Multi-row headers require pre-processing; HTML in values left as-is (use value_converters to strip). |
+| Bank statement exports (Chase, Wells Fargo, Barclays, …) | Metadata preamble rows before the header (account number, date range, institution name) | 🔘 | Use `skip_lines: N` to skip the preamble. N varies by bank and may change with format updates. |
+| Accounting negative notation | `(1,234.56)` instead of `-1234.56` — used by QuickBooks, Xero, SAP, and most bank exports | 🔘 | Use a `value_converters` lambda: `->(v) { v&.match?(/\A\(.*\)\z/) ? -v.gsub(/[(),]/, '').to_f : v }` |
+| PayPal transaction exports | Preamble rows, mixed currency/amount columns, locale-specific date format | 🔘 | Use `skip_lines:` for preamble; use `value_converters` for dates and signed amounts. |
+| Bloomberg / Refinitiv terminal exports | `\|` separator, `N.A.` for nulls, proprietary date formats | 🔘 | `col_sep: "\|"`, `nil_values_matching: /\AN\.A\.\z/`, `value_converters` for dates. |
 | Gzipped CSV (`.csv.gz`) | Compressed file | 🔘 | Decompress and pass the resulting IO object: `SmarterCSV.process(Zlib::GzipReader.open(path))`. |
 | HTTP streaming | Parsing from a live HTTP response | 🔘 | Pass any IO-compatible object that responds to `#gets`. |
+| Trailer / summary rows | Totals or summary row at end of file (common in bank and accounting exports) | ❌ | No built-in support. Pre-process CSV to remove trailer, or filter out post-parse: `rows.reject { \|r\| r[:date].nil? }` or similar sentinel check. |
+| HL7 / FHIR flattened exports | Very wide files (100+ columns), many empty fields, cryptic column names (`component_0_valueQuantity_value`) | ✅ | Parses fine. `remove_empty_values: true` (default) drops empty fields automatically. |
+| Epic / Cerner EHR exports | Windows-1252 encoding, locale-specific date formats | 🔘 | `file_encoding: 'windows-1252'`; use `value_converters` for date columns. |
+| Lab instrument exports (Roche, Abbott, Siemens) | Semicolon separator (European instruments), preamble rows with instrument metadata | 🔘 | `col_sep: :auto` detects the separator; `skip_lines: N` for the preamble. |
+| REDCap (clinical trial data) | Two-row header: first row = field names, second row = field labels — second row lands as first data row | ❌ | Drop the label row post-parse: `rows.drop(1)`, or pre-process the file to remove it. |
+| DICOM-SR flattened to CSV | Nested structured report data squashed into column names | ✅ | Parses fine. Data model is messy but no special configuration needed. |
+| FDA adverse event / MedWatch exports | Pipe-delimited, `null` literal strings, long free-text fields with embedded newlines | 🔘 | `col_sep: "\|"`, `nil_values_matching: /\Anull\z/i`; embedded newlines handled automatically. |
 
 †: Legacy Apple DB Dump and older UNIX data dumps:
 
