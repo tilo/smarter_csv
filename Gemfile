@@ -8,6 +8,7 @@ gemspec
 gem "rake"
 gem "rake-compiler"
 
+gem "awesome_print"
 gem 'pry'
 gem "rubocop"
 

@@ -13,12 +13,12 @@
 
   For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines. The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
 
-  The interface is intentionally designed to robustly handle messy real-world CSV while keeping application code clean. Developers can easily map headers, skip unwanted rows, quarantine problematic data, and transform values on the fly without building custom post-processing pipelines.
+  The interface is intentionally designed to robustly handle messy real-world CSV while keeping application code clean. Developers can easily map headers, skip unwanted rows, quarantine problematic data, and transform values on the fly without building custom post-processing pipelines. See [Real-World CSV Files](docs/real_world_csv.md) for a comprehensive guide to production CSV patterns.
 
   When exporting data, SmarterCSV converts arrays of hashes back into properly formatted CSV, maintaining the same focus on convenience and correctness.
 
 **User Testimonial:**
-  > “Best gem for CSV for us yet. […] taking an import process from 7+ hours to about 3 minutes. […] SmarterCSV was a big part and helped clean up our code A LOT.”
+  > "Best gem for CSV for us yet. […] taking an import process from 7+ hours to about 3 minutes. […] SmarterCSV was a big part and helped clean up our code A LOT."
 
 ## Performance
 
@@ -55,7 +55,11 @@ rows = CSV.table('data.csv').map(&:to_h)
 rows = SmarterCSV.process('data.csv')
 ```
 
-`SmarterCSV.parse(string)` works like `CSV.parse(string, headers: true, header_converters: :symbol)` — with numeric conversion included by default.
+`SmarterCSV.parse(string)` works like `CSV.parse(string, headers: true, header_converters: :symbol)` — with numeric conversion included by default:
+
+```ruby
+data = SmarterCSV.parse(csv_string)
+```
 
 See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
 
@@ -87,6 +91,17 @@ Notice how SmarterCSV automatically (all defaults):
 - Removes empty values → `remove_empty_values: true`
 - Preserves Unicode and emoji characters
 
+### Value Transformation Pipeline
+
+After each row is parsed, SmarterCSV applies a transformation pipeline to field values:
+
+```
+strip_whitespace → nil_values_matching → remove_empty_values → remove_zero_values
+    → convert_values_to_numeric → value_converters → remove_empty_hashes
+```
+
+Each step is individually configurable. See [Data Transformations](docs/data_transformations.md) and [Value Converters](docs/value_converters.md) for details.
+
 ### Batch Processing:
 
 Processing large CSV files in chunks minimizes memory usage and enables powerful workflows:
@@ -106,11 +121,46 @@ end
 
 # Parallel processing with Sidekiq
 SmarterCSV.process(filename, chunk_size: 100) do |chunk|
-  MyWorker.perform_async(chunk)  # each chunk processed in parallel
+  Sidekiq::Client.push_bulk('class' => MyWorker, 'args' => chunk) # each chunk processed in parallel
 end
 ```
 
-See [Examples](docs/examples.md), [Batch Processing](docs/batch_processing.md), and [Configuration Options](docs/options.md) for more.
+### Modern Enumerator API:
+
+`Reader#each` is the modern, idiomatic way to process rows — `Reader` includes `Enumerable`, so all standard Ruby methods work:
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', options)
+reader.each { |hash| MyModel.upsert(hash) }
+
+# Enumerable methods
+active = reader.select { |h| h[:status] == 'active' }
+names  = reader.map    { |h| h[:name] }
+
+# Lazy — stop early without reading the whole file
+first_ten = reader.lazy.select { |h| h[:active] }.first(10)
+
+# Manual batching without chunk_size
+reader.each_slice(500) { |batch| MyModel.insert_all(batch) }
+```
+
+### Bad Row Handling:
+
+SmarterCSV can quarantine malformed rows instead of crashing the entire import:
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
+good_rows = reader.process
+
+puts "#{good_rows.size} imported, #{reader.errors[:bad_rows].size} bad rows"
+reader.errors[:bad_rows].each do |rec|
+  puts "Line #{rec[:file_line_number]}: #{rec[:error_message]}"
+end
+```
+
+See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details including `bad_row_limit` and `field_size_limit`.
+
+See [13 Examples](docs/examples.md) for more, including value converters, header validation, writing CSV, encoding handling, and resumable Rails ActiveJob imports.
 
 ## Requirements
 
@@ -119,7 +169,7 @@ See [Examples](docs/examples.md), [Batch Processing](docs/batch_processing.md), 
 **C Extension:** SmarterCSV includes a native C extension for accelerated CSV parsing.
 The C extension is automatically compiled on MRI Ruby. For JRuby and TruffleRuby, SmarterCSV falls back to a pure Ruby implementation.
 
-# Installation
+## Installation
 
 Add this line to your application's Gemfile:
 ```ruby
@@ -134,22 +184,28 @@ Or install it yourself as:
     $ gem install smarter_csv
 ```
 
-# Documentation
+## Documentation
 
   * [Introduction](docs/_introduction.md)
   * [**Migrating from Ruby CSV**](docs/migrating_from_csv.md)
   * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)
-  * [Batch Processing](./docs/batch_processing.md)
+  * [Batch Processing](docs/batch_processing.md)
   * [Configuration Options](docs/options.md)
   * [Row and Column Separators](docs/row_col_sep.md)
   * [Header Transformations](docs/header_transformations.md)
   * [Header Validations](docs/header_validations.md)
+  * [Column Selection](docs/column_selection.md)
   * [Data Transformations](docs/data_transformations.md)
   * [Value Converters](docs/value_converters.md)
-    
-# Articles
+  * [Bad Row Quarantine](docs/bad_row_quarantine.md)
+  * [Instrumentation Hooks](docs/instrumentation.md)
+  * [Examples](docs/examples.md)
+  * [Real-World CSV Files](docs/real_world_csv.md)
+  * [SmarterCSV over the Years](docs/history.md)
+
+## Articles
   * [Parsing CSV Files in Ruby with SmarterCSV](https://tilo-sloboda.medium.com/parsing-csv-files-in-ruby-with-smartercsv-6ce66fb6cf38)
   * [CSV Writing with SmarterCSV](https://tilo-sloboda.medium.com/csv-writing-with-smartercsv-26136d47ad0c)
   * [Processing 1.4 Million CSV Records in Ruby, fast ](https://lcx.wien/blog/processing-14-million-csv-records-in-ruby/)
@@ -160,7 +216,7 @@ Or install it yourself as:
 
 # [ChangeLog](./CHANGELOG.md)
 
-# Reporting Bugs / Feature Requests
+## Reporting Bugs / Feature Requests
 
 Please [open an Issue on GitHub](https://github.com/tilo/smarter_csv/issues) if you have feedback, new feature requests, or want to report a bug. Thank you!
 
@@ -172,7 +228,7 @@ For reporting issues, please:
 # [A Special Thanks to all 61 Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
 
 
-# Contributing
+## Contributing
 
 1. Fork it
 2. Create your feature branch (`git checkout -b my-new-feature`)
