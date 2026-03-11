@@ -9,7 +9,12 @@
 
 ### Performance Improvements
 
- * 1.16.0 is **1.1×–2.3× faster** than 1.15.2 (Apple M1, Ruby 3.4.7, C-accelerated, 14/16 benchmark files); no regressions.
+  * **2x to 8x faster** than Ruby `CVS.read` 3.3.5 (which only tokenizes and returns raw arrays; no post-processing)
+  * **up to 127x faster** than Ruby `CSV.table` 3.3.5 (+creating hashes from output; no post-processing)
+  * **up to 2.4× faster** than 1.15.2 (15/19 benchmark files faster)
+  * **9× to 64× faster** than 1.14.4
+
+Measured on 19 benchmark files on Apple M1, Ruby 3.4.7
 
 ### Other Changes
 
@@ -82,6 +87,7 @@ New options for writing CSV:
 
 ### Bug Fixes
 
+ * **Empty headers bug** ([issue #324](https://github.com/tilo/smarter_csv/issues/324), thanks to [@tophe](https://github.com/tophe)): CSV files with empty or whitespace-only header fields (e.g. `name,,`) now auto-generate column names using `missing_header_prefix` (default: `column_1`, `column_2`, …).
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
  * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows
  * **Writer temp file properly cleaned up** — `Tempfile#close!` now used instead of `Tempfile#delete`
