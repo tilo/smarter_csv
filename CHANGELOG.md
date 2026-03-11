@@ -87,7 +87,7 @@ New options for writing CSV:
 
 ### Bug Fixes
 
- * **Empty headers bug** ([issue #324](https://github.com/tilo/smarter_csv/issues/324), thanks to [@tophe](https://github.com/tophe)): CSV files with empty or whitespace-only header fields (e.g. `name,,`) now auto-generate column names using `missing_header_prefix` (default: `column_1`, `column_2`, …).
+ * **Empty headers bug fixed** ([issue #324](https://github.com/tilo/smarter_csv/issues/324) thanks to [@tophe](https://github.com/tophe), [issue #312](https://github.com/tilo/smarter_csv/issues/312) thanks to [@biglebronski](https://github.com/biglebronski)): CSV files with empty or whitespace-only header fields (e.g. `name,,`) now auto-generate column names using `missing_header_prefix` (default: `column_1`, `column_2`, …).
  * **`SmarterCSV.generate` raises `ArgumentError` (not a blank `RuntimeError`) when called without a block**
  * **Writer temp file no longer hardcoded to `/tmp`** — fixes `Errno::ENOENT` on Windows
  * **Writer temp file properly cleaned up** — `Tempfile#close!` now used instead of `Tempfile#delete`
