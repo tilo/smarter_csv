@@ -141,6 +141,16 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | `:with_line_numbers` | `false` | Add `:csv_line_number` to each result hash. |
 | `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. |
 
+### Instrumentation Hooks
+
+See [Instrumentation Hooks](./instrumentation.md) for full details and payload reference.
+
+| Option | Default | Explanation |
+|--------|---------|-------------|
+| `:on_start` | `nil` | Callable invoked once before the first row is parsed. Receives a payload hash with `:input`, `:file_size`, `:col_sep`, `:row_sep`. |
+| `:on_chunk` | `nil` | Callable invoked after each chunk is parsed (only when `chunk_size` is set). Receives `:chunk_number`, `:rows_in_chunk`, `:total_rows_so_far`. |
+| `:on_complete` | `nil` | Callable invoked once after the entire file is exhausted. Receives `:total_rows`, `:total_chunks`, `:duration`, `:bad_rows`. |
+
 ### Performance
 
 | Option | Default | Explanation |

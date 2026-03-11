@@ -58,7 +58,4 @@ The CSV processing also needed to be robust against variations in the input data
   You can validate that a set of hash keys is present in each record after header transformations are applied.
   This can help ensure importing data with consistent quality.
 
-* Data Validations
-  (planned feature)
-
 ---------------

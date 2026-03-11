@@ -29,7 +29,7 @@ Let's explore the basic APIs for reading and writing CSV files. There is a simpl
 ## Reading CSV
 
 SmarterCSV has convenient defaults for automatically detecting row and column separators based on the given data. This provides more robust parsing of input files when you have no control over the data, e.g. when users upload CSV files.
-Learn more about this [in this section](docs/examples/row_col_sep.md).
+Learn more about this [in this section](./row_col_sep.md).
 
 ### Simplified Interface
 
@@ -182,6 +182,27 @@ reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
 reader.each { |hash| MyModel.upsert(hash) }
 reader.errors[:bad_rows].each { |rec| puts "Bad row: #{rec[:error_message]}" }
 ```
+
+---
+
+## Value Transformation Pipeline
+
+After each row is parsed, SmarterCSV applies transformations to field values in this order:
+
+| Step | Option | Default | Description |
+|------|--------|---------|-------------|
+| 1 | `strip_whitespace` | `true` | Strips leading/trailing whitespace from all values (and headers) at parse time |
+| 2 | `nil_values_matching` | `nil` | Sets values matching the regexp to `nil` |
+| 3 | `remove_empty_values` | `true` | Removes keys whose value is `nil` or blank |
+| 4 | `remove_zero_values` | `false` | Removes keys whose value is numeric zero |
+| 5 | `convert_values_to_numeric` | `true` | Converts numeric-looking strings to `Integer` or `Float` |
+| 6 | `value_converters` | `nil` | Applies per-key custom converter lambdas or classes |
+| 7 | `remove_empty_hashes` | `true` | Drops rows that are entirely empty after all transformations |
+
+> Steps 2–6 run per field, in that order, for every key/value pair in the row.
+> `value_converters` receive the value **after** numeric conversion — guard against `Integer`/`Float` input if needed.
+
+See [Data Transformations](./data_transformations.md) and [Value Converters](./value_converters.md) for details.
 
 ---
 
