@@ -45,10 +45,14 @@ RSpec tests: **714 → 1,247** (+533 tests)
 
 ### Net Benchmark Result (C-accelerated, Apple M1, Ruby 3.4.7)
 
-- **2×–8× faster than Ruby `CSV.read`** (which only tokenizes and returns raw arrays; no post-processing)
-- **7×–129× faster than `CSV.table`** (nearest equivalent output — symbol keys + numeric conversion)
-- **9×–65× faster than SmarterCSV 1.14.4** across all 19 benchmark files
-- **up to 2.4× faster than 1.15.2** (15/19 benchmark files faster)
+- **2×–8× faster than Ruby `CSV.read`†**
+- **7×–129× faster than `CSV.table`‡**
+- **9×–65× faster than SmarterCSV 1.14.4**
+- **up to 2.4× faster than SmarterCSV 1.15.2**
+
+† CSV.read returns raw arrays of arrays — hash construction, key normalization, and type conversion still need to happen, understating the real cost difference.
+
+‡ CSV.table is the closest Ruby equivalent to SmarterCSV — both return symbol-keyed hashes.
 
 See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md).
 
