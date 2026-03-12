@@ -218,6 +218,7 @@ Or install it yourself as:
   * [Examples](docs/examples.md)
   * [Real-World CSV Files](docs/real_world_csv.md)
   * [SmarterCSV over the Years](docs/history.md)
+  * [Release Notes](docs/releases/1.16.0/changes.md)
 
 ## Articles
   * [Parsing CSV Files in Ruby with SmarterCSV](https://tilo-sloboda.medium.com/parsing-csv-files-in-ruby-with-smartercsv-6ce66fb6cf38)

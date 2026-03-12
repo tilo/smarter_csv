@@ -19,6 +19,7 @@
   * [**Real-World CSV Files**](./real_world_csv.md)
   * [Examples](./examples.md)
   * [SmarterCSV over the Years](./history.md)
+  * [Release Notes](./releases/1.16.0/changes.md)
 
 ---
 

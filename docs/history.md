@@ -19,6 +19,7 @@
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
   * [**SmarterCSV over the Years**](./history.md)
+  * [Release Notes](./releases/1.16.0/changes.md)
 
 --------------
 
@@ -86,6 +87,10 @@ All times are **C-accelerated** except the `1.6.1` column (no C extension existe
 | embedded_separators_20k.csv |   20k |     5 |        0.714 |       0.333 |        0.301 |        0.036 |        0.024 |  **29.8x** |
 
 `total gain` = v1.6.1 Ruby time / v1.16.0 C-accelerated time
+
+--------------
+
+PREVIOUS: [Examples](./examples.md) | NEXT: [Release Notes](./releases/1.16.0/changes.md) | UP: [README](../README.md)
 
 **Highlights:**
 - `long_fields_20k` (long quoted fields): **118.7x** — the field-scanning optimisations (`memchr` in C, `String#index` skip-ahead in Ruby) make long quoted fields essentially free to skip.
