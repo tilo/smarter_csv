@@ -188,3 +188,5 @@ reader.errors[:bad_rows].each { |rec| puts "Line #{rec[:csv_line_number]}: #{rec
 See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 
 ----------------
+
+PREVIOUS: [The Basic Write API](./basic_write_api.md) | NEXT: [Configuration Options](./options.md) | UP: [README](../README.md)

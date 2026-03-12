@@ -157,3 +157,5 @@ Both options apply simultaneously. `quote_boundary` governs *where* a quote is r
 | `:legacy` | `:auto` | Old toggle behavior + auto-detect escaping style |
 
 --------------
+
+PREVIOUS: [Migrating from Ruby CSV](./migrating_from_csv.md) | NEXT: [The Basic Read API](./basic_read_api.md) | UP: [README](../README.md)

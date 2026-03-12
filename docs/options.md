@@ -173,3 +173,5 @@ These options are still accepted but emit a deprecation warning. They will be re
 | `verbose: false` | — | Use `verbose: :normal` (or omit — it is the default) instead. |
 
 -------------
+
+PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md) | UP: [README](../README.md)

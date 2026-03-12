@@ -572,3 +572,5 @@ end
 Check out the [RSpec tests](../spec/smarter_csv/writer_spec.rb) for more examples.
 
 ----------------
+
+PREVIOUS: [The Basic Read API](./basic_read_api.md) | NEXT: [Batch Processing](./batch_processing.md) | UP: [README](../README.md)

@@ -217,3 +217,5 @@ with Rails' I18n locale configuration. For natural-language date strings, consid
 [`chronic`](https://github.com/mojombo/chronic).
 
 --------------------
+
+PREVIOUS: [Data Transformations](./data_transformations.md) | NEXT: [Bad Row Quarantine](./bad_row_quarantine.md) | UP: [README](../README.md)

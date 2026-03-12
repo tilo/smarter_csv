@@ -369,4 +369,4 @@ SmarterCSV.process('large_import.csv',
 See [Instrumentation Hooks](./instrumentation.md).
 
 --------------------
-PREVIOUS: [Real-World CSV Files](./real_world_csv.md) | NEXT: [SmarterCSV over the Years](./history.md) | UP: [README](../README.md)
+PREVIOUS: [Instrumentation Hooks](./instrumentation.md) | NEXT: [Real-World CSV Files](./real_world_csv.md) | UP: [README](../README.md)

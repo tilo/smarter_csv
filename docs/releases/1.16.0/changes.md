@@ -226,3 +226,7 @@ See [Instrumentation Hooks](../../instrumentation.md).
   Enumerable methods on `Reader#each` results.
 - **`DEFAULT_CHUNK_SIZE = 100`**: Constant added; warning emitted when `each_chunk` is called
   without explicit `chunk_size`.
+
+---
+
+PREVIOUS: [SmarterCSV over the Years](../../history.md) | UP: [README](../../../README.md)

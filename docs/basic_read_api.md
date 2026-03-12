@@ -267,3 +267,5 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 ```
 
 ----------------
+
+PREVIOUS: [Parsing Strategy](./parsing_strategy.md) | NEXT: [The Basic Write API](./basic_write_api.md) | UP: [README](../README.md)

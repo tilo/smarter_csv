@@ -33,6 +33,22 @@ hashes with symbol keys, automatic type conversion, and a much richer feature se
 
 ---
 
+## Performance
+
+| Comparison | Range |
+|---|---|
+| SmarterCSV vs `CSV.read` †  | **1.7×–8.6× faster** |
+| SmarterCSV vs `CSV.table` ‡ | **7×–129× faster** |
+
+_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
+
+_† `CSV.read` returns raw arrays of arrays — hash construction, key normalization, and type conversion still need to happen, understating the real cost difference._
+
+_‡ `CSV.table` is the closest Ruby equivalent to SmarterCSV — both return symbol-keyed hashes._
+
+---
+
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Parsing Strategy](./parsing_strategy.md) | UP: [README](../README.md)
 ## The one-line switch
 
 ```ruby
@@ -269,21 +285,6 @@ send_data io.string, type: 'text/csv'
 | `skip_blanks: true` | `remove_empty_hashes: true` | Default in SmarterCSV. |
 | `row.to_h` | `row` | Already a plain Hash — no conversion needed. |
 | `row.headers` | `reader.headers` | Available on the `Reader` instance. |
-
----
-
-## Performance
-
-| Comparison | Range |
-|---|---|
-| SmarterCSV vs `CSV.read` †  | **1.7×–8.6× faster** |
-| SmarterCSV vs `CSV.table` ‡ | **7×–129× faster** |
-
-_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
-
-_† `CSV.read` returns raw arrays of arrays — hash construction, key normalization, and type conversion still need to happen, understating the real cost difference._
-
-_‡ `CSV.table` is the closest Ruby equivalent to SmarterCSV — both return symbol-keyed hashes._
 
 ---
 

@@ -259,4 +259,4 @@ SmarterCSV.process(URI.open('https://example.com/data.csv'))
 ```
 
 --------------------
-PREVIOUS: [Instrumentation Hooks](./instrumentation.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)
+PREVIOUS: [Examples](./examples.md) | NEXT: [SmarterCSV over the Years](./history.md) | UP: [README](../README.md)

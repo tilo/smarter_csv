@@ -70,3 +70,5 @@ SmarterCSV was created to solve exactly these problems: nightly imports of large
   `SmarterCSV.generate` writes arrays of hashes to CSV, with support for header renaming and value converters on output. See [The Basic Write API](./basic_write_api.md).
 
 ---------------
+
+NEXT: [Migrating from Ruby CSV](./migrating_from_csv.md) | UP: [README](../README.md)

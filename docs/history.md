@@ -90,7 +90,7 @@ All times are **C-accelerated** except the `1.6.1` column (no C extension existe
 
 --------------
 
-PREVIOUS: [Examples](./examples.md) | NEXT: [Release Notes](./releases/1.16.0/changes.md) | UP: [README](../README.md)
+PREVIOUS: [Real-World CSV Files](./real_world_csv.md) | NEXT: [Release Notes](./releases/1.16.0/changes.md) | UP: [README](../README.md)
 
 **Highlights:**
 - `long_fields_20k` (long quoted fields): **118.7x** — the field-scanning optimisations (`memchr` in C, `String#index` skip-ahead in Ruby) make long quoted fields essentially free to skip.

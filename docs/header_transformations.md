@@ -165,4 +165,4 @@ For CSV files with headers, you can either:
  * some CSV files use un-escaped quotation characters inside fields. This can cause the import to break. To get around this, set the `quote_char` to something different, e.g. `quote_char: "%"`, or try setting `:strip_chars_from_headers => /[\-"]/` 
 
 ---------------
-PREVIOUS: [Row and Column Separators](./row_col_sep.md) | NEXT: [Header Validations](./header_validations.md)
+PREVIOUS: [Row and Column Separators](./row_col_sep.md) | NEXT: [Header Validations](./header_validations.md) | UP: [README](../README.md)
