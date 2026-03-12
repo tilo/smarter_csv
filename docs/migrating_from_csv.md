@@ -48,7 +48,6 @@ _‡ `CSV.table` is the closest Ruby equivalent to SmarterCSV — both return sy
 
 ---
 
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Parsing Strategy](./parsing_strategy.md) | UP: [README](../README.md)
 ## The one-line switch
 
 ```ruby
@@ -287,4 +286,5 @@ send_data io.string, type: 'text/csv'
 | `row.headers` | `reader.headers` | Available on the `Reader` instance. |
 
 ---
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Parsing Strategy](./parsing_strategy.md) | UP: [README](../README.md)
 
