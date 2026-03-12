@@ -26,8 +26,8 @@
 # Migrating from Ruby CSV
 
 Already using Ruby's built-in `CSV` library? Switching to SmarterCSV is typically a one- or
-two-line change — and you get **6× to 119× faster parsing**, plain Ruby hashes with symbol
-keys, automatic type conversion, and a much richer feature set in return.
+two-line change — and you get **1.7×–8.6× faster** end-to-end throughput vs `CSV.read`, plain Ruby
+hashes with symbol keys, automatic type conversion, and a much richer feature set in return.
 
 > **Medium article:** *"Switch from Ruby CSV to SmarterCSV in 5 Minutes"* — *(coming soon)*
 
@@ -39,7 +39,7 @@ keys, automatic type conversion, and a much richer feature set in return.
 # Before — Ruby CSV
 rows = CSV.table('data.csv').map(&:to_h)   # array of hashes with symbol keys
 
-# After — SmarterCSV (drop-in, up to 119× faster)
+# After — SmarterCSV (drop-in, up to 129× faster)
 rows = SmarterCSV.process('data.csv')      # array of hashes with symbol keys
 ```
 
@@ -278,10 +278,10 @@ For a fair comparison, `CSV.table` is the closest Ruby equivalent (both return s
 
 | Comparison | Range |
 |---|---|
-| SmarterCSV vs `CSV.table` | **6× to 119× faster** |
-| SmarterCSV vs `CSV.read`  | **1.8× to 7.5× faster** |
+| SmarterCSV vs `CSV.read`  | **1.7×–8.6× faster** |
+| SmarterCSV vs `CSV.table` | **7×–129× faster** |
 
-_Benchmarks: 16 CSV files (43k–80k rows), Ruby 3.4.7, Apple M1._
+_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
 
 ---
 

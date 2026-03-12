@@ -30,15 +30,16 @@ For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to Smarter
 
 | Comparison (SmarterCSV 1.16.0, C-accelerated)  | Range                   |
 |-------------------------------------------------|-------------------------|
-| vs SmarterCSV 1.14.4 (with C acceleration)      | 9.4× to 63.6× faster   |
-| vs SmarterCSV 1.14.4 (Ruby path)                | 1.7× to 10.6× faster   |
-| vs CSV.read  (arrays of arrays)                 | 1.8× to 7.5× faster    |
-| vs CSV.table (arrays of hashes)                 | 6.4× to 118.7× faster  |
-| vs ZSV (arrays of hashes, equiv. output)        | 1.1× to 6.6× faster †  |
+| vs SmarterCSV 1.15.2 (with C acceleration)      | up to 2.4× faster       |
+| vs SmarterCSV 1.14.4 (with C acceleration)      | 9×–65× faster           |
+| vs SmarterCSV 1.14.4 (Ruby path)                | 1.7×–10.6× faster       |
+| vs CSV.read  (arrays of arrays)                 | 1.7×–8.6× faster        |
+| vs CSV.table (arrays of hashes)                 | 7×–129× faster          |
+| vs ZSV (arrays of hashes, equiv. output)        | 1.1×–6.6× faster †      |
 
 † SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output.
 
-_Benchmarks: 16 CSV files (43k–80k rows), Ruby 3.4.7, Apple M1. Memory: 39% less allocated, 43% fewer objects._
+_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
 
 ![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
 
@@ -53,7 +54,7 @@ It's a one-line change:
 # Before
 rows = CSV.table('data.csv').map(&:to_h)
 
-# After — up to 119× faster, same symbol keys
+# After — up to 129× faster, same symbol keys
 rows = SmarterCSV.process('data.csv')
 ```
 

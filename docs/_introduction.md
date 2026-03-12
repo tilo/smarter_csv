@@ -29,7 +29,7 @@
 
 ## Why another CSV library?
 
-Ruby's built-in `csv` library is **slow** — up to 119× slower than SmarterCSV for equivalent work — and its API is inconvenient. It returns arrays of arrays, which means your application code must handle column indexing, header normalization, type conversion, and whitespace stripping manually. It also has no built-in support for chunked or parallel processing of large files.
+Ruby's built-in `csv` library is **slow** — up to 129× slower than SmarterCSV for equivalent work — and its API is inconvenient. It returns arrays of arrays, which means your application code must handle column indexing, header normalization, type conversion, and whitespace stripping manually. It also has no built-in support for chunked or parallel processing of large files.
 
 ![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](../images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
 
@@ -38,7 +38,7 @@ SmarterCSV was created to solve exactly these problems: nightly imports of large
 ## Benefits of using SmarterCSV
 
 * **Performance:**
-  SmarterCSV's C extension accelerates the full ingestion pipeline — parsing, hash construction, and value conversions — not just tokenization. Real-world benchmarks against `CSV.table` (the closest equivalent) show 6×–119× faster end-to-end throughput, with 39% less memory allocated and 43% fewer objects created.
+  SmarterCSV's C extension accelerates the full ingestion pipeline — parsing, hash construction, and value conversions — not just tokenization. Real-world benchmarks against `CSV.table` (the closest equivalent) show 7×–129× faster end-to-end throughput.
 
 * **Rails-ready output:**
   Each CSV row is returned as a Ruby hash with symbol keys, numeric conversion, and whitespace stripping applied automatically. No post-processing boilerplate needed — records can be passed directly to `ActiveRecord`, `insert_all`, Sidekiq, message queues, or JSON serializers.

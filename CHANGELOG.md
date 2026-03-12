@@ -11,7 +11,7 @@
 
 ### Performance
 
- * **2×–8× faster** than Ruby `CSV.read` (raw tokenization only; no post-processing)
+ * **1.7×–8.6× faster** than Ruby `CSV.read` (raw tokenization only; no post-processing)
  * **7×–129× faster** than Ruby `CSV.table` (nearest equivalent output)
  * **up to 2.4× faster** than 1.15.2 (15/19 benchmark files faster)
  * **9×–65× faster** than 1.14.4
