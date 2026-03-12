@@ -274,14 +274,16 @@ send_data io.string, type: 'text/csv'
 
 ## Performance
 
-For a fair comparison, `CSV.table` is the closest Ruby equivalent (both return symbol-keyed hashes):
-
 | Comparison | Range |
 |---|---|
-| SmarterCSV vs `CSV.read`  | **1.7×–8.6× faster** |
-| SmarterCSV vs `CSV.table` | **7×–129× faster** |
+| SmarterCSV vs `CSV.read` †  | **1.7×–8.6× faster** |
+| SmarterCSV vs `CSV.table` ‡ | **7×–129× faster** |
 
 _Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
+
+_† `CSV.read` returns raw arrays of arrays — hash construction, key normalization, and type conversion still need to happen, understating the real cost difference._
+
+_‡ `CSV.table` is the closest Ruby equivalent to SmarterCSV — both return symbol-keyed hashes._
 
 ---
 
