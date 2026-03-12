@@ -25,7 +25,7 @@
 
 # SmarterCSV 1.16.0 — Changes
 
-RSpec tests: **714 → 1,232** (+518 tests)
+RSpec tests: **714 → 1,247** (+533 tests)
 
 ---
 
@@ -33,13 +33,24 @@ RSpec tests: **714 → 1,232** (+518 tests)
 
 * **New option `quote_boundary:` defaults to `:standard`**: quotes are now only recognized
   as field delimiters at field boundaries; mid-field quotes are treated as literal characters.
-  This slightly changes parsing behavior for CSV data and brings it on par with other CSV
-  libraries. Use `quote_boundary: :legacy` only in exceptional cases to restore previous
-  behavior. See [Parsing Strategy](../../parsing_strategy.md).
+
+  This should not cause problems, but is a slightly change in parsing behavior for CSV data
+  and brings it on par with other CSV libraries.
+
+  Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
 
 ---
 
 ## Performance Improvements
+
+### Net Benchmark Result (C-accelerated, Apple M1, Ruby 3.4.7)
+
+- **2×–8× faster than Ruby `CSV.read`** (which only tokenizes and returns raw arrays; no post-processing)
+- **7×–129× faster than `CSV.table`** (nearest equivalent output — symbol keys + numeric conversion)
+- **9×–65× faster than SmarterCSV 1.14.4** across all 19 benchmark files
+- **up to 2.4× faster than 1.15.2** (15/19 benchmark files faster)
+
+See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md).
 
 ### C Extension
 
@@ -95,15 +106,6 @@ RSpec tests: **714 → 1,232** (+518 tests)
   option-hash lookups replaced by cheap ivar reads.
 - **Multiline gate optimization**: `detect_multiline_strict` used as a cheap gate in the
   stitch loop; avoids N-2 full re-parses per multiline row in the Ruby path.
-
-### Net Benchmark Result (C-accelerated, Apple M1, Ruby 3.4.7)
-
-- **2×–8× faster than Ruby `CSV.read`** (which only tokenizes and returns raw arrays; no post-processing)
-- **7×–129× faster than `CSV.table`** (nearest equivalent output — symbol keys + numeric conversion)
-- **9×–65× faster than SmarterCSV 1.14.4** across all 19 benchmark files
-- **up to 2.4× faster than 1.15.2** (15/19 benchmark files faster)
-
-See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md).
 
 ---
 
@@ -163,14 +165,14 @@ See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.
 - **`verbose: :quiet / :normal / :debug`**: Symbol-based verbosity levels. `:quiet` suppresses
   all output; `:normal` (default) shows behavioral warnings; `:debug` adds computed options and
   per-row diagnostics to `$stderr`. Replaces deprecated `verbose: true/false`.
-- **`on_start: callable`**: Fires once before the first row with
-  `{ input:, file_size:, col_sep:, row_sep: }`.
-- **`on_chunk: callable`**: Fires after each chunk (chunked mode only) with
-  `{ chunk_number:, rows_in_chunk:, total_rows_so_far: }`.
-- **`on_complete: callable`**: Fires after the file is exhausted with
-  `{ total_rows:, total_chunks:, duration:, bad_rows: }`.
+- New Instrumentation Hooks: See [Instrumentation Hooks](../../instrumentation.md).
+  - **`on_start: callable`**: Fires once before the first row with
+    `{ input:, file_size:, col_sep:, row_sep: }`.
+  - **`on_chunk: callable`**: Fires after each chunk (chunked mode only) with
+    `{ chunk_number:, rows_in_chunk:, total_rows_so_far: }`.
+  - **`on_complete: callable`**: Fires after the file is exhausted with
+    `{ total_rows:, total_chunks:, duration:, bad_rows: }`.
 
-See [Instrumentation Hooks](../../instrumentation.md).
 
 **New exceptions:**
 
