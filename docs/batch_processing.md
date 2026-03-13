@@ -72,7 +72,7 @@ The `process` method returns the number of chunks when called with a block.
         => 2
 ```
 
-## Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
+## Example 3: ActiveRecord Bulk Insert in Chunks of 100 records with SmarterCSV:
 ```ruby
     # using chunks:
     filename = '/tmp/some.csv'
@@ -147,7 +147,7 @@ reader.each_chunk do |chunk, index|
 end
 ```
 
-## Example: MongoDB bulk insert
+## Example: ActiveRecord `insert_all` bulk insert
 
 ```ruby
 reader = SmarterCSV::Reader.new('products.csv', chunk_size: 500)
@@ -186,6 +186,53 @@ reader.errors[:bad_rows].each { |rec| puts "Line #{rec[:csv_line_number]}: #{rec
 ```
 
 See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
+
+## Example: DynamoDB batch write
+
+DynamoDB's `batch_write_item` API accepts up to **25 items per request** — making
+`chunk_size: 25` the natural fit. SmarterCSV symbol keys map directly to DynamoDB
+attribute names after a simple `transform_keys(&:to_s)` call.
+
+```ruby
+require 'aws-sdk-dynamodb'
+
+client = Aws::DynamoDB::Client.new(region: 'us-east-1')
+
+SmarterCSV::Reader.new('products.csv', chunk_size: 25).each_chunk do |chunk, _index|
+  client.batch_write_item(
+    request_items: {
+      'ProductsTable' => chunk.map do |row|
+        { put_request: { item: row.transform_keys(&:to_s) } }
+      end
+    }
+  )
+end
+```
+
+## Example: Reading a CSV from S3
+
+SmarterCSV accepts any IO-like object, so you can stream directly from S3 without
+writing a temp file:
+
+```ruby
+require 'aws-sdk-s3'
+
+s3  = Aws::S3::Client.new(region: 'us-east-1')
+obj = s3.get_object(bucket: 'my-bucket', key: 'imports/products.csv')
+
+data = SmarterCSV.process(obj.body)
+MyModel.insert_all(data)
+```
+
+For large files, combine with chunked processing:
+
+```ruby
+obj = s3.get_object(bucket: 'my-bucket', key: 'imports/big.csv')
+
+SmarterCSV::Reader.new(obj.body, chunk_size: 500).each_chunk do |chunk, _index|
+  MyModel.insert_all(chunk)
+end
+```
 
 ----------------
 

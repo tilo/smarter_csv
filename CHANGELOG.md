@@ -1,26 +1,35 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.0 (unreleased) — Breaking Changes
+## 1.16.0 (2026-03-12) — Minor Breaking Change
 
 [Full details](docs/releases/1.16.0/changes.md) · [Benchmarks](docs/releases/1.16.0/benchmarks.md) · [Performance notes](docs/releases/1.16.0/performance_notes.md)
 
-### Breaking Changes
+### Minor Breaking Change
 
- * **`quote_boundary:` defaults to `:standard`**: quotes are only recognized as field delimiters at field boundaries; mid-field quotes are literal characters. Use `quote_boundary: :legacy` to restore previous behavior. See [Parsing Strategy](docs/parsing_strategy.md).
+New option **`quote_boundary:`**
+* defaults to `:standard`**: quotes are now only recognized as field delimiters at field boundaries;
+  mid-field quotes are treated as literal characters.
+
+  This aligns SmarterCSV with RFC 4180 and other CSV libraries. In practice, mid-field quotes
+  were already producing silently corrupt output in previous versions — so most users will see
+  correct behavior improve, not regress.
+
+* Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
 
 ### Performance
 
- * **1.7×–8.6× faster** than Ruby `CSV.read` (raw tokenization only; no post-processing)
+ * **1.8×–8.6× faster** than Ruby `CSV.read` (raw tokenization only; no post-processing)
  * **7×–129× faster** than Ruby `CSV.table` (nearest equivalent output)
- * **up to 2.4× faster** than 1.15.2 (15/19 benchmark files faster)
- * **9×–65× faster** than 1.14.4
+ * **up to 2.4× faster** for accelerated path vs 1.15.2 (15/19 benchmark files faster)
+ * **up to 2× faster** for Ruby path vs 1.15.2
+ * **9×–65× faster** for accelerated path vs 1.14.4
 
 Measured on 19 benchmark files, Apple M1, Ruby 3.4.7. See [benchmarks](docs/releases/1.16.0/benchmarks.md).
 
 ### New Read API
 
- * **`SmarterCSV.parse(csv_string, options)`**: parse a CSV string directly. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
+ * **`SmarterCSV.parse(csv_string, options)`**: can now parse a CSV string directly. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
  * **`SmarterCSV.each` / `Reader#each`**: row-by-row enumerator; `Reader` now includes `Enumerable`.
  * **`SmarterCSV.each_chunk` / `Reader#each_chunk`**: chunked enumerator yielding `(Array<Hash>, chunk_index)`.
 

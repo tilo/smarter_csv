@@ -56,7 +56,7 @@ It can also be used with a block. The block always receives an array of hashes a
 
       ```
          SmarterCSV.process(file_or_input, options) do |array_of_hashes|
-           # without chunk_size, each yield conatins a one-element array (one row)
+           # without chunk_size, each yield contains a one-element array (one row)
          end
       ```
 
@@ -227,7 +227,7 @@ See [Header Transformations](./header_transformations.md) for the full step-by-s
 
 While SmarterCSV uses sensible defaults to process the most common CSV files, it will raise exceptions if it can not auto-detect `col_sep`, `row_sep`, or if it encounters other problems. Therefore please rescue from `SmarterCSV::Error`, and handle outliers according to your requirements.
 
-If you encounter unusual CSV files, please follow the tips in the Troubleshooting section below. You can use the options below to accomodate for unusual formats.
+If you encounter unusual CSV files, please follow the tips in the Troubleshooting section below. You can use the options below to accommodate for unusual formats.
 
 ## Troubleshooting
 
@@ -244,9 +244,8 @@ $ hexdump -C spec/fixtures/bom_test_feff.csv
 
 ## Assumptions / Limitations
 
-* the escape character is `\`, as on UNIX and Windows systems.
-* quote charcters around fields are balanced, e.g. valid: `"field"`, invalid: `"field\"`
-  e.g. an escaped `quote_char` does not denote the end of a field.
+* By default, quote escaping uses `:auto` mode — SmarterCSV tries backslash-escape (`\"`) first and falls back to RFC 4180 doubled-quotes (`""`). Use `quote_escaping: :double_quotes` or `:backslash` to fix the mode explicitly. See [Parsing Strategy](./parsing_strategy.md).
+* Quote characters around fields are expected to be balanced, e.g. valid: `"field"`, invalid: `"field\"`  — an escaped `quote_char` does not denote the end of a field.
 
 
 ## NOTES about File Encodings:

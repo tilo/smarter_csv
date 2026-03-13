@@ -153,6 +153,31 @@ saves very little work, so benchmark results for `headers: { except: }` are typi
   noisy column is more convenient than listing all the ones you want.
 - Avoid `headers: { except: }` as a performance tool on wide files — it provides no speed benefit.
 
+### `headers: { only: }` vs `remove_unmapped_keys:`
+
+If you are already using `key_mapping:` to rename headers, the `remove_unmapped_keys: true`
+option lets you implicitly drop everything not in the map — without listing each unwanted
+column explicitly. This is a convenient alternative to `headers: { only: }` when renaming
+and selecting go hand in hand:
+
+```ruby
+# With key_mapping + remove_unmapped_keys: convenient when renaming
+SmarterCSV.process('data.csv',
+  key_mapping:          { col_a: :name, col_b: :email },
+  remove_unmapped_keys: true,
+)
+
+# With headers: { only: }: better for pure selection — C-path early exit applies
+SmarterCSV.process('data.csv',
+  headers: { only: [:col_a, :col_b] },
+)
+```
+
+`headers: { only: }` is the faster choice for wide files since unneeded fields are skipped
+inside the C parser before any Ruby objects are created. `remove_unmapped_keys:` is a
+post-parse filter — all fields are parsed first, then the unwanted keys are deleted.
+See [Header Transformations](./header_transformations.md#key-mapping) for more details.
+
 ---
 
 PREVIOUS: [Header Validations](./header_validations.md) | NEXT: [Data Transformations](./data_transformations.md) | UP: [README](../README.md)

@@ -122,16 +122,57 @@ end
 
 ## Key Mapping
 
-The above example already illustrates how intermediate keys can be mapped into something different.
-This transfoms some of the keys in the input, but other keys are still present.
+`key_mapping:` renames CSV headers to the symbols your application expects. Any header not
+listed in the mapping is kept as-is by default.
 
-There is an additional option `remove_unmapped_keys` which can be enabled to only produce the mapped keys in the resulting hashes, and drops any other columns.
+```ruby
+# CSV headers: first_name, last_name, internal_id, created_at
+data = SmarterCSV.process('contacts.csv',
+  key_mapping: { first_name: :given_name, last_name: :family_name },
+)
+# => [{given_name: "Alice", family_name: "Smith", internal_id: 42, created_at: "2026-01-01"}, ...]
+#       ^^^ renamed                                ^^^ unmapped keys kept as-is
+```
 
- 
-### NOTES on Key Mapping:
- * keys in the header line of the file can be re-mapped to a chosen set of symbols, so the resulting Hashes can be better used internally in your application (e.g. when directly creating MongoDB entries with them)
- * if you want to completely delete a key, then map it to nil or to '', they will be automatically deleted from any result Hash
- * if you have input files with a large number of columns, and you want to ignore all columns which are not specifically mapped with :key_mapping, then use option :remove_unmapped_keys => true
+To delete a specific column, map it to `nil` — it will be removed from every row hash:
+
+```ruby
+key_mapping: { internal_id: nil, created_at: nil }   # drop these two columns
+```
+
+### `remove_unmapped_keys:` — drop everything not in the map
+
+When you have files with many columns and only care about a few, listing every unwanted
+column as `nil` is tedious. Use `remove_unmapped_keys: true` to implicitly drop any header
+that has no entry in `key_mapping:`:
+
+```ruby
+# CSV has 50 columns; you only want two of them, renamed
+data = SmarterCSV.process('contacts.csv',
+  key_mapping:          { first_name: :given_name, last_name: :family_name },
+  remove_unmapped_keys: true,
+)
+# => [{given_name: "Alice", family_name: "Smith"}, ...]   # only the two mapped columns
+```
+
+### `remove_unmapped_keys:` vs `headers: { only: }`
+
+Both achieve column selection, but they serve different purposes:
+
+| | `remove_unmapped_keys: true` | `headers: { only: [...] }` |
+|---|---|---|
+| Use when | Already using `key_mapping:` and want to implicitly drop the rest | Pure column selection, no renaming needed |
+| Performance | Post-parse filter — all fields parsed, unmapped keys deleted | **C-path early exit** — unneeded fields never parsed |
+| Renaming | Yes — combines selection and rename in one step | No renaming (use `key_mapping:` alongside if needed) |
+
+For wide files where performance matters, prefer `headers: { only: }` — it skips unneeded
+fields entirely inside the C parser and can be **10–14× faster** on very wide files.
+Use `remove_unmapped_keys: true` when you are already remapping headers and the convenience
+of a single option outweighs the (usually small) performance difference.
+
+See [Column Selection](./column_selection.md) for full details on `headers: { only: }`.
+
+> **Note:** Key mapping is particularly useful when importing CSV data directly into a database or document store. By remapping headers to the exact symbol names your application uses internally (e.g. ActiveRecord attributes, DynamoDB document keys, Sidekiq job parameters), you can pass the resulting hashes directly without any further transformation.
 
 ## CSV Files without Headers
 

@@ -29,15 +29,17 @@ RSpec tests: **714 → 1,247** (+533 tests)
 
 ---
 
-## Breaking Changes
+## Minor Breaking Change
 
-* **New option `quote_boundary:` defaults to `:standard`**: quotes are now only recognized
-  as field delimiters at field boundaries; mid-field quotes are treated as literal characters.
+New option **`quote_boundary:`**
+* defaults to `:standard`**: quotes are now only recognized as field delimiters at field boundaries;
+  mid-field quotes are treated as literal characters.
 
-  This should not cause problems, but is a slightly change in parsing behavior for CSV data
-  and brings it on par with other CSV libraries.
+  This aligns SmarterCSV with RFC 4180 and other CSV libraries. In practice, mid-field quotes
+  were already producing silently corrupt output in previous versions — so most users will see
+  correct behavior improve, not regress.
 
-  Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
+* Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
 
 ---
 
@@ -49,8 +51,9 @@ RSpec tests: **714 → 1,247** (+533 tests)
 |---|---|
 | vs Ruby `CSV.read` † | **2×–8× faster** |
 | vs Ruby `CSV.table` ‡ | **7×–129× faster** |
-| vs SmarterCSV 1.14.4 | **9×–65× faster** |
-| vs SmarterCSV 1.15.2 | **up to 2.4× faster** |
+| vs SmarterCSV 1.14.4 (C-path) | **9×–65× faster** |
+| vs SmarterCSV 1.15.2 (C-path) | **up to 2.4× faster** |
+| vs SmarterCSV 1.15.2 (Ruby-path) | **up to 2× faster** |
 
 † `CSV.read` returns raw arrays of arrays — hash construction, key normalization, and type conversion still need to happen, understating the real cost difference.
 
