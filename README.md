@@ -43,6 +43,8 @@ _Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
 
 ![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
 
+![SmarterCSV 1.16.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.16.0_vs_previous_C-speedup.svg)
+
 See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
 
 

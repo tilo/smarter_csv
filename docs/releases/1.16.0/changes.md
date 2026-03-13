@@ -59,6 +59,10 @@ New option **`quote_boundary:`**
 
 ‡ `CSV.table` is the closest Ruby equivalent to SmarterCSV — both return symbol-keyed hashes.
 
+![SmarterCSV 1.16.0 vs previous versions — C-accelerated path](../../../images/SmarterCSV_1.16.0_vs_previous_C-speedup.svg)
+
+![SmarterCSV 1.16.0 vs previous versions — Ruby path](../../../images/SmarterCSV_1.16.0_vs_previous_Rb-speedup.svg)
+
 See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md).
 
 ### C Extension
