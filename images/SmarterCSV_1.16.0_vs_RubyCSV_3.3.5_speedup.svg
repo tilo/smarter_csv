@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="764" height="632"
      font-family="ui-monospace, 'Cascadia Code', 'Courier New', monospace" font-size="12">
 <rect width="764" height="632" fill="#ffffff"/>
-<text x="382" y="20" text-anchor="middle" font-size="14" font-weight="bold" fill="#212121">SmarterCSV 1.16.0.dev10 vs Ruby CSV.read 3.3.5</text>
+<text x="382" y="20" text-anchor="middle" font-size="14" font-weight="bold" fill="#212121">SmarterCSV 1.16.0 vs Ruby CSV.read 3.3.5</text>
 <text x="382" y="36" text-anchor="middle" font-size="10" fill="#9e9e9e">Speedup = CSV.read time ÷ SmarterCSV time  (higher = SmarterCSV is faster) · Ruby 3.4.7 · best of 30</text>
-<text x="490" y="620" text-anchor="middle" font-size="11" fill="#616161">Speedup (CSV.read ÷ SmarterCSV 1.16.0.dev10 C)</text>
+<text x="490" y="620" text-anchor="middle" font-size="11" fill="#616161">Speedup (CSV.read ÷ SmarterCSV 1.16.0 C)</text>
 <line x1="240" y1="62" x2="240" y2="594" stroke="#e0e0e0" stroke-width="1"/>
 <text x="240" y="606" text-anchor="middle" font-size="11" fill="#757575">0×</text>
 <line x1="240" y1="62" x2="240" y2="594" stroke="#e0e0e0" stroke-width="1"/>
