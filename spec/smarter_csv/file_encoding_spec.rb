@@ -18,7 +18,7 @@ RSpec.describe SmarterCSV do
       end
 
       it 'prints a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stdout
+        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
       end
     end
 
@@ -30,7 +30,7 @@ RSpec.describe SmarterCSV do
       end
 
       it 'prints a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stdout
+        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
       end
     end
 
@@ -42,7 +42,7 @@ RSpec.describe SmarterCSV do
       end
 
       it 'does not print a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stdout
+        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
       end
     end
 
@@ -54,7 +54,7 @@ RSpec.describe SmarterCSV do
       end
 
       it 'does not print a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stdout
+        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
       end
     end
   end

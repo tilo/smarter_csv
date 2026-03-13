@@ -42,7 +42,7 @@ describe 'key_mapping' do
     end
   end
 
-  it 'remove_values_matching' do
+  it 'remove_zero_values with key_mapping' do
     options = {remove_zero_values: true, key_mapping: {first_name: :vorname, last_name: :nachname} }
     data = SmarterCSV.process("#{fixture_path}/basic.csv", options)
     expect(data.size).to eq 5

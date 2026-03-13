@@ -2,6 +2,7 @@
 ### Contents
 
   * [Introduction](./_introduction.md)
+  * [Migrating from Ruby CSV](./migrating_from_csv.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -10,10 +11,17 @@
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
   * [Header Validations](./header_validations.md)
+  * [Column Selection](./column_selection.md)
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
-    
---------------     
+  * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Instrumentation Hooks](./instrumentation.md)
+  * [Examples](./examples.md)
+  * [Real-World CSV Files](./real_world_csv.md)
+  * [SmarterCSV over the Years](./history.md)
+  * [Release Notes](./releases/1.16.0/changes.md)
+
+--------------
 
 # Batch Processing
 
@@ -64,7 +72,7 @@ The `process` method returns the number of chunks when called with a block.
         => 2
 ```
 
-## Example 3: Populate a MongoDB Database in Chunks of 100 records with SmarterCSV:
+## Example 3: ActiveRecord Bulk Insert in Chunks of 100 records with SmarterCSV:
 ```ruby
     # using chunks:
     filename = '/tmp/some.csv'
@@ -78,5 +86,154 @@ The `process` method returns the number of chunks when called with a block.
      => returns number of chunks we processed
 ```
 
+---
+
+# Modern Batch API — `each_chunk`
+
+`Reader#each_chunk` is the modern API for chunked batch processing. It yields `(Array<Hash>, chunk_index)` — the same shape as the `process` block — but returns an `Enumerator` when called without a block, enabling more flexible composition.
+
+## Configuration
+
+Set `chunk_size` in options when constructing the Reader. `each_chunk` reads this value automatically:
+
+```ruby
+reader = SmarterCSV::Reader.new('big.csv', chunk_size: 500)
+reader.each_chunk do |chunk, index|
+  puts "Processing chunk #{index} (#{chunk.size} rows)"
+  MyModel.insert_all(chunk)
+end
+```
+
+If `chunk_size` is not set, `each_chunk` defaults to `SmarterCSV::Reader::DEFAULT_CHUNK_SIZE` (100) and emits a warning to STDERR:
+
+```
+SmarterCSV: chunk_size not set, defaulting to 100. Set chunk_size explicitly to suppress this warning.
+```
+
+Set `chunk_size` explicitly to suppress the warning and choose the right batch size for your use case.
+
+## Simplified form
+
+```ruby
+SmarterCSV.each_chunk('big.csv', chunk_size: 500) do |chunk, index|
+  MyModel.insert_all(chunk)
+end
+```
+
+## Returns an Enumerator when called without a block
+
+```ruby
+reader = SmarterCSV::Reader.new('big.csv', chunk_size: 500)
+reader.each_chunk.with_index do |chunk, index|
+  puts "Chunk #{index}: #{chunk.size} rows"
+end
+```
+
+## Example: Sidekiq parallel import
+
+```ruby
+reader = SmarterCSV::Reader.new('users.csv', chunk_size: 100)
+reader.each_chunk do |chunk, index|
+  ImportWorker.perform_async(chunk)
+end
+```
+
+## Example: Resque parallel import
+
+```ruby
+reader = SmarterCSV::Reader.new('orders.csv', chunk_size: 200)
+reader.each_chunk do |chunk, index|
+  Resque.enqueue(OrderImportJob, chunk)
+end
+```
+
+## Example: ActiveRecord `insert_all` bulk insert
+
+```ruby
+reader = SmarterCSV::Reader.new('products.csv', chunk_size: 500)
+reader.each_chunk do |chunk, _index|
+  MyModel.insert_all(chunk)
+end
+```
+
+## Example: Progress tracking
+
+```ruby
+reader = SmarterCSV::Reader.new('big.csv', chunk_size: 1_000)
+total = File.foreach('big.csv').count - 1  # subtract header row
+
+reader.each_chunk do |chunk, index|
+  processed = [(index + 1) * 1_000, total].min
+  puts "#{processed}/#{total} rows processed"
+  MyModel.insert_all(chunk)
+end
+```
+
+## Interaction with `on_bad_row`
+
+`each_chunk` respects all `on_bad_row` options. Bad rows are excluded from chunks and counted or routed to your handler:
+
+```ruby
+reader = SmarterCSV::Reader.new('data.csv',
+  chunk_size: 500,
+  on_bad_row: :collect,
+)
+reader.each_chunk do |chunk, index|
+  MyModel.insert_all(chunk)
+end
+puts "Bad rows: #{reader.errors[:bad_row_count]}"
+reader.errors[:bad_rows].each { |rec| puts "Line #{rec[:csv_line_number]}: #{rec[:error_message]}" }
+```
+
+See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
+
+## Example: DynamoDB batch write
+
+DynamoDB's `batch_write_item` API accepts up to **25 items per request** — making
+`chunk_size: 25` the natural fit. SmarterCSV symbol keys map directly to DynamoDB
+attribute names after a simple `transform_keys(&:to_s)` call.
+
+```ruby
+require 'aws-sdk-dynamodb'
+
+client = Aws::DynamoDB::Client.new(region: 'us-east-1')
+
+SmarterCSV::Reader.new('products.csv', chunk_size: 25).each_chunk do |chunk, _index|
+  client.batch_write_item(
+    request_items: {
+      'ProductsTable' => chunk.map do |row|
+        { put_request: { item: row.transform_keys(&:to_s) } }
+      end
+    }
+  )
+end
+```
+
+## Example: Reading a CSV from S3
+
+SmarterCSV accepts any IO-like object, so you can stream directly from S3 without
+writing a temp file:
+
+```ruby
+require 'aws-sdk-s3'
+
+s3  = Aws::S3::Client.new(region: 'us-east-1')
+obj = s3.get_object(bucket: 'my-bucket', key: 'imports/products.csv')
+
+data = SmarterCSV.process(obj.body)
+MyModel.insert_all(data)
+```
+
+For large files, combine with chunked processing:
+
+```ruby
+obj = s3.get_object(bucket: 'my-bucket', key: 'imports/big.csv')
+
+SmarterCSV::Reader.new(obj.body, chunk_size: 500).each_chunk do |chunk, _index|
+  MyModel.insert_all(chunk)
+end
+```
+
 ----------------
-PREVIOUS: [The Basic Write API](./basic_write_api.md)  | NEXT: [Configuration Options](./options.md)
+
+PREVIOUS: [The Basic Write API](./basic_write_api.md) | NEXT: [Configuration Options](./options.md) | UP: [README](../README.md)

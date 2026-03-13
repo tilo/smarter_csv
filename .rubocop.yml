@@ -133,6 +133,9 @@ Style/SoleNestedConditional:
 Style/SpecialGlobalVars: # DANGER: unsafe rule!!
   Enabled: false
 
+Style/StderrPuts:
+  Enabled: false # DANGER: unsafe rule!! we DO NOT want warn here
+
 Style/StringConcatenation:
   Enabled: false
 
@@ -162,6 +165,12 @@ Style/TrailingUnderscoreVariable:
   Enabled: false
 
 Style/TrivialAccessors:
+  Enabled: false
+
+Style/WhileUntilModifier:
+  Enabled: false
+
+Style/WordArray:
   Enabled: false
 
 # Style/UnlessModifier:

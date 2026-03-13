@@ -1,9 +1,76 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.0 (2026-03-12) — Minor Breaking Change
+
+[Full details](docs/releases/1.16.0/changes.md) · [Benchmarks](docs/releases/1.16.0/benchmarks.md) · [Performance notes](docs/releases/1.16.0/performance_notes.md)
+
+### Minor Breaking Change
+
+New option **`quote_boundary:`**
+* defaults to `:standard`**: quotes are now only recognized as field delimiters at field boundaries;
+  mid-field quotes are treated as literal characters.
+
+  This aligns SmarterCSV with RFC 4180 and other CSV libraries. In practice, mid-field quotes
+  were already producing silently corrupt output in previous versions — so most users will see
+  correct behavior improve, not regress.
+
+* Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
+
+### Performance
+
+ * **1.8×–8.6× faster** than Ruby `CSV.read` (raw tokenization only; no post-processing)
+ * **7×–129× faster** than Ruby `CSV.table` (nearest equivalent output)
+ * **up to 2.4× faster** for accelerated path vs 1.15.2 (15/19 benchmark files faster)
+ * **up to 2× faster** for Ruby path vs 1.15.2
+ * **9×–65× faster** for accelerated path vs 1.14.4
+
+Measured on 19 benchmark files, Apple M1, Ruby 3.4.7. See [benchmarks](docs/releases/1.16.0/benchmarks.md).
+
+### New Read API
+
+ * **`SmarterCSV.parse(csv_string, options)`**: can now parse a CSV string directly. See [Migrating from Ruby CSV](docs/migrating_from_csv.md).
+ * **`SmarterCSV.each` / `Reader#each`**: row-by-row enumerator; `Reader` now includes `Enumerable`.
+ * **`SmarterCSV.each_chunk` / `Reader#each_chunk`**: chunked enumerator yielding `(Array<Hash>, chunk_index)`.
+
+### New Options
+
+ * **`on_bad_row:`** — bad row quarantine: `:skip`, `:collect`, `:raise`, or callable. See [Bad Row Quarantine](docs/bad_row_quarantine.md).
+ * **`bad_row_limit: N`** — raises `SmarterCSV::TooManyBadRows` after N bad rows.
+ * **`collect_raw_lines:`** (default: `true`) — include raw line in bad-row error records.
+ * **`field_size_limit: N`** — cap field size in bytes; prevents DoS from unclosed quotes. Raises `SmarterCSV::FieldSizeLimitExceeded`.
+ * **`headers: { only: [...] }` / `headers: { except: [...] }`** — column selection; excluded columns skipped in C hot path. See [Column Selection](docs/column_selection.md).
+ * **`nil_values_matching:`** — replaces deprecated `remove_values_matching:`.
+ * **`missing_headers:`** (default: `:auto`) — replaces deprecated `strict:`.
+ * **`verbose: :quiet/:normal/:debug`** — replaces deprecated `verbose: true/false`.
+ * **`on_start:` / `on_chunk:` / `on_complete:`** — instrumentation hooks. See [Instrumentation](docs/instrumentation.md).
+
+### New Write API
+
+ * **IO/StringIO support**: `SmarterCSV.generate` and `Writer.new` now accept any `IO`-compatible object. See [Write API](docs/basic_write_api.md).
+ * **`SmarterCSV.generate` returns a String** when called without a destination argument.
+ * **Streaming mode**: when `headers:` or `map_headers:` is provided upfront, Writer skips the temp file and streams directly.
+ * **`encoding:` / `write_nil_value:` / `write_empty_value:` / `write_bom:`** — new writer options.
+
+### Deprecations
+
+ * `remove_values_matching:` → use `nil_values_matching:`
+ * `strict:` → use `missing_headers: :raise/:auto`
+ * `verbose: true/false` → use `verbose: :debug/:normal`
+ * `only_headers:` / `except_headers:` → use `headers: { only: }` / `headers: { except: }`
+
+### Bug Fixes
+
+ * **Empty headers** ([#324](https://github.com/tilo/smarter_csv/issues/324), [#312](https://github.com/tilo/smarter_csv/issues/312)): empty/whitespace-only header fields now auto-generate names via `missing_header_prefix`.
+ * **All library output now goes to `$stderr`** — nothing written to `$stdout`.
+ * **`SmarterCSV.generate` raises `ArgumentError`** (not blank `RuntimeError`) when called without a block.
+ * **Writer temp file** no longer hardcoded to `/tmp` (fixes Windows); properly cleaned up with `Tempfile#close!`.
+ * **Writer `StringIO`**: `finalize` no longer attempts to close a caller-owned `StringIO`.
+
+
 ## 1.15.2 (2026-02-20)
 
-* Performance Optimizations
+### Performance Optimizations
  - 1.6× to 7.2× faster than CSV.read
  - 6× to 113× faster than Ruby’s CSV.table
  - 5.4× to 37.4× faster than SmarterCSV 1.14.4 (with C-acceleration)

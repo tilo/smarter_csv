@@ -99,5 +99,62 @@ end
         expect(array).to eq ['Indoor Chrome', '49.2" L x 49.2" W x 20.5" H', 'Chrome', 'Crystal,Metal,Wood', '23.12']
       end
     end
+
+    # From: [ruby-core:6496] — Ara Howard's edge cases
+    # NOTE: Ruby CSV returns nil for empty unquoted fields; SmarterCSV returns ''
+    describe 'aras edge cases (from ruby-core:6496)' do
+      let(:options) { {quote_char: '"', col_sep: ",", acceleration: bool} }
+
+      [
+        [%Q{a,b},           ['a', 'b']],
+        [%Q{a,"""b"""},     ['a', '"b"']],
+        [%Q{a,"""b"},       ['a', '"b']],
+        [%Q{a,"b"""},       ['a', 'b"']],
+        [%Q{"",""},         ['', '']],
+        [%Q{""""},          ['"']],
+        [%Q{"""",""},       ['"', '']],
+        [%Q{,"\r"},         ['', "\r"]],
+        [%Q{"\r\n,"},       ["\r\n,"]],
+        [%Q{"\r\n,",},      ["\r\n,", '']],
+      ].each do |line, result|
+        it "parses #{line.inspect} as #{result.inspect}" do
+          array, _array_size = instance.send(:parse, line, options)
+          expect(array).to eq result
+        end
+      end
+
+      # Empty unquoted fields: SmarterCSV returns '' (not nil like Ruby CSV)
+      it "parses trailing empty fields as ''" do
+        array, _array_size = instance.send(:parse, 'a,,,', options)
+        expect(array).to eq ['a', '', '', '']
+      end
+
+      it "parses leading empty field as ''" do
+        array, _array_size = instance.send(:parse, ',""', options)
+        expect(array).to eq ['', '']
+      end
+    end
+
+    # From Rob Sanheim — embedded-newline edge cases
+    # NOTE: These exercise the parser directly with pre-stitched multiline content.
+    describe 'rob edge cases (embedded newlines in quoted fields)' do
+      let(:options) { {quote_char: '"', col_sep: ",", acceleration: bool} }
+
+      [
+        [%Q{"a\nb"},                    ["a\nb"]],
+        [%Q{"\n\n\n"},                  ["\n\n\n"]],
+        [%Q{a,"b\n\nc"},                ['a', "b\n\nc"]],
+        [%Q{"a\na","one newline"},       ["a\na", 'one newline']],
+        [%Q{"a\n\na","two newlines"},    ["a\n\na", 'two newlines']],
+        [%Q{"a\r\na","one CRLF"},        ["a\r\na", 'one CRLF']],
+        [%Q{"a\r\n\r\na","two CRLFs"},   ["a\r\n\r\na", 'two CRLFs']],
+        [%Q{with blank,"start\n\nfinish"}, ['with blank', "start\n\nfinish"]],
+      ].each do |line, result|
+        it "parses #{line.inspect[0..60]} correctly" do
+          array, _array_size = instance.send(:parse, line, options)
+          expect(array).to eq result
+        end
+      end
+    end
   end
 end

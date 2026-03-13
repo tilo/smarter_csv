@@ -81,8 +81,8 @@ fixture_path = 'spec/fixtures'
             expect(reader.headers).to eq %i[a b c d e column_6]
           end
 
-          context 'when :strict is set' do
-            let(:options) { super().merge({user_provided_headers: %i[a b c d e], strict: true, skip_lines: 1}) }
+          context 'when missing_headers: :raise is set' do
+            let(:options) { super().merge({user_provided_headers: %i[a b c d e], missing_headers: :raise, skip_lines: 1}) }
 
             it 'raises an exception if the number of user_provided_headers is incorrect' do
               expect do
