@@ -66,8 +66,8 @@ rows = SmarterCSV.process('data.csv')
 data = SmarterCSV.parse(csv_string)
 ```
 
-See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
-See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for nine ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
+* See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
+* See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for nine ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
 
 ## Examples
 
