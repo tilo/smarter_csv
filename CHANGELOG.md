@@ -3,7 +3,7 @@
 
 ## 1.16.1 (2026-03-16) — Bug Fix Release
 
-RSpec tests: **1,247 → 1,320** (+73 tests)
+RSpec tests: **1,247 → 1,367** (+120 tests)
 
 ### Bug Fixes
 
@@ -12,7 +12,7 @@ RSpec tests: **1,247 → 1,320** (+73 tests)
 
 ### Tests
 
-* Added 73 tests covering corner cases
+* Added 120 tests covering corner cases
 
 ## 1.16.0 (2026-03-12) — Minor Breaking Change
 

@@ -19,12 +19,12 @@ class Klass
   end
 end
 
-[true, false].each do |bool|
-  describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
+[true, false].each do |acceleration|
+  describe "fulfills RFC-4180 and more with#{acceleration ? ' C-' : 'out '}acceleration" do
     let(:instance) { Klass.new }
 
     describe 'parse with col_sep' do
-      let(:options) { {quote_char: '"', acceleration: bool} }
+      let(:options) { {quote_char: '"', acceleration: acceleration} }
 
       it 'parses with comma' do
         line = "a,b,,d"
