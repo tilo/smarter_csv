@@ -3,6 +3,7 @@
 
   * [Introduction](./_introduction.md)
   * [**Migrating from Ruby CSV**](./migrating_from_csv.md)
+  * [Ruby CSV Pitfalls](./ruby_csv_pitfalls.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -551,5 +552,5 @@ end
 | `row.headers` | `reader.headers` | Available on the `Reader` instance. |
 
 ---
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Parsing Strategy](./parsing_strategy.md) | UP: [README](../README.md)
+PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Ruby CSV Pitfalls](./ruby_csv_pitfalls.md) | UP: [README](../README.md)
 

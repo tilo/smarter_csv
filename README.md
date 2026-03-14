@@ -205,6 +205,7 @@ Or install it yourself as:
 
   * [Introduction](docs/_introduction.md)
   * [**Migrating from Ruby CSV**](docs/migrating_from_csv.md)
+  * [Ruby CSV Pitfalls](docs/ruby_csv_pitfalls.md)
   * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)
