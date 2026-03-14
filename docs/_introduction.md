@@ -30,7 +30,11 @@
 
 ## Why another CSV library?
 
-Ruby's built-in `csv` library is **slow** — up to 129× slower than SmarterCSV for equivalent work — and its API is inconvenient. It returns arrays of arrays, which means your application code must handle column indexing, header normalization, type conversion, and whitespace stripping manually. It also has no built-in support for chunked or parallel processing of large files.
+**Inconvenient.** Ruby's built-in `csv` library returns arrays of arrays, which means your application code must handle column indexing, header normalization, type conversion, and whitespace stripping manually. It also has no built-in support for chunked or parallel processing of large files.
+
+**Hidden failure modes.** `CSV.read` has nine ways to silently corrupt or lose data — no exception, no warning, no log line. Duplicate headers, blank header cells, extra columns, BOMs, whitespace, inconsistent empty-field representation, runaway quoted fields, and encoding issues all fail silently. See [Ruby CSV Pitfalls](./ruby_csv_pitfalls.md) for reproducible examples and the SmarterCSV fix for each.
+
+**Slow.** On top of everything else, it is up to 129× slower than SmarterCSV for equivalent end-to-end work.
 
 ![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](../images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
 

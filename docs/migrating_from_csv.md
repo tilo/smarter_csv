@@ -26,9 +26,13 @@
 
 # Migrating from Ruby CSV
 
-Already using Ruby's built-in `CSV` library? Switching to SmarterCSV is typically a one- or
-two-line change — and you get **1.7×–8.6× faster** end-to-end throughput vs `CSV.read`, plain Ruby
-hashes with symbol keys, automatic type conversion, and a much richer feature set in return.
+Already using Ruby's built-in `CSV` library? There are three good reasons to switch — and switching is typically a one- or two-line change.
+
+**Inconvenient.** `CSV.read` returns arrays of arrays, so your code must manually handle column indexing, header normalization, type conversion, and whitespace stripping. SmarterCSV returns Rails-ready hashes with symbol keys, numeric conversion, and whitespace stripping out of the box — no boilerplate needed.
+
+**Hidden failure modes.** `CSV.read` has nine ways to silently corrupt or lose data — no exception, no warning, no log line. See [**Ruby CSV Pitfalls**](./ruby_csv_pitfalls.md) for reproducible examples and the SmarterCSV fix for each.
+
+**Slow.** On top of everything else, it is up to 129× slower than SmarterCSV for equivalent end-to-end work — see the [Performance](#performance) section below.
 
 > **Medium article:** *"Switch from Ruby CSV to SmarterCSV in 5 Minutes"* — *(coming soon)*
 
