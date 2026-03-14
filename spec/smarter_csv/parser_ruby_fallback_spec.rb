@@ -586,3 +586,92 @@ describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' 
     expect(size).to eq 2
   end
 end
+
+# -----------------------------------------------------------------------
+# B2: Space separator — full processing with acceleration toggle
+#
+# col_sep: ' ' forces the quoted/slow path in Ruby (Opt #7 and Opt #11
+# direct split paths are bypassed). Test both acceleration settings to
+# ensure C and Ruby paths agree on space-separated input.
+# -----------------------------------------------------------------------
+describe 'space-separated CSV — full processing with acceleration toggle' do
+  [true, false].each do |acceleration|
+    context "acceleration: #{acceleration}" do
+      it 'parses space-separated fields correctly' do
+        csv = StringIO.new("name age city\nAlice 30 NYC\nBob 25 LA\n")
+        data = SmarterCSV.process(csv, col_sep: ' ', acceleration: acceleration)
+        expect(data.size).to eq 2
+        expect(data[0][:name]).to eq 'Alice'
+        expect(data[0][:age]).to eq 30
+        expect(data[0][:city]).to eq 'NYC'
+        expect(data[1][:name]).to eq 'Bob'
+        expect(data[1][:city]).to eq 'LA'
+      end
+    end
+  end
+end
+
+# -----------------------------------------------------------------------
+# B3: remove_empty_values: false with fewer fields than headers — unquoted path
+#
+# When a row has fewer fields than headers and remove_empty_values: false,
+# missing columns must be nil-padded. The unquoted direct path (Opt #11)
+# handles this in Ruby (lines 213-215). Verify both acceleration settings
+# produce the same result.
+# -----------------------------------------------------------------------
+describe 'nil-padding for short unquoted rows with remove_empty_values: false — acceleration toggle' do
+  [true, false].each do |acceleration|
+    context "acceleration: #{acceleration}" do
+      it 'nil-pads missing columns in an unquoted row' do
+        csv = StringIO.new("a,b,c,d\nx,y\n")
+        data = SmarterCSV.process(csv,
+                                  acceleration: acceleration,
+                                  remove_empty_values: false,
+                                  remove_empty_hashes: false,
+                                  convert_values_to_numeric: false)
+        expect(data.size).to eq 1
+        expect(data[0][:a]).to eq 'x'
+        expect(data[0][:b]).to eq 'y'
+        expect(data[0][:c]).to be_nil
+        expect(data[0][:d]).to be_nil
+      end
+    end
+  end
+end
+
+# -----------------------------------------------------------------------
+# B4: Optimization #12 — skip-ahead in :standard mode for unquoted fields
+#
+# In quote_boundary: :standard, once a field is started and not in_quotes,
+# any subsequent quote is literal and Opt #12 jumps directly to the next
+# col_sep without examining intermediate characters. A long unquoted field
+# containing an embedded quote exercises this skip-ahead on both the
+# byteindex path (Ruby 3.2+) and the getbyte fallback path (Ruby < 3.2).
+# -----------------------------------------------------------------------
+describe 'Optimization #12 — skip-ahead for long unquoted fields with embedded quotes' do
+  let(:reader) { SmarterCSV::Reader.new("#{fixture_path}/basic.csv", {acceleration: false}) }
+  let(:base_opts) do
+    {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+     strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+  end
+  # 1001-char field: 500 a's + one literal " + 500 b's — the embedded quote must
+  # not open a quoted field because field_started is already true.
+  let(:long_unquoted) { 'a' * 500 + '"' + 'b' * 500 }
+
+  it 'treats an embedded quote as literal in a long unquoted field (byteindex path)' do
+    elements, size = reader.send(:parse_csv_line_ruby, "start,#{long_unquoted},end", base_opts)
+    expect(size).to eq 3
+    expect(elements[0]).to eq 'start'
+    expect(elements[1]).to eq long_unquoted
+    expect(elements[2]).to eq 'end'
+  end
+
+  it 'treats an embedded quote as literal in a long unquoted field (getbyte fallback path)' do
+    stub_const('SmarterCSV::Parser::BYTEINDEX_AVAILABLE', false)
+    elements, size = reader.send(:parse_csv_line_ruby, "start,#{long_unquoted},end", base_opts)
+    expect(size).to eq 3
+    expect(elements[0]).to eq 'start'
+    expect(elements[1]).to eq long_unquoted
+    expect(elements[2]).to eq 'end'
+  end
+end
