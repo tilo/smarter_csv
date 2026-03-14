@@ -1,9 +1,24 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.1 (2026-03-16) — Bug Fix Release
+
+RSpec tests: **1,247 → 1,320** (+73 tests)
+
+### Bug Fixes
+
+* fixed [#325](https://github.com/tilo/smarter_csv/issues/325): `col_sep` in quoted headers was handled incorrectly; Thanks to Paho Lurie-Gregg.
+* fixed issue with quoted numeric fields that were not converted to numeric
+
+### Tests
+
+* Added 73 tests covering corner cases
+
 ## 1.16.0 (2026-03-12) — Minor Breaking Change
 
 [Full details](docs/releases/1.16.0/changes.md) · [Benchmarks](docs/releases/1.16.0/benchmarks.md) · [Performance notes](docs/releases/1.16.0/performance_notes.md)
+
+RSpec tests: **714 → 1,247** (+533 tests)
 
 ### Minor Breaking Change
 

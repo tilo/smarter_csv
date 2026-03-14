@@ -255,3 +255,144 @@
     end
   end
 end
+
+# =========================================================================
+# Priority 3: multi-char col_sep + quote_escaping: :auto
+#
+# :auto logic has three code paths (both C and Ruby):
+#   1. No backslash in line  → Opt #5: RFC mode called directly (no try-backslash dance)
+#   2. Backslash present, backslash mode succeeds → backslash result used
+#   3. Backslash before closing quote → backslash returns -1 (unclosed), RFC fallback
+#
+# Multi-char col_sep forces the slow (character-by-character) path in both C
+# and Ruby, exercising Section 5 of the C extension and the multi-char branch
+# of parse_csv_line_ruby. Tests run with both acceleration settings to verify
+# C/Ruby parity.
+# =========================================================================
+[true, false].each do |acceleration|
+  describe "quote_escaping: :auto + multi-char col_sep with#{acceleration ? ' C-' : 'out '}acceleration" do
+    let(:base_options) { { acceleration: acceleration, col_sep: '::' } }
+
+    # --- Path 1: no backslash → Opt #5 fires, RFC mode used directly ---
+
+    context 'no backslash in line (Opt #5)' do
+      it 'handles a quoted field containing the multi-char separator' do
+        # No backslash → Opt #5 fires; RFC mode is used; col_sep inside the quoted
+        # field must be treated as content, not a separator.
+        csv = StringIO.new("col_a::col_b\n\"hel::lo\"::Z\n")
+        data = SmarterCSV.process(csv, **base_options)
+        expect(data.size).to eq 1
+        expect(data[0][:col_a]).to eq 'hel::lo'
+        expect(data[0][:col_b]).to eq 'Z'
+      end
+
+      it 'parses plain unquoted fields without backslash' do
+        csv = StringIO.new("name::value\nAlice::42\n")
+        data = SmarterCSV.process(csv, **base_options)
+        expect(data.size).to eq 1
+        expect(data[0][:name]).to eq 'Alice'
+        expect(data[0][:value]).to eq 42
+      end
+    end
+
+    # --- Path 2: backslash mid-field (not before a quote) → backslash mode succeeds ---
+
+    context 'backslash mid-field, not before a closing quote (path 2)' do
+      it 'parses correctly and backslash is preserved as literal' do
+        # "X\ok"::Z — backslash not immediately before the closing quote,
+        # so backslash mode closes the field normally at the "
+        csv = StringIO.new("col_a::col_b\n\"X\\ok\"::Z\n")
+        data = SmarterCSV.process(csv, **base_options)
+        expect(data.size).to eq 1
+        expect(data[0][:col_a]).to eq 'X\\ok'
+        expect(data[0][:col_b]).to eq 'Z'
+      end
+
+      it 'handles col_sep inside quoted field alongside a mid-field backslash' do
+        # "A\::B"::C — col_sep :: is inside the quoted field (not a separator);
+        # backslash is mid-field, not before a quote → field closes at the "
+        csv = StringIO.new("col_a::col_b\n\"A\\::B\"::C\n")
+        data = SmarterCSV.process(csv, **base_options)
+        expect(data.size).to eq 1
+        expect(data[0][:col_a]).to eq 'A\\::B'
+        expect(data[0][:col_b]).to eq 'C'
+      end
+    end
+
+    # --- Path 3: backslash before closing quote → RFC 4180 fallback ---
+
+    context 'backslash before closing quote (issue #316 analogue — path 3)' do
+      it 'falls back to RFC 4180 and treats backslash as literal' do
+        # "path\"::Z
+        # Backslash mode: \" is an escaped quote, field stays open; ::Z consumed as
+        # content; EOL → unclosed → returns -1.
+        # RFC mode:       \ is literal, " closes the field (followed by ::); col_b = Z.
+        csv = StringIO.new("col_a::col_b\n\"path\\\"::Z\n")
+        data = SmarterCSV.process(csv, **base_options)
+        expect(data.size).to eq 1
+        expect(data[0][:col_a]).to eq 'path\\'
+        expect(data[0][:col_b]).to eq 'Z'
+      end
+    end
+
+    # --- C / Ruby parity across all three paths ---
+
+    it 'C and Ruby produce identical results across all three :auto paths' do
+      scenarios = [
+        "col_a::col_b\n\"hel::lo\"::Z\n",    # path 1: no backslash, Opt #5
+        "col_a::col_b\nplain::value\n",       # path 1: no quotes, no backslash
+        "col_a::col_b\n\"X\\ok\"::Z\n",       # path 2: backslash mid-field
+        "col_a::col_b\n\"A\\::B\"::C\n",      # path 2: backslash mid-field + sep inside
+        "col_a::col_b\n\"path\\\"::Z\n",      # path 3: backslash→RFC fallback
+      ]
+      scenarios.each do |csv_content|
+        c_data    = SmarterCSV.process(StringIO.new(csv_content), col_sep: '::', acceleration: true)
+        ruby_data = SmarterCSV.process(StringIO.new(csv_content), col_sep: '::', acceleration: false)
+        expect(c_data).to eq(ruby_data), "Mismatch for CSV: #{csv_content.inspect}"
+      end
+    end
+  end
+end
+
+# =========================================================================
+# quote_escaping: :backslash + numeric conversion
+#
+# After the fix to insert_field_into_hash (quoted fields now go through the
+# full transformation pipeline), verify that backslash-quoted numeric fields
+# are correctly converted — i.e. the two fixes interact correctly.
+# =========================================================================
+[true, false].each do |acceleration|
+  describe "quote_escaping: :backslash + numeric conversion with#{acceleration ? ' C-' : 'out '}acceleration" do
+    let(:base_options) { { acceleration: acceleration, quote_escaping: :backslash } }
+
+    it 'converts quoted integers and floats to numeric' do
+      csv = StringIO.new("name,age,score\nAlice,\"42\",\"3.14\"\n")
+      data = SmarterCSV.process(csv, **base_options)
+      expect(data[0][:age]).to eq 42
+      expect(data[0][:age]).to be_a(Integer)
+      expect(data[0][:score]).to eq 3.14
+      expect(data[0][:score]).to be_a(Float)
+    end
+
+    it 'removes quoted zero values when remove_zero_values is true' do
+      csv = StringIO.new("name,count,score\nAlice,\"0\",\"3.14\"\n")
+      data = SmarterCSV.process(csv, **base_options.merge(remove_zero_values: true, remove_empty_values: true))
+      expect(data[0]).not_to have_key(:count)
+      expect(data[0][:score]).to eq 3.14
+    end
+
+    it 'leaves quoted numerics as strings when convert_values_to_numeric: false' do
+      csv = StringIO.new("name,age\nAlice,\"42\"\n")
+      data = SmarterCSV.process(csv, **base_options.merge(convert_values_to_numeric: false))
+      expect(data[0][:age]).to eq '42'
+      expect(data[0][:age]).to be_a(String)
+    end
+
+    it 'C and Ruby produce identical results' do
+      csv_content = "name,age,score,zero\nAlice,\"42\",\"3.14\",\"0\"\n"
+      c_data    = SmarterCSV.process(StringIO.new(csv_content), quote_escaping: :backslash, acceleration: true)
+      ruby_data = SmarterCSV.process(StringIO.new(csv_content), quote_escaping: :backslash, acceleration: false)
+      expect(c_data).to eq ruby_data
+    end
+  end
+end
