@@ -69,7 +69,7 @@ Bob, Jones,  25
 rows = CSV.read('data.csv', headers: true).map(&:to_h)
 rows.first
 # => {"   First Name  " => "Alice ", " Last Name " => " Smith", " Age" => "  30", nil => ""}
-#                                                                                   ^^^ "VIP" and "Gold" silently lost
+#                             the values "VIP" and "Gold" are silently lost here  ^^^^^^^^^
 ```
 
 Alice's row has 6 fields but only 3 headers. The extra fields `"VIP"`, `"Gold"`, and `""` (trailing comma) all land on `nil` — each overwriting the last. No error, no warning.
