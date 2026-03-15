@@ -236,7 +236,7 @@ rows.first
 # => {name: "Alice", age: 30}
 ```
 
-`strip_whitespace: true` (default) strips leading/trailing whitespace from both headers and values.
+The default setting `strip_whitespace: true` strips leading/trailing whitespace from both headers and values.
 
 ---
 
@@ -279,7 +279,8 @@ bad_rows  = reader.errors[:bad_rows]   # inspect, log, or reprocess
 puts "#{good_rows.size} good, #{bad_rows.size} bad"
 ```
 
-`on_bad_row: :raise` (default) fails fast. `:skip` discards bad rows. `:collect` quarantines them with line number and error message — bad rows are never silently mangled and returned as good data.
+* `on_bad_row: :raise` (default) fails fast. `:skip` discards bad rows.
+* `on_bad_row: :collect` quarantines them with line number and error message — bad rows are never silently mangled or returned as good data.
 
 ---
 
@@ -314,15 +315,15 @@ Both rows have no city, but your code sees two different things. Any check using
 **With SmarterCSV:**
 
 ```ruby
+# remove_empty_values: true (default) — both empty cities are dropped from the hash
 rows = SmarterCSV.process('example7.csv')
-# remove_empty_values: true (default) — both are dropped from the hash
-rows[0].key?(:city)   # => false
-rows[1].key?(:city)   # => false
+rows[0]   # => {name: "Alice"}
+rows[1]   # => {name: "Bob"}
 
-# To keep empty fields — both normalized to nil:
+# remove_empty_values: false — both normalized to nil
 rows = SmarterCSV.process('example7.csv', remove_empty_values: false)
-rows[0][:city]        # => nil
-rows[1][:city]        # => nil
+rows[0]   # => {name: "Alice", city: nil}
+rows[1]   # => {name: "Bob",   city: nil}
 ```
 
 ---
@@ -354,11 +355,23 @@ On a large file this is an OOM risk: the parser accumulates an ever-growing stri
 
 ```ruby
 reader = SmarterCSV::Reader.new('example8.csv',
-  field_size_limit: 10_000,
   on_bad_row: :collect,
 )
 good_rows = reader.process
-# FieldSizeLimitExceeded is collected — processing continues with remaining rows
+reader.errors
+# => {
+#     :bad_row_count => 1,
+#          :bad_rows => [
+#         {
+#                 :csv_line_number => 2,
+#                :file_line_number => 2,
+#             :file_lines_consumed => 3,
+#                     :error_class => SmarterCSV::MalformedCSV,
+#                   :error_message => "Unclosed quoted field detected in multiline data",
+#                :raw_logical_line => "\"Alice,30\nBob,25\nCarol,40\n"
+#         }
+#     ]
+# }
 ```
 
 `field_size_limit: N` raises `SmarterCSV::FieldSizeLimitExceeded` as soon as any field or accumulating multiline buffer exceeds N bytes — the runaway parse stops immediately. Additionally, `quote_boundary: :standard` (default since 1.16.0) means mid-field quotes don't toggle quoted mode, reducing the attack surface further.
@@ -403,7 +416,9 @@ rows = SmarterCSV.process('example9.csv',
 rows.first[:last_name]   # => "Müller"
 ```
 
-`file_encoding:` accepts Ruby's `'external:internal'` transcoding notation. `force_utf8: true` transcodes to UTF-8 automatically. `invalid_byte_sequence:` controls the replacement character for bytes that can't be transcoded.
+* `file_encoding:` accepts Ruby's `'external:internal'` transcoding notation.
+* `force_utf8: true` transcodes to UTF-8 automatically.
+* `invalid_byte_sequence:` controls the replacement character for bytes that can't be transcoded.
 
 ---
 
