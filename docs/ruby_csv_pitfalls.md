@@ -28,7 +28,7 @@
 
 Ruby's built-in `CSV` library is for many the go-to — it ships with Ruby and requires no dependencies. But it has failure modes that produce **no exception, no warning, and no indication that anything went wrong**. Your import runs, your tests pass, and your data is quietly wrong.
 
-This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can silently corrupt or lose data, with examples you can run yourself, and how SmarterCSV handles each case.
+This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silently corrupt or lose data, with examples you can run yourself, and how SmarterCSV handles each case.
 
 > **Note on `CSV.table`:** It's a convenience wrapper for `CSV.read` with `headers: true`, `header_converters: :symbol`, and `converters: :numeric`.
 
@@ -45,10 +45,11 @@ This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can sile
 | 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | `liberal_parsing` garbles fields | Unmatched quotes produce wrong field boundaries — corrupted data returned as valid | by default ✅ | `on_bad_row: :raise` (default); opt-in `:skip` / `:collect` for quarantine |
 | 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `nil` |
-| 8 | Missing closing quote eats the rest of the file | One unclosed `"` swallows all subsequent rows into one field value | via option | `field_size_limit: N` raises immediately; `quote_boundary: :standard` (default) reduces exposure |
-| 9 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
+| 8 | Backslash-escaped quotes (MySQL/Unix) | `\"` treated as field-closing quote — crash or garbled data | by default ✅ | Default `quote_escaping: :auto` handles both RFC 4180 and backslash escaping |
+| 9 | Missing closing quote eats the rest of the file | One unclosed `"` swallows all subsequent rows into one field value | via option | `field_size_limit: N` raises immediately; `quote_boundary: :standard` (default) reduces exposure |
+| 10 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
 
-¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. All other eight issues are identical between `CSV.read` and `CSV.table`.
+¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. All other nine issues are identical between `CSV.read` and `CSV.table`.
 
 ---
 
@@ -352,7 +353,49 @@ rows[1]   # => {name: "Bob",   city: nil}
 
 ---
 
-## 8. Missing Closing Quote Consumes the Rest of the File
+## 8. Backslash-Escaped Quotes — MySQL / Unix Dump Format
+
+MySQL's `SELECT INTO OUTFILE`, PostgreSQL `COPY TO`, and many Unix data-pipeline tools escape embedded double quotes as `\"` — not as `""` (the RFC 4180 standard). Ruby's `CSV` only understands RFC 4180, so a backslash before a quote is treated as two separate characters: a literal `\` followed by a `"` that immediately **closes the field**.
+
+```
+$ cat example8.csv
+name,note
+Alice,"She said \"hello\" to everyone"
+Bob,"Normal note"
+```
+
+**With Ruby CSV — Scenario 1: crash** (at least you know something went wrong):
+
+```ruby
+rows = CSV.read('example8.csv', headers: true)
+# => CSV::MalformedCSVError: Illegal quoting in line 2.
+```
+
+**With Ruby CSV — Scenario 2: silent garbling** with `liberal_parsing: true`:
+
+```ruby
+rows = CSV.read('example8.csv', headers: true, liberal_parsing: true)
+rows[0]['name']   # => "Alice"
+rows[0]['note']   # => "She said \\"   ← field closed at the backslash-quote; rest lost
+rows[1]['name']   # => "hello"          ← Alice's leftovers eaten as Bob's name
+rows[1]['note']   # => nil
+```
+
+No exception. No warning. `rows.length` is still 2. The data just quietly moved to the wrong fields.
+
+**With SmarterCSV:**
+
+```ruby
+rows = SmarterCSV.process('example8.csv')
+rows[0]   # => {name: "Alice", note: "She said \"hello\" to everyone"}
+rows[1]   # => {name: "Bob",   note: "Normal note"}
+```
+
+`quote_escaping: :auto` (default) detects and handles both `""` and `\"` escaping row-by-row. No option required. This covers MySQL `SELECT INTO OUTFILE`, PostgreSQL `COPY TO`, and Unix `csvkit`/`awk`-generated files.
+
+---
+
+## 9. Missing Closing Quote Consumes the Rest of the File
 
 A single unclosed `"` causes the parser to enter quoted-field mode and treat everything that follows — newlines included — as part of one field. **All remaining rows are swallowed into a single field value.**
 
@@ -410,7 +453,7 @@ good_rows = SmarterCSV.process('example8.csv',
 
 ---
 
-## 9. No Encoding Auto-Detection — Crash or Mojibake
+## 10. No Encoding Auto-Detection — Crash or Mojibake
 
 `CSV.read` assumes UTF-8. CSV files exported from Excel on Windows are typically Windows-1252 (CP1252), which encodes accented characters (é, ü, ñ) differently from UTF-8.
 
@@ -460,7 +503,7 @@ Every failure in this list is **silent**. No exception, no warning, no log line 
 
 The root cause is that `CSV.read` is a tokenizer, not a data pipeline. It splits bytes into fields and returns them with no normalization, no validation, and no defensive handling of real-world messiness. Every assumption about what "clean" input looks like is left to the caller.
 
-`CSV.table` fixes exactly one issue out of nine — whitespace in headers — because its `:symbol` converter happens to call `.strip`. Everything else is identical.
+`CSV.table` fixes exactly one issue out of ten — whitespace in headers — because its `:symbol` converter happens to call `.strip`. Everything else is identical.
 
 These are not obscure edge cases. Extra columns, trailing commas, BOMs, Windows-1252 encoding, duplicate headers, and blank header cells are all common in CSV files exported from Excel, reporting tools, ERP systems, and legacy data pipelines.
 
