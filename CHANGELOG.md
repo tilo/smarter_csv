@@ -1,9 +1,26 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.1 (2026-03-16) — Bug Fix Release
+## 1.16.1 (2026-03-16) — Bug Fixes & New Features
 
-RSpec tests: **1,247 → 1,367** (+120 tests)
+RSpec tests: **1,247 → 1,410** (+163 tests)
+
+### New Features
+
+* **`SmarterCSV.errors`** — class-level error access after any `process`, `parse`, `each`, or `each_chunk` call.
+  Exposes the same `reader.errors` hash without requiring access to the `Reader` instance.
+  Errors are cleared at the start of each call and stored per-thread (safe in Puma/Sidekiq).
+
+  ```ruby
+  # Previously — required Reader instance to access errors
+  reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :skip)
+  reader.process
+  puts reader.errors[:bad_row_count]
+
+  # Now — works with the class-level API too
+  SmarterCSV.process('data.csv', on_bad_row: :skip)
+  puts SmarterCSV.errors[:bad_row_count]
+  ```
 
 ### Bug Fixes
 
@@ -12,7 +29,7 @@ RSpec tests: **1,247 → 1,367** (+120 tests)
 
 ### Tests
 
-* Added 120 tests covering corner cases
+* Added 163 tests covering new features and corner cases
 
 ## 1.16.0 (2026-03-12) — Minor Breaking Change
 
