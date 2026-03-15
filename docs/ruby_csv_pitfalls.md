@@ -53,6 +53,20 @@ This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silen
 
 ---
 
+## Why These Failures Are Dangerous
+
+Every failure in this list is **silent**. No exception, no warning, no log line — the import completes successfully and the data is quietly wrong. That makes them hard to catch in tests and easy to miss in code review.
+
+The root cause is that `CSV.read` is a tokenizer, not a data pipeline. It splits bytes into fields and returns them with no normalization, no validation, and no defensive handling of real-world messiness. Every assumption about what "clean" input looks like is left to the caller.
+
+`CSV.table` fixes exactly one issue out of ten — whitespace in headers — because its `:symbol` converter happens to call `.strip`. Everything else is identical.
+
+These are not obscure edge cases. Extra columns, trailing commas, BOMs, Windows-1252 encoding, duplicate headers, and blank header cells are all common in CSV files exported from Excel, reporting tools, ERP systems, and legacy data pipelines.
+
+> **Ready to switch?**  ➡️ [Migrating from Ruby CSV](./migrating_from_csv.md)
+
+---
+
 ## 1. Extra Columns Without Headers — Values Silently Discarded
 
 When a row has more fields than there are headers, `CSV.read` maps every extra field to the `nil` key. If there are multiple extra fields, they all compete for the same `nil` key — **only the last one survives**, the rest are silently discarded.
@@ -494,18 +508,6 @@ rows.first[:last_name]   # => "Müller"
 * `file_encoding:` accepts Ruby's `'external:internal'` transcoding notation.
 * `force_utf8: true` transcodes to UTF-8 automatically.
 * `invalid_byte_sequence:` controls the replacement character for bytes that can't be transcoded.
-
----
-
-## Why These Failures Are Dangerous
-
-Every failure in this list is **silent**. No exception, no warning, no log line — the import completes successfully and the data is quietly wrong. That makes them hard to catch in tests and easy to miss in code review.
-
-The root cause is that `CSV.read` is a tokenizer, not a data pipeline. It splits bytes into fields and returns them with no normalization, no validation, and no defensive handling of real-world messiness. Every assumption about what "clean" input looks like is left to the caller.
-
-`CSV.table` fixes exactly one issue out of ten — whitespace in headers — because its `:symbol` converter happens to call `.strip`. Everything else is identical.
-
-These are not obscure edge cases. Extra columns, trailing commas, BOMs, Windows-1252 encoding, duplicate headers, and blank header cells are all common in CSV files exported from Excel, reporting tools, ERP systems, and legacy data pipelines.
 
 ---
 
