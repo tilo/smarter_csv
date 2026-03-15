@@ -54,10 +54,10 @@ This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can sile
 
 ## 1. Extra Columns Without Headers — Values Silently Discarded
 
-When a row has more fields than there are headers, `CSV.read` keys every extra field under `nil`. If there are multiple extra fields, they all compete for the same `nil` key — **only the last one survives**.
+When a row has more fields than there are headers, `CSV.read` maps every extra field to the `nil` key. If there are multiple extra fields, they all compete for the same `nil` key — **only the last one survives**, the rest are silently discarded.
 
 ```
-$ cat data.csv
+$ cat example1.csv
    First Name  , Last Name , Age
 Alice , Smith,  30, VIP, Gold ,
 Bob, Jones,  25
@@ -66,7 +66,7 @@ Bob, Jones,  25
 **With Ruby CSV:**
 
 ```ruby
-rows = CSV.read('data.csv', headers: true).map(&:to_h)
+rows = CSV.read('example1.csv', headers: true).map(&:to_h)
 rows.first
 # => {"   First Name  " => "Alice ", " Last Name " => " Smith", " Age" => "  30", nil => ""}
 #                             the values "VIP" and "Gold" are silently lost here  ^^^^^^^^^
@@ -76,15 +76,17 @@ Alice's row has 6 fields but only 3 headers. The extra fields `"VIP"`, `"Gold"`,
 
 This is common in real-world exports: tools frequently append audit columns, status flags, or trailing commas that don't correspond to headers.
 
+**`CSV.table` has the same problem.**
+
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process('data.csv')
+rows = SmarterCSV.process('example1.csv')
 rows.first
 # => {first_name: "Alice", last_name: "Smith", age: 30, column_1: "VIP", column_2: "Gold"}
 ```
 
-`missing_headers: :auto` (default) auto-generates distinct names for extra columns using `missing_header_prefix` (default: `"column_"`). The trailing empty field is dropped by `remove_empty_values: true` (default).
+The default `missing_headers: :auto` auto-generates distinct names for extra columns using `missing_header_prefix` (default: `"column_"`). The trailing empty field is dropped by the default `remove_empty_values: true` setting. No data loss.
 
 ---
 
@@ -92,11 +94,16 @@ rows.first
 
 When two columns share the same header name, `CSV::Row#to_h` keeps only the **last** value. The first is silently dropped.
 
+```
+$ cat example2.csv
+score,name,score
+95,Alice,87
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = "score,name,score\n95,Alice,87"
-rows = CSV.parse(csv, headers: true).map(&:to_h)
+rows = CSV.read('example2.csv', headers: true).map(&:to_h)
 rows.first
 # => {"score" => "87", "name" => "Alice"}
 #    ^^^ first score (95) silently lost
@@ -107,7 +114,7 @@ Common with reporting tool exports that repeat a column (e.g., two date columns 
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process(StringIO.new(csv))
+rows = SmarterCSV.process('example2.csv')
 rows.first
 # => {score: 95, name: "Alice", score2: 87}
 ```
@@ -122,11 +129,16 @@ A CSV file with blank header cells (e.g., `name,,age`) gives those columns an em
 
 > This is distinct from issue #1. Issue #1 is about extra *data* fields beyond the header count, which get keyed under `nil`. Issue #3 is about blank cells *in the header row itself*, which get keyed under `""`.
 
+```
+$ cat example3.csv
+name,,,age
+Alice,foo,bar,30
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = "name,,,age\nAlice,foo,bar,30"
-rows = CSV.parse(csv, headers: true).map(&:to_h)
+rows = CSV.read('example3.csv', headers: true).map(&:to_h)
 rows.first
 # => {"name" => "Alice", "" => "bar", "age" => "30"}
 #    ^^^ "foo" silently lost — both blank headers wrote to the "" key
@@ -135,7 +147,7 @@ rows.first
 `CSV.table` converts headers to symbols — blank headers become `:"" ` — same collision, different key:
 
 ```ruby
-rows = CSV.table(StringIO.new(csv)).map(&:to_h)
+rows = CSV.table('example3.csv').map(&:to_h)
 rows.first
 # => {name: "Alice", :"" => "bar", age: 30}
 #    ^^^ "foo" still silently lost
@@ -144,7 +156,7 @@ rows.first
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process(StringIO.new(csv))
+rows = SmarterCSV.process('example3.csv')
 rows.first
 # => {name: "Alice", column_2: "foo", column_3: "bar", age: 30}
 ```
@@ -157,11 +169,24 @@ rows.first
 
 Files saved by Excel on Windows often include a UTF-8 BOM (`\xEF\xBB\xBF`) at the start. `CSV.read` does not strip it, so the BOM is silently prepended to the first header name.
 
+```
+$ cat example4.csv
+name,age
+Alice,30
+```
+
+```
+$ hexdump -C example4.csv
+00000000  ef bb bf 6e 61 6d 65 2c  61 67 65 0a 41 6c 69 63  |...name,age.Alic|
+00000010  65 2c 33 30 0a                                     |e,30.|
+```
+
+The `ef bb bf` at offset 0 is the UTF-8 BOM — invisible in `cat` output but silently prepended to the first header by `CSV.read`.
+
 **With Ruby CSV:**
 
 ```ruby
-# File saved by Excel with UTF-8 BOM
-rows = CSV.read('excel_export.csv', headers: true).map(&:to_h)
+rows = CSV.read('example4.csv', headers: true).map(&:to_h)
 rows.first.keys.first   # => "\xEF\xBB\xBFname"  ← not "name"
 
 rows.first['name']      # => nil   ← first column unreachable
@@ -172,7 +197,7 @@ The data is present but every lookup on the first column silently returns `nil`.
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process('excel_export.csv')
+rows = SmarterCSV.process('example4.csv')
 rows.first[:name]       # => "Alice"  ← BOM stripped automatically
 ```
 
@@ -184,11 +209,16 @@ SmarterCSV automatically detects and strips BOMs. Always on, no option needed.
 
 `CSV.read` returns headers exactly as they appear in the file, including leading and trailing whitespace. Code that accesses columns by the expected name silently gets `nil`.
 
+```
+$ cat example5.csv
+ name , age
+Alice,30
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = " name , age \nAlice,30"
-rows = CSV.parse(csv, headers: true).map(&:to_h)
+rows = CSV.read('example5.csv', headers: true).map(&:to_h)
 rows.first
 # => {" name " => "Alice", " age " => "30"}
 
@@ -201,7 +231,7 @@ rows.first['age']    # => nil
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process(StringIO.new(csv))
+rows = SmarterCSV.process('example5.csv')
 rows.first
 # => {name: "Alice", age: 30}
 ```
@@ -216,17 +246,22 @@ rows.first
 
 **The key danger:** without `liberal_parsing` you at least know something is wrong. With it, corrupted data is silently returned as valid.
 
+```
+$ cat example6.csv
+name,note,score
+Alice,"unclosed quote,99
+Bob,normal,87
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = "name,note,score\nAlice,\"unclosed quote,99\nBob,normal,87"
-
 # Without liberal_parsing: you know something is wrong
-CSV.parse(csv, headers: true)
+CSV.read('example6.csv', headers: true)
 # => CSV::MalformedCSVError: Unclosed quoted field on line 2
 
 # With liberal_parsing: silent corruption
-rows = CSV.parse(csv, headers: true, liberal_parsing: true).map(&:to_h)
+rows = CSV.read('example6.csv', headers: true, liberal_parsing: true).map(&:to_h)
 rows.length   # => 1  (not 2 — Bob's row is gone)
 rows[0]
 # => {"name" => "Alice", "note" => "unclosed quote,99\nBob,normal,87", "score" => nil}
@@ -238,7 +273,7 @@ The garbled row passes validations, gets inserted into the database, and surface
 **With SmarterCSV:**
 
 ```ruby
-reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
+reader = SmarterCSV::Reader.new('example6.csv', on_bad_row: :collect)
 good_rows = reader.process
 bad_rows  = reader.errors[:bad_rows]   # inspect, log, or reprocess
 puts "#{good_rows.size} good, #{bad_rows.size} bad"
@@ -255,11 +290,17 @@ puts "#{good_rows.size} good, #{bad_rows.size} bad"
 - Unquoted empty (`,,`) → `nil`
 - Quoted empty (`,"",`) → `""`
 
+```
+$ cat example7.csv
+name,city
+Alice,
+Bob,""
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = "name,city\nAlice,\nBob,\"\""
-rows = CSV.parse(csv, headers: true).map(&:to_h)
+rows = CSV.read('example7.csv', headers: true).map(&:to_h)
 
 rows[0]['city']        # => nil   (unquoted empty)
 rows[1]['city']        # => ""    (quoted empty)
@@ -273,13 +314,13 @@ Both rows have no city, but your code sees two different things. Any check using
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process(StringIO.new(csv))
+rows = SmarterCSV.process('example7.csv')
 # remove_empty_values: true (default) — both are dropped from the hash
 rows[0].key?(:city)   # => false
 rows[1].key?(:city)   # => false
 
 # To keep empty fields — both normalized to nil:
-rows = SmarterCSV.process(StringIO.new(csv), remove_empty_values: false)
+rows = SmarterCSV.process('example7.csv', remove_empty_values: false)
 rows[0][:city]        # => nil
 rows[1][:city]        # => nil
 ```
@@ -290,13 +331,18 @@ rows[1][:city]        # => nil
 
 A single unclosed `"` causes the parser to enter quoted-field mode and treat everything that follows — newlines included — as part of one field. **All remaining rows are swallowed into a single field value.**
 
+```
+$ cat example8.csv
+name,age
+"Alice,30
+Bob,25
+Carol,40
+```
+
 **With Ruby CSV:**
 
 ```ruby
-csv = "name,age\n\"Alice,30\nBob,25\nCarol,40"
-#                ^ unclosed quote
-
-rows = CSV.parse(csv, headers: true)
+rows = CSV.read('example8.csv', headers: true)
 rows.length         # => 1  (not 3)
 rows.first['name']  # => "Alice,30\nBob,25\nCarol,40"
 #                         ^^^ entire remainder of file in one field
@@ -307,7 +353,7 @@ On a large file this is an OOM risk: the parser accumulates an ever-growing stri
 **With SmarterCSV:**
 
 ```ruby
-reader = SmarterCSV::Reader.new('data.csv',
+reader = SmarterCSV::Reader.new('example8.csv',
   field_size_limit: 10_000,
   on_bad_row: :collect,
 )
@@ -323,11 +369,18 @@ good_rows = reader.process
 
 `CSV.read` assumes UTF-8. CSV files exported from Excel on Windows are typically Windows-1252 (CP1252), which encodes accented characters (é, ü, ñ) differently from UTF-8.
 
+```
+$ cat example9.csv
+last_name,first_name
+Müller,Hans
+```
+
+The file is saved in Windows-1252 encoding — `ü` is stored as `\xFC`, not as UTF-8.
+
 **With Ruby CSV — Scenario 1: crash** (the better outcome — at least you know):
 
 ```ruby
-# Excel export in Windows-1252 encoding, contains "Müller"
-rows = CSV.read('excel_export.csv', headers: true)
+rows = CSV.read('example9.csv', headers: true)
 # => Encoding::InvalidByteSequenceError: "\xFC" from ASCII-8BIT to UTF-8
 ```
 
@@ -335,7 +388,7 @@ rows = CSV.read('excel_export.csv', headers: true)
 
 ```ruby
 # Specifying the wrong encoding suppresses the error
-rows = CSV.read('excel_export.csv', headers: true, encoding: 'binary')
+rows = CSV.read('example9.csv', headers: true, encoding: 'binary')
 rows.first['last_name']                # => "M\xFCller"  ← garbled string
 rows.first['last_name'].valid_encoding? # => true  ← Ruby thinks it's fine
 ```
@@ -345,7 +398,7 @@ The mojibake string passes `.valid_encoding?`, passes database validations, gets
 **With SmarterCSV:**
 
 ```ruby
-rows = SmarterCSV.process('excel_export.csv',
+rows = SmarterCSV.process('example9.csv',
   file_encoding: 'windows-1252:utf-8')
 rows.first[:last_name]   # => "Müller"
 ```
