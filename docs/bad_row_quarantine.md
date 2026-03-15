@@ -216,6 +216,12 @@ puts SmarterCSV.errors[:bad_rows].size   # => 3
 > its own error state independently. If you call `SmarterCSV.process` twice in the same
 > thread, the second call's errors replace the first's. For long-running or complex
 > pipelines where you need to aggregate errors across multiple files, use the Reader API.
+>
+> ⚠️ **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared
+> across all fibers running in the same thread**. If you process CSV files concurrently
+> in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors`
+> may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are
+> scoped to the reader instance and are always correct regardless of fiber context.
 
 ### Via `reader.errors` (Reader API)
 

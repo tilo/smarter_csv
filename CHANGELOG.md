@@ -22,6 +22,18 @@ RSpec tests: **1,247 → 1,410** (+163 tests)
   puts SmarterCSV.errors[:bad_row_count]
   ```
 
+> **Note:** `SmarterCSV.errors` only surfaces errors from the **most recent run on the
+> current thread**. In a multi-threaded environment (Puma, Sidekiq), each thread maintains
+> its own error state independently. If you call `SmarterCSV.process` twice in the same
+> thread, the second call's errors replace the first's. For long-running or complex
+> pipelines where you need to aggregate errors across multiple files, use the Reader API.
+>
+> ⚠️ **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared
+> across all fibers running in the same thread**. If you process CSV files concurrently
+> in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors`
+> may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are
+> scoped to the reader instance and are always correct regardless of fiber context.
+
 ### Bug Fixes
 
 * fixed [#325](https://github.com/tilo/smarter_csv/issues/325): `col_sep` in quoted headers was handled incorrectly; Thanks to Paho Lurie-Gregg.

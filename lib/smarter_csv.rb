@@ -75,10 +75,10 @@ module SmarterCSV
   # are retained per thread.
   #
   def self.process(input, given_options = {}, &block)
-    Thread.current[:smarter_csv_recent_errors] = {}
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, given_options)
     result = reader.process(&block)
-    Thread.current[:smarter_csv_recent_errors] = reader.errors
+    Thread.current[:current_thread_recent_errors] = reader.errors
     result
   end
 
@@ -106,10 +106,10 @@ module SmarterCSV
   #   SmarterCSV.each("data.csv").select { |h| h[:country] == "US" }
   #   SmarterCSV.each("data.csv").lazy.map { |h| h[:name] }.first(10)
   def self.each(input, options = {}, &block)
-    Thread.current[:smarter_csv_recent_errors] = {}
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
     result = reader.each(&block)
-    Thread.current[:smarter_csv_recent_errors] = reader.errors
+    Thread.current[:current_thread_recent_errors] = reader.errors
     result
   end
 
@@ -123,10 +123,10 @@ module SmarterCSV
   #   SmarterCSV.each_chunk("data.csv", chunk_size: 500) { |chunk, i| Sidekiq.push_bulk(chunk) }
   #   SmarterCSV.each_chunk("data.csv", chunk_size: 100).with_index { |chunk, i| ... }
   def self.each_chunk(input, options = {}, &block)
-    Thread.current[:smarter_csv_recent_errors] = {}
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
     result = reader.each_chunk(&block)
-    Thread.current[:smarter_csv_recent_errors] = reader.errors
+    Thread.current[:current_thread_recent_errors] = reader.errors
     result
   end
 
@@ -142,7 +142,7 @@ module SmarterCSV
   #   puts SmarterCSV.errors[:bad_row_count]
   #
   def self.errors
-    Thread.current[:smarter_csv_recent_errors] || {}
+    Thread.current[:current_thread_recent_errors] || {}
   end
 
   # Convenience method for generating CSV files, IO objects, or in-memory strings.
