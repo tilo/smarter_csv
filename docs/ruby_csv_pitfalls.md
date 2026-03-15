@@ -275,12 +275,25 @@ The garbled row passes validations, gets inserted into the database, and surface
 ```ruby
 reader = SmarterCSV::Reader.new('example6.csv', on_bad_row: :collect)
 good_rows = reader.process
-bad_rows  = reader.errors[:bad_rows]   # inspect, log, or reprocess
-puts "#{good_rows.size} good, #{bad_rows.size} bad"
+reader.errors
+# => {
+#     :bad_row_count => 1,
+#          :bad_rows => [
+#         {
+#                 :csv_line_number => 2,
+#                :file_line_number => 2,
+#             :file_lines_consumed => 2,
+#                     :error_class => SmarterCSV::MalformedCSV,
+#                   :error_message => "Unclosed quoted field detected in multiline data",
+#                :raw_logical_line => "Alice,\"unclosed quote,99\nBob,normal,87\n"
+#         }
+#     ]
+# }
 ```
 
-* `on_bad_row: :raise` (default) fails fast. `:skip` discards bad rows.
+* `on_bad_row: :raise` (default) fails fast.
 * `on_bad_row: :collect` quarantines them with line number and error message — bad rows are never silently mangled or returned as good data.
+* `on_bad_row: :skip` discards bad rows.
 
 ---
 
