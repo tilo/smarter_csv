@@ -119,7 +119,9 @@ rows.first
 # => {score: 95, name: "Alice", score2: 87}
 ```
 
-`duplicate_header_suffix:` (default `""`) disambiguates by appending a counter: `:score`, `:score2`, `:score3`. Use `duplicate_header_suffix: '_'` to get `:score_2`, `:score_3`. Set to `nil` to raise `DuplicateHeaders` instead.
+* The default `duplicate_header_suffix: ""` disambiguates by appending a counter: `:score`, `:score2`, `:score3`.
+* Use `duplicate_header_suffix: '_'` to get `:score_2`, `:score_3`.
+* Set `duplicate_header_suffic: nil` to raise `DuplicateHeaders` instead.
 
 ---
 
@@ -201,7 +203,7 @@ rows = SmarterCSV.process('example4.csv')
 rows.first[:name]       # => "Alice"  ← BOM stripped automatically
 ```
 
-SmarterCSV automatically detects and strips BOMs. Always on, no option needed.
+By default SmarterCSV automatically detects and strips BOMs. Always on, no option needed.
 
 ---
 
@@ -291,9 +293,18 @@ reader.errors
 # }
 ```
 
+Or pass a lambda to `on_bad_row` — works with `SmarterCSV.process` (no `Reader` instance needed):
+
+```ruby
+bad_rows = []
+good_rows = SmarterCSV.process('example6.csv',
+  on_bad_row: ->(rec) { bad_rows << rec })
+```
+
 * `on_bad_row: :raise` (default) fails fast.
-* `on_bad_row: :collect` quarantines them with line number and error message — bad rows are never silently mangled or returned as good data.
-* `on_bad_row: :skip` discards bad rows.
+* `on_bad_row: :collect` quarantines them — use `reader.errors` to access.
+* `on_bad_row: ->(rec) { ... }` calls your lambda per bad row; works with `SmarterCSV.process`.
+* `on_bad_row: :skip` discards bad rows silently.
 
 ---
 
@@ -385,6 +396,14 @@ reader.errors
 #         }
 #     ]
 # }
+```
+
+Or pass a lambda to `on_bad_row` — works with `SmarterCSV.process` (no `Reader` instance needed):
+
+```ruby
+bad_rows = []
+good_rows = SmarterCSV.process('example8.csv',
+  on_bad_row: ->(rec) { bad_rows << rec })
 ```
 
 `field_size_limit: N` raises `SmarterCSV::FieldSizeLimitExceeded` as soon as any field or accumulating multiline buffer exceeds N bytes — the runaway parse stops immediately. Additionally, `quote_boundary: :standard` (default since 1.16.0) means mid-field quotes don't toggle quoted mode, reducing the attack surface further.
