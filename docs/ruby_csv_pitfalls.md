@@ -26,17 +26,17 @@
 
 # Ruby CSV Pitfalls: Silent Data Corruption and Loss
 
-Ruby's built-in `CSV` library is convenient, but it has failure modes that produce **no exception, no warning, and no indication that anything went wrong**. Your import runs, your tests pass, and your data is quietly wrong.
+Ruby's built-in `CSV` library is for many the go-to — it ships with Ruby and requires no dependencies. But it has failure modes that produce **no exception, no warning, and no indication that anything went wrong**. Your import runs, your tests pass, and your data is quietly wrong.
 
 This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can silently corrupt or lose data, with examples you can run yourself, and how SmarterCSV handles each case.
 
-> **Note on `CSV.table`:** It is a convenience wrapper for `CSV.read` with `headers: true`, `header_converters: :symbol`, and `converters: :numeric`. The `:symbol` header converter includes `.strip`, which is why issue #5 is the only one it mitigates. All other issues are identical to `CSV.read`.
+> **Note on `CSV.table`:** It's a convenience wrapper for `CSV.read` with `headers: true`, `header_converters: :symbol`, and `converters: :numeric`.
 
 ---
 
 ## At a Glance
 
-| # | Issue | Failure Mode | SmarterCSV fix | Details |
+| # | Ruby CSV Issue | Failure Mode | SmarterCSV fix | SmarterCSV Details |
 |---|-------|-------------|:--------------:|---------|
 | 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — all but the last are discarded | by default ✅ | `missing_headers: :auto` (default) auto-generates `:column_N` keys |
 | 2 | Duplicate headers — last wins | `.to_h` keeps only the last value for a repeated header; earlier values silently lost | by default ✅ | `duplicate_header_suffix:` (default `""`) → `:score`, `:score2`, `:score3` |
@@ -48,7 +48,7 @@ This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can sile
 | 8 | Missing closing quote eats the rest of the file | One unclosed `"` swallows all subsequent rows into one field value | via option | `field_size_limit: N` raises immediately; `quote_boundary: :standard` (default) reduces exposure |
 | 9 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
 
-¹ The one case where `CSV.table` does better than `CSV.read`: its `:symbol` header converter includes `.strip`, so whitespace is removed from headers. All other eight issues are identical between `CSV.read` and `CSV.table`.
+¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. All other eight issues are identical.
 
 ---
 
