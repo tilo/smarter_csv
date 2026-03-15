@@ -40,7 +40,7 @@ This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can sile
 |---|-------|-------------|:--------------:|---------|
 | 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — all but the last are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
 | 2 | Duplicate headers — last wins | `.to_h` keeps only the last value for a repeated header; earlier values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
-| 3 | Empty headers — `""` key collision | Blank header cells become `""` keys; multiple blanks collide and overwrite each other | by default ✅ | Default `missing_header_prefix:` → `:column_2`, `:column_5` |
+| 3 | Empty headers — `""` key collision | Blank header cells become `""` keys; multiple blanks collide and overwrite each other | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
 | 4 | BOM corrupts first header | `"\xEF\xBB\xBFname"` ≠ `"name"` — first column becomes unreachable by its key | by default ✅ | Automatic BOM stripping — always on, no option needed |
 | 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | `liberal_parsing` garbles fields | Unmatched quotes produce wrong field boundaries — corrupted data returned as valid | by default ✅ | `on_bad_row: :raise` (default); opt-in `:skip` / `:collect` for quarantine |
@@ -158,10 +158,10 @@ rows.first
 ```ruby
 rows = SmarterCSV.process('example3.csv')
 rows.first
-# => {name: "Alice", column_2: "foo", column_3: "bar", age: 30}
+# => {name: "Alice", column_1: "foo", column_2: "bar", age: 30}
 ```
 
-`missing_header_prefix:` (default `"column_"`) auto-generates names for blank headers: `:column_2`, `:column_3`, etc. No collision, no data loss.
+`missing_header_prefix:` (default `"column_"`) auto-generates names for blank headers: `:column_1`, `:column_2`, etc. No collision, no data loss.
 
 ---
 
