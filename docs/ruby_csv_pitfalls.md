@@ -38,17 +38,17 @@ This page documents nine reproducible ways `CSV.read` (and `CSV.table`) can sile
 
 | # | Ruby CSV Issue | Failure Mode | SmarterCSV fix | SmarterCSV Details |
 |---|-------|-------------|:--------------:|---------|
-| 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — all but the last are discarded | by default ✅ | `missing_headers: :auto` (default) auto-generates `:column_N` keys |
-| 2 | Duplicate headers — last wins | `.to_h` keeps only the last value for a repeated header; earlier values silently lost | by default ✅ | `duplicate_header_suffix:` (default `""`) → `:score`, `:score2`, `:score3` |
-| 3 | Empty headers — `""` key collision | Blank header cells become `""` keys; multiple blanks collide and overwrite each other | by default ✅ | `missing_header_prefix:` (default `"column_"`) → `:column_2`, `:column_5` |
+| 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — all but the last are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
+| 2 | Duplicate headers — last wins | `.to_h` keeps only the last value for a repeated header; earlier values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
+| 3 | Empty headers — `""` key collision | Blank header cells become `""` keys; multiple blanks collide and overwrite each other | by default ✅ | Default `missing_header_prefix:` → `:column_2`, `:column_5` |
 | 4 | BOM corrupts first header | `"\xEF\xBB\xBFname"` ≠ `"name"` — first column becomes unreachable by its key | by default ✅ | Automatic BOM stripping — always on, no option needed |
-| 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | `strip_whitespace: true` (default) strips headers and values |
+| 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | `liberal_parsing` garbles fields | Unmatched quotes produce wrong field boundaries — corrupted data returned as valid | by default ✅ | `on_bad_row: :raise` (default); opt-in `:skip` / `:collect` for quarantine |
-| 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | `remove_empty_values: true` (default) removes both; `false` normalizes both to `nil` |
+| 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `nil` |
 | 8 | Missing closing quote eats the rest of the file | One unclosed `"` swallows all subsequent rows into one field value | via option | `field_size_limit: N` raises immediately; `quote_boundary: :standard` (default) reduces exposure |
 | 9 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
 
-¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. All other eight issues are identical.
+¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. All other eight issues are identical between `CSV.read` and `CSV.table`.
 
 ---
 
