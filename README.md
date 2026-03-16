@@ -10,7 +10,7 @@
   Ruby's built-in CSV library has 10 documented failure modes that can silently corrupt or lose data — duplicate headers, blank header cells, extra columns, BOMs, whitespace, encoding issues, and more — all without raising an exception.
   SmarterCSV handles 8 our of 10 by default, and the remaining 2 with a single option each.
 
-  > See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for 10 ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
+  > See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for 10 ways `CSV.read` silently corrupts or loses data.
 
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
