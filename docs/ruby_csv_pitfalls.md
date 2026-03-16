@@ -69,6 +69,10 @@ These are not obscure edge cases. Extra columns, trailing commas, encoding issue
 
 ---
 
+> 💡 **Want to follow along?** Download the [example scripts and CSV files](https://raw.githubusercontent.com/tilo/articles/main/ruby/smarter_csv/10-ways-ruby_csv-can-silently-corrupt-or-lose-your-data/images/10-ways-ruby_csv-can-silently-corrupt-or-lose-your-data-examples.tgz) and run the examples locally.
+
+---
+
 ## 1. Extra Columns Without Headers — Values Silently Discarded
 
 When a row has more fields than there are headers, `CSV.read` maps every extra field to the `nil` key. If there are multiple extra fields, they all compete for the same `nil` key — **only the first one survives**, the rest are silently discarded.
