@@ -3,9 +3,14 @@
 
   ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
 
-  SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fastest end-to-end CSV ingestion — not just parsing.
+  SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fast end-to-end CSV ingestion of real-world data — no silent failures, no surprises, not just tokenization.
 
   ⭐ If SmarterCSV saved you hours of import time, please star the repo, and consider sponsoring this project.
+
+  Ruby's built-in CSV library has 10 documented failure modes that can silently corrupt or lose data — duplicate headers, blank header cells, extra columns, BOMs, whitespace, encoding issues, and more — all without raising an exception.
+  SmarterCSV handles 8 our of 10 by default, and the remaining 2 with a single option each.
+
+  > See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for 10 ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
 
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
@@ -67,7 +72,6 @@ data = SmarterCSV.parse(csv_string)
 ```
 
 * See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
-* See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for nine ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
 
 ## Examples
 
