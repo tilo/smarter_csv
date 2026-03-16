@@ -64,3 +64,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Mark Bumiller](https://github.com/makrsmark)
  * [Tophe](https://github.com/tophe)
  * [Dom Lebron](https://github.com/biglebronski)
+ * [Paho Lurie-Gregg](https://github.com/paholg)

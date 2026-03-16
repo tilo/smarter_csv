@@ -562,16 +562,10 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     return false;  // not a non-blank value
   }
 
-  // 2. Quoted field: unescape and insert (no numeric conversion on raw quoted data)
-  if (is_quoted) {
-    VALUE field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
-    ensure_hash_allocated(opts);
-    rb_hash_aset(opts->hash, key, field);
-    return true;
-  }
-
-  // 3. String-based zero check — matches /\A0+(?:\.0+)?\z/
+  // 2. String-based zero check — matches /\A0+(?:\.0+)?\z/
   // Works independently of numeric conversion: "0", "00", "0.0", "00.00" etc.
+  // Outer quotes are stripped before this call, so the check applies equally
+  // to quoted ("0") and unquoted (0) fields.
   if (opts->remove_zero_values) {
     long i = 0;
     // Must start with at least one '0'
@@ -603,8 +597,13 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     }
   }
 
-  // 5. Not numeric: insert as string
-  VALUE field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+  // 5. Not numeric: insert as string.
+  // Use unescape_quotes for quoted fields to handle embedded doubled quotes ("" → ").
+  // For simple quoted fields like "hello" with no embedded quotes, unescape_quotes
+  // returns the content unchanged (just like rb_enc_str_new would).
+  VALUE field = is_quoted
+    ? unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding)
+    : rb_enc_str_new(trim_start, trimmed_len, encoding);
   ensure_hash_allocated(opts);
   rb_hash_aset(opts->hash, key, field);
   return true;

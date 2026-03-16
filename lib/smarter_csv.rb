@@ -65,13 +65,26 @@ module SmarterCSV
   #   reader = SmarterCSV::Reader.new(input, options)
   #   reader.process # with or without block
   #
+  # After calling any of the class-level methods, errors from the last run are available via:
+  #
+  #   SmarterCSV.errors  # => { bad_row_count: 2, bad_rows: [...] }
+  #
+  # This exposes the same reader.errors hash without requiring access to the Reader instance.
+  # Errors are cleared at the start of each call and stored per-thread, so this is safe in
+  # multi-threaded environments (Puma, Sidekiq). Note: only the most recent call's errors
+  # are retained per thread.
+  #
   def self.process(input, given_options = {}, &block)
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, given_options)
-    reader.process(&block)
+    result = reader.process(&block)
+    Thread.current[:current_thread_recent_errors] = reader.errors
+    result
   end
 
   # Convenience method for parsing a CSV string directly.
   # Equivalent to SmarterCSV.process(StringIO.new(csv_string), options).
+  # Errors from the run are available via SmarterCSV.errors after the call.
   #
   # Example:
   #   data = SmarterCSV.parse("name,age\nAlice,30\nBob,25")
@@ -85,26 +98,51 @@ module SmarterCSV
 
   # Yields each successfully parsed row as a Hash (row-by-row, Enumerable-compatible).
   # Returns an Enumerator when called without a block.
+  # When called with a block, errors from the run are available via SmarterCSV.errors after the call.
+  # When called without a block (Enumerator form), use SmarterCSV::Reader directly for error access.
   #
   # Examples:
   #   SmarterCSV.each("data.csv") { |hash| MyModel.upsert(hash) }
   #   SmarterCSV.each("data.csv").select { |h| h[:country] == "US" }
   #   SmarterCSV.each("data.csv").lazy.map { |h| h[:name] }.first(10)
   def self.each(input, options = {}, &block)
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
-    reader.each(&block)
+    result = reader.each(&block)
+    Thread.current[:current_thread_recent_errors] = reader.errors
+    result
   end
 
   # Yields each chunk as Array<Hash> plus its 0-based chunk index.
   # Requires chunk_size to be set in options (must be >= 1).
   # Returns an Enumerator when called without a block.
+  # When called with a block, errors from the run are available via SmarterCSV.errors after the call.
+  # When called without a block (Enumerator form), use SmarterCSV::Reader directly for error access.
   #
   # Examples:
   #   SmarterCSV.each_chunk("data.csv", chunk_size: 500) { |chunk, i| Sidekiq.push_bulk(chunk) }
   #   SmarterCSV.each_chunk("data.csv", chunk_size: 100).with_index { |chunk, i| ... }
   def self.each_chunk(input, options = {}, &block)
+    Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
-    reader.each_chunk(&block)
+    result = reader.each_chunk(&block)
+    Thread.current[:current_thread_recent_errors] = reader.errors
+    result
+  end
+
+  # Returns the errors from the most recent call to .process, .parse, .each, or .each_chunk
+  # on the current thread. Cleared at the start of each new call.
+  #
+  # Keys (when on_bad_row: :skip or :collect is used):
+  #   :bad_row_count  — total number of bad rows encountered
+  #   :bad_rows       — array of error records (only with on_bad_row: :collect)
+  #
+  # Example:
+  #   SmarterCSV.process('data.csv', on_bad_row: :skip)
+  #   puts SmarterCSV.errors[:bad_row_count]
+  #
+  def self.errors
+    Thread.current[:current_thread_recent_errors] || {}
   end
 
   # Convenience method for generating CSV files, IO objects, or in-memory strings.

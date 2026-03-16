@@ -1,9 +1,53 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.1 (2026-03-16) — Bug Fixes & New Features
+
+RSpec tests: **1,247 → 1,410** (+163 tests)
+
+### New Features
+
+* **`SmarterCSV.errors`** — class-level error access after any `process`, `parse`, `each`, or `each_chunk` call.
+  Exposes the same `reader.errors` hash without requiring access to the `Reader` instance.
+  Errors are cleared at the start of each call and stored per-thread (safe in Puma/Sidekiq).
+
+  ```ruby
+  # Previously — required Reader instance to access errors
+  reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :skip)
+  reader.process
+  puts reader.errors[:bad_row_count]
+
+  # Now — works with the class-level API too
+  SmarterCSV.process('data.csv', on_bad_row: :skip)
+  puts SmarterCSV.errors[:bad_row_count]
+  ```
+
+> **Note:** `SmarterCSV.errors` only surfaces errors from the **most recent run on the
+> current thread**. In a multi-threaded environment (Puma, Sidekiq), each thread maintains
+> its own error state independently. If you call `SmarterCSV.process` twice in the same
+> thread, the second call's errors replace the first's. For long-running or complex
+> pipelines where you need to aggregate errors across multiple files, use the Reader API.
+>
+> ⚠️ **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared
+> across all fibers running in the same thread**. If you process CSV files concurrently
+> in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors`
+> may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are
+> scoped to the reader instance and are always correct regardless of fiber context.
+
+### Bug Fixes
+
+* fixed [#325](https://github.com/tilo/smarter_csv/issues/325): `col_sep` in quoted headers was handled incorrectly; Thanks to Paho Lurie-Gregg.
+* fixed issue with quoted numeric fields that were not converted to numeric
+
+### Tests
+
+* Added 163 tests covering new features and corner cases
+
 ## 1.16.0 (2026-03-12) — Minor Breaking Change
 
 [Full details](docs/releases/1.16.0/changes.md) · [Benchmarks](docs/releases/1.16.0/benchmarks.md) · [Performance notes](docs/releases/1.16.0/performance_notes.md)
+
+RSpec tests: **714 → 1,247** (+533 tests)
 
 ### Minor Breaking Change
 

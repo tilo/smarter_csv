@@ -5,7 +5,7 @@
 
   SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fastest end-to-end CSV ingestion — not just parsing.
 
-  ⭐ If SmarterCSV saved you hours of import time, please star the repo.
+  ⭐ If SmarterCSV saved you hours of import time, please star the repo, and consider sponsoring this project.
 
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
@@ -66,7 +66,8 @@ rows = SmarterCSV.process('data.csv')
 data = SmarterCSV.parse(csv_string)
 ```
 
-See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
+* See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
+* See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for nine ways `CSV.read` silently corrupts or loses data — and how SmarterCSV handles each one.
 
 ## Examples
 
@@ -205,6 +206,7 @@ Or install it yourself as:
 
   * [Introduction](docs/_introduction.md)
   * [**Migrating from Ruby CSV**](docs/migrating_from_csv.md)
+  * [Ruby CSV Pitfalls](docs/ruby_csv_pitfalls.md)
   * [Parsing Strategy](docs/parsing_strategy.md)
   * [The Basic Read API](docs/basic_read_api.md)
   * [The Basic Write API](docs/basic_write_api.md)
@@ -243,7 +245,7 @@ For reporting issues, please:
   * open a pull-request adding a test that demonstrates the issue
   * mention your version of SmarterCSV, Ruby, Rails
 
-# [A Special Thanks to all 61 Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
+# [A Special Thanks to all 62 Contributors!](CONTRIBUTORS.md) 🎉🎉🎉
 
 
 ## Contributing

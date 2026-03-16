@@ -208,6 +208,71 @@ describe 'C-accelerated hash transformations' do
         end
       end
 
+      # --- Numeric conversion with quoted fields (slow path) ---
+      #
+      # All tests above use transformations.csv which has no quoted fields,
+      # exercising only the fast path (Section 4 in C / direct split in Ruby).
+      # These tests use quoted numeric values to force the slow path (Section 5
+      # in C / character-by-character loop in Ruby) and verify that numeric
+      # conversion still works correctly after quote removal.
+
+      describe 'numeric conversion with quoted fields (slow path)' do
+        let(:quoted_csv) do
+          StringIO.new("name,age,score\nAlice,\"42\",\"3.14\"\nBob,\"0\",\"1.5\"\n")
+        end
+
+        it 'converts quoted integers and floats by default' do
+          data = SmarterCSV.process(quoted_csv, acceleration: acceleration)
+          expect(data[0][:age]).to eq 42
+          expect(data[0][:age]).to be_a(Integer)
+          expect(data[0][:score]).to eq 3.14
+          expect(data[0][:score]).to be_a(Float)
+          expect(data[1][:age]).to eq 0
+          expect(data[1][:score]).to eq 1.5
+        end
+
+        it 'leaves quoted numerics as strings when convert_values_to_numeric: false' do
+          data = SmarterCSV.process(quoted_csv, acceleration: acceleration,
+                                                convert_values_to_numeric: false)
+          expect(data[0][:age]).to eq '42'
+          expect(data[0][:age]).to be_a(String)
+          expect(data[0][:score]).to eq '3.14'
+        end
+
+        it 'converts only listed keys from quoted fields (only: mode)' do
+          data = SmarterCSV.process(quoted_csv, acceleration: acceleration,
+                                                convert_values_to_numeric: { only: :age })
+          expect(data[0][:age]).to eq 42
+          expect(data[0][:age]).to be_a(Integer)
+          expect(data[0][:score]).to eq '3.14'
+          expect(data[0][:score]).to be_a(String)
+        end
+
+        it 'skips listed keys from quoted fields (except: mode)' do
+          data = SmarterCSV.process(quoted_csv, acceleration: acceleration,
+                                                convert_values_to_numeric: { except: :age })
+          expect(data[0][:age]).to eq '42'
+          expect(data[0][:age]).to be_a(String)
+          expect(data[0][:score]).to eq 3.14
+          expect(data[0][:score]).to be_a(Float)
+        end
+
+        it 'C and Ruby produce identical results for all numeric modes with quoted fields' do
+          csv_content = "name,age,score\nAlice,\"42\",\"3.14\"\nBob,\"0\",\"1.5\"\n"
+          modes = [
+            {},
+            { convert_values_to_numeric: false },
+            { convert_values_to_numeric: { only: :age } },
+            { convert_values_to_numeric: { except: :age } },
+          ]
+          modes.each do |opts|
+            c_data    = SmarterCSV.process(StringIO.new(csv_content), opts.merge(acceleration: true))
+            ruby_data = SmarterCSV.process(StringIO.new(csv_content), opts.merge(acceleration: false))
+            expect(c_data).to eq(ruby_data), "Mismatch with #{opts.inspect}"
+          end
+        end
+      end
+
       # --- C and Ruby produce identical results ---
 
       describe 'C/Ruby parity' do

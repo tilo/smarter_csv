@@ -3,6 +3,7 @@
 
   * [Introduction](./_introduction.md)
   * [Migrating from Ruby CSV](./migrating_from_csv.md)
+  * [Ruby CSV Pitfalls](./ruby_csv_pitfalls.md)
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
@@ -55,27 +56,33 @@ SmarterCSV.process('data.csv')
 # => raises SmarterCSV::MalformedCSV on the first bad row
 ```
 
-### `:skip`
+The `on_bad_row` option controls what happens when a bad row is encountered:
 
-Silently skip bad rows and continue. The count of skipped rows is available on
-`reader.errors[:bad_row_count]`. No error records are stored.
-
-```ruby
-reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :skip)
-result = reader.process
-
-puts "Processed: #{result.size} good rows"
-puts "Skipped:   #{reader.errors[:bad_row_count] || 0} bad rows"
-```
+* `on_bad_row: :raise` (default) fails fast.
+* `on_bad_row: :collect` quarantines them — error records available via `SmarterCSV.errors` or `reader.errors`.
+* `on_bad_row: ->(rec) { ... }` calls your lambda per bad row — works with both `SmarterCSV.process` and `SmarterCSV::Reader`.
+* `on_bad_row: :skip` discards bad rows silently — count available via `SmarterCSV.errors` or `reader.errors`.
 
 ### `:collect`
 
-Continue processing and store a structured error record for each bad row in
-`reader.errors[:bad_rows]`. Requires using `SmarterCSV::Reader` directly (the
-`SmarterCSV.process` convenience method discards the reader instance and cannot
-return the collected errors).
+Continue processing and store a structured error record for each bad row.
+Error records are available via `SmarterCSV.errors[:bad_rows]` (class-level API)
+or `reader.errors[:bad_rows]` (Reader API).
 
 ```ruby
+# Class-level API — use SmarterCSV.errors after the call
+good_rows = SmarterCSV.process('data.csv', on_bad_row: :collect)
+
+good_rows.each { |row| MyModel.create!(row) }
+
+SmarterCSV.errors[:bad_rows].each do |rec|
+  Rails.logger.warn "Bad row at line #{rec[:csv_line_number]}: #{rec[:error_message]}"
+  Rails.logger.warn "Raw content: #{rec[:raw_logical_line]}"
+end
+```
+
+```ruby
+# Reader API — use when you also need access to headers or other reader state
 reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
 result = reader.process
 
@@ -90,35 +97,50 @@ end
 ### Callable (lambda / proc)
 
 Pass any object that responds to `#call`. It is invoked once per bad row with the
-error record hash, then processing continues. Useful for streaming errors to a
-dead-letter queue, a metrics system, or a separate file.
+error record hash, then processing continues. Because the lambda receives errors
+inline, **this works with both `SmarterCSV.process` and `SmarterCSV::Reader`** —
+you do not need a `Reader` instance to handle bad rows.
+
+```ruby
+# Works with SmarterCSV.process — no Reader instance needed
+bad_rows = []
+good_rows = SmarterCSV.process('data.csv',
+  on_bad_row: ->(rec) { bad_rows << rec })
+```
 
 ```ruby
 # Log to a dead-letter file
 quarantine = File.open('quarantine.csv', 'w')
-
-reader = SmarterCSV::Reader.new('data.csv',
-  on_bad_row: ->(rec) { quarantine.puts(rec[:raw_logical_line]) }
-)
-reader.process
+SmarterCSV.process('data.csv',
+  on_bad_row: ->(rec) { quarantine.puts(rec[:raw_logical_line]) })
 quarantine.close
 ```
 
 ```ruby
 # Send to a monitoring system
-reader = SmarterCSV::Reader.new('data.csv',
-  on_bad_row: ->(rec) { Metrics.increment('csv.bad_rows', tags: { error: rec[:error_class].name }) }
-)
-reader.process
+SmarterCSV.process('data.csv',
+  on_bad_row: ->(rec) { Metrics.increment('csv.bad_rows', tags: { error: rec[:error_class].name }) })
+```
+
+### `:skip`
+
+Silently skip bad rows and continue. The count of skipped rows is available via
+`SmarterCSV.errors[:bad_row_count]` (class-level API) or `reader.errors[:bad_row_count]`
+(Reader API). No error records are stored.
+
+```ruby
+# Class-level API — use SmarterCSV.errors after the call
+SmarterCSV.process('data.csv', on_bad_row: :skip)
+puts "Skipped: #{SmarterCSV.errors[:bad_row_count] || 0} bad rows"
 ```
 
 ```ruby
-# Collect into your own structure
-errors = []
-reader = SmarterCSV::Reader.new('data.csv',
-  on_bad_row: ->(rec) { errors << rec }
-)
+# Reader API — access reader.errors directly
+reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :skip)
 result = reader.process
+
+puts "Processed: #{result.size} good rows"
+puts "Skipped:   #{reader.errors[:bad_row_count] || 0} bad rows"
 ```
 
 ## Error record structure
@@ -173,15 +195,50 @@ end
 
 ## Accessing errors
 
-Bad row data is stored on the `Reader` instance:
+There are two ways to access bad row data after processing:
+
+### Via `SmarterCSV.errors` (class-level API)
+
+`SmarterCSV.errors` returns the errors from the most recent call to `process`, `parse`,
+`each`, or `each_chunk` on the current thread. It is cleared at the start of each new call.
+
+```ruby
+SmarterCSV.process('data.csv', on_bad_row: :skip)
+puts SmarterCSV.errors[:bad_row_count]   # => 3
+
+SmarterCSV.process('data.csv', on_bad_row: :collect)
+puts SmarterCSV.errors[:bad_row_count]   # => 3
+puts SmarterCSV.errors[:bad_rows].size   # => 3
+```
+
+> **Note:** `SmarterCSV.errors` only surfaces errors from the **most recent run on the
+> current thread**. In a multi-threaded environment (Puma, Sidekiq), each thread maintains
+> its own error state independently. If you call `SmarterCSV.process` twice in the same
+> thread, the second call's errors replace the first's. For long-running or complex
+> pipelines where you need to aggregate errors across multiple files, use the Reader API.
+>
+> ⚠️ **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared
+> across all fibers running in the same thread**. If you process CSV files concurrently
+> in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors`
+> may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are
+> scoped to the reader instance and are always correct regardless of fiber context.
+
+### Via `reader.errors` (Reader API)
+
+For full control — including access to headers, raw headers, and errors from a specific
+call — use `SmarterCSV::Reader` directly:
 
 | Attribute | Description |
 |-----------|-------------|
 | `reader.errors[:bad_row_count]` | Total bad rows encountered (all modes) |
 | `reader.errors[:bad_rows]` | Array of error records (`:collect` mode only) |
 
-Note: `SmarterCSV.process` (the convenience method) discards the `Reader` instance after
-returning. To access `reader.errors`, always instantiate `SmarterCSV::Reader` directly.
+```ruby
+reader = SmarterCSV::Reader.new('data.csv', on_bad_row: :collect)
+reader.process
+puts reader.errors[:bad_row_count]
+puts reader.headers.inspect
+```
 
 ## Chunked processing
 

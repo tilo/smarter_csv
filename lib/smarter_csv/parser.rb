@@ -49,28 +49,25 @@ module SmarterCSV
       # affect parsing (a backslash only matters immediately before a quote char).
       # RFC 4180 and backslash modes give identical results — skip the try-backslash
       # dance and call directly with RFC options (tighter C inner loop + memchr).
-      # has_quotes is only needed for the Ruby fallback path — C computes it internally.
+      has_quotes = line.include?(options[:quote_char])
       unless line.include?('\\')
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
           return [elements, elements.size]
           # :nocov:
         else
-          has_quotes = line.include?(options[:quote_char])
           return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
         end
       end
 
       # Line has a backslash — try backslash-escape interpretation first.
-      # has_quotes only needed for Ruby fallback path.
-      has_quotes = line.include?(options[:quote_char]) unless options[:acceleration] && has_acceleration
 
       result = begin
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
           [elements, elements.size]
           # :nocov:
         else
@@ -80,7 +77,7 @@ module SmarterCSV
         # Backslash raised a hard error — fall back to RFC 4180 immediately
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
           return [elements, elements.size]
           # :nocov:
         else
@@ -92,7 +89,7 @@ module SmarterCSV
       if result[1] == -1
         rfc_result = if options[:acceleration] && has_acceleration
                        # :nocov:
-                       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, false, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
+                       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
                        [elements, elements.size]
                        # :nocov:
                      else
