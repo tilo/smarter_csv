@@ -186,7 +186,7 @@ rows.first
 
 ## 4. `converters: :numeric` Silently Corrupts Leading-Zero Strings via Octal
 
-`converters: :numeric` The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value ❌.
+`converters: :numeric` The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value that looks plausible but is incorrect ❌.
 
 * `CSV.table` enables `converters: :numeric` by default without any opt-in, **triggering the bug by default**.
 * `CSV.read` is safe by default, but triggers the same corruption when `converters: :numeric` (or `converters: :integer`) is passed explicitly.
