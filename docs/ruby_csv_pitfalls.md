@@ -41,15 +41,17 @@ This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silen
 | 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — only the first survives, the rest are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
 | 2 | Duplicate headers — first wins | `.to_h` keeps only the first value for a repeated header; later values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
 | 3 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
-| 4 | `CSV.table` silently corrupts leading-zero strings via octal | `converters: :numeric` calls `Integer()` which interprets leading zeros as octal — `"00123"` → `83` | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
-| 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
+| 4 | `converters: :numeric` silently corrupts leading-zero strings via octal ¹ | `Integer()` interprets leading zeros as octal — `"00123"` → `83` ❌ | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
+| 5 | Whitespace in headers ² | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | Whitespace around values | `"active  " == "active"` → `false` — leading/trailing spaces or tabs cause status/type checks to silently return wrong results | by default ✅ | Default `strip_whitespace: true` strips all values; set `false` to preserve spaces |
 | 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
 | 8 | Backslash-escaped quotes (MySQL/Unix) | `\"` treated as field-closing quote — crash or garbled data | by default ✅ | Default `quote_escaping: :auto` handles both RFC 4180 and backslash escaping |
 | 9 | TSV file read as CSV — one field per row | Default `col_sep: ","` on a tab-delimited file returns each row as a single string; all column structure lost | by default ✅ | Default `col_sep: :auto` detects the actual delimiter — no option needed |
 | 10 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
 
-¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers (#5). Values (#6) are not stripped — `CSV.table` has the same trailing-whitespace problem. For all other issues `CSV.table` is identical to or worse than `CSV.read` — in particular, issue #4 is caused by `CSV.table`'s default `converters: :numeric`.
+¹ Issue #4 can be triggered two ways: `CSV.table` enables `converters: :numeric` by default (no opt-in required), and `CSV.read` triggers the same corruption when passed `converters: :numeric` explicitly. Either way, any leading-zero string field — ZIP codes, customer IDs, product codes — is silently converted to a wrong integer.
+
+² The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers (#5). Values (#6) are not stripped — `CSV.table` has the same whitespace-around-values problem. For all other issues `CSV.table` is identical to or worse than `CSV.read`.
 
 ---
 
@@ -182,9 +184,11 @@ rows.first
 
 ---
 
-## 4. `CSV.table` Silently Corrupts Leading-Zero Strings via Octal
+## 4. `converters: :numeric` Silently Corrupts Leading-Zero Strings via Octal
 
-`CSV.table` applies `converters: :numeric` by default, which calls Ruby's `Integer()` on every field that looks like a number. Ruby's `Integer()` follows C literal conventions: **a leading zero means octal**. The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value.
+`converters: :numeric` calls Ruby's `Integer()` on every field that looks like a number. Ruby's `Integer()` follows C literal conventions: **a leading zero means octal**. The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value.
+
+`CSV.table` enables `converters: :numeric` by default without any opt-in. `CSV.read` is safe by default, but triggers the same corruption when `converters: :numeric` (or `converters: :integer`) is passed explicitly.
 
 ```
 $ cat example4.csv
@@ -193,27 +197,31 @@ customer_id,zip_code,amount
 00456,90210,9.99
 ```
 
-**With Ruby CSV (`CSV.table` or `converters: :numeric`):**
+**With Ruby CSV:**
 
 ```ruby
+# CSV.table — converters: :numeric on by default, no opt-in needed
 rows = CSV.table('example4.csv').map(&:to_h)
 rows.first
 # => {customer_id: 83, zip_code: 668, amount: 99.5}
 #    ^^^ "00123" → 83  (octal 0123 = decimal 83)
 #    ^^^ "01234" → 668 (octal 1234 = decimal 668)
+
+# CSV.read with explicit converters: :numeric — same result
+rows = CSV.read('example4.csv', headers: true, converters: :numeric).map(&:to_h)
+rows.first
+# => {"customer_id" => 83, "zip_code" => 668, "amount" => 99.5}
 ```
 
 `"00123"` becomes `83`. `"01234"` becomes `668`. ZIP codes, customer IDs, order numbers, product codes — any field with a leading zero becomes a completely wrong integer. No exception, no warning. The resulting values look plausible and pass all type validations.
 
-`CSV.read` default (no converters) is safe — strings are returned as-is:
+`CSV.read` without converters is safe — strings are returned as-is:
 
 ```ruby
 rows = CSV.read('example4.csv', headers: true).map(&:to_h)
 rows.first
 # => {"customer_id" => "00123", "zip_code" => "01234", "amount" => "99.50"}
 ```
-
-The trap is `CSV.table` (which many developers use as the "proper" API) and any explicit use of `converters: :numeric` or `converters: :integer`.
 
 **With SmarterCSV:**
 
