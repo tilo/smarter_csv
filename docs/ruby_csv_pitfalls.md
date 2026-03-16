@@ -186,9 +186,10 @@ rows.first
 
 ## 4. `converters: :numeric` Silently Corrupts Leading-Zero Strings via Octal
 
-`converters: :numeric` calls Ruby's `Integer()` on every field that looks like a number. Ruby's `Integer()` follows C literal conventions: **a leading zero means octal**. The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value.
+`converters: :numeric` The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value ❌.
 
-`CSV.table` enables `converters: :numeric` by default without any opt-in. `CSV.read` is safe by default, but triggers the same corruption when `converters: :numeric` (or `converters: :integer`) is passed explicitly.
+* `CSV.table` enables `converters: :numeric` by default without any opt-in, **triggering the bug by default**.
+* `CSV.read` is safe by default, but triggers the same corruption when `converters: :numeric` (or `converters: :integer`) is passed explicitly.
 
 ```
 $ cat example4.csv
