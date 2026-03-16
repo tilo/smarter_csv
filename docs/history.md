@@ -60,6 +60,7 @@ The first gem release was **v1.0.1 on 2012-07-30**.
 | 1.15.1  | 2026-02-17 | Fix for backslash in quoted fields (`quote_escaping:` option) |
 | 1.15.2  | 2026-02-20 | Further C-path optimisations; 5.4×–37.4× faster than 1.14.4 |
 | **1.16.0** | **2026-03-12** | **New `each`/`each_chunk` enumerator API; `SmarterCSV.parse`; bad row quarantine; column selection `headers: { only: }`; 1.8×–8.6× faster than Ruby CSV.read; new features for Reader and Writer; minor breaking: `quote_boundary: :standard`** |
+| 1.16.1  | 2026-03-16 | `SmarterCSV.errors` class-level error access; fix `col_sep` in quoted headers (#325); fix quoted numeric conversion |
 
 ---
 
