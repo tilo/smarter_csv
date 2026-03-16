@@ -41,7 +41,7 @@ This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silen
 | 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — only the first survives, the rest are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
 | 2 | Duplicate headers — first wins | `.to_h` keeps only the first value for a repeated header; later values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
 | 3 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
-| 4 | `converters: :numeric` silently corrupts leading-zero strings via octal ¹ | `Integer()` interprets leading zeros as octal — `"00123"` → `83` ❌ | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
+| 4 | `converters: :numeric` silently corrupts leading-zero values as octal ¹ | `Integer()` interprets leading zeros as octal — `"00123"` → `83` ❌ | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
 | 5 | Whitespace in headers ² | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | Whitespace around values | `"active  " == "active"` → `false` — leading/trailing spaces or tabs cause status/type checks to silently return wrong results | by default ✅ | Default `strip_whitespace: true` strips all values; set `false` to preserve spaces |
 | 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
@@ -184,7 +184,7 @@ rows.first
 
 ---
 
-## 4. `converters: :numeric` Silently Corrupts Leading-Zero Strings via Octal
+## 4. `converters: :numeric` Silently Corrupts Leading-Zero Values as Octal
 
 `converters: :numeric` The result is not just "leading zeros stripped" — the entire number is silently converted to a completely different value that looks plausible but is incorrect ❌.
 
