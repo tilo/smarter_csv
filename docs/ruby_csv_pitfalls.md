@@ -41,7 +41,7 @@ This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silen
 | 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — only the first survives, the rest are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
 | 2 | Duplicate headers — first wins | `.to_h` keeps only the first value for a repeated header; later values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
 | 3 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
-| 4 | `CSV.table` silently corrupts leading-zero strings via octal | `converters: :numeric` calls `Integer()` which interprets leading zeros as octal — `"00123"` → `83` | by default ✅ | No implicit type conversion; `convert_values_to_numeric: false` preserves strings exactly |
+| 4 | `CSV.table` silently corrupts leading-zero strings via octal | `converters: :numeric` calls `Integer()` which interprets leading zeros as octal — `"00123"` → `83` | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
 | 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
 | 6 | `liberal_parsing` garbles fields | Mid-field quote characters produce wrong field boundaries — data silently moved to nil key | by default ✅ | `on_bad_row: :raise` (default); opt-in `:skip` / `:collect` for quarantine |
 | 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
@@ -218,18 +218,18 @@ The trap is `CSV.table` (which many developers use as the "proper" API) and any 
 **With SmarterCSV:**
 
 ```ruby
-# Default: converts to decimal integers — no octal trap
+# Default (convert_values_to_numeric: true) — decimal conversion, no octal trap
 rows = SmarterCSV.process('example4.csv')
 rows.first
 # => {customer_id: 123, zip_code: 1234, amount: 99.5}
 
-# convert_values_to_numeric: false — preserves strings exactly
+# convert_values_to_numeric: false — preserves strings exactly, including leading zeros
 rows = SmarterCSV.process('example4.csv', convert_values_to_numeric: false)
 rows.first
 # => {customer_id: "00123", zip_code: "01234", amount: "99.50"}
 ```
 
-SmarterCSV uses `to_i` / `to_f` for numeric conversion, which treats all strings as decimal. No octal interpretation. Use `convert_values_to_numeric: false` when leading zeros are meaningful (ZIP codes, IDs, product codes).
+SmarterCSV's default `convert_values_to_numeric: true` uses `to_i` / `to_f`, which always treats strings as decimal — no octal interpretation. Use `convert_values_to_numeric: false` when leading zeros must be preserved (ZIP codes, IDs, product codes).
 
 ---
 
