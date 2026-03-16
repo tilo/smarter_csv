@@ -43,13 +43,13 @@ This page documents ten reproducible ways `CSV.read` (and `CSV.table`) can silen
 | 3 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
 | 4 | `CSV.table` silently corrupts leading-zero strings via octal | `converters: :numeric` calls `Integer()` which interprets leading zeros as octal — `"00123"` → `83` | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
 | 5 | Whitespace in headers ¹ | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
-| 6 | `liberal_parsing` garbles fields | Mid-field quote characters produce wrong field boundaries — data silently moved to nil key | by default ✅ | `on_bad_row: :raise` (default); opt-in `:skip` / `:collect` for quarantine |
+| 6 | Whitespace around values | `"active  " == "active"` → `false` — leading/trailing spaces or tabs cause status/type checks to silently return wrong results | by default ✅ | Default `strip_whitespace: true` strips all values; set `false` to preserve spaces |
 | 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
 | 8 | Backslash-escaped quotes (MySQL/Unix) | `\"` treated as field-closing quote — crash or garbled data | by default ✅ | Default `quote_escaping: :auto` handles both RFC 4180 and backslash escaping |
 | 9 | TSV file read as CSV — one field per row | Default `col_sep: ","` on a tab-delimited file returns each row as a single string; all column structure lost | by default ✅ | Default `col_sep: :auto` detects the actual delimiter — no option needed |
 | 10 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence:` |
 
-¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers. For all other issues `CSV.table` is identical to or worse than `CSV.read` — in particular, issue #4 is caused by `CSV.table`'s default `converters: :numeric`.
+¹ The one case where `CSV.table` does better than `CSV.read`: its `header_converters: :symbol` option includes `.strip`, so whitespace is removed from headers (#5). Values (#6) are not stripped — `CSV.table` has the same trailing-whitespace problem. For all other issues `CSV.table` is identical to or worse than `CSV.read` — in particular, issue #4 is caused by `CSV.table`'s default `converters: :numeric`.
 
 ---
 
@@ -268,47 +268,48 @@ The default setting `strip_whitespace: true` strips leading/trailing whitespace 
 
 ---
 
-## 6. `liberal_parsing: true` Garbles Field Values
+## 6. Whitespace Around Values — Silent Comparison Failure
 
-`CSV.read` raises `MalformedCSVError` when it encounters an illegal quote character (e.g., a `"` in the middle of an unquoted field). `liberal_parsing: true` suppresses the error and returns a row anyway — but with wrong field boundaries.
+`CSV.read` returns field values exactly as they appear in the file — leading spaces, trailing spaces, and tab characters all preserved. Exporters from fixed-width database systems (Oracle `CHAR` columns, COBOL-era systems) routinely pad string fields to a fixed width; other tools leave accidental leading spaces. The values look correct when printed, but equality checks silently return `false`.
 
-**The key danger:** without `liberal_parsing` you at least know something is wrong. With it, corrupted data is silently returned as valid.
+This pairs with Example 5 (whitespace in headers): Ruby CSV strips neither headers nor values by default.
 
 ```
 $ cat example6.csv
-name,note
-Alice,She said "hi, friend" today
-Bob,Normal note
+name,status,city
+Alice,active  ,New York    ← trailing spaces after 'active'
+Bob,inactive,Chicago
+Carol, active,Boston       ← leading space before 'active'
 ```
 
 **With Ruby CSV:**
 
 ```ruby
-# Without liberal_parsing: you know something is wrong
-CSV.read('example6.csv', headers: true)
-# => CSV::MalformedCSVError: Illegal quoting in line 2.
+rows = CSV.read('example6.csv', headers: true).map(&:to_h)
 
-# With liberal_parsing: silent corruption
-rows = CSV.read('example6.csv', headers: true, liberal_parsing: true).map(&:to_h)
-rows[0]
-# => {"name" => "Alice", "note" => "She said \"hi", nil => " friend\" today"}
-#    ^^^ note field split at the quote; rest of field dumped under nil key; "today" lost
+rows[0]['status']  # => "active  "
+rows[2]['status']  # => " active"
+
+rows.select { |r| r['status'] == 'active' }
+# => []  ← Alice and Carol are not found. No error raised.
 ```
 
-The `"` in the middle of Alice's note is treated as opening a quoted section. The comma inside becomes a field separator, splitting the note across two entries — one with a name and one under `nil`. No exception raised.
+The values look fine in logs and `puts` output. The bug only surfaces when the comparison silently returns the wrong result.
+
+**Workaround:** pass `strip: true` to `CSV.read`. This correctly strips spaces and tab characters. Note it also strips intentional leading/trailing spaces from any field — including quoted fields where spaces may be meaningful.
 
 **With SmarterCSV:**
 
 ```ruby
-bad_rows = []
-good_rows = SmarterCSV.process('example6.csv',
-  on_bad_row: ->(rec) { bad_rows << rec })
+rows = SmarterCSV.process('example6.csv')
+
+rows[0][:status]  # => "active"
+rows[2][:status]  # => "active"
+
+rows.select { |r| r[:status] == 'active' }.length  # => 2
 ```
 
-* `on_bad_row: :raise` (default) fails fast.
-* `on_bad_row: :collect` quarantines them — use `reader.errors` to access.
-* `on_bad_row: ->(rec) { ... }` calls your lambda per bad row; works with `SmarterCSV.process`.
-* `on_bad_row: :skip` discards bad rows silently.
+`strip_whitespace: true` (default) strips all leading and trailing whitespace (spaces and tabs) from values. Set `strip_whitespace: false` to preserve spaces when needed.
 
 ---
 
