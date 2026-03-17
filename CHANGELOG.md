@@ -101,7 +101,6 @@ Measured on 19 benchmark files, Apple M1, Ruby 3.4.7. See [benchmarks](docs/rele
  * `remove_values_matching:` → use `nil_values_matching:`
  * `strict:` → use `missing_headers: :raise/:auto`
  * `verbose: true/false` → use `verbose: :debug/:normal`
- * `only_headers:` / `except_headers:` → use `headers: { only: }` / `headers: { except: }`
 
 ### Bug Fixes
 

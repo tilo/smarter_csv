@@ -195,8 +195,6 @@ See [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.
 
 **Deprecations:**
 
-- `only_headers:` → use `headers: { only: }`
-- `except_headers:` → use `headers: { except: }`
 - `remove_values_matching:` → use `nil_values_matching:`
 - `strict: true` → use `missing_headers: :raise`
 - `strict: false` → use `missing_headers: :auto`
