@@ -42,18 +42,18 @@ But it comes at the cost of boilerplate post-processing you have to write, test,
 
 ## At a Glance
 
-| # | Ruby CSV Issue | Failure Mode | SmarterCSV fix | SmarterCSV Details |
-|---|-------|-------------|:--------------:|---------|
-| 1 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — only the first survives, the rest are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
-| 2 | Duplicate headers — first wins | `.to_h` keeps only the first value for a repeated header; later values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
-| 3 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
-| 4 | `converters: :numeric` silently corrupts leading-zero values as octal ¹ | `Integer()` interprets leading zeros as octal — `"00123"` → `83` ❌ | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
-| 5 | Whitespace in headers ² | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
-| 6 | Whitespace around values | `"active  " == "active"` → `false` — leading/trailing spaces or tabs cause status/type checks to silently return wrong results | by default ✅ | Default `strip_whitespace: true` strips all values; set `false` to preserve spaces |
-| 7 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
-| 8 | Backslash-escaped quotes (MySQL/Unix) | `\"` treated as field-closing quote — crash or garbled data | by default ✅ | Default `quote_escaping: :auto` handles both RFC 4180 and backslash escaping |
-| 9 | TSV file read as CSV — completely breaks ❌ | Default `col_sep: ","` on a tab-delimited file returns each row as a single string; all column structure lost | by default ✅ | Default `col_sep: :auto` detects the actual delimiter — no option needed |
-| 10 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence: ''` |
+| # | Severity | Ruby CSV Issue | Failure Mode | SmarterCSV fix | SmarterCSV Details |
+|---|:--------:|-------|-------------|:--------------:|---------|
+| 1 | 🔴 | Extra columns silently dropped | Values beyond header count compete for the `nil` key — only the first survives, the rest are discarded | by default ✅ | Default `missing_headers: :auto` auto-generates `:column_N` keys |
+| 2 | 🔴 | Duplicate headers — first wins | `.to_h` keeps only the first value for a repeated header; later values silently lost | by default ✅ | Default `duplicate_header_suffix:` → `:score`, `:score2`, `:score3` |
+| 3 | 🔴 | Empty headers — `nil` key collision | Blank header cells become `nil` keys; multiple blanks collide and only the first value survives | by default ✅ | Default `missing_header_prefix:` → `:column_1`, `:column_2` |
+| 4 | 🔴 | `converters: :numeric` silently corrupts leading-zero values as octal ¹ | `Integer()` interprets leading zeros as octal — `"00123"` → `83` ❌ | by default ✅ | Default `convert_values_to_numeric: true` uses decimal — no octal trap; `convert_values_to_numeric: false` preserves strings exactly |
+| 5 | 🟡 | Whitespace in headers ² | `" Age"` ≠ `"Age"` — lookup silently returns `nil` | by default ✅ | Default `strip_whitespace: true` strips headers and values |
+| 6 | 🟡 | Whitespace around values | `"active  " == "active"` → `false` — leading/trailing spaces or tabs cause status/type checks to silently return wrong results | by default ✅ | Default `strip_whitespace: true` strips all values; set `false` to preserve spaces |
+| 7 | 🟠 | `nil` vs `""` for empty fields | Unquoted empty → `nil`, quoted empty → `""` — inconsistent empty checks | by default ✅ | Default `remove_empty_values: true` removes both; `false` normalizes both to `""` |
+| 8 | 🟠 | Backslash-escaped quotes (MySQL/Unix) | `\"` treated as field-closing quote — crash or garbled data | by default ✅ | Default `quote_escaping: :auto` handles both RFC 4180 and backslash escaping |
+| 9 | 🔴 | TSV file read as CSV — completely breaks ❌ | Default `col_sep: ","` on a tab-delimited file returns each row as a single string; all column structure lost | by default ✅ | Default `col_sep: :auto` detects the actual delimiter — no option needed |
+| 10 | 🔴 | No encoding auto-detection | Non-UTF-8 files either crash or silently produce mojibake | via option | `file_encoding:`, `force_utf8: true`, `invalid_byte_sequence: ''` |
 
 ¹ Issue #4 can be triggered two ways: `CSV.table` enables `converters: :numeric` by default (no opt-in required), and `CSV.read` triggers the same corruption when passed `converters: :numeric` explicitly. Either way, any leading-zero string field — ZIP codes, customer IDs, product codes — is silently converted to a wrong integer.
 
