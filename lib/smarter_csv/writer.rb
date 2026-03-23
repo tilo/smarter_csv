@@ -149,7 +149,7 @@ module SmarterCSV
 
     def write_header_line
       mapped_headers = @headers.map { |header| @map_headers[header] || header }
-      mapped_headers = @headers.map { |header| @header_converter.call(header) } if @header_converter
+      mapped_headers = mapped_headers.map { |header| @header_converter.call(header) } if @header_converter
       force_quotes = @quote_headers || @force_quotes
       mapped_headers = mapped_headers.map { |x| escape_csv_field(x, force_quotes) }
       @output_file.write(mapped_headers.join(@col_sep) + @row_sep) unless mapped_headers.empty?

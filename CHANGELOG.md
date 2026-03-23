@@ -1,6 +1,19 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.2 (2026-03-23) — Bug Fixes
+
+RSpec tests: **1,410 → 1,414** (+4 tests)
+
+### Bug Fixes
+
+* Fixed blank header auto-naming to use **absolute column position**, consistent with extra data column naming.
+  `name,,` now produces `column_2`/`column_3` instead of `column_1`/`column_2`.
+  ⚠️ If your code references auto-generated keys for blank headers, update those to use the absolute column position.
+
+* Fixed `Writer`: when both `map_headers:` and `header_converter:` were used together, `map_headers` was silently ignored.
+  `map_headers` is now applied first, then `header_converter` on top.
+
 ## 1.16.1 (2026-03-16) — Bug Fixes & New Features
 
 RSpec tests: **1,247 → 1,410** (+163 tests)

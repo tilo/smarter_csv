@@ -359,6 +359,19 @@ RSpec.describe SmarterCSV::Writer do
       end
     end
 
+    context 'when both map_headers and header_converter are used' do
+      it 'applies map_headers first, then header_converter on top' do
+        data = [{ id: 1, name: 'Alice' }]
+        output = StringIO.new
+        SmarterCSV.generate(output,
+          map_headers: { id: 'customer_id', name: 'full_name' },
+          header_converter: ->(h) { h.upcase }) do |csv|
+          data.each { |row| csv << row }
+        end
+        expect(output.string).to start_with("CUSTOMER_ID,FULL_NAME")
+      end
+    end
+
     context 'when automatic header discovery is disabled' do
       context 'when we give explicit list of headers' do
         let(:options) do

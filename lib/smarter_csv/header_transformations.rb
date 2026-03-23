@@ -27,19 +27,21 @@ module SmarterCSV
 
     def disambiguate_headers(headers, options)
       counts = Hash.new(0)
-      empty_count = 0
       prefix = options[:missing_header_prefix] || 'column_'
       # Pre-collect non-blank header names so auto-generated names can avoid collisions.
       used = headers.reject { |h| blank?(h) }
-      headers.map do |header|
+      headers.each_with_index.map do |header, idx|
         if blank?(header)
-          # Empty headers use missing_header_prefix (e.g. "column_1", "column_2") so they
-          # produce a usable key instead of :"" which gets silently deleted downstream.
-          # Skip ahead if the generated name collides with an existing header.
-          begin
-            empty_count += 1
-            candidate = "#{prefix}#{empty_count}"
-          end while used.include?(candidate)
+          # Use absolute 1-based column position, consistent with how extra data columns
+          # beyond the header count are named. If the positional name collides with an
+          # existing header, append underscores until a free name is found — this avoids
+          # stealing the positional name from any subsequent blank header.
+          candidate = "#{prefix}#{idx + 1}"
+          suffix = ''
+          while used.include?(candidate)
+            suffix += '_'
+            candidate = "#{prefix}#{idx + 1}#{suffix}"
+          end
           used << candidate
           candidate
         else
