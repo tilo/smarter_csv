@@ -334,6 +334,33 @@ RSpec.describe SmarterCSV::Reader do
         result = r.send(:process_line_to_hash, "foo,bar", opts)
         expect(result[:col1]).to eq 'CONVERTED'
       end
+
+      it 'applies lambda value_converters in the acceleration path (issue #329)' do
+        converter = ->(v) { v.upcase }
+        r = make_accel_reader("col1,col2\n")
+        opts = r.options.merge(value_converters: {col1: converter})
+        result = r.send(:process_line_to_hash, "foo,bar", opts)
+        expect(result[:col1]).to eq 'FOO'
+      end
+    end
+
+    context 'Ruby fallback path' do
+      it 'applies value_converters in the Ruby path' do
+        converter = double('converter')
+        allow(converter).to receive(:convert).with('foo').and_return('CONVERTED')
+        r = make_reader("col1,col2\n")
+        opts = r.options.merge(value_converters: {col1: converter})
+        result = r.send(:process_line_to_hash, "foo,bar", opts)
+        expect(result[:col1]).to eq 'CONVERTED'
+      end
+
+      it 'applies lambda value_converters in the Ruby path (issue #329)' do
+        converter = ->(v) { v.upcase }
+        r = make_reader("col1,col2\n")
+        opts = r.options.merge(value_converters: {col1: converter})
+        result = r.send(:process_line_to_hash, "foo,bar", opts)
+        expect(result[:col1]).to eq 'FOO'
+      end
     end
   end
 end

@@ -1,11 +1,14 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.2 (2026-03-23) — Bug Fixes
+## 1.16.2 (2026-03-29) — Bug Fixes
 
-RSpec tests: **1,410 → 1,414** (+4 tests)
+RSpec tests: **1,410 → 1,425** (+15 tests)
 
 ### Bug Fixes
+
+* Fixed `value_converters` to accept lambdas and Procs in addition to class-based converters.
+  Thanks to [Jonas Staškevičius](https://github.com/pirminis) for issue [#329](https://github.com/tilo/smarter_csv/issues/329).
 
 * Fixed blank header auto-naming to use **absolute column position**, consistent with extra data column naming.
   `name,,` now produces `column_2`/`column_3` instead of `column_1`/`column_2`.
