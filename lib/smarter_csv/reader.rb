@@ -357,7 +357,7 @@ module SmarterCSV
 
               if options[:value_converters]
                 options[:value_converters].each do |key, converter|
-                  hash[key] = converter.respond_to?(:call) ? converter.call(hash[key]) : converter.convert(hash[key]) if hash.key?(key)
+                  hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
                 end
               end
             else
@@ -755,7 +755,7 @@ module SmarterCSV
 
         if options[:value_converters]
           options[:value_converters].each do |key, converter|
-            hash[key] = converter.respond_to?(:call) ? converter.call(hash[key]) : converter.convert(hash[key]) if hash.key?(key)
+            hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
           end
         end
       else
