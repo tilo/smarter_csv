@@ -11,7 +11,7 @@ describe 'empty headers in CSV file' do
   it 'assigns column_N keys to empty headers using missing_header_prefix (default)' do
     data = SmarterCSV.process("#{fixture_path}/empty_headers.csv")
     expect(data.size).to eq 1
-    expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', column_2: 'Sagan' })
+    expect(data.first).to eq({ name: 'Carl', column_2: 'Edward', column_3: 'Sagan' })
   end
 
   it 'does not silently drop values for empty headers' do
@@ -22,7 +22,7 @@ describe 'empty headers in CSV file' do
 
   it 'respects a custom missing_header_prefix' do
     data = SmarterCSV.process("#{fixture_path}/empty_headers.csv", missing_header_prefix: 'field_')
-    expect(data.first).to eq({ name: 'Carl', field_1: 'Edward', field_2: 'Sagan' })
+    expect(data.first).to eq({ name: 'Carl', field_2: 'Edward', field_3: 'Sagan' })
   end
 
   # With strip_whitespace: true (default), whitespace-only headers are stripped to ""
@@ -30,12 +30,12 @@ describe 'empty headers in CSV file' do
   context 'with whitespace-only headers (strip_whitespace: true, default)' do
     it 'treats a spaces-only header ("  ") as blank and auto-names it' do
       data = SmarterCSV.parse("name,  ,value\nCarl,Edward,Sagan\n")
-      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+      expect(data.first).to eq({ name: 'Carl', column_2: 'Edward', value: 'Sagan' })
     end
 
     it 'treats a tab-only header ("\t") as blank and auto-names it' do
       data = SmarterCSV.parse("name,\t,value\nCarl,Edward,Sagan\n")
-      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+      expect(data.first).to eq({ name: 'Carl', column_2: 'Edward', value: 'Sagan' })
     end
   end
 
@@ -44,21 +44,39 @@ describe 'empty headers in CSV file' do
   context 'with whitespace-only headers (strip_whitespace: false)' do
     it 'treats a spaces-only header ("  ") as blank and auto-names it' do
       data = SmarterCSV.parse("name,  ,value\nCarl,Edward,Sagan\n", strip_whitespace: false)
-      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+      expect(data.first).to eq({ name: 'Carl', column_2: 'Edward', value: 'Sagan' })
     end
 
     it 'treats a tab-only header ("\t") as blank and auto-names it' do
       data = SmarterCSV.parse("name,\t,value\nCarl,Edward,Sagan\n", strip_whitespace: false)
-      expect(data.first).to eq({ name: 'Carl', column_1: 'Edward', value: 'Sagan' })
+      expect(data.first).to eq({ name: 'Carl', column_2: 'Edward', value: 'Sagan' })
     end
   end
 
-  it 'skips ahead when auto-generated name collides with an existing header' do
+  it 'uses absolute position for blank headers (no collision with non-positional names)' do
     data = SmarterCSV.parse("column_1,name,\nAlbert,Bernard,Cecil\n")
-    expect(data.first).to eq({ column_1: 'Albert', name: 'Bernard', column_2: 'Cecil' })
+    expect(data.first).to eq({ column_1: 'Albert', name: 'Bernard', column_3: 'Cecil' })
   end
 
-  it 'skips multiple collisions to find the next available name' do
+  it 'appends underscores when auto-generated name collides with an existing header' do
+    data = SmarterCSV.parse("column_3,name,\nAlbert,Bernard,Cecil\n")
+    expect(data.first).to eq({ column_3: 'Albert', name: 'Bernard', column_3_: 'Cecil' })
+  end
+
+  it 'appends two underscores when both column_N and column_N_ are already taken' do
+    # blank at pos 3 → candidate "column_3" collides → "column_3_" collides → "column_3__"
+    data = SmarterCSV.parse("column_3,column_3_,\nAlbert,Bernard,Cecil\n")
+    expect(data.first).to eq({ column_3: 'Albert', column_3_: 'Bernard', column_3__: 'Cecil' })
+  end
+
+  it 'does not steal a later blank header\'s positional name when resolving a collision' do
+    # blank at pos 2 collides with column_2 → gets column_2_ (not column_3)
+    # blank at pos 3 is free → gets column_3 (not stolen by the collision resolution)
+    data = SmarterCSV.parse("column_2,,,\nA,B,C,D\n")
+    expect(data.first).to eq({ column_2: 'A', column_2_: 'B', column_3: 'C', column_4: 'D' })
+  end
+
+  it 'uses absolute position when all surrounding headers are non-positional' do
     data = SmarterCSV.parse("column_1,column_2,\nAlbert,Bernard,Cecil\n")
     expect(data.first).to eq({ column_1: 'Albert', column_2: 'Bernard', column_3: 'Cecil' })
   end
@@ -70,20 +88,20 @@ describe 'empty headers in CSV file' do
 
   it 'produces string keys with keep_original_headers: true' do
     data = SmarterCSV.parse("name,,\nCarl,Edward,Sagan\n", keep_original_headers: true)
-    expect(data.first).to eq({ 'name' => 'Carl', 'column_1' => 'Edward', 'column_2' => 'Sagan' })
+    expect(data.first).to eq({ 'name' => 'Carl', 'column_2' => 'Edward', 'column_3' => 'Sagan' })
     expect(data.first.keys.map(&:class).uniq).to eq [String]
   end
 
   it 'produces string keys with strings_as_keys: true' do
     data = SmarterCSV.parse("name,,\nCarl,Edward,Sagan\n", strings_as_keys: true)
-    expect(data.first).to eq({ 'name' => 'Carl', 'column_1' => 'Edward', 'column_2' => 'Sagan' })
+    expect(data.first).to eq({ 'name' => 'Carl', 'column_2' => 'Edward', 'column_3' => 'Sagan' })
     expect(data.first.keys.map(&:class).uniq).to eq [String]
   end
 
   it 'handles a mix of named, empty, and duplicate headers' do
     data = SmarterCSV.parse("name,name,,name\nAlbert,Bernard,Cecil,Daniel\n")
     expect(data.first[:name]).to eq 'Albert'
-    expect(data.first[:column_1]).to eq 'Cecil'
+    expect(data.first[:column_3]).to eq 'Cecil'
     expect(data.first.size).to eq 4
   end
 end

@@ -62,7 +62,7 @@ module SmarterCSV
         # Apply value converters
         if value_converters
           converter = value_converters[k]
-          hash[k] = converter.convert(hash[k]) if converter
+          hash[k] = converter.respond_to?(:convert) ? converter.convert(hash[k]) : converter.call(hash[k]) if converter
         end
       end
 
