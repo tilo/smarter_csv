@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.2 (2026-03-29) — Bug Fixes
+## 1.16.2 (2026-03-30) — Bug Fixes
 
 RSpec tests: **1,410 → 1,425** (+15 tests)
 
