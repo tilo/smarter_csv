@@ -42,6 +42,8 @@ module SmarterCSV
   #   write_empty_value: string written in place of empty-string field values (default: '')
   #   write_bom: when true, prepends a UTF-8 BOM (\xEF\xBB\xBF) to the output (default: false)
   #              Useful for Excel compatibility with non-ASCII content.
+  #   write_headers: when false, suppresses the header line (default: true). Useful when appending to
+  #                  an existing CSV file opened in 'a' mode — the caller controls the file mode.
 
   # IMPORTANT NOTES:
   #  * Data hashes could contain strings or symbols as keys.
@@ -66,6 +68,7 @@ module SmarterCSV
       @write_nil_value = options.fetch(:write_nil_value, '')
       @write_empty_value = options.fetch(:write_empty_value, '')
       @write_bom = options[:write_bom] == true
+      @write_headers = !options.has_key?(:write_headers) || options[:write_headers] == true
       @map_all_keys = @value_converters.has_key?(:_all)
       @mapped_keys = Set.new(@value_converters.keys - [:_all])
       @header_converter = options[:header_converter]
@@ -110,7 +113,7 @@ module SmarterCSV
         # and stream data rows directly to @output_file, bypassing the temp file entirely.
         @temp_file = nil
         @output_file.write("\xEF\xBB\xBF") if @write_bom
-        write_header_line
+        write_header_line if @write_headers
       else
         @temp_file = Tempfile.new('smarter_csv')
       end
@@ -134,7 +137,7 @@ module SmarterCSV
         # Header-discovery mode: headers were accumulated while writing rows;
         # now prepend the header line and copy the buffered rows to the output.
         @output_file.write("\xEF\xBB\xBF") if @write_bom
-        write_header_line
+        write_header_line if @write_headers
         @temp_file.rewind
         @output_file.write(@temp_file.read)
         @temp_file.close!

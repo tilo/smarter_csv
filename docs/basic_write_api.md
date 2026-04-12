@@ -568,6 +568,54 @@ end
 > **Note:** Only use `write_bom: true` with UTF-8 output. Adding a UTF-8 BOM to a
 > non-UTF-8 file will corrupt it.
 
+## Appending to an Existing CSV File
+
+Use `write_headers: false` to suppress the header line when appending rows to an
+existing CSV file. The caller is responsible for opening the file in append mode — the
+Writer writes only what you ask it to write.
+
+```ruby
+# First write: create the file with header + first batch of rows
+SmarterCSV.generate('output.csv') do |csv|
+  csv << { name: 'Alice', age: 30 }
+end
+# output.csv:
+# name,age
+# Alice,30
+
+# Later: append more rows without repeating the header
+File.open('output.csv', 'a') do |f|
+  SmarterCSV.generate(f, write_headers: false) do |csv|
+    csv << { name: 'Bob', age: 25 }
+  end
+end
+# output.csv:
+# name,age
+# Alice,30
+# Bob,25
+```
+
+The Writer still uses the hash keys to determine column order, so the appended rows
+will be aligned correctly as long as the same set of keys is used. If you need to
+guarantee column order across both writes, pass `headers:` explicitly:
+
+```ruby
+HEADERS = %i[name age]
+
+SmarterCSV.generate('output.csv', headers: HEADERS) do |csv|
+  csv << { name: 'Alice', age: 30 }
+end
+
+File.open('output.csv', 'a') do |f|
+  SmarterCSV.generate(f, headers: HEADERS, write_headers: false) do |csv|
+    csv << { name: 'Bob', age: 25 }
+  end
+end
+```
+
+> **Note:** `write_headers: false` only suppresses the header line. All other
+> options (`col_sep:`, `row_sep:`, `value_converters:`, etc.) apply as normal.
+
 ## More Examples
 
 Check out the [RSpec tests](../spec/smarter_csv/writer_spec.rb) for more examples.

@@ -1009,4 +1009,126 @@ RSpec.describe SmarterCSV::Writer do
       expect(io.string).not_to start_with("\xEF\xBB\xBF")
     end
   end
+
+  describe 'write_headers option' do
+    let(:row_sep) { $/ }
+
+    context 'default behavior (write_headers: true)' do
+      it 'emits header line in header-discovery mode' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io)
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[0]).to eq('name,age')
+        expect(lines[1]).to eq('Alice,30')
+      end
+
+      it 'emits header line in direct-write mode (headers: given)' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: %i[name age])
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines[0]).to eq('name,age')
+        expect(lines[1]).to eq('Alice,30')
+      end
+    end
+
+    context 'write_headers: false' do
+      it 'omits the header line in header-discovery mode' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, write_headers: false)
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines.length).to eq(1)
+        expect(lines[0]).to eq('Alice,30')
+      end
+
+      it 'omits the header line in direct-write mode (headers: given)' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, headers: %i[name age], write_headers: false)
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines.length).to eq(1)
+        expect(lines[0]).to eq('Alice,30')
+      end
+
+      it 'appends data rows only to an existing CSV (simulate append mode)' do
+        # First write: create file with header
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io)
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        existing_content = io.string
+
+        # Second write: append rows only
+        append_io = StringIO.new
+        writer2 = SmarterCSV::Writer.new(append_io, write_headers: false)
+        writer2 << { name: 'Bob', age: 25 }
+        writer2.finalize
+        append_io.rewind
+
+        combined = existing_content + append_io.string
+        lines = combined.split(row_sep)
+        expect(lines[0]).to eq('name,age')
+        expect(lines[1]).to eq('Alice,30')
+        expect(lines[2]).to eq('Bob,25')
+      end
+
+      it 'still respects column ordering from map_headers when write_headers: false' do
+        io = StringIO.new
+        writer = SmarterCSV::Writer.new(io, map_headers: { name: 'Name', age: 'Age' }, write_headers: false)
+        writer << { name: 'Alice', age: 30 }
+        writer.finalize
+        io.rewind
+        lines = io.string.split(row_sep)
+        expect(lines.length).to eq(1)
+        expect(lines[0]).to eq('Alice,30')
+      end
+
+      it 'works through SmarterCSV.generate with write_headers: false' do
+        result = SmarterCSV.generate(write_headers: false) do |csv|
+          csv << { name: 'Alice', age: 30 }
+          csv << { name: 'Bob',   age: 25 }
+        end
+        lines = result.split(row_sep)
+        expect(lines.length).to eq(2)
+        expect(lines[0]).to eq('Alice,30')
+        expect(lines[1]).to eq('Bob,25')
+      end
+
+      it 'appends data rows only when the IO is opened in append mode' do
+        path = '/tmp/test_write_headers_append.csv'
+        begin
+          # First write: create the file with header + first row
+          SmarterCSV.generate(path) do |csv|
+            csv << { name: 'Alice', age: 30 }
+          end
+
+          # Second write: open in 'a' mode and suppress the header
+          File.open(path, 'a') do |f|
+            SmarterCSV.generate(f, write_headers: false) do |csv|
+              csv << { name: 'Bob', age: 25 }
+            end
+          end
+
+          lines = File.read(path).split(row_sep)
+          expect(lines.length).to eq(3)
+          expect(lines[0]).to eq('name,age')
+          expect(lines[1]).to eq('Alice,30')
+          expect(lines[2]).to eq('Bob,25')
+        ensure
+          File.delete(path) if File.exist?(path)
+        end
+      end
+    end
+  end
 end
