@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Additional coverage for options.rb:
+# Additional coverage for reader_options.rb:
 # - required_headers deprecation path
 # - quote_escaping validation
 # - user_provided_headers auto-setting headers_in_file

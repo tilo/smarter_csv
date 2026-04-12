@@ -25,6 +25,8 @@ module SmarterCSV
   #
   # The Writer automatically quotes fields containing the col_sep, row_sep, or the quote_char.
   #
+  # See SmarterCSV::Writer::Options::DEFAULT_OPTIONS for all options and their defaults.
+  #
   # Options:
   #   col_sep : defaults to , but can be set to any other character
   #   row_sep : defaults to LF \n , but can be set to \r\n or \r or anything else
@@ -44,7 +46,7 @@ module SmarterCSV
   #              Useful for Excel compatibility with non-ASCII content.
   #   write_headers: when false, suppresses the header line (default: true). Useful when appending to
   #                  an existing CSV file opened in 'a' mode — the caller controls the file mode.
-
+  #
   # IMPORTANT NOTES:
   #  * Data hashes could contain strings or symbols as keys.
   #    Make sure to use the correct form when specifying headers manually,
@@ -53,37 +55,42 @@ module SmarterCSV
   attr_reader :options, :row_sep, :col_sep, :quote_char, :force_quotes, :discover_headers, :headers, :map_headers, :output_file
 
   class Writer
-    def initialize(file_path_or_io, options = {})
-      @options = options
+    include ::SmarterCSV::Writer::Options
 
-      @row_sep = options[:row_sep] || $/
-      @col_sep = options[:col_sep] || ','
-      @quote_char = options[:quote_char] || '"'
+    def self.default_options
+      Options::DEFAULT_OPTIONS
+    end
+
+    def initialize(file_path_or_io, given_options = {})
+      opts = Options::DEFAULT_OPTIONS.merge(given_options)
+      @options = opts
+
+      @row_sep = opts[:row_sep]
+      @col_sep = opts[:col_sep]
+      @quote_char = opts[:quote_char]
       @escaped_quote_char = @quote_char * 2
-      @force_quotes = options[:force_quotes] == true
-      @quote_headers = options[:quote_headers] == true
-      @disable_auto_quoting = options[:disable_auto_quoting] == true
-      @value_converters = options[:value_converters] || {}
-      @encoding = options[:encoding]
-      @write_nil_value = options.fetch(:write_nil_value, '')
-      @write_empty_value = options.fetch(:write_empty_value, '')
-      @write_bom = options[:write_bom] == true
-      @write_headers = !options.has_key?(:write_headers) || options[:write_headers] == true
+      @force_quotes = opts[:force_quotes] == true
+      @quote_headers = opts[:quote_headers] == true
+      @disable_auto_quoting = opts[:disable_auto_quoting] == true
+      @value_converters = opts[:value_converters] || {}
+      @encoding = opts[:encoding]
+      @write_nil_value = opts[:write_nil_value]
+      @write_empty_value = opts[:write_empty_value]
+      @write_bom = opts[:write_bom] == true
+      @write_headers = opts[:write_headers] == true
       @map_all_keys = @value_converters.has_key?(:_all)
       @mapped_keys = Set.new(@value_converters.keys - [:_all])
-      @header_converter = options[:header_converter]
+      @header_converter = opts[:header_converter]
 
-      @discover_headers = true
-      if options.has_key?(:discover_headers)
-        @discover_headers = options[:discover_headers] == true
+      if given_options.has_key?(:discover_headers)
+        @discover_headers = given_options[:discover_headers] == true
       else
-        @discover_headers = !(options.has_key?(:map_headers) || options.has_key?(:headers))
+        @discover_headers = !(given_options.has_key?(:map_headers) || given_options.has_key?(:headers))
       end
 
-      @headers = []
-      @headers = options[:headers] if options.has_key?(:headers)
-      @headers = options[:map_headers].keys if options.has_key?(:map_headers) && !options.has_key?(:headers)
-      @map_headers = options[:map_headers] || {}
+      @headers = opts[:headers].dup
+      @headers = given_options[:map_headers].keys if given_options.has_key?(:map_headers) && !given_options.has_key?(:headers)
+      @map_headers = opts[:map_headers]
 
       # Accept an IO-like object (StringIO, IO, etc.) or any path-like object (String, Pathname, etc.)
       if file_path_or_io.respond_to?(:write)

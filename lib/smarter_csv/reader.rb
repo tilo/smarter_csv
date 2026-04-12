@@ -10,7 +10,7 @@ module SmarterCSV
     # A warning is emitted to STDERR so users know to configure it explicitly.
     DEFAULT_CHUNK_SIZE = 100
 
-    include ::SmarterCSV::Options
+    include ::SmarterCSV::Reader::Options
     include ::SmarterCSV::FileIO
     include ::SmarterCSV::AutoDetection
     include ::SmarterCSV::Headers
@@ -23,6 +23,10 @@ module SmarterCSV
     attr_reader :csv_line_count, :chunk_count, :file_line_count
     attr_reader :enforce_utf8, :has_rails, :has_acceleration
     attr_reader :errors, :warnings, :headers, :raw_header, :result
+
+    def self.default_options
+      Options::DEFAULT_OPTIONS
+    end
 
     # rubocop:disable Naming/MethodName
     def headerA

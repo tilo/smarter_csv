@@ -1,9 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.3 (2026-04-11) — New Feature
+## 1.16.3 (2026-04-13) — New Feature
 
-RSpec tests: **1,425 → 1,433** (+8 tests)
+RSpec tests: **1,425 → 1,434** (+9 tests)
 
 ### New Features
 
