@@ -55,20 +55,41 @@ module SmarterCSV
         int = internal_encoding
         if ext && int && ext != int
           # Transcoded stream: raw bytes are in external_encoding; convert to internal.
-          raw = raw.dup.force_encoding(ext).encode(int).b
+          #
+          # Problem: read(n) does not transcode, so raw is in external_encoding bytes.
+          # If peek(n) stopped mid-codepoint in the external encoding, encode() raises
+          # Encoding::InvalidByteSequenceError before align_to_char_boundary is reached.
+          # Fix: read one more raw byte at a time and retry, bounded by MAX_ALIGN_BYTES.
+          # If still failing after the bound (genuinely malformed input), replace invalid
+          # bytes rather than raise.
+          transcoded = nil
+          MAX_ALIGN_BYTES.times do
+            begin
+              transcoded = raw.dup.force_encoding(ext).encode(int)
+              break
+            rescue Encoding::InvalidByteSequenceError
+              extra = @io.read(1)
+              break unless extra
+              raw = raw + extra.b
+            end
+          end
+          raw = (transcoded || raw.dup.force_encoding(ext).encode(int, invalid: :replace)).b
           @emit_encoding = int
+          # align_to_char_boundary is NOT called in the transcoding path: the encode
+          # step already consumed complete external-encoding codepoints and the output
+          # is valid in the internal encoding by construction.
         else
           # nil for binary/untagged sources (pipes, STDIN without explicit encoding).
           # Downstream force_encoding calls have their own fallback chain.
           @emit_encoding = ext
+          # Ensure the buffer ends on a complete character boundary.
+          # If peek(n) stopped mid-codepoint, read one byte at a time until the
+          # buffer is valid in its declared encoding. This prevents gets / each_char
+          # from handing a truncated sequence to the caller and positioning @io at
+          # a continuation byte — which can raise or corrupt data for strict encodings.
+          # Skipped when encoding is unknown (nil) or single-byte (every byte is valid).
+          raw = align_to_char_boundary(raw) if @emit_encoding
         end
-        # Ensure the buffer ends on a complete character boundary.
-        # If peek(n) stopped mid-codepoint, read one byte at a time until the
-        # buffer is valid in its declared encoding. This prevents gets / each_char
-        # from handing a truncated sequence to the caller and positioning @io at
-        # a continuation byte — which can raise or corrupt data for strict encodings.
-        # Skipped when encoding is unknown (nil) or single-byte (every byte is valid).
-        raw = align_to_char_boundary(raw) if @emit_encoding
         @peek_buf = raw
         @peek_pos = 0
       end

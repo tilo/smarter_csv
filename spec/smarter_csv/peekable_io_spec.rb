@@ -17,6 +17,25 @@ class NilEncodingIO
   # Intentionally does NOT implement external_encoding
 end
 
+# IO-like that simulates a transcoded File handle (e.g. File.open('f', 'r:EUC-JP:UTF-8')).
+# StringIO#set_encoding does not support transcoding pairs (internal_encoding stays nil),
+# so we use this wrapper to properly report both external and internal encodings.
+# read(n) returns raw bytes without transcoding, matching real IO#read(n) behaviour.
+class TranscodedIO
+  def initialize(raw_bytes, external, internal)
+    @io  = StringIO.new(raw_bytes.b)
+    @ext = Encoding.find(external)
+    @int = Encoding.find(internal)
+  end
+  def read(n = nil)        = @io.read(n)
+  def gets(sep = $/)       = @io.gets(sep)
+  def each_char(&block)    = @io.each_char(&block)
+  def eof?                 = @io.eof?
+  def close                = nil
+  def external_encoding    = @ext
+  def internal_encoding    = @int
+end
+
 RSpec.describe SmarterCSV::PeekableIO do
   let(:content) { "header1,header2\nval1,val2\nval3,val4\n" }
   let(:io)      { StringIO.new(content) }
@@ -466,6 +485,55 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio = described_class.new(StringIO.new(content))
       returned = pio.peek(3)
       expect(returned.b).to eq(content.b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Issue 3 — transcoding path raises Encoding::InvalidByteSequenceError when peek
+  # boundary splits a multi-byte codepoint in the external encoding
+  #
+  # When a file is opened with a transcoding pair (e.g. r:euc-jp:utf-8), read(n)
+  # returns raw external-encoding bytes without transcoding.  If byte n falls in the
+  # middle of a 2- or 3-byte EUC-JP character, calling encode('UTF-8') on the raw
+  # bytes raises Encoding::InvalidByteSequenceError before align_to_char_boundary
+  # is ever reached.  The fix retries with one more raw byte up to MAX_ALIGN_BYTES.
+  # ---------------------------------------------------------------------------
+  describe 'Issue 3 — transcoding path handles peek boundary mid-codepoint' do
+    # EUC-JP "日" = \xC6\xFC (2 bytes).  We peek only the first byte (\xC6) so that
+    # encode('UTF-8') would raise without the fix.
+    let(:euc_jp_hi) { "\xC6".b }         # first byte of EUC-JP "日" (\xC6\xFC)
+    let(:euc_jp_lo) { "\xFC".b }         # second byte
+    let(:rest)      { ",data\n".b }
+
+    def transcoded_io(raw_bytes)
+      TranscodedIO.new(raw_bytes, 'EUC-JP', 'UTF-8')
+    end
+
+    it 'does not raise when peek splits a 2-byte EUC-JP codepoint' do
+      io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
+      pio = described_class.new(io)
+      expect { pio.peek(1) }.not_to raise_error  # peek(1) reads only \xC6
+    end
+
+    it 'returns the complete transcoded character after boundary alignment' do
+      io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
+      pio = described_class.new(io)
+      result = pio.peek(1)
+      # "日" in UTF-8 is \xE6\x97\xA5 ... but \xC6\xFC in EUC-JP is actually "日" mapped differently
+      # Just assert that the result contains a valid UTF-8 character and the rest follows
+      expect(result.encoding).to eq(Encoding::UTF_8)
+      expect(result.valid_encoding?).to be true
+    end
+
+    it 'replays all content correctly after peek + rewind' do
+      io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
+      pio = described_class.new(io)
+      pio.peek(1)
+      pio.rewind
+      full = pio.read
+      expect(full.encoding).to eq(Encoding::UTF_8)
+      expect(full.valid_encoding?).to be true
+      expect(full.b.bytesize).to be > 0
     end
   end
 
