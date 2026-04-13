@@ -132,6 +132,8 @@ module SmarterCSV
         # Check if the buffer tail matches any prefix of sep and read ahead to confirm.
         # For non-seekable IO: on a non-match the already-read bytes are prepended
         # to the remainder so no data is lost.
+        # Every byte fetched from @io must be appended to @peek_buf so that a
+        # subsequent rewind() can replay the full stream from position 0.
         if sep.bytesize > 1
           (sep.bytesize - 1).downto(1) do |prefix_len|
             next unless rest.b.end_with?(sep.b.byteslice(0, prefix_len))
@@ -139,25 +141,28 @@ module SmarterCSV
             tail_needed = sep.b.byteslice(prefix_len..)
             peeked = @io.read(tail_needed.bytesize)
 
-            combined =
-              if peeked.nil?
-                rest.b                                                    # EOF after rest
-              elsif peeked.b == tail_needed
-                rest.b + tail_needed                                      # separator confirmed
-              else
-                remainder = @io.gets(sep, **kwargs)
-                rest.b + peeked.b + (remainder ? remainder.b : ''.b)     # peeked was content
-              end
+            if peeked.nil?
+              combined = rest.b                        # EOF — nothing new to store
+            elsif peeked.b == tail_needed
+              @peek_buf = @peek_buf + tail_needed      # separator confirmed: store it
+              @peek_pos = @peek_buf.bytesize
+              combined = rest.b + tail_needed
+            else
+              remainder = @io.gets(sep, **kwargs)
+              appended = peeked.b + (remainder ? remainder.b : ''.b)
+              @peek_buf = @peek_buf + appended         # peeked was content: store all
+              @peek_pos = @peek_buf.bytesize
+              combined = rest.b + appended
+            end
             return out_enc ? combined.force_encoding(out_enc) : combined
           end
         end
 
-        # Bug 4 fix: concatenate in binary then re-tag to avoid
-        # Encoding::CompatibilityError when @emit_encoding is nil (source has no
-        # declared encoding) and @io.gets returns ASCII-8BIT with bytes >= 128,
-        # while rest was force-encoded as UTF-8 via the fallback chain above.
         remainder = @io.gets(sep, **kwargs)
-        combined = rest.b + (remainder ? remainder.b : ''.b)
+        appended = remainder ? remainder.b : ''.b
+        @peek_buf = @peek_buf + appended               # store remainder for rewind
+        @peek_pos = @peek_buf.bytesize
+        combined = rest.b + appended
         out_enc ? combined.force_encoding(out_enc) : combined
       end
     end

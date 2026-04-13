@@ -408,6 +408,30 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio.peek(4)   # "hdr\r" in buffer; "data\r\n" in @io
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
     end
+
+    # Issue 1 — rewind after gets crosses the buffer boundary
+    #
+    # Before the fix, bytes fetched from @io during gets were returned to the caller
+    # but never stored in @peek_buf. A rewind + re-read would produce wrong output
+    # because those bytes were gone from @io but absent from the buffer.
+    it 'rewind replays correctly after gets consumed bytes from @io (straddle case)' do
+      pio = described_class.new(StringIO.new("hdr\r\ndata\r\n"))
+      pio.peek(4)                                    # "hdr\r" in buffer, "\ndata\r\n" in @io
+      expect(pio.gets("\r\n")).to eq("hdr\r\n")      # triggers straddle: reads \n from @io
+      pio.rewind
+      expect(pio.gets("\r\n")).to eq("hdr\r\n")      # must return same line, not garbage
+      expect(pio.gets("\r\n")).to eq("data\r\n")
+    end
+
+    it 'rewind replays correctly after gets consumed bytes from @io (normal boundary case)' do
+      # peek(3) means sep "\n" is not in buffer "hdr"; gets must read from @io
+      pio = described_class.new(StringIO.new("hdr\ndata\n"))
+      pio.peek(3)                                    # "hdr" in buffer, "\ndata\n" in @io
+      expect(pio.gets("\n")).to eq("hdr\n")          # reads "\n" + "data\n" from @io
+      pio.rewind
+      expect(pio.gets("\n")).to eq("hdr\n")
+      expect(pio.gets("\n")).to eq("data\n")
+    end
   end
 
   # ---------------------------------------------------------------------------
