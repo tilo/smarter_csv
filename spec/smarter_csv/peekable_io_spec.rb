@@ -3,6 +3,20 @@
 require 'spec_helper'
 require 'stringio'
 
+# IO-like with NO external_encoding — simulates custom wrappers, legacy adapters,
+# decompression streams, etc. that don't expose an encoding. Returns ASCII-8BIT.
+class NilEncodingIO
+  def initialize(str)
+    @io = StringIO.new(str.b)
+  end
+  def read(n = nil)        = @io.read(n)
+  def gets(sep = $/)       = @io.gets(sep)
+  def each_char(&block)    = @io.each_char(&block)
+  def eof?                 = @io.eof?
+  def close                = nil
+  # Intentionally does NOT implement external_encoding
+end
+
 RSpec.describe SmarterCSV::PeekableIO do
   let(:content) { "header1,header2\nval1,val2\nval3,val4\n" }
   let(:io)      { StringIO.new(content) }
@@ -21,16 +35,18 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(pio.instance_variable_get(:@peek_buf)).not_to be_nil
     end
 
-    it 'peek_buf is nil (released) after buffer is fully drained via read' do
+    it 'peek_buf remains set after buffer is fully drained (kept alive for rewind)' do
       pio.peek(16_384)
       pio.read
-      expect(pio.instance_variable_get(:@peek_buf)).to be_nil
+      expect(pio.instance_variable_get(:@peek_buf)).not_to be_nil
     end
 
-    it 'peek_buf is nil after buffer is fully drained via gets' do
+    it 'peek_pos advances to bytesize when buffer is exhausted via gets' do
       pio.peek(16_384)
       pio.gets("\n") until pio.eof?
-      expect(pio.instance_variable_get(:@peek_buf)).to be_nil
+      buf = pio.instance_variable_get(:@peek_buf)
+      pos = pio.instance_variable_get(:@peek_pos)
+      expect(pos).to be >= buf.bytesize
     end
   end
 
@@ -52,6 +68,16 @@ RSpec.describe SmarterCSV::PeekableIO do
 
     it 'replays a partial peek correctly when sep spans the buffer boundary' do
       pio.peek(7)  # "header1" — does not include the newline
+      expect(pio.gets("\n")).to eq("header1,header2\n")
+    end
+
+    # Issue 3 — peek is not idempotent: a second call re-reads @io, overwrites
+    # @peek_buf, and silently drops the unconsumed bytes from the first peek.
+    it 'is idempotent: second peek returns same bytes without reading more from @io' do
+      first  = pio.peek(10)
+      second = pio.peek(10)
+      expect(second.b).to eq(first.b)
+      # Buffer must still replay all original bytes — no data dropped
       expect(pio.gets("\n")).to eq("header1,header2\n")
     end
   end
@@ -111,6 +137,16 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio.each_char { |c| chars << c }
       expect(chars.join).to eq(content)
     end
+
+    # Issue 2 — each_char used UTF-8 fallback instead of BINARY for nil-encoding sources.
+    # Bytes >= 128 in the peek buffer would raise Encoding::InvalidByteSequenceError.
+    it 'does not raise for nil-encoding source with bytes >= 128' do
+      pio = described_class.new(NilEncodingIO.new("caf\xC3\xA9\n"))
+      pio.peek(4)  # "caf\xC3" in buffer — \xC3 is >= 128
+      chars = []
+      expect { pio.each_char { |c| chars << c } }.not_to raise_error
+      expect(chars.map(&:b).join).to eq("caf\xC3\xA9\n".b)
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -168,6 +204,321 @@ RSpec.describe SmarterCSV::PeekableIO do
       allow(bare).to receive(:respond_to?).with(:external_encoding).and_return(false)
       pio = described_class.new(bare)
       expect(pio.external_encoding).to be_nil
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # method_missing / respond_to_missing?
+  # ---------------------------------------------------------------------------
+  describe '#method_missing' do
+    it 'delegates unknown methods to the underlying IO' do
+      sio = StringIO.new(content)
+      pio = described_class.new(sio)
+      expect(pio.string).to eq(content)  # StringIO#string delegated via method_missing
+    end
+  end
+
+  describe '#respond_to_missing?' do
+    it 'returns true for methods the underlying IO responds to' do
+      sio = StringIO.new(content)
+      pio = described_class.new(sio)
+      expect(pio.respond_to?(:string)).to be true
+    end
+
+    it 'returns false for methods neither PeekableIO nor the underlying IO respond to' do
+      sio = StringIO.new(content)
+      pio = described_class.new(sio)
+      expect(pio.respond_to?(:nonexistent_xyz)).to be false
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Multi-byte character spanning peek buffer boundary
+  #
+  # If peek(n) stops mid-codepoint, the buffer ends with an incomplete byte
+  # sequence. Without alignment, gets passes the truncated bytes to the caller
+  # and @io resumes at a continuation byte — which can corrupt output or raise
+  # Encoding::InvalidByteSequenceError for encodings like Shift-JIS or EUC-JP
+  # where a continuation byte can be re-interpreted as a new lead byte.
+  #
+  # The fix in peek reads extra bytes (one at a time) until the buffer ends on
+  # a complete character boundary (valid_encoding? is true for the declared enc).
+  # ---------------------------------------------------------------------------
+  describe 'multi-byte character spanning peek buffer boundary' do
+    # Build 2-line content: "hdr\n#{char}\n" encoded in the given encoding.
+    # "hdr\n" is 4 bytes in UTF-8, Shift-JIS, and EUC-JP (all ASCII-safe).
+    def multibyte_content(char_str, encoding)
+      ("hdr\n" + char_str + "\n").encode(encoding)
+    end
+
+    # Peek at (4 + split_at) bytes to place the split split_at bytes into the
+    # multi-byte char, then read all lines and return the concatenated raw bytes.
+    def read_with_split(char_str, encoding, split_at)
+      content = multibyte_content(char_str, encoding)
+      io = StringIO.new(content)
+      pio = described_class.new(io)
+      pio.peek(4 + split_at)
+      lines = []
+      lines << pio.gets("\n") until pio.eof?
+      lines.map(&:b).join
+    end
+
+    # --- UTF-8: 2-byte, 3-byte, 4-byte codepoints at every possible split ---
+    {
+      'é  (U+00E9,  2-byte UTF-8)' => ['é',  'UTF-8', 2],
+      '日  (U+65E5,  3-byte UTF-8)' => ['日', 'UTF-8', 3],
+      '😀 (U+1F600, 4-byte UTF-8)' => ['😀', 'UTF-8', 4],
+      '🎉 (U+1F389, 4-byte UTF-8)' => ['🎉', 'UTF-8', 4],
+    }.each do |label, (char, enc, byte_size)|
+      (1...byte_size).each do |split_at|
+        it "#{label}: peek splits at byte #{split_at}/#{byte_size}" do
+          expected = multibyte_content(char, enc).b
+          expect(read_with_split(char, enc, split_at)).to eq(expected)
+        end
+      end
+    end
+
+    # --- Shift-JIS: 2-byte kanji (亜 = \x88\x9E) ---
+    # The trail byte \x9E is itself a Shift-JIS lead byte, so @io.gets starting
+    # there can re-interpret it as the start of a new 2-byte sequence and
+    # swallow the following \n (0x0A is NOT a valid trail byte but behavior
+    # depends on the Ruby runtime's error handling).
+    it 'Shift_JIS 亜 (2-byte): peek splits at byte 1/2' do
+      expected = multibyte_content('亜', 'Shift_JIS').b
+      expect(read_with_split('亜', 'Shift_JIS', 1)).to eq(expected)
+    end
+
+    # --- EUC-JP: 2-byte kanji (日 = \xC6\xFC in EUC-JP) ---
+    it 'EUC-JP 日 (2-byte): peek splits at byte 1/2' do
+      expected = multibyte_content('日', 'EUC-JP').b
+      expect(read_with_split('日', 'EUC-JP', 1)).to eq(expected)
+    end
+
+    # --- Larger UTF-8 grapheme clusters (split within the first codepoint) ---
+    # These sequences are multiple codepoints that form a single visual character.
+    # Our fix guarantees the buffer ends on a codepoint boundary; the ZWJ glue
+    # bytes between codepoints are safely handled by the else branch of gets.
+    [
+      # 8 bytes: waving hand (U+1F44B, 4 bytes) + dark skin tone (U+1F3FF, 4 bytes)
+      ['waving hand + dark skin tone modifier (8-byte grapheme cluster)', "👋🏿",   2],
+      # 11 bytes: woman (4) + ZWJ (3) + heart (3) — split within first codepoint
+      ['woman + ZWJ + heart (12-byte grapheme, split at byte 2)',         "👩‍❤️",  2],
+      # 25+ bytes: family ZWJ sequence — split at byte 2 within the first codepoint
+      ['family ZWJ emoji 👨‍👩‍👧‍👦 (25-byte grapheme, split at byte 2)', "👨‍👩‍👧‍👦", 2],
+    ].each do |label, char, split_at|
+      it "UTF-8 #{label}" do
+        expected = multibyte_content(char, 'UTF-8').b
+        expect(read_with_split(char, 'UTF-8', split_at)).to eq(expected)
+      end
+    end
+
+    # --- IO.pipe sources with declared encoding (more realistic than StringIO) ---
+    # IO.pipe is non-seekable and encoding-tagged; gets on a misaligned pipe can
+    # raise or return garbage depending on the Ruby version and encoding.
+    def pipe_with_split(char_str, encoding, split_at)
+      raw = ("hdr\n" + char_str + "\n").encode(encoding).b
+      reader, writer = IO.pipe(encoding)
+      writer.write(raw)
+      writer.close
+      pio = described_class.new(reader)
+      pio.peek(4 + split_at)
+      lines = []
+      lines << pio.gets("\n") until pio.eof?
+      lines.map(&:b).join
+    ensure
+      reader.close rescue nil
+    end
+
+    it 'UTF-8 pipe: 😀 (4-byte) split at byte 2' do
+      expected = multibyte_content('😀', 'UTF-8').b
+      expect(pipe_with_split('😀', 'UTF-8', 2)).to eq(expected)
+    end
+
+    it 'Shift_JIS pipe: 亜 (2-byte) split at byte 1' do
+      expected = multibyte_content('亜', 'Shift_JIS').b
+      expect(pipe_with_split('亜', 'Shift_JIS', 1)).to eq(expected)
+    end
+
+    it 'EUC-JP pipe: 日 (2-byte) split at byte 1' do
+      expected = multibyte_content('日', 'EUC-JP').b
+      expect(pipe_with_split('日', 'EUC-JP', 1)).to eq(expected)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Bug 1 — \r\n separator straddling the peek buffer boundary
+  #
+  # If peek(n) leaves \r as the last byte of @peek_buf, the \n that completes
+  # the \r\n separator is the first byte of @io.  byteindex("\r\n") finds nothing
+  # in the buffer, the else branch calls @io.gets("\r\n") which starts reading
+  # at \n and returns "\ndata\r\n" — merging two lines into one returned string.
+  # ---------------------------------------------------------------------------
+  describe 'Bug 1 — \\r\\n separator straddling the peek buffer boundary' do
+    it 'returns only the first line when \\r is the last buffer byte' do
+      pio = described_class.new(StringIO.new("hdr\r\ndata\r\n"))
+      pio.peek(4)   # "hdr\r" — \r last byte, \n is first byte of @io
+      expect(pio.gets("\r\n")).to eq("hdr\r\n")
+    end
+
+    it 'does not merge two lines when \\r\\n straddles the boundary' do
+      pio = described_class.new(StringIO.new("hdr\r\ndata\r\n"))
+      pio.peek(4)
+      expect(pio.gets("\r\n")).to eq("hdr\r\n")
+      expect(pio.gets("\r\n")).to eq("data\r\n")
+    end
+
+    it 'round-trips all lines when \\r\\n straddles the boundary' do
+      content = "hdr\r\ndata\r\n"
+      pio = described_class.new(StringIO.new(content))
+      pio.peek(4)
+      lines = []
+      lines << pio.gets("\r\n") until pio.eof?
+      expect(lines.join).to eq(content)
+    end
+
+    it 'returns rest when buffer ends with sep prefix but @io is at EOF' do
+      # "hdr\r" — \r looks like start of \r\n but nothing follows (EOF)
+      pio = described_class.new(StringIO.new("hdr\r"))
+      pio.peek(4)   # entire content in buffer, \r at end
+      expect(pio.gets("\r\n").b).to eq("hdr\r".b)
+    end
+
+    it 'returns correct line when buffer ends with \\r but next byte is not \\n (standalone \\r in content)' do
+      # "hdr\rdata\r\n" — the first \r is content, not part of the separator
+      pio = described_class.new(StringIO.new("hdr\rdata\r\n"))
+      pio.peek(4)   # "hdr\r" in buffer; "data\r\n" in @io
+      expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Bug 2 — read(n) returns fewer bytes than requested when n spans buffer + @io
+  #
+  # When n > buffered.bytesize, buffered[0, n] returns only the buffer portion.
+  # The remaining (n - buffered.bytesize) bytes that sit in @io are never read,
+  # violating Ruby's IO#read(n) contract.
+  # ---------------------------------------------------------------------------
+  describe 'Bug 2 — read(n) spanning peek buffer and underlying IO' do
+    it 'returns exactly n bytes when n exceeds the buffered portion' do
+      pio = described_class.new(StringIO.new("abcdefghij"))
+      pio.peek(3)          # "abc" in buffer, "defghij" in @io
+      expect(pio.read(7).b).to eq("abcdefg".b)
+    end
+
+    it 'returns all available bytes when n exceeds total content length' do
+      pio = described_class.new(StringIO.new("abcde"))
+      pio.peek(3)          # "abc" in buffer, "de" in @io
+      expect(pio.read(100).b).to eq("abcde".b)
+    end
+
+    it 'returns exactly n bytes from the buffer alone when n <= buffered size' do
+      pio = described_class.new(StringIO.new("abcdefg"))
+      pio.peek(7)          # all 7 bytes buffered
+      expect(pio.read(3).b).to eq("abc".b)
+    end
+
+    it 'read(0) returns empty string and does not advance peek_pos' do
+      pio = described_class.new(StringIO.new("abcdefg"))
+      pio.peek(7)
+      pos_before = pio.instance_variable_get(:@peek_pos)
+      result = pio.read(0)
+      expect(result.b).to eq(''.b)
+      expect(pio.instance_variable_get(:@peek_pos)).to eq(pos_before)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Issue 4 — align_to_char_boundary unbounded loop on malformed input
+  #
+  # A corrupt byte anywhere in the first peek chunk makes valid_encoding? permanently
+  # false.  Without a cap the loop would drain the entire file one byte at a time.
+  # MAX_ALIGN_BYTES = 4 limits attempts to the longest codepoint in any Ruby-supported
+  # variable-width encoding, so the loop always terminates quickly.
+  # ---------------------------------------------------------------------------
+  describe 'Issue 4 — align_to_char_boundary stops after MAX_ALIGN_BYTES on malformed input' do
+    it 'does not drain @io when the buffer contains an invalid byte sequence' do
+      # \xFF is never valid in UTF-8; valid_encoding? stays false no matter how many
+      # extra bytes are appended.  After MAX_ALIGN_BYTES attempts @io must still have
+      # the remaining data intact — the loop must not have consumed it all.
+      bad_utf8  = "\xFF".b                          # permanently invalid in UTF-8
+      rest      = ("a" * 100).b                     # 100 good bytes still in @io
+      sio = StringIO.new((bad_utf8 + rest).force_encoding('UTF-8'))
+      pio = described_class.new(sio)
+      pio.peek(1)   # peeks just the \xFF byte; triggers align_to_char_boundary
+      # After peek, @io must still have most of its data — the loop read at most 4 bytes
+      remaining = sio.read
+      expect(remaining.bytesize).to be >= (rest.bytesize - SmarterCSV::PeekableIO::MAX_ALIGN_BYTES)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Bug 3 — peek return value diverges from @peek_buf after char-boundary alignment
+  #
+  # align_to_char_boundary may read extra bytes from @io and stores them in
+  # @peek_buf, but peek still returns the original chunk (before alignment).
+  # The return value therefore no longer matches what was actually buffered.
+  # ---------------------------------------------------------------------------
+  describe 'Bug 3 — peek return value after char-boundary alignment' do
+    it 'returns all buffered bytes including the alignment bytes' do
+      # "ab" (2 bytes) + 😀 (U+1F600, 4 bytes) = 6 bytes total
+      # peek(3) reads "ab\xF0"; align_to_char_boundary extends to "ab😀" (6 bytes)
+      content = "ab\u{1F600}"
+      pio = described_class.new(StringIO.new(content))
+      returned = pio.peek(3)
+      expect(returned.b).to eq(content.b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Bug 4 — Encoding::CompatibilityError in gets else-branch for nil-encoding IO
+  #
+  # When the underlying IO has no external_encoding, @emit_encoding is nil and
+  # rest is force-encoded as UTF-8 (the final fallback).  @io.gets returns an
+  # ASCII-8BIT string.  Ruby's String#+ raises Encoding::CompatibilityError when
+  # BOTH sides are non-ASCII-only — i.e. when the peek buffer itself contains
+  # bytes ≥ 128 AND the remainder from @io also contains bytes ≥ 128.
+  #
+  # Minimal trigger: peek(3) fills the buffer with "é," (0xC3 0xA9 0x2C),
+  # which is non-ASCII-only once force-encoded as UTF-8. @io.gets then returns
+  # "世\r\n" (0xE4 0xB8 0x96 0x0D 0x0A) as ASCII-8BIT, also non-ASCII-only.
+  # Concatenation: UTF-8(non-ASCII) + ASCII-8BIT(non-ASCII) → CompatibilityError.
+  # ---------------------------------------------------------------------------
+  describe 'Bug 4 — gets else-branch encoding mismatch for nil-encoding IO' do
+    # "é,世\r\nAlice\r\n" — buffer gets "é," (3 bytes, non-ASCII), @io starts at "世"
+    let(:bug4_content) { "é,世\r\nAlice\r\n" }  # é=\xC3\xA9, 世=\xE4\xB8\x96
+
+    it 'does not raise when both buffer and @io remainder contain bytes >= 128' do
+      pio = described_class.new(NilEncodingIO.new(bug4_content))
+      pio.peek(3)   # "é," (0xC3 0xA9 0x2C) buffered; "世\r\n..." in @io
+      expect { pio.gets("\r\n") }.not_to raise_error
+    end
+
+    it 'returns the complete line when both buffer and @io remainder contain bytes >= 128' do
+      pio = described_class.new(NilEncodingIO.new(bug4_content))
+      pio.peek(3)
+      line = begin; pio.gets("\r\n"); rescue Encoding::CompatibilityError; nil; end
+      expect(line&.b).to eq("é,世\r\n".b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Issue 5 — gets encoding inconsistency between the sep-found and sep-not-found paths
+  #
+  # Before the fix, rest was force-encoded as (@emit_encoding || external_encoding || UTF-8).
+  # The "if idx" branch returned a string in that encoding (UTF-8 fallback for nil-encoding
+  # sources), while the "else" branch used out_enc = (@emit_encoding || external_encoding)
+  # with no UTF-8 fallback, returning BINARY.  Two consecutive gets calls on the same
+  # nil-encoding source could return strings with different encodings depending solely on
+  # whether the separator happened to land inside or outside the peek buffer.
+  # ---------------------------------------------------------------------------
+  describe 'Issue 5 — gets encoding consistency across sep-in-buffer and sep-in-IO paths' do
+    it 'returns the same encoding whether sep is found in the buffer or in @io' do
+      # peek(5) on "a,b\nc,d\n" buffers "a,b\nc"; first \n is in buffer, second is in @io.
+      pio = described_class.new(NilEncodingIO.new("a,b\nc,d\n"))
+      pio.peek(5)
+      line1 = pio.gets("\n")   # sep found in buffer (if-idx path)
+      line2 = pio.gets("\n")   # sep found in @io    (else path)
+      expect(line1.encoding).to eq(line2.encoding)
     end
   end
 end

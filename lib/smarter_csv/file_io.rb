@@ -23,7 +23,7 @@ module SmarterCSV
     def rewind(filehandle)
       @file_line_count = 0
       @csv_line_count = 0
-      filehandle.rewind
+      filehandle.rewind # this is PeekableIO.rewind, not io.rewind !
     end
 
     private

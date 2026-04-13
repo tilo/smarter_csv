@@ -112,10 +112,15 @@ module SmarterCSV
 
       begin
         fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+        fh = SmarterCSV::PeekableIO.new(fh)
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
           warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
         end
+
+        # Peek ahead so auto-detection can rewind the peek-buffer without seeking the underlying IO.
+        # Works for any source — files, StringIO, pipes, STDIN, Zlib streams, etc.
+        fh.peek if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
 
         # auto-detect the row separator
         options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto

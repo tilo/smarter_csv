@@ -29,7 +29,7 @@ module SmarterCSV
           candidates[d] += non_quoted_text.scan(d).count
         end
       end
-      rewind(filehandle)
+      rewind(filehandle) # this is PeekableIO.rewind, not io.rewind !
 
       if candidates.values.max == 0
         # if the header only contains word characters and whitespace, assume comma separator
@@ -67,7 +67,7 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      rewind(filehandle)
+      rewind(filehandle) # this is PeekableIO.rewind, not io.rewind !
 
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
