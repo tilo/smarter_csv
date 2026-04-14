@@ -201,14 +201,14 @@ RSpec.describe SmarterCSV do
             @ext = Encoding.find(ext)
             @int = Encoding.find(int)
           end
-          def read(n = nil)               = @io.read(n)
-          def gets(sep = $/, limit = nil) = limit ? @io.gets(sep, limit) : @io.gets(sep)
-          def readline(sep = $/)          = @io.readline(sep)
-          def each_char(&block)           = @io.each_char(&block)
-          def eof?                        = @io.eof?
-          def close                       = nil
-          def external_encoding           = @ext
-          def internal_encoding           = @int
+          def read(n = nil)             ; @io.read(n)                                   ; end
+          def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep); end
+          def readline(sep = $/)        ; @io.readline(sep)                             ; end
+          def each_char(&block)         ; @io.each_char(&block)                         ; end
+          def eof?                      ; @io.eof?                                      ; end
+          def close                     ; nil                                           ; end
+          def external_encoding         ; @ext                                          ; end
+          def internal_encoding         ; @int                                          ; end
         end
       end
 

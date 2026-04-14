@@ -9,11 +9,11 @@ class NilEncodingIO
   def initialize(str)
     @io = StringIO.new(str.b)
   end
-  def read(n = nil)        = @io.read(n)
-  def gets(sep = $/)       = @io.gets(sep)
-  def each_char(&block)    = @io.each_char(&block)
-  def eof?                 = @io.eof?
-  def close                = nil
+  def read(n = nil)      ; @io.read(n)         ; end
+  def gets(sep = $/)     ; @io.gets(sep)        ; end
+  def each_char(&block)  ; @io.each_char(&block); end
+  def eof?               ; @io.eof?             ; end
+  def close              ; nil                  ; end
   # Intentionally does NOT implement external_encoding
 end
 
@@ -27,13 +27,13 @@ class TranscodedIO
     @ext = Encoding.find(external)
     @int = Encoding.find(internal)
   end
-  def read(n = nil)        = @io.read(n)
-  def gets(sep = $/)       = @io.gets(sep)
-  def each_char(&block)    = @io.each_char(&block)
-  def eof?                 = @io.eof?
-  def close                = nil
-  def external_encoding    = @ext
-  def internal_encoding    = @int
+  def read(n = nil)      ; @io.read(n)         ; end
+  def gets(sep = $/)     ; @io.gets(sep)        ; end
+  def each_char(&block)  ; @io.each_char(&block); end
+  def eof?               ; @io.eof?             ; end
+  def close              ; nil                  ; end
+  def external_encoding  ; @ext                 ; end
+  def internal_encoding  ; @int                 ; end
 end
 
 RSpec.describe SmarterCSV::PeekableIO do
