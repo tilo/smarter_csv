@@ -12,6 +12,8 @@ RSpec tests: **1,425 → 1,434** (+9 tests)
   
   See [Appending to an Existing CSV File](docs/basic_write_api.md#appending-to-an-existing-csv-file).
 
+### Other
+* Refactor of internal options handling
 ## 1.16.2 (2026-03-30) — Bug Fixes
 
 RSpec tests: **1,410 → 1,425** (+15 tests)
