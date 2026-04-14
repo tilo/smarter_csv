@@ -100,8 +100,9 @@ module SmarterCSV
       rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
       # Use byteindex + byteslice — the buffer stores raw bytes and @peek_pos is a
       # byte offset. Separators are always ASCII, so byteindex is correct regardless
-      # of the encoding tag.
-      idx = rest.byteindex(sep)
+      # of the encoding tag.  so searching on .b is correct regardless of the encoding tag. 
+      # NOTE: rest.b.index(sep.b) is the Ruby 2.6 compatible equivalent of rest.byteindex(sep)
+      idx = rest.b.index(sep.b)
       if idx
         line = rest.byteslice(0, idx + sep.bytesize)
         @peek_pos += line.bytesize
