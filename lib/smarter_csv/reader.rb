@@ -127,6 +127,10 @@ module SmarterCSV
         # attempt to auto-detect column separator
         options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
 
+        # Detection complete — freeze the buffer so subsequent reads beyond the
+        # buffered window delegate directly to @io without growing @peek_buf.
+        fh.freeze_buffer!
+
         skip_lines(fh, options)
 
         # NOTE: we are no longer using header_size

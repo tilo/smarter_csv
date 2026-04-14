@@ -11,12 +11,14 @@ module SmarterCSV
   # Lifecycle:
   #   1. peek(n)     — reads up to n bytes from the underlying IO into the buffer
   #   2. rewind      — resets @peek_pos to 0 (replays buffer, never seeks underlying IO)
-  #   3. gets/read/each_char — drain the buffer first, then delegate to underlying IO;
-  #      while @buffer_frozen = false (detection phase), every byte read from @io is
-  #      also appended to @peek_buf so that a subsequent rewind can replay everything.
-  #   4. rewind sets @buffer_frozen = true; after that, reads go directly to @io once
-  #      the buffer is exhausted — @peek_buf is kept alive (never nilled) so rewind
-  #      can be called again if needed.
+  #   3. gets/read/each_char — drain the buffer first, then read from @io in
+  #      DEFAULT_PEEK_SIZE chunks, appending each to @peek_buf so that a subsequent
+  #      rewind can replay the full stream from position 0.
+  #   4. rewind — resets @peek_pos to 0; does NOT freeze. Detection may rewind
+  #      multiple times (once per pass) and must keep accumulating between passes.
+  #   5. freeze_buffer! — called once after all detection passes are done. After
+  #      this point reads beyond the buffer delegate directly to @io without growing
+  #      @peek_buf. @peek_buf is kept alive (never nilled) so rewind can replay.
   #
   class PeekableIO
     # 16KB is enough for separator detection on any real-world CSV header.
@@ -27,7 +29,7 @@ module SmarterCSV
       @peek_buf = nil     # nil = buffer not yet filled
       @peek_pos = 0
       @emit_encoding = nil  # encoding of strings returned by @io.read — set on first peek
-      @buffer_frozen = false  # true after first rewind: buffer stops growing, detection phase is over
+      @buffer_frozen = false  # true after freeze_buffer!: buffer stops growing, detection phase is over
     end
 
     # Read up to n bytes into the buffer and return them.
@@ -79,30 +81,52 @@ module SmarterCSV
     # NOTE: we don't support **kwargs because smarter_csv does not use them.
     def gets(sep = $/)
       return @io.gets(sep) if @peek_buf.nil?
-      # Buffer frozen (post-rewind): delegate once buffer is exhausted — no more accumulation.
+      # Buffer frozen (post auto-detection): delegate once buffer is exhausted — no more accumulation.
       return @io.gets(sep) if @buffer_frozen && buffer_exhausted?
-      # Buffer not yet frozen but exhausted: still in detection phase — accumulate into buffer
-      # so that a subsequent rewind can replay every byte gets has consumed from @io.
-      if buffer_exhausted?
-        out_enc   = @emit_encoding || external_encoding
-        remainder = @io.gets(sep)
-        if remainder
-          @peek_buf = @peek_buf + remainder.b
-          @peek_pos = @peek_buf.bytesize
-        end
-        return maybe_transcode(out_enc ? remainder&.force_encoding(out_enc) : remainder)
-      end
 
-      # Compute the output encoding once; both the found-in-buffer and the
-      # else/boundary paths use the same value for consistency.
+      # Compute the output encoding once — used by both the detection and frozen paths.
       # For sources with no declared encoding (nil) we fall back to ASCII_8BIT rather
       # than assuming UTF-8 — the caller gets the raw bytes and can re-tag as needed.
       out_enc = @emit_encoding || external_encoding
+
+      # ---------------------------------------------------------------------------
+      # Auto-Detection phase (buffer not yet frozen):
+      # Extend the buffer in DEFAULT_PEEK_SIZE chunks until the separator is found
+      # or EOF.  No straddle detection needed — the extension absorbs any boundary.
+      # @peek_pos never advances until we have a complete line, so the search always
+      # covers the full unread portion of the ever-growing buffer.
+      # ---------------------------------------------------------------------------
+      unless @buffer_frozen
+        loop do
+          rest = @peek_buf.byteslice(@peek_pos..)
+          rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
+          # NOTE: rest.b.index(sep.b) is the Ruby 2.6 compatible equivalent of rest.byteindex(sep)
+          idx = rest.b.index(sep.b)
+          if idx
+            line = rest.byteslice(0, idx + sep.bytesize)
+            @peek_pos += line.bytesize
+            return maybe_transcode(line)
+          end
+          # Separator not found — fetch another chunk and search again.
+          break unless extend_buffer!
+        end
+        # EOF: return remaining bytes as final line, or nil if nothing left.
+        rest = @peek_buf.byteslice(@peek_pos..)
+        return nil if rest.empty?
+        @peek_pos = @peek_buf.bytesize
+        return maybe_transcode(rest.force_encoding(out_enc || Encoding::ASCII_8BIT))
+      end
+
+      # ---------------------------------------------------------------------------
+      # Frozen phase (processing): buffer has fixed content.
+      # Search within the buffer; handle the separator straddling the buffer/@io
+      # boundary for multi-byte separators (e.g. \r\n split across the edge).
+      # ---------------------------------------------------------------------------
       rest = @peek_buf.byteslice(@peek_pos..)
       rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
       # Use byteindex + byteslice — the buffer stores raw bytes and @peek_pos is a
       # byte offset. Separators are always ASCII, so byteindex is correct regardless
-      # of the encoding tag.  so searching on .b is correct regardless of the encoding tag. 
+      # of the encoding tag.
       # NOTE: rest.b.index(sep.b) is the Ruby 2.6 compatible equivalent of rest.byteindex(sep)
       idx = rest.b.index(sep.b)
       if idx
@@ -118,8 +142,6 @@ module SmarterCSV
         # Check if the buffer tail matches any prefix of sep and read ahead to confirm.
         # For non-seekable IO: on a non-match the already-read bytes are prepended
         # to the remainder so no data is lost.
-        # Every byte fetched from @io must be appended to @peek_buf so that a
-        # subsequent rewind() can replay the full stream from position 0.
         if sep.bytesize > 1
           (sep.bytesize - 1).downto(1) do |prefix_len|
             next unless rest.b.end_with?(sep.b.byteslice(0, prefix_len))
@@ -128,27 +150,19 @@ module SmarterCSV
             peeked = @io.read(tail_needed.bytesize)
 
             if peeked.nil?
-              combined = rest.b                        # EOF — nothing new to store
+              combined = rest.b                        # EOF — nothing new to read
             elsif peeked.b == tail_needed
-              @peek_buf = @peek_buf + tail_needed      # separator confirmed: store it
-              @peek_pos = @peek_buf.bytesize
-              combined = rest.b + tail_needed
+              combined = rest.b + tail_needed          # separator confirmed
             else
               remainder = @io.gets(sep)
-              appended = peeked.b + (remainder ? remainder.b : ''.b)
-              @peek_buf = @peek_buf + appended         # peeked was content: store all
-              @peek_pos = @peek_buf.bytesize
-              combined = rest.b + appended
+              combined = rest.b + peeked.b + (remainder ? remainder.b : ''.b)  # peeked was content
             end
             return maybe_transcode(out_enc ? combined.force_encoding(out_enc) : combined)
           end
         end
 
         remainder = @io.gets(sep)
-        appended = remainder ? remainder.b : ''.b
-        @peek_buf = @peek_buf + appended               # store remainder for rewind
-        @peek_pos = @peek_buf.bytesize
-        combined = rest.b + appended
+        combined = rest.b + (remainder ? remainder.b : ''.b)
         maybe_transcode(out_enc ? combined.force_encoding(out_enc) : combined)
       end
     end
@@ -193,9 +207,16 @@ module SmarterCSV
       rest = maybe_transcode(rest) || rest
       rest.each_char { |c| yield c }
       @peek_pos = @peek_buf.bytesize  # mark exhausted, keep buffer alive for rewind
-      @io.each_char do |c|
-        @peek_buf = @peek_buf + c.b unless @buffer_frozen
-        yield c
+
+      # Read remaining @io in chunks — avoids O(n²) string concatenation from
+      # appending one byte at a time.  Row-sep detection only needs ASCII chars
+      # (\n, \r) so codepoint boundaries at chunk edges are inconsequential.
+      until @io.eof?
+        chunk = @io.read(DEFAULT_PEEK_SIZE)
+        break unless chunk
+        @peek_buf = @peek_buf + chunk.b unless @buffer_frozen
+        chunk.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
+        (maybe_transcode(chunk) || chunk).each_char { |c| yield c }
       end
     end
 
@@ -209,10 +230,17 @@ module SmarterCSV
     # Since auto-detection happens at the very beginning, the buffer IS byte 0.
     # Works identically for files, StringIO, pipes, and any other source.
     #
-    # Also freezes the buffer: any gets calls made after rewind (i.e. during normal
-    # processing) delegate directly to @io without growing the buffer further.
+    # Does NOT freeze the buffer — detection may call rewind multiple times
+    # (once per pass) and must continue accumulating bytes beyond the initial
+    # peek chunk.  Call freeze_buffer! explicitly when detection is complete.
     def rewind
       @peek_pos = 0
+    end
+
+    # Freeze the buffer: signals that auto-detection is complete and normal
+    # processing is beginning.  After this point, reads that go beyond the
+    # buffered bytes delegate directly to @io without growing @peek_buf further.
+    def freeze_buffer!
       @buffer_frozen = true
     end
 
@@ -232,6 +260,15 @@ module SmarterCSV
 
     def buffer_exhausted?
       @peek_buf.nil? || @peek_pos >= @peek_buf.bytesize
+    end
+
+    # Append one DEFAULT_PEEK_SIZE chunk from @io to @peek_buf.
+    # Returns true if bytes were added, false if @io was already at EOF.
+    def extend_buffer!
+      chunk = @io.read(DEFAULT_PEEK_SIZE)
+      return false unless chunk && !chunk.empty?
+      @peek_buf = @peek_buf + chunk.b
+      true
     end
 
     # Strip any BOM from the start of the raw (ASCII_8BIT-tagged) buffer bytes.
