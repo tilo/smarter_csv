@@ -1,6 +1,19 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.17.0 (unreleased)
+
+### New Features
+
+* **Streaming IO support** — SmarterCSV now works with non-seekable IO sources such as pipes, STDIN, and Zlib streams.
+  A rewindable peek buffer transparently captures the first bytes of the stream so that `row_sep` and `col_sep` auto-detection can replay them without requiring the underlying source to support `rewind` or `seek`.
+
+### Improvements
+
+* Improved auto-detection of `row_sep` and `col_sep` — giving more accurate results on files with comment headers.
+
+* Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
+
 ## 1.16.3 (2026-04-13) — New Feature
 
 RSpec tests: **1,425 → 1,434** (+9 tests)

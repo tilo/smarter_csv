@@ -230,10 +230,10 @@ module SmarterCSV
     # Since auto-detection happens at the very beginning, the buffer IS byte 0.
     # Works identically for files, StringIO, pipes, and any other source.
     #
-    # Does NOT freeze the buffer — detection may call rewind multiple times
+    # Does NOT freeze the buffer — detection may call rewind_buffer multiple times
     # (once per pass) and must continue accumulating bytes beyond the initial
     # peek chunk.  Call freeze_buffer! explicitly when detection is complete.
-    def rewind
+    def rewind_buffer
       @peek_pos = 0
     end
 

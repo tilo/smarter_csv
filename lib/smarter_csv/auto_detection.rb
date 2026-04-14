@@ -8,8 +8,6 @@ module SmarterCSV
     # Otherwise guesses column separator from contents.
     # Raises exception if none is found.
     def guess_column_separator(filehandle, options)
-      skip_lines(filehandle, options)
-
       delimiters = [',', "\t", ';', ':', '|']
 
       line = nil
@@ -29,8 +27,6 @@ module SmarterCSV
           candidates[d] += non_quoted_text.scan(d).count
         end
       end
-      rewind(filehandle) # this is PeekableIO.rewind, not io.rewind !
-
       if candidates.values.max == 0
         # if the header only contains word characters and whitespace, assume comma separator
         return ',' if line && line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
@@ -41,7 +37,8 @@ module SmarterCSV
       candidates.key(candidates.values.max)
     end
 
-    # limitation: this currently reads the whole file in before making a decision
+    # Scans up to auto_row_sep_chars characters to count line endings.
+    # Stops early once the limit is reached; set auto_row_sep_chars: 0 to scan the full file.
     def guess_line_ending(filehandle, options)
       counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
       quoted_char = false
@@ -67,8 +64,6 @@ module SmarterCSV
         lines += 1
         break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
       end
-      rewind(filehandle) # this is PeekableIO.rewind, not io.rewind !
-
       counts["\r"] += 1 if last_char == "\r"
       # find the most frequent key/value pair:
       most_frequent_key, _count = counts.max_by{|_, v| v}

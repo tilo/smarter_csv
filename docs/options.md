@@ -71,8 +71,8 @@
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:col_sep` | `:auto` | Column separator. `:auto` detects from file content (previous default was `','`). |
-| `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content. Manual detection reads the whole file first (slow on large files). |
-| `:auto_row_sep_chars` | `500` | How many characters to analyze when using `:row_sep => :auto`. `nil` or `0` means whole file. |
+| `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content by scanning up to `auto_row_sep_chars` characters. |
+| `:auto_row_sep_chars` | `8192` | How many characters to analyze when using `:row_sep => :auto`. `nil` or `0` means whole file. |
 
 ### Quoting
 

@@ -169,19 +169,19 @@ RSpec.describe SmarterCSV::PeekableIO do
   end
 
   # ---------------------------------------------------------------------------
-  # #rewind
+  # #rewind_buffer
   # ---------------------------------------------------------------------------
-  describe '#rewind' do
+  describe '#rewind_buffer' do
     it 'replays the buffer from the start (simulates rewind without touching underlying IO)' do
       pio.peek(16_384)
       pio.gets("\n")  # consume first line
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\n")).to eq("header1,header2\n")  # replayed
     end
 
     it 'can be called multiple times' do
       pio.peek(16_384)
-      3.times { pio.rewind }
+      3.times { pio.rewind_buffer }
       expect(pio.gets("\n")).to eq("header1,header2\n")
     end
   end
@@ -414,46 +414,46 @@ RSpec.describe SmarterCSV::PeekableIO do
     # Before the fix, bytes fetched from @io during gets were returned to the caller
     # but never stored in @peek_buf. A rewind + re-read would produce wrong output
     # because those bytes were gone from @io but absent from the buffer.
-    it 'rewind replays correctly after gets consumed bytes from @io (straddle case)' do
+    it 'rewind_buffer replays correctly after gets consumed bytes from @io (straddle case)' do
       pio = described_class.new(StringIO.new("hdr\r\ndata\r\n"))
       pio.peek(4)                                    # "hdr\r" in buffer, "\ndata\r\n" in @io
       expect(pio.gets("\r\n")).to eq("hdr\r\n")      # triggers straddle: reads \n from @io
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\r\n")).to eq("hdr\r\n")      # must return same line, not garbage
       expect(pio.gets("\r\n")).to eq("data\r\n")
     end
 
-    it 'rewind replays correctly after gets consumed bytes from @io (normal boundary case)' do
+    it 'rewind_buffer replays correctly after gets consumed bytes from @io (normal boundary case)' do
       # peek(3) means sep "\n" is not in buffer "hdr"; gets must read from @io
       pio = described_class.new(StringIO.new("hdr\ndata\n"))
       pio.peek(3)                                    # "hdr" in buffer, "\ndata\n" in @io
       expect(pio.gets("\n")).to eq("hdr\n")          # reads "\n" + "data\n" from @io
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\n")).to eq("hdr\n")
       expect(pio.gets("\n")).to eq("data\n")
     end
 
-    it 'rewind replays correctly after multiple gets calls each crossing the buffer boundary' do
+    it 'rewind_buffer replays correctly after multiple gets calls each crossing the buffer boundary' do
       # peek(3) buffers "abc". Both gets calls must read from @io and accumulate into
-      # @peek_buf (buffer not yet frozen). After rewind (@buffer_frozen = true) the
+      # @peek_buf (buffer not yet frozen). After rewind_buffer (@buffer_frozen = true) the
       # full replay must return both lines correctly.
       pio = described_class.new(StringIO.new("abcde\nfghij\nklmno\n"))
       pio.peek(3)                                      # "abc" in buffer
       expect(pio.gets("\n")).to eq("abcde\n")          # extends buffer: "abc" + "de\n"
       expect(pio.gets("\n")).to eq("fghij\n")          # buffer exhausted: accumulates "fghij\n"
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\n")).to eq("abcde\n")
       expect(pio.gets("\n")).to eq("fghij\n")
       expect(pio.gets("\n")).to eq("klmno\n")          # post-rewind: from @io directly
     end
 
-    it 'rewind replays correctly after straddle-content path (\\r at boundary, next byte is not \\n)' do
+    it 'rewind_buffer replays correctly after straddle-content path (\\r at boundary, next byte is not \\n)' do
       # buffer ends with \r, @io starts with "d" (not \n) — peeked bytes are content,
       # not a separator completion. Both peeked + remainder must be stored in @peek_buf.
       pio = described_class.new(StringIO.new("hdr\rdata\r\nfoo\r\n"))
       pio.peek(4)                                         # "hdr\r" in buffer; "data\r\nfoo\r\n" in @io
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
       expect(pio.gets("\r\n").b).to eq("foo\r\n".b)
     end
@@ -574,11 +574,11 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(result.valid_encoding?).to be true
     end
 
-    it 'replays all content correctly after peek + rewind' do
+    it 'replays all content correctly after peek + rewind_buffer' do
       io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
       pio = described_class.new(io)
       pio.peek(1)
-      pio.rewind
+      pio.rewind_buffer
       full = pio.read
       expect(full.encoding).to eq(Encoding::UTF_8)  # maybe_transcode applies ext→int on read-out
       expect(full.valid_encoding?).to be true
@@ -672,24 +672,24 @@ RSpec.describe SmarterCSV::PeekableIO do
   # stream from position 0.  The bug: each_char delegated directly to @io.each_char
   # without accumulating, and read did not append @io bytes to @peek_buf.
   # ---------------------------------------------------------------------------
-  describe 'c1 — each_char and read accumulate @io bytes into @peek_buf for rewind' do
-    it 'each_char accumulates @io bytes so rewind can replay the full stream' do
+  describe 'c1 — each_char and read accumulate @io bytes into @peek_buf for rewind_buffer' do
+    it 'each_char accumulates @io bytes so rewind_buffer can replay the full stream' do
       pio = described_class.new(StringIO.new("abcde\nfghij\n"))
       pio.peek(4)  # buffer = "abcd" only; "e\nfghij\n" is still in @io
       chars = []
       pio.each_char { |c| chars << c }
       expect(chars.join).to eq("abcde\nfghij\n")
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\n")).to eq("abcde\n")
       expect(pio.gets("\n")).to eq("fghij\n")
     end
 
-    it 'read (no n) accumulates @io bytes so rewind can replay the full stream' do
+    it 'read (no n) accumulates @io bytes so rewind_buffer can replay the full stream' do
       pio = described_class.new(StringIO.new("abcde\nfghij\n"))
       pio.peek(4)  # buffer = "abcd" only; "e\nfghij\n" is still in @io
       result = pio.read
       expect(result).to eq("abcde\nfghij\n")
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.read).to eq("abcde\nfghij\n")
     end
   end
@@ -743,14 +743,14 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(line2).to eq("München\n")
     end
 
-    it 'rewind replays the correctly transcoded content after buffer-exhausted reads' do
+    it 'rewind_buffer replays the correctly transcoded content after buffer-exhausted reads' do
       csv = "line1\nM\xFCnchen\n".b
       io  = TranscodedIO.new(csv, 'ISO-8859-1', 'UTF-8')
       pio = described_class.new(io)
       pio.peek(3)
       pio.gets("\n")
       pio.gets("\n")
-      pio.rewind
+      pio.rewind_buffer
       expect(pio.gets("\n")).to eq("line1\n")
       expect(pio.gets("\n")).to eq("München\n")
     end

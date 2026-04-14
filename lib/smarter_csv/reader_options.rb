@@ -5,7 +5,7 @@ module SmarterCSV
     module Options
       DEFAULT_OPTIONS = {
         acceleration: true, # if user wants to use accelleration or not
-        auto_row_sep_chars: 500,
+        auto_row_sep_chars: 8_192,
         bad_row_limit: nil,
         chunk_size: nil,
         col_sep: :auto, # was: ',',

@@ -118,20 +118,31 @@ module SmarterCSV
           warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
         end
 
-        # Peek ahead so auto-detection can rewind the peek-buffer without seeking the underlying IO.
-        # Works for any source — files, StringIO, pipes, STDIN, Zlib streams, etc.
-        fh.peek if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+        # Auto-detection: peek ahead into a rewindable buffer so detection passes
+        # can replay without seeking the underlying IO (works for pipes, STDIN, Zlib, etc.).
+        # Buffer management is explicit here — detection functions are pure (no rewind calls inside).
+        #
+        # Flow when any separator is :auto:
+        #   1. peek      — fill the buffer from the underlying IO
+        #   2. guess row_sep — scans chars from the buffer
+        #   3. rewind_buffer — replay from byte 0 for next pass
+        #   4. skip_lines — skip comment/header-skip lines so col_sep detection
+        #                    sees data lines, not comment lines
+        #   5. guess col_sep — reads 1-5 lines from the buffer
+        #   6. freeze_buffer! — lock the buffer; subsequent reads beyond it go to @io
+        #   7. rewind_buffer — replay from byte 0 for actual processing
+        #
+        if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+          fh.peek
+          options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+          rewind_buffer(fh)
+          skip_lines(fh, options) if options[:skip_lines] # skip comments
+          options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+          fh.freeze_buffer!
+          rewind_buffer(fh)
+        end
 
-        # auto-detect the row separator
-        options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
-        # attempt to auto-detect column separator
-        options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
-
-        # Detection complete — freeze the buffer so subsequent reads beyond the
-        # buffered window delegate directly to @io without growing @peek_buf.
-        fh.freeze_buffer!
-
-        skip_lines(fh, options)
+        skip_lines(fh, options) if options[:skip_lines] # skip comments
 
         # NOTE: we are no longer using header_size
         @headers, _header_size = process_headers(fh, options)
