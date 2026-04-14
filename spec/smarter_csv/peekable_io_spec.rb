@@ -663,4 +663,96 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(line1.encoding).to eq(line2.encoding)
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # c1 — each_char and read accumulate @io bytes into @peek_buf during detection
+  #
+  # When @buffer_frozen = false (before first rewind), every byte read from @io
+  # must be appended to @peek_buf so that a subsequent rewind can replay the full
+  # stream from position 0.  The bug: each_char delegated directly to @io.each_char
+  # without accumulating, and read did not append @io bytes to @peek_buf.
+  # ---------------------------------------------------------------------------
+  describe 'c1 — each_char and read accumulate @io bytes into @peek_buf for rewind' do
+    it 'each_char accumulates @io bytes so rewind can replay the full stream' do
+      pio = described_class.new(StringIO.new("abcde\nfghij\n"))
+      pio.peek(4)  # buffer = "abcd" only; "e\nfghij\n" is still in @io
+      chars = []
+      pio.each_char { |c| chars << c }
+      expect(chars.join).to eq("abcde\nfghij\n")
+      pio.rewind
+      expect(pio.gets("\n")).to eq("abcde\n")
+      expect(pio.gets("\n")).to eq("fghij\n")
+    end
+
+    it 'read (no n) accumulates @io bytes so rewind can replay the full stream' do
+      pio = described_class.new(StringIO.new("abcde\nfghij\n"))
+      pio.peek(4)  # buffer = "abcd" only; "e\nfghij\n" is still in @io
+      result = pio.read
+      expect(result).to eq("abcde\nfghij\n")
+      pio.rewind
+      expect(pio.read).to eq("abcde\nfghij\n")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # c2 — maybe_transcode replaces invalid/corrupt bytes instead of raising
+  #
+  # maybe_transcode calls encode(int) without invalid: :replace, so a malformed
+  # byte sequence in the buffer raises Encoding::InvalidByteSequenceError.
+  # The fix: add invalid: :replace, undef: :replace to mirror enforce_utf8_encoding.
+  # ---------------------------------------------------------------------------
+  describe 'c2 — maybe_transcode with invalid/corrupt bytes in buffer' do
+    it 'replaces invalid bytes rather than raising' do
+      # \xFF is not a valid EUC-JP byte sequence
+      csv = "ok\xFF\nrest\n".b
+      io  = TranscodedIO.new(csv, 'EUC-JP', 'UTF-8')
+      pio = described_class.new(io)
+      pio.peek(10)
+      expect { pio.gets("\n") }.not_to raise_error
+    end
+
+    it 'returns a UTF-8 string after replacing the invalid byte' do
+      csv = "ok\xFF\nrest\n".b
+      io  = TranscodedIO.new(csv, 'EUC-JP', 'UTF-8')
+      pio = described_class.new(io)
+      pio.peek(10)
+      line = pio.gets("\n")
+      expect(line.encoding).to eq(Encoding::UTF_8)
+      expect(line.valid_encoding?).to be true
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # c3 — "buffer exhausted, not frozen" path in gets applies maybe_transcode
+  #
+  # When @buffer_frozen = false and @peek_pos >= @peek_buf.bytesize, gets reads
+  # from @io and appends to @peek_buf.  The returned value was only force_encoding'd
+  # without calling maybe_transcode, so transcoding pairs (ext→int) were silently
+  # skipped and the caller received a string with the wrong encoding.
+  # ---------------------------------------------------------------------------
+  describe 'c3 — gets: buffer exhausted, not frozen, transcoding pair gets maybe_transcode' do
+    it 'returns a correctly transcoded string when @io.gets is called during detection phase' do
+      # \xfc = ü in ISO-8859-1
+      csv = "line1\nM\xFCnchen\n".b
+      io  = TranscodedIO.new(csv, 'ISO-8859-1', 'UTF-8')
+      pio = described_class.new(io)
+      pio.peek(3)   # buffer = "lin" only; "e1\n..." is still in @io
+      pio.gets("\n")   # reads "e1\n" from @io, appends to buf; not yet frozen
+      line2 = pio.gets("\n")  # buffer still exhausted+not frozen: reads "München\n" from @io
+      expect(line2.encoding).to eq(Encoding::UTF_8)
+      expect(line2).to eq("München\n")
+    end
+
+    it 'rewind replays the correctly transcoded content after buffer-exhausted reads' do
+      csv = "line1\nM\xFCnchen\n".b
+      io  = TranscodedIO.new(csv, 'ISO-8859-1', 'UTF-8')
+      pio = described_class.new(io)
+      pio.peek(3)
+      pio.gets("\n")
+      pio.gets("\n")
+      pio.rewind
+      expect(pio.gets("\n")).to eq("line1\n")
+      expect(pio.gets("\n")).to eq("München\n")
+    end
+  end
 end

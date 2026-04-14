@@ -786,18 +786,12 @@ module SmarterCSV
 
     def enforce_utf8_encoding(line, options)
       replace = options[:invalid_byte_sequence]
-      enc = line.encoding
-      if enc == Encoding::ASCII_8BIT  # Encoding::BINARY is an alias for the same constant
-        # Binary/unknown source: reinterpret bytes as UTF-8 and replace invalid sequences.
-        line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: replace)
-      elsif enc == Encoding::UTF_8
-        # Already UTF-8: just replace any invalid byte sequences.
-        line.encode('utf-8', invalid: :replace, undef: :replace, replace: replace)
-      else
-        # Known non-UTF-8 encoding (ISO-8859-1, Windows-1252, Shift-JIS, EUC-JP, …):
-        # transcode properly using the declared source encoding.
-        line.encode('utf-8', enc, invalid: :replace, undef: :replace, replace: replace)
-      end
+      # ASCII_8BIT (Encoding::BINARY is an alias) has no codepoint mapping above 0x7F,
+      # so encode('utf-8', ASCII_8BIT) would replace every non-ASCII byte. Relabel as
+      # UTF-8 first so encode() treats the bytes as already-UTF-8 and only replaces
+      # sequences that are actually invalid.
+      line = line.force_encoding('utf-8') if line.encoding == Encoding::ASCII_8BIT
+      line.encode('utf-8', line.encoding, invalid: :replace, undef: :replace, replace: replace)
     end
 
     def handle_bad_row(error, line, start_csv_line, start_file_line, options)
