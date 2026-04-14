@@ -14,7 +14,7 @@
 
 * Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
 
-## 1.16.3 (2026-04-13) — New Feature
+## 1.16.3 (2026-04-14) — New Feature
 
 RSpec tests: **1,425 → 1,434** (+9 tests)
 
@@ -24,6 +24,9 @@ RSpec tests: **1,425 → 1,434** (+9 tests)
   Defaults to `true` (existing behavior, fully backwards-compatible).
   
   See [Appending to an Existing CSV File](docs/basic_write_api.md#appending-to-an-existing-csv-file).
+
+### Other
+* Refactor of internal options handling
 
 ## 1.16.2 (2026-03-30) — Bug Fixes
 
