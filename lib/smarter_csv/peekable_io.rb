@@ -21,9 +21,10 @@ module SmarterCSV
 
     def initialize(io)
       @io = io
-      @peek_buf = nil   # nil = buffer not yet filled / already drained
+      @peek_buf = nil     # nil = buffer not yet filled
       @peek_pos = 0
       @emit_encoding = nil  # encoding of strings returned by @io.read — set on first peek
+      @buffer_frozen = false  # true after first rewind: buffer stops growing, detection phase is over
     end
 
     # Read up to n bytes into the buffer and return them.
@@ -38,64 +39,30 @@ module SmarterCSV
       # Idempotent: a second peek call returns the existing buffer without reading
       # more from @io.  Calling peek twice would otherwise overwrite the buffer and
       # silently drop any unconsumed bytes from the first peek.
-      return @peek_buf.dup.force_encoding(@emit_encoding || Encoding::BINARY) if @peek_buf
+      return @peek_buf.dup.force_encoding(@emit_encoding || Encoding::ASCII_8BIT) if @peek_buf
 
       # read(n) fetches raw bytes as ASCII-8BIT regardless of the file's declared
       # encoding — this is what we want because it works even for files that begin
       # with non-UTF-8 BOMs (\xFF\xFE etc.) that would cause gets(nil,n) on a
       # r:utf-8 handle to stop after the first invalid byte.
-      #
-      # After stripping the BOM we transcode the buffer ourselves if the stream
-      # uses a transcoding pair (e.g. r:iso-8859-1:utf-8): read(n) does NOT
-      # transcode, so we encode the raw external-encoding bytes to internal_encoding.
       chunk = @io.read(n)
       if chunk && !chunk.empty?
         raw = strip_bom(chunk.b)
-        ext = external_encoding
-        int = internal_encoding
-        if ext && int && ext != int
-          # Transcoded stream: raw bytes are in external_encoding; convert to internal.
-          #
-          # Problem: read(n) does not transcode, so raw is in external_encoding bytes.
-          # If peek(n) stopped mid-codepoint in the external encoding, encode() raises
-          # Encoding::InvalidByteSequenceError before align_to_char_boundary is reached.
-          # Fix: read one more raw byte at a time and retry, bounded by MAX_ALIGN_BYTES.
-          # If still failing after the bound (genuinely malformed input), replace invalid
-          # bytes rather than raise.
-          transcoded = nil
-          MAX_ALIGN_BYTES.times do
-            begin
-              transcoded = raw.dup.force_encoding(ext).encode(int)
-              break
-            rescue Encoding::InvalidByteSequenceError
-              extra = @io.read(1)
-              break unless extra
-              raw = raw + extra.b
-            end
-          end
-          raw = (transcoded || raw.dup.force_encoding(ext).encode(int, invalid: :replace)).b
-          @emit_encoding = int
-          # align_to_char_boundary is NOT called in the transcoding path: the encode
-          # step already consumed complete external-encoding codepoints and the output
-          # is valid in the internal encoding by construction.
-        else
-          # nil for binary/untagged sources (pipes, STDIN without explicit encoding).
-          # Downstream force_encoding calls have their own fallback chain.
-          @emit_encoding = ext
-          # Ensure the buffer ends on a complete character boundary.
-          # If peek(n) stopped mid-codepoint, read one byte at a time until the
-          # buffer is valid in its declared encoding. This prevents gets / each_char
-          # from handing a truncated sequence to the caller and positioning @io at
-          # a continuation byte — which can raise or corrupt data for strict encodings.
-          # Skipped when encoding is unknown (nil) or single-byte (every byte is valid).
-          raw = align_to_char_boundary(raw) if @emit_encoding
-        end
+        # The buffer always holds raw bytes in the external encoding (ASCII-8BIT tagged).
+        # Transcoding (ext → int) is the caller's responsibility — it happens externally
+        # when consuming data, not here during storage.
+        @emit_encoding = external_encoding
+        # Ensure the buffer ends on a complete codepoint boundary.
+        # align_to_char_boundary reads single bytes from @io until the buffer is valid
+        # in @emit_encoding, guarded by MAX_ALIGN_BYTES to avoid infinite loops on
+        # malformed input. Skipped when encoding is unknown (nil) or single-byte.
+        raw = align_to_char_boundary(raw) if @emit_encoding
         @peek_buf = raw
         @peek_pos = 0
       end
       # Bug 3 fix: return the full buffered content (BOM-stripped + char-aligned)
       # rather than the original chunk so callers see what was actually consumed.
-      @peek_buf ? @peek_buf.dup.force_encoding(@emit_encoding || Encoding::BINARY) : chunk
+      @peek_buf ? @peek_buf.dup.force_encoding(@emit_encoding || Encoding::ASCII_8BIT) : chunk
     end
 
     # Returns the next line up to and including sep.
@@ -106,15 +73,28 @@ module SmarterCSV
     # NOTE: sep must be a String. gets(nil) — which reads until EOF in Ruby IO — is not
     # supported; smarter_csv always passes an explicit row separator string.
     def gets(sep = $/, **kwargs)
-      return @io.gets(sep, **kwargs) if @peek_buf.nil? || @peek_pos >= @peek_buf.bytesize
+      return @io.gets(sep, **kwargs) if @peek_buf.nil?
+      # Buffer frozen (post-rewind): delegate once buffer is exhausted — no more accumulation.
+      return @io.gets(sep, **kwargs) if @buffer_frozen && @peek_pos >= @peek_buf.bytesize
+      # Buffer not yet frozen but exhausted: still in detection phase — accumulate into buffer
+      # so that a subsequent rewind can replay every byte gets has consumed from @io.
+      if @peek_pos >= @peek_buf.bytesize
+        out_enc   = @emit_encoding || external_encoding
+        remainder = @io.gets(sep, **kwargs)
+        if remainder
+          @peek_buf = @peek_buf + remainder.b
+          @peek_pos = @peek_buf.bytesize
+        end
+        return out_enc ? remainder&.force_encoding(out_enc) : remainder
+      end
 
       # Compute the output encoding once; both the found-in-buffer and the
       # else/boundary paths use the same value for consistency.
-      # For sources with no declared encoding (nil) we fall back to BINARY rather
+      # For sources with no declared encoding (nil) we fall back to ASCII_8BIT rather
       # than assuming UTF-8 — the caller gets the raw bytes and can re-tag as needed.
       out_enc = @emit_encoding || external_encoding
       rest = @peek_buf.byteslice(@peek_pos..)
-      rest.force_encoding(out_enc || Encoding::BINARY)
+      rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
       # Use byteindex + byteslice — the buffer stores raw bytes and @peek_pos is a
       # byte offset. Separators are always ASCII, so byteindex is correct regardless
       # of the encoding tag.
@@ -122,7 +102,7 @@ module SmarterCSV
       if idx
         line = rest.byteslice(0, idx + sep.bytesize)
         @peek_pos += line.bytesize
-        line
+        maybe_transcode(line)
       else
         @peek_pos = @peek_buf.bytesize  # mark exhausted, keep buffer alive for rewind
 
@@ -154,7 +134,7 @@ module SmarterCSV
               @peek_pos = @peek_buf.bytesize
               combined = rest.b + appended
             end
-            return out_enc ? combined.force_encoding(out_enc) : combined
+            return maybe_transcode(out_enc ? combined.force_encoding(out_enc) : combined)
           end
         end
 
@@ -163,7 +143,7 @@ module SmarterCSV
         @peek_buf = @peek_buf + appended               # store remainder for rewind
         @peek_pos = @peek_buf.bytesize
         combined = rest.b + appended
-        out_enc ? combined.force_encoding(out_enc) : combined
+        maybe_transcode(out_enc ? combined.force_encoding(out_enc) : combined)
       end
     end
 
@@ -173,24 +153,24 @@ module SmarterCSV
       return @io.read(n) if @peek_buf.nil? || @peek_pos >= @peek_buf.bytesize
 
       buffered = @peek_buf.byteslice(@peek_pos..)
-      out_enc = @emit_encoding || Encoding::BINARY
+      out_enc = @emit_encoding || Encoding::ASCII_8BIT
 
       # All paths use binary concatenation then re-tag to avoid encoding mismatches.
       if n.nil?
         @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
         rest_from_io = @io.read
         combined = buffered + (rest_from_io ? rest_from_io.b : ''.b)
-        combined.force_encoding(out_enc)
+        maybe_transcode(combined.force_encoding(out_enc))
       elsif n == 0
         String.new.force_encoding(out_enc)  # read(0) must not advance @peek_pos
       elsif buffered.bytesize >= n
         @peek_pos += n                 # advance exactly n, not the whole buffer
-        buffered.byteslice(0, n).force_encoding(out_enc)
+        maybe_transcode(buffered.byteslice(0, n).force_encoding(out_enc))
       else
         @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
         rest_from_io = @io.read(n - buffered.bytesize)
         combined = buffered + (rest_from_io ? rest_from_io.b : ''.b)
-        combined.force_encoding(out_enc)
+        maybe_transcode(combined.force_encoding(out_enc))
       end
     end
 
@@ -199,7 +179,8 @@ module SmarterCSV
       return @io.each_char { |c| yield c } if @peek_buf.nil? || @peek_pos >= @peek_buf.bytesize
 
       rest = @peek_buf.byteslice(@peek_pos..)
-      rest.force_encoding(@emit_encoding || external_encoding || Encoding::BINARY)
+      rest.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
+      rest = maybe_transcode(rest) || rest
       rest.each_char { |c| yield c }
       @peek_pos = @peek_buf.bytesize  # mark exhausted, keep buffer alive for rewind
       @io.each_char { |c| yield c }
@@ -214,8 +195,12 @@ module SmarterCSV
     # Resets to the start of the peek buffer — never touches the underlying IO.
     # Since auto-detection happens at the very beginning, the buffer IS byte 0.
     # Works identically for files, StringIO, pipes, and any other source.
+    #
+    # Also freezes the buffer: any gets calls made after rewind (i.e. during normal
+    # processing) delegate directly to @io without growing the buffer further.
     def rewind
       @peek_pos = 0
+      @buffer_frozen = true
     end
 
     def close
@@ -232,7 +217,7 @@ module SmarterCSV
 
     private
 
-    # Strip any BOM from the start of the raw (BINARY-tagged) buffer bytes.
+    # Strip any BOM from the start of the raw (ASCII_8BIT-tagged) buffer bytes.
     # Doing this once here means all downstream code — auto-detection, the C
     # extension parser, remove_bom in file_io.rb — never sees BOM bytes.
     # Patterns ordered longest-first so UTF-32 is matched before UTF-16.
@@ -274,6 +259,18 @@ module SmarterCSV
         raw = raw + extra.b
       end
       raw
+    end
+
+    # Apply external→internal transcoding to a string returned from the buffer.
+    # The buffer stores raw bytes in the external encoding (@emit_encoding).
+    # When the underlying IO was opened with a transcoding pair (e.g. r:iso-8859-1:utf-8),
+    # callers expect strings in the internal encoding — the same as IO#gets returns.
+    # No-op when there is no transcoding pair or no declared encoding.
+    def maybe_transcode(str)
+      return str unless str
+      int = internal_encoding
+      return str unless int && @emit_encoding && int != @emit_encoding
+      str.force_encoding(@emit_encoding).encode(int)
     end
 
     def respond_to_missing?(method, include_private = false)

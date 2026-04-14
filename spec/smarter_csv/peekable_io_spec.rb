@@ -432,6 +432,31 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(pio.gets("\n")).to eq("hdr\n")
       expect(pio.gets("\n")).to eq("data\n")
     end
+
+    it 'rewind replays correctly after multiple gets calls each crossing the buffer boundary' do
+      # peek(3) buffers "abc". Both gets calls must read from @io and accumulate into
+      # @peek_buf (buffer not yet frozen). After rewind (@buffer_frozen = true) the
+      # full replay must return both lines correctly.
+      pio = described_class.new(StringIO.new("abcde\nfghij\nklmno\n"))
+      pio.peek(3)                                      # "abc" in buffer
+      expect(pio.gets("\n")).to eq("abcde\n")          # extends buffer: "abc" + "de\n"
+      expect(pio.gets("\n")).to eq("fghij\n")          # buffer exhausted: accumulates "fghij\n"
+      pio.rewind
+      expect(pio.gets("\n")).to eq("abcde\n")
+      expect(pio.gets("\n")).to eq("fghij\n")
+      expect(pio.gets("\n")).to eq("klmno\n")          # post-rewind: from @io directly
+    end
+
+    it 'rewind replays correctly after straddle-content path (\\r at boundary, next byte is not \\n)' do
+      # buffer ends with \r, @io starts with "d" (not \n) — peeked bytes are content,
+      # not a separator completion. Both peeked + remainder must be stored in @peek_buf.
+      pio = described_class.new(StringIO.new("hdr\rdata\r\nfoo\r\n"))
+      pio.peek(4)                                         # "hdr\r" in buffer; "data\r\nfoo\r\n" in @io
+      expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
+      pio.rewind
+      expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
+      expect(pio.gets("\r\n").b).to eq("foo\r\n".b)
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -539,13 +564,13 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect { pio.peek(1) }.not_to raise_error  # peek(1) reads only \xC6
     end
 
-    it 'returns the complete transcoded character after boundary alignment' do
+    it 'returns raw external-encoding bytes aligned to a complete codepoint' do
       io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
       pio = described_class.new(io)
       result = pio.peek(1)
-      # "日" in UTF-8 is \xE6\x97\xA5 ... but \xC6\xFC in EUC-JP is actually "日" mapped differently
-      # Just assert that the result contains a valid UTF-8 character and the rest follows
-      expect(result.encoding).to eq(Encoding::UTF_8)
+      # peek returns raw bytes in the external encoding — transcoding to internal
+      # happens on read-out (gets/read/each_char), not during storage.
+      expect(result.encoding).to eq(Encoding.find('EUC-JP'))
       expect(result.valid_encoding?).to be true
     end
 
@@ -555,9 +580,34 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio.peek(1)
       pio.rewind
       full = pio.read
-      expect(full.encoding).to eq(Encoding::UTF_8)
+      expect(full.encoding).to eq(Encoding::UTF_8)  # maybe_transcode applies ext→int on read-out
       expect(full.valid_encoding?).to be true
       expect(full.b.bytesize).to be > 0
+    end
+
+    it 'does not raise when EOF is hit while reading alignment bytes (truncated codepoint at end of stream)' do
+      # Stream contains only the first byte of a 2-byte EUC-JP character — EOF mid-codepoint.
+      # peek(1) reads \xC6; retry loop calls @io.read(1) → nil (EOF); `break unless extra` fires.
+      # transcoded is still nil → falls through to encode(invalid: :replace).
+      io = transcoded_io(euc_jp_hi)   # only \xC6, no \xFC — stream ends immediately
+      pio = described_class.new(io)
+      expect { pio.peek(1) }.not_to raise_error
+    end
+
+    it 'exhausts MAX_ALIGN_BYTES attempts then falls back to replacement without consuming extra bytes' do
+      # peek(1) reads one \xFF (invalid EUC-JP lead byte).
+      # The retry loop reads exactly MAX_ALIGN_BYTES more \xFF bytes one at a time — encode
+      # keeps raising after each addition. After MAX_ALIGN_BYTES iterations the loop exits
+      # and encode(invalid: :replace) is used.
+      # We supply 1 + MAX_ALIGN_BYTES + 1 bytes so the final byte remains in @io after the
+      # loop — proving the loop stopped at MAX_ALIGN_BYTES and did not read one byte too many.
+      n       = SmarterCSV::PeekableIO::MAX_ALIGN_BYTES
+      garbage = ("\xFF" * (1 + n + 1)).b   # \xFF is never valid in EUC-JP
+      io      = TranscodedIO.new(garbage, 'EUC-JP', 'UTF-8')
+      pio     = described_class.new(io)
+      expect { pio.peek(1) }.not_to raise_error
+      expect(pio.peek.encoding).to eq(Encoding.find('EUC-JP'))  # peek returns raw external-encoding bytes
+      expect(io.read(1)).not_to be_nil                           # exactly 1 byte left — loop stopped at n
     end
   end
 
