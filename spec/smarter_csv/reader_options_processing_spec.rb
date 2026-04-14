@@ -60,7 +60,7 @@ describe 'options processing' do
 
     it 'it has the correct default options, when no input is given' do
       generated_options = instance.options
-      expect(generated_options).to eq SmarterCSV::Options::DEFAULT_OPTIONS
+      expect(generated_options).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS
     end
 
     context "when clearing out the default options" do
@@ -68,7 +68,7 @@ describe 'options processing' do
 
       it 'lets the user clear out all default options' do
         generated_options = instance.process_options(options)
-        expect(generated_options).to eq options.merge(SmarterCSV::Options::DEFAULT_OPTIONS)
+        expect(generated_options).to eq options.merge(SmarterCSV::Reader::Options::DEFAULT_OPTIONS)
       end
     end
 
@@ -115,9 +115,9 @@ describe 'options processing' do
     end
   end
 
-  describe '#default_options' do
+  describe '.default_options' do
     it 'surfaces the DEFAULT_OPTIONS hash' do
-      expect(SmarterCSV.default_options).to eq SmarterCSV::Options::DEFAULT_OPTIONS
+      expect(SmarterCSV::Reader.default_options).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS
     end
   end
 end

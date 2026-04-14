@@ -45,6 +45,7 @@
 | `:write_nil_value` | `''` | String written in place of `nil` field values. E.g. `write_nil_value: 'N/A'`. |
 | `:write_empty_value` | `''` | String written in place of empty-string field values, including missing keys. E.g. `write_empty_value: 'EMPTY'`. |
 | `:write_bom` | `false` | Prepends a UTF-8 BOM (`\xEF\xBB\xBF`) to the output. Use with `encoding: 'UTF-8'` for Excel compatibility. |
+| `:write_headers` | `true` | When `false`, suppresses the header line entirely. Use when appending rows to an existing CSV file (open the file in `'a'` mode yourself and pass the IO object). |
 
 
 ## CSV Reading

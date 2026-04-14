@@ -5,7 +5,8 @@ require "smarter_csv/version"
 require "smarter_csv/errors"
 
 require "smarter_csv/file_io"
-require "smarter_csv/options"
+require "smarter_csv/reader_options"
+require "smarter_csv/writer_options"
 require "smarter_csv/auto_detection"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'

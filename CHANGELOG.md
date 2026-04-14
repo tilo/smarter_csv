@@ -1,6 +1,20 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.3 (2026-04-14) — New Feature
+
+RSpec tests: **1,425 → 1,434** (+9 tests)
+
+### New Features
+
+* **`write_headers: false`** — new `SmarterCSV::Writer` option to suppress the header line when appending rows to an existing CSV file opened in `'a'` mode.
+  Defaults to `true` (existing behavior, fully backwards-compatible).
+  
+  See [Appending to an Existing CSV File](docs/basic_write_api.md#appending-to-an-existing-csv-file).
+
+### Other
+* Refactor of internal options handling
+
 ## 1.16.2 (2026-03-30) — Bug Fixes
 
 RSpec tests: **1,410 → 1,425** (+15 tests)

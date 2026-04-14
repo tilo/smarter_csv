@@ -21,7 +21,7 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.errors).to be_empty
       expect(reader.result).to eq []
       # initializes to the default options
-      expect(reader.options).to eq SmarterCSV::Options::DEFAULT_OPTIONS
+      expect(reader.options).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS
     end
 
     it "sets options" do
