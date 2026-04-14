@@ -75,15 +75,17 @@ module SmarterCSV
     #
     # NOTE: sep must be a String. gets(nil) — which reads until EOF in Ruby IO — is not
     # supported; smarter_csv always passes an explicit row separator string.
-    def gets(sep = $/, **kwargs)
-      return @io.gets(sep, **kwargs) if @peek_buf.nil?
+    #
+    # NOTE: we don't support **kwargs because smarter_csv does not use them.
+    def gets(sep = $/)
+      return @io.gets(sep) if @peek_buf.nil?
       # Buffer frozen (post-rewind): delegate once buffer is exhausted — no more accumulation.
-      return @io.gets(sep, **kwargs) if @buffer_frozen && buffer_exhausted?
+      return @io.gets(sep) if @buffer_frozen && buffer_exhausted?
       # Buffer not yet frozen but exhausted: still in detection phase — accumulate into buffer
       # so that a subsequent rewind can replay every byte gets has consumed from @io.
       if buffer_exhausted?
         out_enc   = @emit_encoding || external_encoding
-        remainder = @io.gets(sep, **kwargs)
+        remainder = @io.gets(sep)
         if remainder
           @peek_buf = @peek_buf + remainder.b
           @peek_pos = @peek_buf.bytesize
@@ -132,7 +134,7 @@ module SmarterCSV
               @peek_pos = @peek_buf.bytesize
               combined = rest.b + tail_needed
             else
-              remainder = @io.gets(sep, **kwargs)
+              remainder = @io.gets(sep)
               appended = peeked.b + (remainder ? remainder.b : ''.b)
               @peek_buf = @peek_buf + appended         # peeked was content: store all
               @peek_pos = @peek_buf.bytesize
@@ -142,7 +144,7 @@ module SmarterCSV
           end
         end
 
-        remainder = @io.gets(sep, **kwargs)
+        remainder = @io.gets(sep)
         appended = remainder ? remainder.b : ''.b
         @peek_buf = @peek_buf + appended               # store remainder for rewind
         @peek_pos = @peek_buf.bytesize
@@ -292,8 +294,8 @@ module SmarterCSV
       @io.respond_to?(method, include_private) || super
     end
 
-    def method_missing(method, *args, **kwargs, &block)
-      @io.send(method, *args, **kwargs, &block)
+    def method_missing(method, *args, &block)
+      @io.send(method, *args, &block)
     end
   end
 end
