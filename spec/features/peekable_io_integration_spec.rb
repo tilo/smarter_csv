@@ -655,7 +655,8 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     it '\\r at end of peek buffer, \\n as first @io byte' do
       raw = "name,city\r\nAlice,NYC\r\nBob,LA\r\n"
       io  = NonSeekableIO.new(raw)
-      pio = SmarterCSV::PeekableIO.new(io, buffer_size: 10)
+      opts = SmarterCSV::Reader::Options::DEFAULT_OPTIONS.merge(row_sep: "\r\n", col_sep: ",")
+      pio = SmarterCSV::PeekableIO.new(io, opts, buffer_size: 10)
       pio.peek           # fills buffer: "name,city\r" (10 bytes, ends on \r = 0x0D)
       pio.freeze_buffer! # freeze immediately — skip auto-detection
       pio.rewind_buffer  # replay from byte 0

@@ -24,9 +24,10 @@ module SmarterCSV
     # 16KB is enough for separator detection on any real-world CSV header.
     DEFAULT_PEEK_SIZE = 16_384
 
-    def initialize(io, buffer_size: DEFAULT_PEEK_SIZE)
+    def initialize(io, options, buffer_size: DEFAULT_PEEK_SIZE)
       @io = io
       @buffer_size = buffer_size
+      @options = options  # live reference — options[:row_sep] is the default sep for gets/readline
       @peek_buf = nil     # nil = buffer not yet filled
       @peek_pos = 0
       @emit_encoding = nil  # encoding of strings returned by @io.read — set on first peek
@@ -78,9 +79,10 @@ module SmarterCSV
     #
     # NOTE: sep must be a String. gets(nil) — which reads until EOF in Ruby IO — is not
     # supported; smarter_csv always passes an explicit row separator string.
+    # The default is @options[:row_sep] (resolved after auto-detection), never $/.
     #
     # NOTE: we don't support **kwargs because smarter_csv does not use them.
-    def gets(sep = $/)
+    def gets(sep = @options[:row_sep])
       return @io.gets(sep) if @peek_buf.nil?
       # Buffer frozen (post auto-detection): delegate once buffer is exhausted — no more accumulation.
       # Must still apply encoding tagging and maybe_transcode so callers see consistent encodings.
@@ -181,7 +183,13 @@ module SmarterCSV
       end
     end
 
-    alias readline gets
+    # Unlike gets, readline raises EOFError at end of file rather than returning nil.
+    # Defaults to @options[:row_sep], never $/.
+    def readline(sep = @options[:row_sep])
+      line = gets(sep)
+      raise EOFError, "end of file reached" if line.nil?
+      line
+    end
 
     def read(n = nil)
       return @io.read(n) if buffer_exhausted?
@@ -194,7 +202,7 @@ module SmarterCSV
         @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
         rest_from_io = @io.read
         appended = rest_from_io ? rest_from_io.b : ''.b
-        @peek_buf = @peek_buf + appended unless @buffer_frozen
+        @peek_buf << appended unless @buffer_frozen
         combined = buffered + appended
         maybe_transcode(combined.force_encoding(out_enc))
       elsif n == 0
@@ -206,7 +214,7 @@ module SmarterCSV
         @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
         rest_from_io = @io.read(n - buffered.bytesize)
         appended = rest_from_io ? rest_from_io.b : ''.b
-        @peek_buf = @peek_buf + appended unless @buffer_frozen
+        @peek_buf << appended unless @buffer_frozen
         combined = buffered + appended
         maybe_transcode(combined.force_encoding(out_enc))
       end
@@ -228,7 +236,7 @@ module SmarterCSV
       until @io.eof?
         chunk = @io.read(@buffer_size)
         break unless chunk
-        @peek_buf = @peek_buf + chunk.b unless @buffer_frozen
+        @peek_buf << chunk.b unless @buffer_frozen
         chunk.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
         (maybe_transcode(chunk) || chunk).each_char { |c| yield c }
       end
@@ -281,7 +289,7 @@ module SmarterCSV
     def extend_buffer!
       chunk = @io.read(@buffer_size)
       return false unless chunk && !chunk.empty?
-      @peek_buf = @peek_buf + chunk.b
+      @peek_buf << chunk.b
       true
     end
 
