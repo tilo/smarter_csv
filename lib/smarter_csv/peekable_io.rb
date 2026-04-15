@@ -12,7 +12,7 @@ module SmarterCSV
   #   1. peek(n)     — reads up to n bytes from the underlying IO into the buffer
   #   2. rewind      — resets @peek_pos to 0 (replays buffer, never seeks underlying IO)
   #   3. gets/read/each_char — drain the buffer first, then read from @io in
-  #      DEFAULT_PEEK_SIZE chunks, appending each to @peek_buf so that a subsequent
+  #      @buffer_size chunks, appending each to @peek_buf so that a subsequent
   #      rewind can replay the full stream from position 0.
   #   4. rewind — resets @peek_pos to 0; does NOT freeze. Detection may rewind
   #      multiple times (once per pass) and must keep accumulating between passes.
@@ -24,8 +24,9 @@ module SmarterCSV
     # 16KB is enough for separator detection on any real-world CSV header.
     DEFAULT_PEEK_SIZE = 16_384
 
-    def initialize(io)
+    def initialize(io, buffer_size: DEFAULT_PEEK_SIZE)
       @io = io
+      @buffer_size = buffer_size
       @peek_buf = nil     # nil = buffer not yet filled
       @peek_pos = 0
       @emit_encoding = nil  # encoding of strings returned by @io.read — set on first peek
@@ -40,7 +41,7 @@ module SmarterCSV
     # For transcoded streams (e.g. r:iso-8859-1:utf-8), the raw bytes are
     # converted to the internal encoding in-place; @emit_encoding records the
     # final encoding so read-out can re-tag strings correctly.
-    def peek(n = DEFAULT_PEEK_SIZE)
+    def peek(n = @buffer_size)
       # Idempotent: a second peek call returns the existing buffer without reading
       # more from @io.  Calling peek twice would otherwise overwrite the buffer and
       # silently drop any unconsumed bytes from the first peek.
@@ -82,7 +83,20 @@ module SmarterCSV
     def gets(sep = $/)
       return @io.gets(sep) if @peek_buf.nil?
       # Buffer frozen (post auto-detection): delegate once buffer is exhausted — no more accumulation.
-      return @io.gets(sep) if @buffer_frozen && buffer_exhausted?
+      # Must still apply encoding tagging and maybe_transcode so callers see consistent encodings.
+      if @buffer_frozen && buffer_exhausted?
+        line = @io.gets(sep)
+        return nil if line.nil?
+        int = internal_encoding
+        # Real IO objects opened with a transcoding pair (e.g. r:iso-8859-1:utf-8) already transcode
+        # on read — the returned string is already in the internal encoding.  Return it as-is.
+        # For wrapper objects (e.g. EncodedBytesIO) that declare encodings but don't transcode on
+        # read, the returned string will still be in ASCII-8BIT — fall through to tag + transcode.
+        return line if int && line.encoding == int
+        out_enc = @emit_encoding || external_encoding
+        line = line.force_encoding(out_enc) if out_enc
+        return maybe_transcode(line)
+      end
 
       # Compute the output encoding once — used by both the detection and frozen paths.
       # For sources with no declared encoding (nil) we fall back to ASCII_8BIT rather
@@ -91,7 +105,7 @@ module SmarterCSV
 
       # ---------------------------------------------------------------------------
       # Auto-Detection phase (buffer not yet frozen):
-      # Extend the buffer in DEFAULT_PEEK_SIZE chunks until the separator is found
+      # Extend the buffer in @buffer_size chunks until the separator is found
       # or EOF.  No straddle detection needed — the extension absorbs any boundary.
       # @peek_pos never advances until we have a complete line, so the search always
       # covers the full unread portion of the ever-growing buffer.
@@ -212,7 +226,7 @@ module SmarterCSV
       # appending one byte at a time.  Row-sep detection only needs ASCII chars
       # (\n, \r) so codepoint boundaries at chunk edges are inconsequential.
       until @io.eof?
-        chunk = @io.read(DEFAULT_PEEK_SIZE)
+        chunk = @io.read(@buffer_size)
         break unless chunk
         @peek_buf = @peek_buf + chunk.b unless @buffer_frozen
         chunk.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
@@ -262,10 +276,10 @@ module SmarterCSV
       @peek_buf.nil? || @peek_pos >= @peek_buf.bytesize
     end
 
-    # Append one DEFAULT_PEEK_SIZE chunk from @io to @peek_buf.
+    # Append one @buffer_size chunk from @io to @peek_buf.
     # Returns true if bytes were added, false if @io was already at EOF.
     def extend_buffer!
-      chunk = @io.read(DEFAULT_PEEK_SIZE)
+      chunk = @io.read(@buffer_size)
       return false unless chunk && !chunk.empty?
       @peek_buf = @peek_buf + chunk.b
       true

@@ -112,7 +112,17 @@ module SmarterCSV
 
       begin
         fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
-        fh = SmarterCSV::PeekableIO.new(fh)
+        # buffer_size can be passed directly; otherwise it scales from auto_row_sep_chars.
+        # 2× auto_row_sep_chars ensures the first peek covers the full row_sep scan with
+        # room for col_sep detection. Falls back to DEFAULT_PEEK_SIZE when auto_row_sep_chars
+        # is 0 (scan whole file).
+        buf_size = if options[:buffer_size]
+                     options[:buffer_size].to_i
+                   else
+                     auto_row_sep_chars = options[:auto_row_sep_chars].to_i
+                     auto_row_sep_chars > 0 ? 2 * auto_row_sep_chars : SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE
+                   end
+        fh = SmarterCSV::PeekableIO.new(fh, buffer_size: buf_size)
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
           warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
