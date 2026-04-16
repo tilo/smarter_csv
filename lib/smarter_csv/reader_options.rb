@@ -187,6 +187,19 @@ module SmarterCSV
         unless %i[legacy standard].include?(options[:quote_boundary])
           errors << "invalid quote_boundary: must be :legacy or :standard"
         end
+        arc = options[:auto_row_sep_chars]
+        unless arc.is_a?(Integer) && arc >= DEFAULT_OPTIONS[:auto_row_sep_chars]
+          warn "WARNING: invalid auto_row_sep_chars value #{arc.inspect} — must be an Integer >= #{DEFAULT_OPTIONS[:auto_row_sep_chars]}; using default (#{DEFAULT_OPTIONS[:auto_row_sep_chars]})" unless options[:verbose] == :quiet
+          options[:auto_row_sep_chars] = DEFAULT_OPTIONS[:auto_row_sep_chars]
+        end
+        # buffer_size is an internal option used by tests to exercise small-buffer boundary conditions.
+        # It is purposely not part of the public API and purposely not listed in DEFAULT_OPTIONS.
+        if options.key?(:buffer_size)
+          bs = options[:buffer_size]
+          unless bs.is_a?(Integer) && bs > 0
+            errors << "invalid buffer_size: must be a positive Integer (got #{bs.inspect})"
+          end
+        end
         fsl = options[:field_size_limit]
         unless fsl.nil? || (fsl.is_a?(Integer) && fsl > 0)
           errors << "invalid field_size_limit: must be nil or a positive Integer (got #{fsl.inspect})"

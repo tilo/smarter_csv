@@ -3,6 +3,8 @@
 
 ## 1.17.0 (unreleased)
 
+RSpec tests: **1,434 → 1,803** (+369 tests)
+
 ### New Features
 
 * **Streaming IO support** — SmarterCSV now works with non-seekable IO sources such as pipes, STDIN, and Zlib streams.

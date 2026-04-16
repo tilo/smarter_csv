@@ -73,6 +73,66 @@ describe 'options validation coverage' do
     end
   end
 
+  describe 'auto_row_sep_chars validation' do
+    it 'warns and uses the default for a non-integer type' do
+      opts = nil
+      expect do
+        opts = instance.process_options(auto_row_sep_chars: 'large')
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(opts[:auto_row_sep_chars]).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS[:auto_row_sep_chars]
+    end
+
+    it 'warns and uses the default for a negative value' do
+      opts = nil
+      expect do
+        opts = instance.process_options(auto_row_sep_chars: -1)
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(opts[:auto_row_sep_chars]).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS[:auto_row_sep_chars]
+    end
+
+    it 'warns and uses the default for zero' do
+      opts = nil
+      expect do
+        opts = instance.process_options(auto_row_sep_chars: 0)
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(opts[:auto_row_sep_chars]).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS[:auto_row_sep_chars]
+    end
+
+    it 'warns and uses the default for a positive value below the minimum' do
+      opts = nil
+      expect do
+        opts = instance.process_options(auto_row_sep_chars: 100)
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(opts[:auto_row_sep_chars]).to eq SmarterCSV::Reader::Options::DEFAULT_OPTIONS[:auto_row_sep_chars]
+    end
+
+    it 'accepts a value at the minimum (8192)' do
+      expect { instance.process_options(auto_row_sep_chars: 8_192) }.not_to raise_error
+    end
+
+    it 'accepts a value above the minimum' do
+      expect { instance.process_options(auto_row_sep_chars: 16_384) }.not_to raise_error
+    end
+  end
+
+  describe 'buffer_size validation' do
+    it 'raises ValidationError for a non-integer type' do
+      expect do
+        instance.process_options(buffer_size: '1024')
+      end.to raise_error(SmarterCSV::ValidationError, /invalid buffer_size/)
+    end
+
+    it 'raises ValidationError for zero or negative value' do
+      expect do
+        instance.process_options(buffer_size: 0)
+      end.to raise_error(SmarterCSV::ValidationError, /invalid buffer_size/)
+    end
+
+    it 'accepts a positive integer' do
+      expect { instance.process_options(buffer_size: 16_384) }.not_to raise_error
+    end
+  end
+
   describe 'option_valid?' do
     it 'accepts :auto as a valid symbol' do
       expect do
