@@ -27,9 +27,13 @@ module SmarterCSV
           candidates[d] += non_quoted_text.scan(d).count
         end
       end
+      # No lines were read at all — empty file or stream.
+      # Return a safe default and let process_headers raise EmptyFileError.
+      return ',' if line.nil?
+
       if candidates.values.max == 0
         # if the header only contains word characters and whitespace, assume comma separator
-        return ',' if line && line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
+        return ',' if line.chomp(options[:row_sep]) =~ /^[\w\s]+$/
 
         raise SmarterCSV::NoColSepDetected
       end

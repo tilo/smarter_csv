@@ -12,13 +12,33 @@ class NonSeekableIO
     @encoding = encoding
   end
 
-  def read(n = nil)             ; @io.read(n)                                   ; end
-  def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep); end
-  def readline(sep = $/)        ; @io.readline(sep)                             ; end
-  def each_char(&block)         ; @io.each_char(&block)                         ; end
-  def eof?                      ; @io.eof?                                      ; end
-  def external_encoding         ; @encoding                                     ; end
-  def close                     ; nil                                           ; end
+  def read(num_bytes = nil)
+    @io.read(num_bytes)
+  end
+
+  def gets(sep = $/, limit = nil)
+    limit ? @io.gets(sep, limit) : @io.gets(sep)
+  end
+
+  def readline(sep = $/)
+    @io.readline(sep)
+  end
+
+  def each_char(&block)
+    @io.each_char(&block)
+  end
+
+  def eof?
+    @io.eof?
+  end
+
+  def external_encoding
+    @encoding
+  end
+
+  def close
+    nil
+  end
   # Intentionally does NOT implement rewind or seek
 end
 
@@ -32,16 +52,47 @@ class EncodedBytesIO
     @int = internal_enc ? Encoding.find(internal_enc) : nil
   end
 
-  def read(n = nil)              ; @io.read(n)                                    ; end
-  def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep)  ; end
-  def readline(sep = $/)         ; @io.readline(sep)                              ; end
-  def each_char(&block)          ; @io.each_char(&block)                          ; end
-  def eof?                       ; @io.eof?                                       ; end
-  def close                      ; nil                                            ; end
-  def external_encoding          ; @ext                                           ; end
-  def internal_encoding          ; @int                                           ; end
+  def read(num_bytes = nil)
+    @io.read(num_bytes)
+  end
+
+  def gets(sep = $/, limit = nil)
+    limit ? @io.gets(sep, limit) : @io.gets(sep)
+  end
+
+  def readline(sep = $/)
+    @io.readline(sep)
+  end
+
+  def each_char(&block)
+    @io.each_char(&block)
+  end
+
+  def eof?
+    @io.eof?
+  end
+
+  def close
+    nil
+  end
+
+  def external_encoding
+    @ext
+  end
+
+  def internal_encoding
+    @int
+  end
   # Intentionally does NOT implement rewind or seek
 end
+
+# Sizes chosen to stress-test distinct code paths in PeekableIO:
+#   3    — forces \r\n to straddle every other boundary; maximally exercises straddle detection
+#   19   — prime close to one data row (~13-19 bytes); hits different byte offsets than 3
+#   128  — ~1/3 of the 400-byte matrix content; several extend_buffer! calls + short frozen phase
+#   512  — larger than matrix content; frozen phase starts early; stress-tests large-file delegation
+#   4096 — roughly 1/10 of the 44KB large-file content; exercises both detection and long frozen phase
+INTERESTING_BUFFER_SIZES = [3, 19, 128, 512, 4096].freeze
 
 RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # Shared generator — used by both the in-memory and Tempfile-based test sections.
@@ -64,7 +115,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
     it 'auto-detects row_sep on a pipe' do
       io = pipe_for("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, )
+      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto)
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     ensure
       io.close unless io.closed?
@@ -72,7 +123,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
     it 'auto-detects col_sep on a pipe' do
       io = pipe_for("name;age\nAlice;30\nBob;25\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", )
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n")
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     ensure
       io.close unless io.closed?
@@ -80,7 +131,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
     it 'auto-detects both col_sep and row_sep on a pipe' do
       io = pipe_for("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, )
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     ensure
       io.close unless io.closed?
@@ -88,7 +139,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
     it 'processes a pipe correctly when no auto-detection is needed' do
       io = pipe_for("name,age\nAlice,30\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", )
+      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n")
       expect(result).to eq([{ name: 'Alice', age: 30 }])
     ensure
       io.close unless io.closed?
@@ -101,19 +152,19 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'NonSeekableIO source (STDIN-like, no rewind)' do
     it 'auto-detects row_sep' do
       io = NonSeekableIO.new("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, )
+      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto)
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     end
 
     it 'auto-detects col_sep' do
       io = NonSeekableIO.new("name|age\nAlice|30\nBob|25\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", )
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n")
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     end
 
     it 'auto-detects both separators' do
       io = NonSeekableIO.new("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, )
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
       expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
     end
 
@@ -228,7 +279,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       io = StringIO.new(large_csv_content)
       result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
       expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1,    name: 'item_1',    value: 100 })
+      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
       expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
     end
 
@@ -236,24 +287,27 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       io = NonSeekableIO.new(large_csv_content)
       result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
       expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1,    name: 'item_1',    value: 100 })
+      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
       expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
     end
 
     it 'parses all rows correctly with auto-detection (Zlib stream)' do
       buf = StringIO.new(''.b)
-      Zlib::GzipWriter.new(buf).tap { |gz| gz.write(large_csv_content); gz.finish }
+      Zlib::GzipWriter.new(buf).tap do |gz|
+        gz.write(large_csv_content)
+        gz.finish
+      end
       gz = Zlib::GzipReader.new(StringIO.new(buf.string))
       result = SmarterCSV.process(gz, col_sep: :auto, row_sep: :auto)
       expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1,    name: 'item_1',    value: 100 })
+      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
       expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
     end
 
     it 'parses all rows correctly with chunk_size on NonSeekableIO' do
       io = NonSeekableIO.new(large_csv_content)
       chunks = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, chunk_size: 100)
-      expect(chunks.length).to eq(20)           # 2000 rows / 100 per chunk
+      expect(chunks.length).to eq(20) # 2000 rows / 100 per chunk
       expect(chunks.first.length).to eq(100)
       expect(chunks.first.first).to eq({ id: 1, name: 'item_1', value: 100 })
       expect(chunks.last.last).to   eq({ id: 2_000, name: 'item_2000', value: 200_000 })
@@ -270,8 +324,8 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'skip_lines with auto-detection' do
     def csv_with_comments(skip: 2, col_sep: ',', row_sep: "\n")
       comments = (1..skip).map { |i| "# comment line #{i}#{row_sep}" }.join
-      comments + "id#{col_sep}name#{col_sep}value#{row_sep}" +
-                 "1#{col_sep}Alice#{col_sep}100#{row_sep}" +
+      comments + "id#{col_sep}name#{col_sep}value#{row_sep}" \
+                 "1#{col_sep}Alice#{col_sep}100#{row_sep}" \
                  "2#{col_sep}Bob#{col_sep}200#{row_sep}"
     end
 
@@ -292,6 +346,61 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       io = NonSeekableIO.new(content)
       result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2)
       expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+    end
+
+    # col_sep is fixed, only row_sep is :auto — skip_lines fires in the detection
+    # block before guess_column_separator, which is wasteful but must still produce
+    # correct results.
+    it 'produces correct results when col_sep is fixed and only row_sep is :auto' do
+      content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, skip_lines: 2)
+      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+    end
+
+    # row_sep is fixed, only col_sep is :auto — skip_lines must fire so that
+    # guess_column_separator sees the header line, not a comment line.
+    it 'produces correct results when row_sep is fixed and only col_sep is :auto' do
+      content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", skip_lines: 2)
+      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Empty input with auto-detection
+  #
+  # Verifies that the correct errors are raised rather than crashes or silent
+  # wrong results. For all empty-input cases, EmptyFileError is the correct error:
+  # auto-detection falls back gracefully (guess_line_ending → "\n",
+  # guess_column_separator → ",") so process_headers always raises EmptyFileError.
+  # ---------------------------------------------------------------------------
+  describe 'empty input with auto-detection' do
+    # For all empty-input cases, EmptyFileError is the semantically correct error.
+    # Auto-detection falls back gracefully (guess_line_ending → "\n",
+    # guess_column_separator → ",") so that process_headers — which reads the
+    # first line and finds nil — is always the one that raises.
+    it 'raises EmptyFileError for empty input when both separators are :auto' do
+      io = NonSeekableIO.new('')
+      expect { SmarterCSV.process(io, col_sep: :auto, row_sep: :auto) }
+        .to raise_error(SmarterCSV::EmptyFileError)
+    end
+
+    it 'raises EmptyFileError for empty input when only row_sep is :auto' do
+      io = NonSeekableIO.new('')
+      expect { SmarterCSV.process(io, col_sep: ',', row_sep: :auto) }
+        .to raise_error(SmarterCSV::EmptyFileError)
+    end
+
+    it 'raises EmptyFileError for empty input when only col_sep is :auto' do
+      expect { SmarterCSV.process(StringIO.new(''), col_sep: :auto, row_sep: "\n") }
+        .to raise_error(SmarterCSV::EmptyFileError)
+    end
+
+    it 'raises EmptyFileError for empty input when both separators are fixed' do
+      expect { SmarterCSV.process(StringIO.new(''), col_sep: ',', row_sep: "\n") }
+        .to raise_error(SmarterCSV::EmptyFileError)
     end
   end
 
@@ -547,7 +656,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
       it 'auto-detects separators (peek + rewind + maybe_transcode on buffered replay)' do
         result = SmarterCSV.process(iso_fixture,
-          **opts, col_sep: :auto, row_sep: :auto, strings_as_keys: true)
+                                    **opts, col_sep: :auto, row_sep: :auto, strings_as_keys: true)
         expect(result.first.keys).to include(*accented_keys)
         expect(result.length).to eq(7)
       end
@@ -563,9 +672,9 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
 
       it 'returns correctly transcoded UTF-8 header keys' do
         result = SmarterCSV.process(iso_fixture,
-          file_encoding: 'iso-8859-1',
-          col_sep: ';',
-          strings_as_keys: true)
+                                    file_encoding: 'iso-8859-1',
+                                    col_sep: ';',
+                                    strings_as_keys: true)
         expect(result.first.keys).to include(*accented_keys)
         result.first.each_key do |k|
           expect(k.encoding).to eq(Encoding::UTF_8), "key #{k.inspect} has encoding #{k.encoding}"
@@ -588,14 +697,38 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
             @ext = Encoding.find(external)
             @int = Encoding.find(internal)
           end
-          def read(n = nil)             ; @io.read(n)                                   ; end
-          def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep); end
-          def readline(sep = $/)        ; @io.readline(sep)                             ; end
-          def each_char(&block)         ; @io.each_char(&block)                         ; end
-          def eof?                      ; @io.eof?                                      ; end
-          def close                     ; nil                                           ; end
-          def external_encoding         ; @ext                                          ; end
-          def internal_encoding         ; @int                                          ; end
+
+          def read(num_bytes = nil)
+            @io.read(num_bytes)
+          end
+
+          def gets(sep = $/, limit = nil)
+            limit ? @io.gets(sep, limit) : @io.gets(sep)
+          end
+
+          def readline(sep = $/)
+            @io.readline(sep)
+          end
+
+          def each_char(&block)
+            @io.each_char(&block)
+          end
+
+          def eof?
+            @io.eof?
+          end
+
+          def close
+            nil
+          end
+
+          def external_encoding
+            @ext
+          end
+
+          def internal_encoding
+            @int
+          end
           # Intentionally no rewind or seek
         end
       end
@@ -724,213 +857,155 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # NonSeekableIO is the most constrained source (no rewind/seek) — if the buffer
   # correctly auto-detects all 15 combinations here, it works for any IO source.
   # ---------------------------------------------------------------------------
-  # A random auto_row_sep_chars value is picked each run from a set of sizes that
-  # produce interesting buffer boundaries (all much smaller than the ~400-byte test
-  # content, so every run exercises buffer expansion and frozen-phase delegation).
-#  INTERESTING_BUFFER_SIZES = [32, 333, 666, 2046, 6666].freeze
-  test_buffer_size = rand(5000) + 10
-  RSpec.configure do |config|
-    config.after(:suite) { puts "\n[peekable_io_integration] buffer_size used: #{test_buffer_size}" }
-  end
-  # Content is 20 rows × ~20 bytes ≈ 400 bytes — forces multiple buffer expansions,
-  # exercising extend_buffer! during detection and frozen-phase delegation beyond the buffer.
-  describe 'separator auto-detection matrix (all col_sep × row_sep on NonSeekableIO)' do
-    col_seps    = [',', ';', "\t", '|', ':']
-    row_sep_map = { 'LF' => "\n", 'CRLF' => "\r\n", 'CR' => "\r" }
+  # Run the entire matrix suite once per buffer size so every boundary scenario is
+  # always exercised in CI, not just a randomly sampled one.
+  INTERESTING_BUFFER_SIZES.each do |test_buffer_size|
+    # Content is 20 rows × ~20 bytes ≈ 400 bytes — forces multiple buffer expansions,
+    # exercising extend_buffer! during detection and frozen-phase delegation beyond the buffer.
+    describe "separator auto-detection matrix — all col_sep × row_sep (buffer_size: #{test_buffer_size})" do
+      col_seps    = [',', ';', "\t", '|', ':']
+      row_sep_map = { 'LF' => "\n", 'CRLF' => "\r\n", 'CR' => "\r" }
 
-    col_seps.each do |col_sep|
-      col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
-      row_sep_map.each do |row_label, row_sep|
-        it "detects col_sep=#{col_label} row_sep=#{row_label}" do
-          header = "name#{col_sep}value#{row_sep}"
-          rows   = (1..20).map { |i| "item_#{i}#{col_sep}#{i * 10}#{row_sep}" }.join
-          io = NonSeekableIO.new(header + rows)
-          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: test_buffer_size)
-          expect(result.length).to eq(20)
-          expect(result.first).to eq({ name: 'item_1', value: 10 })
-          expect(result.last).to  eq({ name: 'item_20', value: 200 })
-        end
-      end
-    end
-  end
-
-  # Shared encoding test cases — used by both the Tempfile and NonSeekableIO encoding matrices.
-  #
-  # Each entry exercises a distinct transcoding code path:
-  #   UTF-8            — baseline, no transcoding needed
-  #   ISO-8859-1       — enforce_utf8_encoding path (single encoding, @enforce_utf8 = true)
-  #   ISO-8859-1:UTF-8 — maybe_transcode path (transcoding pair, ext→int in PeekableIO)
-  #   Windows-1252:UTF-8 — same, but \x80 = € (byte invalid in ISO-8859-1)
-  #
-  # make_bytes takes a row_sep argument so each case can be run with \n and \r\n.
-  # ext_enc / int_enc are the encoding metadata the IO object should report.
-  # Uses the same randomly-chosen test_buffer_size as the separator matrix above.
-  # Content: header + 20 data rows, non-ASCII chars appear throughout including
-  # rows well beyond the buffer boundary, so transcoding must work for
-  # bytes read from @io in the frozen phase, not just from the initial peek.
-  encoding_cases = [
-    {
-      label:         'UTF-8 baseline',
-      make_bytes:    ->(rs) {
-        rows = (1..20).map { |i| "name_#{i},München_#{i}#{rs}" }.join
-        ("name,city#{rs}" + rows).encode('UTF-8').b
-      },
-      file_encoding: 'utf-8',
-      ext_enc:       'UTF-8',
-      int_enc:       nil,
-      expected:      { name: 'name_1', city: 'München_1' },
-      last_expected: { name: 'name_20', city: 'München_20' },
-      quiet:         false,
-    },
-    {
-      label:         'ISO-8859-1 single encoding (enforce_utf8_encoding path)',
-      make_bytes:    ->(rs) {
-        rows = (1..20).map { |i| "name_#{i},M\xFCnchen_#{i}#{rs}" }.join
-        ("name,city#{rs}" + rows).b
-      },
-      file_encoding: 'iso-8859-1',
-      ext_enc:       'ISO-8859-1',
-      int_enc:       nil,
-      expected:      { name: 'name_1', city: 'München_1' },
-      last_expected: { name: 'name_20', city: 'München_20' },
-      quiet:         false,
-    },
-    {
-      label:         'ISO-8859-1:UTF-8 transcoding pair (maybe_transcode path)',
-      make_bytes:    ->(rs) {
-        rows = (1..20).map { |i| "name_#{i},M\xFCnchen_#{i}#{rs}" }.join
-        ("name,city#{rs}" + rows).b
-      },
-      file_encoding: 'iso-8859-1:UTF-8',
-      ext_enc:       'ISO-8859-1',
-      int_enc:       'UTF-8',
-      expected:      { name: 'name_1', city: 'München_1' },
-      last_expected: { name: 'name_20', city: 'München_20' },
-      quiet:         true,
-    },
-    {
-      label:         'Windows-1252:UTF-8 transcoding pair (euro sign \\x80)',
-      make_bytes:    ->(rs) {
-        rows = (1..20).map { |i| "item_#{i},\x80#{i * 100}#{rs}" }.join
-        ("name,price#{rs}" + rows).b
-      },
-      file_encoding: 'Windows-1252:UTF-8',
-      ext_enc:       'Windows-1252',
-      int_enc:       'UTF-8',
-      expected:      { name: 'item_1', price: '€100' },
-      last_expected: { name: 'item_20', price: '€2000' },
-      quiet:         true,
-    },
-  ]
-
-  # ---------------------------------------------------------------------------
-  # Encoding matrix — Tempfile (real file path), LF and CRLF row_sep
-  #
-  # Uses real Tempfiles so the file handle carries proper OS-level encoding
-  # metadata, which drives the maybe_transcode / enforce_utf8 code paths.
-  # Running each encoding with both \n and \r\n catches bugs where transcoding
-  # corrupts bytes that look like separator characters.
-  # ---------------------------------------------------------------------------
-  describe 'encoding matrix (Tempfile, LF and CRLF)' do
-    def with_binary_tempfile(raw_bytes)
-      t = Tempfile.new(['smarter_csv_enc', '.csv'])
-      t.binmode
-      t.write(raw_bytes)
-      t.flush
-      yield t.path
-    ensure
-      t.close
-      t.unlink
-    end
-
-    { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-      context "row_sep=#{row_label}" do
-        encoding_cases.each do |enc|
-          it enc[:label] do
-            with_binary_tempfile(enc[:make_bytes].call(row_sep)) do |path|
-              opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
-              opts[:verbose] = :quiet if enc[:quiet]
-              result = SmarterCSV.process(path, **opts)
-              expect(result.length).to eq(20)
-              enc[:expected].each do |key, val|
-                expect(result.first[key]).to eq(val)
-                expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-              end
-              enc[:last_expected].each do |key, val|
-                expect(result.last[key]).to eq(val)
-                expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Encoding matrix — EncodedBytesIO (non-seekable), LF and CRLF row_sep
-  #
-  # Same encoding variations but through a non-seekable IO source — the hardest
-  # case: no rewind, the buffer must replay correctly including transcoding.
-  # ---------------------------------------------------------------------------
-  describe 'encoding matrix (EncodedBytesIO non-seekable, LF and CRLF)' do
-    { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-      context "row_sep=#{row_label}" do
-        encoding_cases.each do |enc|
-          it enc[:label] do
-            io = EncodedBytesIO.new(enc[:make_bytes].call(row_sep), enc[:ext_enc], enc[:int_enc])
-            opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
-            opts[:verbose] = :quiet if enc[:quiet]
-            result = SmarterCSV.process(io, **opts)
+      col_seps.each do |col_sep|
+        col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+        row_sep_map.each do |row_label, row_sep|
+          it "detects col_sep=#{col_label} row_sep=#{row_label}" do
+            header = "name#{col_sep}value#{row_sep}"
+            rows   = (1..20).map { |i| "item_#{i}#{col_sep}#{i * 10}#{row_sep}" }.join
+            io = NonSeekableIO.new(header + rows)
+            result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: test_buffer_size)
             expect(result.length).to eq(20)
-            enc[:expected].each do |key, val|
-              expect(result.first[key]).to eq(val)
-              expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-            end
-            enc[:last_expected].each do |key, val|
-              expect(result.last[key]).to eq(val)
-              expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-            end
+            expect(result.first).to eq({ name: 'item_1', value: 10 })
+            expect(result.last).to  eq({ name: 'item_20', value: 200 })
           end
         end
       end
     end
-  end
 
-  # ---------------------------------------------------------------------------
-  # Encoding matrix — non-comma col_sep (;, TAB) × non-ASCII encodings
-  #
-  # Verifies that encoding + transcoding works regardless of col_sep.
-  # 2 col_seps × 2 row_seps × 2 encoding cases = 8 tests.
-  # Uses the same randomly-chosen test_buffer_size as the separator matrix.
-  # ---------------------------------------------------------------------------
-  describe 'encoding matrix — non-comma col_sep with non-ASCII encodings' do
-    non_comma_encoding_cases = [
-      { label:         'ISO-8859-1 single encoding (enforce_utf8_encoding path)',
-        ext_enc:       'ISO-8859-1', int_enc: nil, file_encoding: 'iso-8859-1', quiet: false,
-        make_bytes:    ->(cs, rs) {
-          rows = (1..20).map { |i| "name_#{i}#{cs}M\xFCnchen_#{i}#{rs}" }.join
-          ("name#{cs}city#{rs}" + rows).b
+    # Shared encoding test cases — used by both the Tempfile and NonSeekableIO encoding matrices.
+    #
+    # Each entry exercises a distinct transcoding code path:
+    #   UTF-8            — baseline, no transcoding needed
+    #   ISO-8859-1       — enforce_utf8_encoding path (single encoding, @enforce_utf8 = true)
+    #   ISO-8859-1:UTF-8 — maybe_transcode path (transcoding pair, ext→int in PeekableIO)
+    #   Windows-1252:UTF-8 — same, but \x80 = € (byte invalid in ISO-8859-1)
+    #
+    # make_bytes takes a row_sep argument so each case can be run with \n and \r\n.
+    # ext_enc / int_enc are the encoding metadata the IO object should report.
+    # Content: header + 20 data rows, non-ASCII chars appear throughout including
+    # rows well beyond the buffer boundary, so transcoding must work for
+    # bytes read from @io in the frozen phase, not just from the initial peek.
+    encoding_cases = [
+      {
+        label: 'UTF-8 baseline',
+        make_bytes: ->(rs) {
+          rows = (1..20).map { |i| "name_#{i},München_#{i}#{rs}" }.join
+          ("name,city#{rs}" + rows).encode('UTF-8').b
         },
-        expected:      { city: 'München_1'  },
-        last_expected: { city: 'München_20' } },
-      { label:         'ISO-8859-1:UTF-8 transcoding pair (maybe_transcode path)',
-        ext_enc:       'ISO-8859-1', int_enc: 'UTF-8', file_encoding: 'iso-8859-1:UTF-8', quiet: true,
-        make_bytes:    ->(cs, rs) {
-          rows = (1..20).map { |i| "name_#{i}#{cs}M\xFCnchen_#{i}#{rs}" }.join
-          ("name#{cs}city#{rs}" + rows).b
+        file_encoding: 'utf-8',
+        ext_enc: 'UTF-8',
+        int_enc: nil,
+        expected: { name: 'name_1', city: 'München_1' },
+        last_expected: { name: 'name_20', city: 'München_20' },
+        quiet: false,
+      },
+      {
+        label: 'ISO-8859-1 single encoding (enforce_utf8_encoding path)',
+        make_bytes: ->(rs) {
+          rows = (1..20).map { |i| "name_#{i},M\xFCnchen_#{i}#{rs}" }.join
+          ("name,city#{rs}" + rows).b
         },
-        expected:      { city: 'München_1'  },
-        last_expected: { city: 'München_20' } },
+        file_encoding: 'iso-8859-1',
+        ext_enc: 'ISO-8859-1',
+        int_enc: nil,
+        expected: { name: 'name_1', city: 'München_1' },
+        last_expected: { name: 'name_20', city: 'München_20' },
+        quiet: false,
+      },
+      {
+        label: 'ISO-8859-1:UTF-8 transcoding pair (maybe_transcode path)',
+        make_bytes: ->(rs) {
+          rows = (1..20).map { |i| "name_#{i},M\xFCnchen_#{i}#{rs}" }.join
+          ("name,city#{rs}" + rows).b
+        },
+        file_encoding: 'iso-8859-1:UTF-8',
+        ext_enc: 'ISO-8859-1',
+        int_enc: 'UTF-8',
+        expected: { name: 'name_1', city: 'München_1' },
+        last_expected: { name: 'name_20', city: 'München_20' },
+        quiet: true,
+      },
+      {
+        label: 'Windows-1252:UTF-8 transcoding pair (euro sign \\x80)',
+        make_bytes: ->(rs) {
+          rows = (1..20).map { |i| "item_#{i},\x80#{i * 100}#{rs}" }.join
+          ("name,price#{rs}" + rows).b
+        },
+        file_encoding: 'Windows-1252:UTF-8',
+        ext_enc: 'Windows-1252',
+        int_enc: 'UTF-8',
+        expected: { name: 'item_1', price: '€100' },
+        last_expected: { name: 'item_20', price: '€2000' },
+        quiet: true,
+      },
     ]
 
-    [';', "\t"].each do |col_sep|
-      col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+    # ---------------------------------------------------------------------------
+    # Encoding matrix — Tempfile (real file path), LF and CRLF row_sep
+    #
+    # Uses real Tempfiles so the file handle carries proper OS-level encoding
+    # metadata, which drives the maybe_transcode / enforce_utf8 code paths.
+    # Running each encoding with both \n and \r\n catches bugs where transcoding
+    # corrupts bytes that look like separator characters.
+    # ---------------------------------------------------------------------------
+    describe "encoding matrix — Tempfile, LF and CRLF (buffer_size: #{test_buffer_size})" do
+      def with_binary_tempfile(raw_bytes)
+        t = Tempfile.new(['smarter_csv_enc', '.csv'])
+        t.binmode
+        t.write(raw_bytes)
+        t.flush
+        yield t.path
+      ensure
+        t.close
+        t.unlink
+      end
+
       { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-        context "col_sep=#{col_label} row_sep=#{row_label}" do
-          non_comma_encoding_cases.each do |enc|
+        context "row_sep=#{row_label}" do
+          encoding_cases.each do |enc|
             it enc[:label] do
-              io   = EncodedBytesIO.new(enc[:make_bytes].call(col_sep, row_sep), enc[:ext_enc], enc[:int_enc])
+              with_binary_tempfile(enc[:make_bytes].call(row_sep)) do |path|
+                opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
+                opts[:verbose] = :quiet if enc[:quiet]
+                result = SmarterCSV.process(path, **opts)
+                expect(result.length).to eq(20)
+                enc[:expected].each do |key, val|
+                  expect(result.first[key]).to eq(val)
+                  expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                end
+                enc[:last_expected].each do |key, val|
+                  expect(result.last[key]).to eq(val)
+                  expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    # ---------------------------------------------------------------------------
+    # Encoding matrix — EncodedBytesIO (non-seekable), LF and CRLF row_sep
+    #
+    # Same encoding variations but through a non-seekable IO source — the hardest
+    # case: no rewind, the buffer must replay correctly including transcoding.
+    # ---------------------------------------------------------------------------
+    describe "encoding matrix — EncodedBytesIO non-seekable, LF and CRLF (buffer_size: #{test_buffer_size})" do
+      { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
+        context "row_sep=#{row_label}" do
+          encoding_cases.each do |enc|
+            it enc[:label] do
+              io = EncodedBytesIO.new(enc[:make_bytes].call(row_sep), enc[:ext_enc], enc[:int_enc])
               opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
               opts[:verbose] = :quiet if enc[:quiet]
               result = SmarterCSV.process(io, **opts)
@@ -947,6 +1022,104 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
           end
         end
       end
+    end
+
+    # ---------------------------------------------------------------------------
+    # Encoding matrix — non-comma col_sep (;, TAB) × non-ASCII encodings
+    #
+    # Verifies that encoding + transcoding works regardless of col_sep.
+    # 2 col_seps × 2 row_seps × 2 encoding cases = 8 tests.
+    # ---------------------------------------------------------------------------
+    describe "encoding matrix — non-comma col_sep with non-ASCII encodings (buffer_size: #{test_buffer_size})" do
+      non_comma_encoding_cases = [
+        { label: 'ISO-8859-1 single encoding (enforce_utf8_encoding path)',
+          ext_enc: 'ISO-8859-1', int_enc: nil, file_encoding: 'iso-8859-1', quiet: false,
+          make_bytes: ->(cs, rs) {
+            rows = (1..20).map { |i| "name_#{i}#{cs}M\xFCnchen_#{i}#{rs}" }.join
+            ("name#{cs}city#{rs}" + rows).b
+          },
+          expected: { city: 'München_1' },
+          last_expected: { city: 'München_20' } },
+        { label: 'ISO-8859-1:UTF-8 transcoding pair (maybe_transcode path)',
+          ext_enc: 'ISO-8859-1', int_enc: 'UTF-8', file_encoding: 'iso-8859-1:UTF-8', quiet: true,
+          make_bytes: ->(cs, rs) {
+            rows = (1..20).map { |i| "name_#{i}#{cs}M\xFCnchen_#{i}#{rs}" }.join
+            ("name#{cs}city#{rs}" + rows).b
+          },
+          expected: { city: 'München_1' },
+          last_expected: { city: 'München_20' } },
+      ]
+
+      [';', "\t"].each do |col_sep|
+        col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+        { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
+          context "col_sep=#{col_label} row_sep=#{row_label}" do
+            non_comma_encoding_cases.each do |enc|
+              it enc[:label] do
+                io   = EncodedBytesIO.new(enc[:make_bytes].call(col_sep, row_sep), enc[:ext_enc], enc[:int_enc])
+                opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
+                opts[:verbose] = :quiet if enc[:quiet]
+                result = SmarterCSV.process(io, **opts)
+                expect(result.length).to eq(20)
+                enc[:expected].each do |key, val|
+                  expect(result.first[key]).to eq(val)
+                  expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                end
+                enc[:last_expected].each do |key, val|
+                  expect(result.last[key]).to eq(val)
+                  expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end # INTERESTING_BUFFER_SIZES.each
+
+  # ---------------------------------------------------------------------------
+  # buffer_size option flows through SmarterCSV.process
+  #
+  # buffer_size is read in reader.rb and passed to PeekableIO.new.  These tests
+  # confirm that passing it as a SmarterCSV.process option produces correct
+  # results across several sizes, including sizes small enough to force multiple
+  # extend_buffer! calls during detection.
+  # ---------------------------------------------------------------------------
+  describe 'buffer_size option flowing through SmarterCSV.process' do
+    it 'auto-detects separators correctly with a tiny buffer_size (forces many extend_buffer! calls)' do
+      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 3)
+      expect(result.length).to eq(20)
+      expect(result.first).to eq({ name: 'item_1', value: 10 })
+      expect(result.last).to  eq({ name: 'item_20', value: 200 })
+    end
+
+    it 'auto-detects separators correctly with a moderate buffer_size' do
+      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 128)
+      expect(result.length).to eq(20)
+      expect(result.first).to eq({ name: 'item_1', value: 10 })
+      expect(result.last).to  eq({ name: 'item_20', value: 200 })
+    end
+
+    it 'auto-detects separators correctly with buffer_size larger than the full content' do
+      content = "name,value\n" + (1..5).map { |i| "item_#{i},#{i * 10}\n" }.join
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 4096)
+      expect(result.length).to eq(5)
+      expect(result.first).to eq({ name: 'item_1', value: 10 })
+    end
+
+    it 'works correctly with buffer_size on a pipe (non-seekable)' do
+      reader, writer = IO.pipe
+      writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
+      writer.close
+      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, buffer_size: 8)
+      expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
+    ensure
+      reader.close unless reader.closed?
     end
   end
 end

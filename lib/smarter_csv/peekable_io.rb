@@ -82,6 +82,11 @@ module SmarterCSV
     # The default is @options[:row_sep] (resolved after auto-detection), never $/.
     #
     # NOTE: we don't support **kwargs because smarter_csv does not use them.
+    #
+    # NOTE: the limit parameter (Ruby IO#gets(sep, limit)) is intentionally omitted.
+    # PeekableIO is internal to SmarterCSV and no caller passes a limit. If this class
+    # were ever extracted into a stand-alone library, limit support would be required
+    # to fully comply with the IO#gets contract.
     def gets(sep = @options[:row_sep])
       return @io.gets(sep) if @peek_buf.nil?
       # Buffer frozen (post auto-detection): delegate once buffer is exhausted — no more accumulation.
@@ -170,8 +175,33 @@ module SmarterCSV
             elsif peeked.b == tail_needed
               combined = rest.b + tail_needed          # separator confirmed
             else
-              remainder = @io.gets(sep)
-              combined = rest.b + peeked.b + (remainder ? remainder.b : ''.b)  # peeked was content
+              # peeked bytes are content, not separator completion.
+              # But peeked itself may end with a prefix of sep (e.g. peeked="\r"
+              # when sep="\r\n"), meaning @io could begin with sep's tail ("\n").
+              # Calling @io.gets(sep) from here would over-read past that boundary.
+              # Instead, recursively check for a nested straddle in peeked.
+              content = peeked.b
+              nested_handled = false
+              (sep.bytesize - 1).downto(1) do |n|
+                next unless content.end_with?(sep.b.byteslice(0, n))
+
+                confirmed_tail = @io.read(sep.bytesize - n)
+                if confirmed_tail.nil?
+                  # EOF — nothing more to read; content stays as-is
+                elsif confirmed_tail.b == sep.b.byteslice(n..)
+                  content = content + confirmed_tail.b  # separator confirmed
+                else
+                  remainder = @io.gets(sep)
+                  content = content + confirmed_tail.b + (remainder ? remainder.b : ''.b)
+                end
+                nested_handled = true
+                break
+              end
+              unless nested_handled
+                remainder = @io.gets(sep)
+                content = content + (remainder ? remainder.b : ''.b)
+              end
+              combined = rest.b + content
             end
             return maybe_transcode(out_enc ? combined.force_encoding(out_enc) : combined)
           end

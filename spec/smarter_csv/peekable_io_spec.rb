@@ -9,11 +9,26 @@ class NilEncodingIO
   def initialize(str)
     @io = StringIO.new(str.b)
   end
-  def read(n = nil)      ; @io.read(n)         ; end
-  def gets(sep = $/)     ; @io.gets(sep)        ; end
-  def each_char(&block)  ; @io.each_char(&block); end
-  def eof?               ; @io.eof?             ; end
-  def close              ; nil                  ; end
+
+  def read(num_bytes = nil)
+    @io.read(num_bytes)
+  end
+
+  def gets(sep = $/)
+    @io.gets(sep)
+  end
+
+  def each_char(&block)
+    @io.each_char(&block)
+  end
+
+  def eof?
+    @io.eof?
+  end
+
+  def close
+    nil
+  end
   # Intentionally does NOT implement external_encoding
 end
 
@@ -27,13 +42,34 @@ class TranscodedIO
     @ext = Encoding.find(external)
     @int = Encoding.find(internal)
   end
-  def read(n = nil)      ; @io.read(n)         ; end
-  def gets(sep = $/)     ; @io.gets(sep)        ; end
-  def each_char(&block)  ; @io.each_char(&block); end
-  def eof?               ; @io.eof?             ; end
-  def close              ; nil                  ; end
-  def external_encoding  ; @ext                 ; end
-  def internal_encoding  ; @int                 ; end
+
+  def read(num_bytes = nil)
+    @io.read(num_bytes)
+  end
+
+  def gets(sep = $/)
+    @io.gets(sep)
+  end
+
+  def each_char(&block)
+    @io.each_char(&block)
+  end
+
+  def eof?
+    @io.eof?
+  end
+
+  def close
+    nil
+  end
+
+  def external_encoding
+    @ext
+  end
+
+  def internal_encoding
+    @int
+  end
 end
 
 RSpec.describe SmarterCSV::PeekableIO do
@@ -87,7 +123,7 @@ RSpec.describe SmarterCSV::PeekableIO do
     end
 
     it 'replays a partial peek correctly when sep spans the buffer boundary' do
-      pio.peek(7)  # "header1" — does not include the newline
+      pio.peek(7) # "header1" — does not include the newline
       expect(pio.gets("\n")).to eq("header1,header2\n")
     end
 
@@ -128,7 +164,7 @@ RSpec.describe SmarterCSV::PeekableIO do
 
     it 'raises EOFError at EOF (unlike gets which returns nil)' do
       pio.peek(16_384)
-      pio.read  # consume all content
+      pio.read # consume all content
       expect { pio.readline("\n") }.to raise_error(EOFError)
     end
   end
@@ -168,7 +204,7 @@ RSpec.describe SmarterCSV::PeekableIO do
     # Bytes >= 128 in the peek buffer would raise Encoding::InvalidByteSequenceError.
     it 'does not raise for nil-encoding source with bytes >= 128' do
       pio = described_class.new(NilEncodingIO.new("caf\xC3\xA9\n"), opts)
-      pio.peek(4)  # "caf\xC3" in buffer — \xC3 is >= 128
+      pio.peek(4) # "caf\xC3" in buffer — \xC3 is >= 128
       chars = []
       expect { pio.each_char { |c| chars << c } }.not_to raise_error
       expect(chars.map(&:b).join).to eq("caf\xC3\xA9\n".b)
@@ -181,9 +217,9 @@ RSpec.describe SmarterCSV::PeekableIO do
   describe '#rewind_buffer' do
     it 'replays the buffer from the start (simulates rewind without touching underlying IO)' do
       pio.peek(16_384)
-      pio.gets("\n")  # consume first line
+      pio.gets("\n") # consume first line
       pio.rewind_buffer
-      expect(pio.gets("\n")).to eq("header1,header2\n")  # replayed
+      expect(pio.gets("\n")).to eq("header1,header2\n") # replayed
     end
 
     it 'can be called multiple times' do
@@ -240,7 +276,7 @@ RSpec.describe SmarterCSV::PeekableIO do
     it 'delegates unknown methods to the underlying IO' do
       sio = StringIO.new(content)
       pio = described_class.new(sio, opts)
-      expect(pio.string).to eq(content)  # StringIO#string delegated via method_missing
+      expect(pio.string).to eq(content) # StringIO#string delegated via method_missing
     end
   end
 
@@ -291,7 +327,7 @@ RSpec.describe SmarterCSV::PeekableIO do
 
     # --- UTF-8: 2-byte, 3-byte, 4-byte codepoints at every possible split ---
     {
-      'é  (U+00E9,  2-byte UTF-8)' => ['é',  'UTF-8', 2],
+      'é  (U+00E9,  2-byte UTF-8)' => ['é', 'UTF-8', 2],
       '日  (U+65E5,  3-byte UTF-8)' => ['日', 'UTF-8', 3],
       '😀 (U+1F600, 4-byte UTF-8)' => ['😀', 'UTF-8', 4],
       '🎉 (U+1F389, 4-byte UTF-8)' => ['🎉', 'UTF-8', 4],
@@ -326,9 +362,9 @@ RSpec.describe SmarterCSV::PeekableIO do
     # bytes between codepoints are safely handled by the else branch of gets.
     [
       # 8 bytes: waving hand (U+1F44B, 4 bytes) + dark skin tone (U+1F3FF, 4 bytes)
-      ['waving hand + dark skin tone modifier (8-byte grapheme cluster)', "👋🏿",   2],
+      ['waving hand + dark skin tone modifier (8-byte grapheme cluster)', "👋🏿", 2],
       # 11 bytes: woman (4) + ZWJ (3) + heart (3) — split within first codepoint
-      ['woman + ZWJ + heart (12-byte grapheme, split at byte 2)',         "👩‍❤️",  2],
+      ['woman + ZWJ + heart (12-byte grapheme, split at byte 2)',         "👩‍❤️", 2],
       # 25+ bytes: family ZWJ sequence — split at byte 2 within the first codepoint
       ['family ZWJ emoji 👨‍👩‍👧‍👦 (25-byte grapheme, split at byte 2)', "👨‍👩‍👧‍👦", 2],
     ].each do |label, char, split_at|
@@ -352,7 +388,11 @@ RSpec.describe SmarterCSV::PeekableIO do
       lines << pio.gets("\n") until pio.eof?
       lines.map(&:b).join
     ensure
-      reader.close rescue nil
+      begin
+        reader.close
+      rescue StandardError
+        nil
+      end
     end
 
     it 'UTF-8 pipe: 😀 (4-byte) split at byte 2' do
@@ -382,7 +422,7 @@ RSpec.describe SmarterCSV::PeekableIO do
   describe 'Bug 1 — \\r\\n separator straddling the peek buffer boundary' do
     it 'returns only the first line when \\r is the last buffer byte' do
       pio = described_class.new(StringIO.new("hdr\r\ndata\r\n"), opts)
-      pio.peek(4)   # "hdr\r" — \r last byte, \n is first byte of @io
+      pio.peek(4) # "hdr\r" — \r last byte, \n is first byte of @io
       expect(pio.gets("\r\n")).to eq("hdr\r\n")
     end
 
@@ -405,14 +445,14 @@ RSpec.describe SmarterCSV::PeekableIO do
     it 'returns rest when buffer ends with sep prefix but @io is at EOF' do
       # "hdr\r" — \r looks like start of \r\n but nothing follows (EOF)
       pio = described_class.new(StringIO.new("hdr\r"), opts)
-      pio.peek(4)   # entire content in buffer, \r at end
+      pio.peek(4) # entire content in buffer, \r at end
       expect(pio.gets("\r\n").b).to eq("hdr\r".b)
     end
 
     it 'returns correct line when buffer ends with \\r but next byte is not \\n (standalone \\r in content)' do
       # "hdr\rdata\r\n" — the first \r is content, not part of the separator
       pio = described_class.new(StringIO.new("hdr\rdata\r\n"), opts)
-      pio.peek(4)   # "hdr\r" in buffer; "data\r\n" in @io
+      pio.peek(4) # "hdr\r" in buffer; "data\r\n" in @io
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
     end
 
@@ -458,7 +498,7 @@ RSpec.describe SmarterCSV::PeekableIO do
       # buffer ends with \r, @io starts with "d" (not \n) — peeked bytes are content,
       # not a separator completion. Both peeked + remainder must be stored in @peek_buf.
       pio = described_class.new(StringIO.new("hdr\rdata\r\nfoo\r\n"), opts)
-      pio.peek(4)                                         # "hdr\r" in buffer; "data\r\nfoo\r\n" in @io
+      pio.peek(4) # "hdr\r" in buffer; "data\r\nfoo\r\n" in @io
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
       pio.rewind_buffer
       expect(pio.gets("\r\n").b).to eq("hdr\rdata\r\n".b)
@@ -502,6 +542,48 @@ RSpec.describe SmarterCSV::PeekableIO do
   end
 
   # ---------------------------------------------------------------------------
+  # Frozen-phase straddle: edge cases for lines 169, 189-190, 196-197
+  # ---------------------------------------------------------------------------
+  describe 'frozen-phase straddle: additional boundary cases' do
+    # Line 169: buffer ends with \r (prefix of \r\n), but @io is at EOF.
+    # peeked = @io.read(1) returns nil → combined = rest.b (no separator appended).
+    it 'returns the final bytes when @io is at EOF during straddle peek (line 169)' do
+      pio = described_class.new(StringIO.new("ab\r"), opts, buffer_size: 3)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.gets("\r\n").b).to eq("ab\r".b)
+      expect(pio.gets("\r\n")).to be_nil
+    end
+
+    # Lines 189-190: buffer ends with \r, @io starts with \r (peeked), then \x (not \n).
+    # Nested straddle check: peeked "\r" ends with sep prefix → confirmed_tail = "x" ≠ "\n"
+    # → lines 189-190: remainder = @io.gets(sep), content = peeked + confirmed_tail + remainder
+    it 'returns the correct line when peeked ends with sep prefix but confirmed_tail mismatches (lines 189-190)' do
+      # buffer = "hdr\r", @io = "\rxmore\r\ndata\r\n"
+      pio = described_class.new(StringIO.new("hdr\r\rxmore\r\ndata\r\n"), opts, buffer_size: 4)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.gets("\r\n").b).to eq("hdr\r\rxmore\r\n".b)
+      expect(pio.gets("\r\n").b).to eq("data\r\n".b)
+    end
+
+    # Lines 196-197: buffer ends with \r, @io starts with a byte that is NOT a sep prefix.
+    # Nested straddle check: peeked "x" does not end with "\r" → nested_handled = false
+    # → lines 196-197: remainder = @io.gets(sep), content = peeked + remainder
+    it 'returns the correct line when peeked does not end with any sep prefix (lines 196-197)' do
+      # buffer = "hdr\r", @io = "xmore\r\ndata\r\n"
+      pio = described_class.new(StringIO.new("hdr\rxmore\r\ndata\r\n"), opts, buffer_size: 4)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.gets("\r\n").b).to eq("hdr\rxmore\r\n".b)
+      expect(pio.gets("\r\n").b).to eq("data\r\n".b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Bug 2 — read(n) returns fewer bytes than requested when n spans buffer + @io
   #
   # When n > buffered.bytesize, buffered[0, n] returns only the buffer portion.
@@ -538,6 +620,48 @@ RSpec.describe SmarterCSV::PeekableIO do
   end
 
   # ---------------------------------------------------------------------------
+  # read(n) in the frozen phase
+  #
+  # Bug 2 tests cover unfrozen reads.  These tests verify that read(n) works
+  # correctly after freeze_buffer! + rewind_buffer — the normal processing path.
+  # ---------------------------------------------------------------------------
+  describe 'read(n) in the frozen phase' do
+    it 'returns exactly n bytes when n spans the peek buffer and @io' do
+      pio = described_class.new(StringIO.new("abcdefghij"), opts, buffer_size: 3)
+      pio.peek # "abc" in buffer, "defghij" in @io
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.read(5).b).to eq("abcde".b)  # 3 from buffer + 2 from @io
+      expect(pio.read(5).b).to eq("fghij".b)  # all from @io
+    end
+
+    it 'returns all remaining bytes when n exceeds total content (frozen)' do
+      pio = described_class.new(StringIO.new("abcde"), opts, buffer_size: 3)
+      pio.peek           # "abc" in buffer, "de" in @io
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.read(100).b).to eq("abcde".b)
+    end
+
+    it 'returns nil when called after all content is consumed (frozen)' do
+      pio = described_class.new(StringIO.new("abc"), opts, buffer_size: 3)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      pio.read(3)
+      expect(pio.read(1)).to be_nil
+    end
+
+    it 'returns entire content via read(nil) in the frozen phase' do
+      pio = described_class.new(StringIO.new("abcdefghij"), opts, buffer_size: 4)
+      pio.peek           # "abcd" in buffer, "efghij" in @io
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.read.b).to eq("abcdefghij".b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Issue 4 — align_to_char_boundary unbounded loop on malformed input
   #
   # A corrupt byte anywhere in the first peek chunk makes valid_encoding? permanently
@@ -554,7 +678,7 @@ RSpec.describe SmarterCSV::PeekableIO do
       rest      = ("a" * 100).b                     # 100 good bytes still in @io
       sio = StringIO.new((bad_utf8 + rest).force_encoding('UTF-8'))
       pio = described_class.new(sio, opts)
-      pio.peek(1)   # peeks just the \xFF byte; triggers align_to_char_boundary
+      pio.peek(1) # peeks just the \xFF byte; triggers align_to_char_boundary
       # After peek, @io must still have most of its data — the loop read at most 4 bytes
       remaining = sio.read
       expect(remaining.bytesize).to be >= (rest.bytesize - SmarterCSV::PeekableIO::MAX_ALIGN_BYTES)
@@ -603,7 +727,7 @@ RSpec.describe SmarterCSV::PeekableIO do
     it 'does not raise when peek splits a 2-byte EUC-JP codepoint' do
       io = transcoded_io(euc_jp_hi + euc_jp_lo + rest)
       pio = described_class.new(io, opts)
-      expect { pio.peek(1) }.not_to raise_error  # peek(1) reads only \xC6
+      expect { pio.peek(1) }.not_to raise_error # peek(1) reads only \xC6
     end
 
     it 'returns raw external-encoding bytes aligned to a complete codepoint' do
@@ -622,7 +746,7 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio.peek(1)
       pio.rewind_buffer
       full = pio.read
-      expect(full.encoding).to eq(Encoding::UTF_8)  # maybe_transcode applies ext→int on read-out
+      expect(full.encoding).to eq(Encoding::UTF_8) # maybe_transcode applies ext→int on read-out
       expect(full.valid_encoding?).to be true
       expect(full.b.bytesize).to be > 0
     end
@@ -631,7 +755,7 @@ RSpec.describe SmarterCSV::PeekableIO do
       # Stream contains only the first byte of a 2-byte EUC-JP character — EOF mid-codepoint.
       # peek(1) reads \xC6; retry loop calls @io.read(1) → nil (EOF); `break unless extra` fires.
       # transcoded is still nil → falls through to encode(invalid: :replace).
-      io = transcoded_io(euc_jp_hi)   # only \xC6, no \xFC — stream ends immediately
+      io = transcoded_io(euc_jp_hi) # only \xC6, no \xFC — stream ends immediately
       pio = described_class.new(io, opts)
       expect { pio.peek(1) }.not_to raise_error
     end
@@ -644,12 +768,12 @@ RSpec.describe SmarterCSV::PeekableIO do
       # We supply 1 + MAX_ALIGN_BYTES + 1 bytes so the final byte remains in @io after the
       # loop — proving the loop stopped at MAX_ALIGN_BYTES and did not read one byte too many.
       n       = SmarterCSV::PeekableIO::MAX_ALIGN_BYTES
-      garbage = ("\xFF" * (1 + n + 1)).b   # \xFF is never valid in EUC-JP
+      garbage = ("\xFF" * (1 + n + 1)).b # \xFF is never valid in EUC-JP
       io      = TranscodedIO.new(garbage, 'EUC-JP', 'UTF-8')
       pio     = described_class.new(io, opts)
       expect { pio.peek(1) }.not_to raise_error
-      expect(pio.peek.encoding).to eq(Encoding.find('EUC-JP'))  # peek returns raw external-encoding bytes
-      expect(io.read(1)).not_to be_nil                           # exactly 1 byte left — loop stopped at n
+      expect(pio.peek.encoding).to eq(Encoding.find('EUC-JP')) # peek returns raw external-encoding bytes
+      expect(io.read(1)).not_to be_nil # exactly 1 byte left — loop stopped at n
     end
   end
 
@@ -669,11 +793,11 @@ RSpec.describe SmarterCSV::PeekableIO do
   # ---------------------------------------------------------------------------
   describe 'Bug 4 — gets else-branch encoding mismatch for nil-encoding IO' do
     # "é,世\r\nAlice\r\n" — buffer gets "é," (3 bytes, non-ASCII), @io starts at "世"
-    let(:bug4_content) { "é,世\r\nAlice\r\n" }  # é=\xC3\xA9, 世=\xE4\xB8\x96
+    let(:bug4_content) { "é,世\r\nAlice\r\n" } # é=\xC3\xA9, 世=\xE4\xB8\x96
 
     it 'does not raise when both buffer and @io remainder contain bytes >= 128' do
       pio = described_class.new(NilEncodingIO.new(bug4_content), opts)
-      pio.peek(3)   # "é," (0xC3 0xA9 0x2C) buffered; "世\r\n..." in @io
+      pio.peek(3) # "é," (0xC3 0xA9 0x2C) buffered; "世\r\n..." in @io
       expect { pio.gets("\r\n") }.not_to raise_error
     end
 
@@ -778,9 +902,9 @@ RSpec.describe SmarterCSV::PeekableIO do
       csv = "line1\nM\xFCnchen\n".b
       io  = TranscodedIO.new(csv, 'ISO-8859-1', 'UTF-8')
       pio = described_class.new(io, opts)
-      pio.peek(3)   # buffer = "lin" only; "e1\n..." is still in @io
-      pio.gets("\n")   # reads "e1\n" from @io, appends to buf; not yet frozen
-      line2 = pio.gets("\n")  # buffer still exhausted+not frozen: reads "München\n" from @io
+      pio.peek(3) # buffer = "lin" only; "e1\n..." is still in @io
+      pio.gets("\n") # reads "e1\n" from @io, appends to buf; not yet frozen
+      line2 = pio.gets("\n") # buffer still exhausted+not frozen: reads "München\n" from @io
       expect(line2.encoding).to eq(Encoding::UTF_8)
       expect(line2).to eq("München\n")
     end
