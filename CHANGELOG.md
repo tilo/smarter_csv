@@ -3,7 +3,7 @@
 
 ## 1.17.0 (unreleased)
 
-RSpec tests: **1,434 → 1,803** (+369 tests)
+RSpec tests: **1,434 → 1,805** (+371 tests)
 
 ### New Features
 
@@ -15,6 +15,10 @@ RSpec tests: **1,434 → 1,803** (+369 tests)
 * Improved auto-detection of `row_sep` and `col_sep` — giving more accurate results on files with comment headers.
 
 * Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
+
+### Bug Fixes
+
+* Fixed `enforce_utf8_encoding` incorrectly replacing all non-ASCII bytes when the input string was tagged as `ASCII-8BIT` (binary). The encoding is now relabeled to UTF-8 before transcoding, so only genuinely invalid byte sequences are replaced.
 
 ## 1.16.3 (2026-04-14) — New Feature
 

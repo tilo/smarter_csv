@@ -921,4 +921,22 @@ RSpec.describe SmarterCSV::PeekableIO do
       expect(pio.gets("\n")).to eq("München\n")
     end
   end
+
+  describe 'guard clauses' do
+    let(:opts) { {row_sep: "\n"} }
+
+    it 'raises ArgumentError when gets is called with nil separator' do
+      io = StringIO.new("a,b\n1,2\n")
+      pio = described_class.new(io, opts)
+      pio.peek
+      expect { pio.gets(nil) }.to raise_error(ArgumentError, /does not support gets\(nil\)/)
+    end
+
+    it 'raises NoMethodError when rewind is called instead of rewind_buffer' do
+      io = StringIO.new("a,b\n1,2\n")
+      pio = described_class.new(io, opts)
+      pio.peek
+      expect { pio.rewind }.to raise_error(NoMethodError, /use rewind_buffer instead/)
+    end
+  end
 end

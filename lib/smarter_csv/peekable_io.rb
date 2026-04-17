@@ -30,8 +30,8 @@ module SmarterCSV
       @options = options  # live reference — options[:row_sep] is the default sep for gets/readline
       @peek_buf = nil     # nil = buffer not yet filled
       @peek_pos = 0
-      @emit_encoding = nil  # encoding of strings returned by @io.read — set on first peek
-      @buffer_frozen = false  # true after freeze_buffer!: buffer stops growing, detection phase is over
+      @emit_encoding = nil # encoding of strings returned by @io.read — set on first peek
+      @buffer_frozen = false # true after freeze_buffer!: buffer stops growing, detection phase is over
     end
 
     # Read up to n bytes into the buffer and return them.
@@ -88,18 +88,22 @@ module SmarterCSV
     # were ever extracted into a stand-alone library, limit support would be required
     # to fully comply with the IO#gets contract.
     def gets(sep = @options[:row_sep])
+      raise ArgumentError, "PeekableIO#gets does not support gets(nil) — pass an explicit separator string" if sep.nil?
       return @io.gets(sep) if @peek_buf.nil?
+
       # Buffer frozen (post auto-detection): delegate once buffer is exhausted — no more accumulation.
       # Must still apply encoding tagging and maybe_transcode so callers see consistent encodings.
       if @buffer_frozen && buffer_exhausted?
         line = @io.gets(sep)
         return nil if line.nil?
+
         int = internal_encoding
         # Real IO objects opened with a transcoding pair (e.g. r:iso-8859-1:utf-8) already transcode
         # on read — the returned string is already in the internal encoding.  Return it as-is.
         # For wrapper objects (e.g. EncodedBytesIO) that declare encodings but don't transcode on
         # read, the returned string will still be in ASCII-8BIT — fall through to tag + transcode.
         return line if int && line.encoding == int
+
         out_enc = @emit_encoding || external_encoding
         line = line.force_encoding(out_enc) if out_enc
         return maybe_transcode(line)
@@ -119,7 +123,7 @@ module SmarterCSV
       # ---------------------------------------------------------------------------
       unless @buffer_frozen
         loop do
-          rest = @peek_buf.byteslice(@peek_pos..)
+          rest = @peek_buf.byteslice(@peek_pos..-1)
           rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
           # NOTE: rest.b.index(sep.b) is the Ruby 2.6 compatible equivalent of rest.byteindex(sep)
           idx = rest.b.index(sep.b)
@@ -132,8 +136,9 @@ module SmarterCSV
           break unless extend_buffer!
         end
         # EOF: return remaining bytes as final line, or nil if nothing left.
-        rest = @peek_buf.byteslice(@peek_pos..)
+        rest = @peek_buf.byteslice(@peek_pos..-1)
         return nil if rest.empty?
+
         @peek_pos = @peek_buf.bytesize
         return maybe_transcode(rest.force_encoding(out_enc || Encoding::ASCII_8BIT))
       end
@@ -143,7 +148,7 @@ module SmarterCSV
       # Search within the buffer; handle the separator straddling the buffer/@io
       # boundary for multi-byte separators (e.g. \r\n split across the edge).
       # ---------------------------------------------------------------------------
-      rest = @peek_buf.byteslice(@peek_pos..)
+      rest = @peek_buf.byteslice(@peek_pos..-1)
       rest.force_encoding(out_enc || Encoding::ASCII_8BIT)
       # Use byteindex + byteslice — the buffer stores raw bytes and @peek_pos is a
       # byte offset. Separators are always ASCII, so byteindex is correct regardless
@@ -155,7 +160,7 @@ module SmarterCSV
         @peek_pos += line.bytesize
         maybe_transcode(line)
       else
-        @peek_pos = @peek_buf.bytesize  # mark exhausted, keep buffer alive for rewind
+        @peek_pos = @peek_buf.bytesize # mark exhausted, keep buffer alive for rewind
 
         # Detect multi-byte separator (e.g. \r\n) split at the buffer boundary —
         # \r is the last byte of @peek_buf, \n is the first byte of @io.
@@ -167,7 +172,7 @@ module SmarterCSV
           (sep.bytesize - 1).downto(1) do |prefix_len|
             next unless rest.b.end_with?(sep.b.byteslice(0, prefix_len))
 
-            tail_needed = sep.b.byteslice(prefix_len..)
+            tail_needed = sep.b.byteslice(prefix_len..-1)
             peeked = @io.read(tail_needed.bytesize)
 
             if peeked.nil?
@@ -188,8 +193,8 @@ module SmarterCSV
                 confirmed_tail = @io.read(sep.bytesize - n)
                 if confirmed_tail.nil?
                   # EOF — nothing more to read; content stays as-is
-                elsif confirmed_tail.b == sep.b.byteslice(n..)
-                  content = content + confirmed_tail.b  # separator confirmed
+                elsif confirmed_tail.b == sep.b.byteslice(n..-1)
+                  content += confirmed_tail.b # separator confirmed
                 else
                   remainder = @io.gets(sep)
                   content = content + confirmed_tail.b + (remainder ? remainder.b : ''.b)
@@ -199,7 +204,7 @@ module SmarterCSV
               end
               unless nested_handled
                 remainder = @io.gets(sep)
-                content = content + (remainder ? remainder.b : ''.b)
+                content += (remainder ? remainder.b : ''.b)
               end
               combined = rest.b + content
             end
@@ -218,30 +223,31 @@ module SmarterCSV
     def readline(sep = @options[:row_sep])
       line = gets(sep)
       raise EOFError, "end of file reached" if line.nil?
+
       line
     end
 
     def read(n = nil)
       return @io.read(n) if buffer_exhausted?
 
-      buffered = @peek_buf.byteslice(@peek_pos..)
+      buffered = @peek_buf.byteslice(@peek_pos..-1)
       out_enc = @emit_encoding || Encoding::ASCII_8BIT
 
       # All paths use binary concatenation then re-tag to avoid encoding mismatches.
       if n.nil?
-        @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
+        @peek_pos = @peek_buf.bytesize # consume all buffered bytes
         rest_from_io = @io.read
         appended = rest_from_io ? rest_from_io.b : ''.b
         @peek_buf << appended unless @buffer_frozen
         combined = buffered + appended
         maybe_transcode(combined.force_encoding(out_enc))
       elsif n == 0
-        String.new.force_encoding(out_enc)  # read(0) must not advance @peek_pos
+        String.new.force_encoding(out_enc) # read(0) must not advance @peek_pos
       elsif buffered.bytesize >= n
-        @peek_pos += n                 # advance exactly n, not the whole buffer
+        @peek_pos += n # advance exactly n, not the whole buffer
         maybe_transcode(buffered.byteslice(0, n).force_encoding(out_enc))
       else
-        @peek_pos = @peek_buf.bytesize  # consume all buffered bytes
+        @peek_pos = @peek_buf.bytesize # consume all buffered bytes
         rest_from_io = @io.read(n - buffered.bytesize)
         appended = rest_from_io ? rest_from_io.b : ''.b
         @peek_buf << appended unless @buffer_frozen
@@ -250,15 +256,15 @@ module SmarterCSV
       end
     end
 
-    def each_char
+    def each_char(&block)
       return enum_for(:each_char) unless block_given?
-      return @io.each_char { |c| yield c } if buffer_exhausted?
+      return @io.each_char(&block) if buffer_exhausted?
 
-      rest = @peek_buf.byteslice(@peek_pos..)
+      rest = @peek_buf.byteslice(@peek_pos..-1)
       rest.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
       rest = maybe_transcode(rest) || rest
-      rest.each_char { |c| yield c }
-      @peek_pos = @peek_buf.bytesize  # mark exhausted, keep buffer alive for rewind
+      rest.each_char(&block)
+      @peek_pos = @peek_buf.bytesize # mark exhausted, keep buffer alive for rewind
 
       # Read remaining @io in chunks — avoids O(n²) string concatenation from
       # appending one byte at a time.  Row-sep detection only needs ASCII chars
@@ -266,16 +272,17 @@ module SmarterCSV
       until @io.eof?
         chunk = @io.read(@buffer_size)
         break unless chunk
+
         @peek_buf << chunk.b unless @buffer_frozen
         chunk.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)
-        (maybe_transcode(chunk) || chunk).each_char { |c| yield c }
+        (maybe_transcode(chunk) || chunk).each_char(&block)
       end
     end
 
     def eof?
       return @io.eof? if buffer_exhausted?
 
-      false  # still have unread bytes in peek buffer
+      false # still have unread bytes in peek buffer
     end
 
     # Resets to the start of the peek buffer — never touches the underlying IO.
@@ -287,6 +294,10 @@ module SmarterCSV
     # peek chunk.  Call freeze_buffer! explicitly when detection is complete.
     def rewind_buffer
       @peek_pos = 0
+    end
+
+    def rewind
+      raise NoMethodError, "use rewind_buffer instead of rewind — PeekableIO does not seek the underlying IO"
     end
 
     # Freeze the buffer: signals that auto-detection is complete and normal
@@ -319,6 +330,7 @@ module SmarterCSV
     def extend_buffer!
       chunk = @io.read(@buffer_size)
       return false unless chunk && !chunk.empty?
+
       @peek_buf << chunk.b
       true
     end
@@ -337,7 +349,7 @@ module SmarterCSV
 
     def strip_bom(raw)
       BOM_PATTERNS.each do |bom|
-        return raw.byteslice(bom.bytesize..) if raw.start_with?(bom)
+        return raw.byteslice(bom.bytesize..-1) if raw.start_with?(bom)
       end
       raw
     end
@@ -360,9 +372,11 @@ module SmarterCSV
       MAX_ALIGN_BYTES.times do
         probe = raw.dup.force_encoding(@emit_encoding)
         return raw if probe.valid_encoding?
+
         extra = @io.read(1)
-        break unless extra            # EOF mid-codepoint — malformed input, stop here
-        raw = raw + extra.b
+        break unless extra # EOF mid-codepoint — malformed input, stop here
+
+        raw += extra.b
       end
       raw
     end
@@ -374,8 +388,10 @@ module SmarterCSV
     # No-op when there is no transcoding pair or no declared encoding.
     def maybe_transcode(str)
       return str unless str
+
       int = internal_encoding
       return str unless int && @emit_encoding && int != @emit_encoding
+
       str.force_encoding(@emit_encoding).encode(int, invalid: :replace, undef: :replace)
     end
 
