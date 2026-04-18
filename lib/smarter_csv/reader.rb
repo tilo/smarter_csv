@@ -146,7 +146,10 @@ module SmarterCSV
           fh.peek
           options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
           rewind_buffer(fh)
-          skip_lines(fh, options) if options[:skip_lines] # skip comments
+          # skip_lines in the detection block exists only to feed clean data lines to
+          # guess_column_separator. When col_sep is explicit, this skip is wasted work —
+          # the bytes are consumed and then immediately rewound. Guard it.
+          skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
           options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
           fh.freeze_buffer!
           rewind_buffer(fh)

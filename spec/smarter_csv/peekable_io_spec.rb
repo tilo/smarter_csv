@@ -270,21 +270,102 @@ RSpec.describe SmarterCSV::PeekableIO do
   end
 
   # ---------------------------------------------------------------------------
-  # method_missing / respond_to_missing?
+  # method_missing / respond_to_missing? — ALLOWED_METHODS allow-list contract
+  #
+  # PeekableIO is internal to SmarterCSV. reader.rb is the only caller, and the
+  # only method it reaches through method_missing is #encoding (as a fallback in
+  # the UTF-8 warning check). The allow-list codifies that contract:
+  #
+  #   * methods on ALLOWED_METHODS that @io implements → delegated
+  #   * everything else → NoMethodError
+  #
+  # This raises loudly on a future maintainer's typo (fh.seek, fh.readpartial,
+  # fh.some_new_io_method) instead of silently desyncing @peek_pos from @io.
+  # Adding to ALLOWED_METHODS is a deliberate contract change.
   # ---------------------------------------------------------------------------
   describe '#method_missing' do
-    it 'delegates unknown methods to the underlying IO' do
+    it 'delegates allow-listed methods to the underlying IO' do
+      sio = StringIO.new(content)
+      # StringIO does not define :encoding natively, so stub it to prove delegation.
+      allow(sio).to receive(:encoding).and_return(Encoding::ISO_8859_1)
+      pio = described_class.new(sio, opts)
+      expect(pio.encoding).to eq(Encoding::ISO_8859_1)
+    end
+
+    it 'raises NoMethodError for methods not on the allow-list even when @io implements them' do
       sio = StringIO.new(content)
       pio = described_class.new(sio, opts)
-      expect(pio.string).to eq(content) # StringIO#string delegated via method_missing
+      # StringIO#string exists — it used to delegate through method_missing. The
+      # allow-list narrows the contract: string is not a generic IO method, so
+      # PeekableIO no longer exposes it. Intentional contract change.
+      expect { pio.string }.to raise_error(NoMethodError)
+    end
+
+    it 'raises NoMethodError for position-changing methods that would desync the buffer' do
+      sio = StringIO.new(content)
+      pio = described_class.new(sio, opts)
+      # These are the exact failure modes the allow-list protects against:
+      # forwarding would advance @io past the peeked bytes while @peek_pos stays
+      # behind, silently corrupting replay after rewind_buffer.
+      expect { pio.seek(0) }.to raise_error(NoMethodError)
+      expect { pio.pos = 0 }.to raise_error(NoMethodError)
+      expect { pio.ungetc('x') }.to raise_error(NoMethodError)
+    end
+
+    # Known IO hazards — methods on @io that would either advance its read position
+    # without updating @peek_pos, or bypass our encoding handling. Strictly speaking
+    # the allow-list mechanism already protects against them (any non-allow-listed
+    # method raises via the same code path), but enumerating them here:
+    #   (a) documents in the spec which IO methods we deliberately block, and
+    #   (b) fails loudly if any of them ever gets added to ALLOWED_METHODS by mistake.
+    KNOWN_HAZARDOUS_METHODS = %i[
+      seek pos= lineno=
+      ungetc ungetbyte
+      readpartial readbyte getbyte
+      sysread sysseek
+      readlines each_line each_byte
+    ].freeze
+
+    KNOWN_HAZARDOUS_METHODS.each do |m|
+      it "raises NoMethodError when ##{m} is called (hazardous — would desync the buffer)" do
+        sio = StringIO.new(content)
+        pio = described_class.new(sio, opts)
+        # @io's capabilities don't matter here: PeekableIO#method_missing short-circuits to `super`
+        # for un-allow-listed methods before @io.respond_to? is consulted,
+        # so these raise regardless of what @io implements.
+        expect(pio.respond_to?(m)).to be false
+
+        # Arity varies — use public_send with a harmless arg; the allow-list guard fires before args are inspected.
+        # public_send (not send) is required: some hazardous names like #readlines are private Kernel methods
+        # mixed into every object, and plain #send bypasses privacy, invoking Kernel's version instead of
+        # reaching PeekableIO#method_missing. public_send matches how an external caller would invoke the API.
+        expect { pio.public_send(m, 0) rescue pio.public_send(m) }.to raise_error(NoMethodError)
+      end
     end
   end
 
   describe '#respond_to_missing?' do
-    it 'returns true for methods the underlying IO responds to' do
+    it 'returns true for allow-listed methods that @io implements' do
+      sio = StringIO.new(content)
+      allow(sio).to receive(:encoding).and_return(Encoding::UTF_8)
+      pio = described_class.new(sio, opts)
+      expect(pio.respond_to?(:encoding)).to be true
+    end
+
+    it 'returns false for methods not on the allow-list, even when @io implements them' do
       sio = StringIO.new(content)
       pio = described_class.new(sio, opts)
-      expect(pio.respond_to?(:string)).to be true
+      # StringIO has #string and #seek; neither is on ALLOWED_METHODS.
+      expect(pio.respond_to?(:string)).to be false
+      expect(pio.respond_to?(:seek)).to be false
+    end
+
+    it 'returns false for allow-listed methods that @io does not implement' do
+      # StringIO does not define :encoding. Being on the allow-list is necessary
+      # but not sufficient — @io must also respond.
+      sio = StringIO.new(content)
+      pio = described_class.new(sio, opts)
+      expect(pio.respond_to?(:encoding)).to be false
     end
 
     it 'returns false for methods neither PeekableIO nor the underlying IO respond to' do
@@ -937,6 +1018,108 @@ RSpec.describe SmarterCSV::PeekableIO do
       pio = described_class.new(io, opts)
       pio.peek
       expect { pio.rewind }.to raise_error(NoMethodError, /use rewind_buffer instead/)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # #gets without #peek — direct delegation to @io
+  #
+  # When the caller never calls #peek (auto-detection was skipped because both
+  # separators were explicit), @peek_buf is nil and gets must delegate directly
+  # to @io.gets(sep) without touching buffer state. This path is exercised
+  # implicitly by integration tests that pass explicit separators, but was not
+  # covered by a targeted unit test.
+  # ---------------------------------------------------------------------------
+  describe '#gets without #peek (direct @io delegation)' do
+    let(:opts) { {row_sep: "\n"} }
+
+    it 'returns the next line when peek was never called' do
+      pio = described_class.new(StringIO.new("alpha\nbeta\n"), opts)
+      expect(pio.gets("\n")).to eq("alpha\n")
+    end
+
+    it 'can be called repeatedly to read all lines in order' do
+      pio = described_class.new(StringIO.new("a\nb\nc\n"), opts)
+      expect(pio.gets("\n")).to eq("a\n")
+      expect(pio.gets("\n")).to eq("b\n")
+      expect(pio.gets("\n")).to eq("c\n")
+    end
+
+    it 'returns nil at EOF without ever filling the peek buffer' do
+      pio = described_class.new(StringIO.new("only\n"), opts)
+      expect(pio.gets("\n")).to eq("only\n")
+      expect(pio.gets("\n")).to be_nil
+      expect(pio.instance_variable_get(:@peek_buf)).to be_nil # confirms direct-delegation path
+    end
+
+    it 'applies the nil-separator guard even before the @peek_buf.nil? delegation check' do
+      pio = described_class.new(StringIO.new("a\n"), opts)
+      # Guard fires at method entry; must still raise even when @peek_buf is nil.
+      expect { pio.gets(nil) }.to raise_error(ArgumentError, /does not support gets\(nil\)/)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Frozen-phase delegation inconsistency between #gets and #read / #each_char
+  #
+  # #gets applies maybe_transcode on the frozen-exhausted path (peekable_io.rb:96-109),
+  # so a wrapper IO that declares an ext:int encoding pair but does not transcode
+  # on read (e.g. TranscodedIO) yields strings correctly tagged in the internal
+  # encoding. #read and #each_char instead early-return @io.read(n) / @io.each_char
+  # without re-tagging or transcoding. SmarterCSV's CSV pipeline only uses #gets,
+  # so this inconsistency does not affect CSV parsing — but it is visible to any
+  # external caller that uses PeekableIO as a general IO wrapper.
+  #
+  # These tests lock down the CURRENT behavior: #gets transcodes, #read and
+  # #each_char do not. If we later decide to unify the paths, the #read and
+  # #each_char assertions here will flag the behavior change.
+  # ---------------------------------------------------------------------------
+  describe 'frozen-phase delegation — #gets vs #read / #each_char encoding consistency' do
+    # "hdr\n" + "foo\xE9bar\n" = 12 bytes; \xE9 is é in ISO-8859-1.
+    # buffer_size: 4 puts only "hdr\n" in the initial peek, so after freeze_buffer!
+    # + rewind_buffer + draining the 4-byte buffer, the next read/each_char/gets
+    # hits the frozen-exhausted path.
+    let(:raw) { "hdr\nfoo\xE9bar\n".b }
+    let(:transcoding_io) { TranscodedIO.new(raw, 'ISO-8859-1', 'UTF-8') }
+
+    def drained_frozen_pio(io)
+      pio = described_class.new(io, {row_sep: "\n"}, buffer_size: 4)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      buffered_size = pio.instance_variable_get(:@peek_buf).bytesize
+      pio.read(buffered_size) # drain the peek buffer exactly; next op hits @io
+      pio
+    end
+
+    it '#gets applies maybe_transcode — returned line is tagged as internal encoding (UTF-8)' do
+      pio = described_class.new(transcoding_io, {row_sep: "\n"}, buffer_size: 4)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      _first = pio.gets("\n")           # consumes buffer
+      second = pio.gets("\n")           # hits frozen-exhausted path → delegates to @io + maybe_transcode
+      expect(second.encoding).to eq(Encoding::UTF_8)
+      expect(second.valid_encoding?).to be true
+      expect(second).to eq("fooébar\n") # ISO-8859-1 \xE9 → UTF-8 é
+    end
+
+    it '#read does NOT apply maybe_transcode on the frozen-exhausted path (current behavior)' do
+      pio = drained_frozen_pio(transcoding_io)
+      extra = pio.read(5)
+      # @io.read(n) on a non-transcoding wrapper returns ASCII-8BIT bytes.
+      # PeekableIO#read delegates unchanged — no force_encoding, no maybe_transcode.
+      expect(extra.encoding).to eq(Encoding::ASCII_8BIT)
+      expect(extra.b).to eq("foo\xE9b".b)
+    end
+
+    it '#each_char does NOT apply maybe_transcode on the frozen-exhausted path (current behavior)' do
+      pio = drained_frozen_pio(transcoding_io)
+      chars = []
+      pio.each_char { |c| chars << c }
+      # @io.each_char on a StringIO containing .b bytes yields ASCII-8BIT chars.
+      expect(chars.map(&:encoding).uniq).to eq([Encoding::ASCII_8BIT])
+      expect(chars.join.b).to eq("foo\xE9bar\n".b)
     end
   end
 end

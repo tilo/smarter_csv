@@ -395,11 +395,29 @@ module SmarterCSV
       str.force_encoding(@emit_encoding).encode(int, invalid: :replace, undef: :replace)
     end
 
+    # Allow-list of @io methods safe to expose via method_missing.
+    #
+    # PeekableIO is an internal SmarterCSV utility; reader.rb is its only caller.
+    # Every method SmarterCSV uses on a PeekableIO is either defined explicitly on
+    # this class (peek, gets, read, each_char, readline, eof?, close, rewind_buffer,
+    # freeze_buffer!, external_encoding, internal_encoding) or is on this list.
+    #
+    # Any other call — seek, pos=, lineno=, ungetc, ungetbyte, readpartial, sysread,
+    # readlines, each_line, etc. — raises NoMethodError. That surfaces a future
+    # maintainer's mistake loudly rather than silently desyncing @peek_pos from @io
+    # and breaking replay-after-rewind_buffer.
+    #
+    # Extending this list is a deliberate contract change: add a method only when a
+    # real caller inside SmarterCSV needs it.
+    ALLOWED_METHODS = %i[encoding].freeze
+
     def respond_to_missing?(method, include_private = false)
-      @io.respond_to?(method, include_private) || super
+      (ALLOWED_METHODS.include?(method) && @io.respond_to?(method, include_private)) || super
     end
 
     def method_missing(method, *args, &block)
+      return super unless ALLOWED_METHODS.include?(method) && @io.respond_to?(method)
+
       @io.send(method, *args, &block)
     end
   end
