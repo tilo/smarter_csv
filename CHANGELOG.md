@@ -20,6 +20,8 @@ RSpec tests: **1,434 → 1,829** (+395 tests)
 
 * Fixed `enforce_utf8_encoding` incorrectly replacing all non-ASCII bytes when the input string was tagged as `ASCII-8BIT` (binary). The encoding is now relabeled to UTF-8 before transcoding, so only genuinely invalid byte sequences are replaced.
 
+* Fixed bug in `SmarterCSV.errors` that could lose collected records when processing raises mid-stream,
+  e.g. when `bad_row_limit:` was exceeded (`TooManyBadRows`), or when a user's block raised through `.process` / `.each` / `.each_chunk`.
 ## 1.16.3 (2026-04-14) — New Feature
 
 RSpec tests: **1,425 → 1,434** (+9 tests)
