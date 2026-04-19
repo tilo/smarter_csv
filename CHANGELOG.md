@@ -1,6 +1,15 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.4 (2026-04-18) — Bug Fix
+
+RSpec tests: **1,434 → 1,446** (+12 tests)
+
+### Bug Fixes
+
+* Fixed bug in `SmarterCSV.errors` that could lose collected records when processing raises mid-stream,
+  e.g. when `bad_row_limit:` was exceeded (`TooManyBadRows`), or when a user's block raised through `.process` / `.each` / `.each_chunk`.
+
 ## 1.16.3 (2026-04-14) — New Feature
 
 RSpec tests: **1,425 → 1,434** (+9 tests)

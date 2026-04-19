@@ -78,9 +78,12 @@ module SmarterCSV
   def self.process(input, given_options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, given_options)
-    result = reader.process(&block)
-    Thread.current[:current_thread_recent_errors] = reader.errors
-    result
+    reader.process(&block)
+  ensure
+    # Preserve partial error state when processing raises mid-stream
+    # (e.g. TooManyBadRows, or a user block raising). `reader` is nil if
+    # Reader.new itself raised before the local was assigned.
+    Thread.current[:current_thread_recent_errors] = reader.errors if reader
   end
 
   # Convenience method for parsing a CSV string directly.
@@ -109,9 +112,9 @@ module SmarterCSV
   def self.each(input, options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
-    result = reader.each(&block)
-    Thread.current[:current_thread_recent_errors] = reader.errors
-    result
+    reader.each(&block)
+  ensure
+    Thread.current[:current_thread_recent_errors] = reader.errors if reader
   end
 
   # Yields each chunk as Array<Hash> plus its 0-based chunk index.
@@ -126,9 +129,9 @@ module SmarterCSV
   def self.each_chunk(input, options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
     reader = Reader.new(input, options)
-    result = reader.each_chunk(&block)
-    Thread.current[:current_thread_recent_errors] = reader.errors
-    result
+    reader.each_chunk(&block)
+  ensure
+    Thread.current[:current_thread_recent_errors] = reader.errors if reader
   end
 
   # Returns the errors from the most recent call to .process, .parse, .each, or .each_chunk
@@ -198,7 +201,7 @@ module SmarterCSV
       begin
         yield writer
       ensure
-        writer&.finalize  # must finalize before reading io.string
+        writer&.finalize # must finalize before reading io.string
       end
       io.string
     else
