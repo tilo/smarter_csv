@@ -113,6 +113,29 @@ def self.convert(value)
 end
 ```
 
+## Handling Numeric Inputs
+
+Converters run **after** `convert_values_to_numeric`, so a field that looks like a
+number (e.g. `"42"`, `"3.14"`) will already be an `Integer` or `Float` by the time
+your converter sees it. If your converter expects a string, guard against this:
+
+```ruby
+# Safe: passes already-numeric values through unchanged
+dollar = ->(v) { v.is_a?(String) ? v.sub('$', '').to_f : v }
+
+# Unsafe: raises NoMethodError on Integer/Float (no #sub)
+dollar = ->(v) { v.sub('$', '').to_f }
+```
+
+Alternatively, exclude the column from numeric conversion so the converter always
+receives a string:
+
+```ruby
+SmarterCSV.process(file,
+  convert_values_to_numeric: { except: [:price] },
+  value_converters: { price: ->(v) { v&.sub('$', '')&.to_f } })
+```
+
 ## Class-Based Converters
 
 For converters you want to reuse across the codebase or test independently, define a class
