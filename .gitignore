@@ -14,3 +14,5 @@ coverage/*
 .rspec_status
 .DS_Store
 vendor/bundle
+*.md
+.claude/
