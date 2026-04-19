@@ -16,3 +16,4 @@ coverage/*
 vendor/bundle
 *.md
 .claude/
+benchmark/
