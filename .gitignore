@@ -15,3 +15,5 @@ coverage/*
 .DS_Store
 vendor/bundle
 *.md
+.claude/
+benchmark/
