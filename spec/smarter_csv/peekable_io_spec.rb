@@ -72,6 +72,42 @@ class TranscodedIO
   end
 end
 
+# IO-like that declares only an external encoding (no transcoding pair) and returns
+# ASCII-8BIT bytes from #gets. Simulates wrapper objects (pipes, STDIN, decompression
+# streams) where external_encoding is known but the source doesn't re-tag on read.
+# Needed to exercise the frozen-exhausted single-encoding path (internal_encoding == nil)
+# in PeekableIO#gets — TranscodedIO cannot cover it because it requires both encodings.
+class SingleEncodingIO
+  def initialize(raw_bytes, external)
+    @io  = StringIO.new(raw_bytes.b)
+    @ext = Encoding.find(external)
+  end
+
+  def read(num_bytes = nil)
+    @io.read(num_bytes)
+  end
+
+  def gets(sep = $/)
+    @io.gets(sep)
+  end
+
+  def eof?
+    @io.eof?
+  end
+
+  def close
+    nil
+  end
+
+  def external_encoding
+    @ext
+  end
+
+  def internal_encoding
+    nil
+  end
+end
+
 RSpec.describe SmarterCSV::PeekableIO do
   let(:content) { "header1,header2\nval1,val2\nval3,val4\n" }
   let(:io)      { StringIO.new(content) }
@@ -339,7 +375,11 @@ RSpec.describe SmarterCSV::PeekableIO do
         # public_send (not send) is required: some hazardous names like #readlines are private Kernel methods
         # mixed into every object, and plain #send bypasses privacy, invoking Kernel's version instead of
         # reaching PeekableIO#method_missing. public_send matches how an external caller would invoke the API.
-        expect { pio.public_send(m, 0) rescue pio.public_send(m) }.to raise_error(NoMethodError)
+        expect do
+                   pio.public_send(m, 0)
+        rescue StandardError
+                   pio.public_send(m)
+        end.to raise_error(NoMethodError)
       end
     end
   end
@@ -1120,6 +1160,38 @@ RSpec.describe SmarterCSV::PeekableIO do
       # @io.each_char on a StringIO containing .b bytes yields ASCII-8BIT chars.
       expect(chars.map(&:encoding).uniq).to eq([Encoding::ASCII_8BIT])
       expect(chars.join.b).to eq("foo\xE9bar\n".b)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Frozen-exhausted path, single-encoding case (internal_encoding == nil)
+  #
+  # Covers peekable_io.rb:107-108 — the force_encoding step that tags the line
+  # in the external encoding when there is no transcoding pair.
+  #
+  # Scenario: source declares external_encoding = ISO-8859-1 but returns
+  # ASCII-8BIT bytes from #gets (EncodedBytesIO-style wrapper: pipes, STDIN,
+  # decompression streams). With internal_encoding = nil, maybe_transcode is a
+  # no-op — so the force_encoding call in gets is the only thing that tags the
+  # returned line. Without it, reader.rb's enforce_utf8_encoding would interpret
+  # the bytes as UTF-8 and replace every non-ASCII byte.
+  # ---------------------------------------------------------------------------
+  describe 'frozen-exhausted single-encoding path — #gets tags line in external encoding' do
+    # "hdr\n" + "foo\xE9bar\n" = 12 bytes; \xE9 is é in ISO-8859-1.
+    # buffer_size: 4 stops the initial peek at "hdr\n" so the next gets after
+    # freeze_buffer! + rewind_buffer + draining hits the frozen-exhausted branch.
+    let(:raw) { "hdr\nfoo\xE9bar\n".b }
+    let(:single_enc_io) { SingleEncodingIO.new(raw, 'ISO-8859-1') }
+
+    it '#gets returns a line tagged as the external encoding (ISO-8859-1) on the frozen-exhausted path' do
+      pio = described_class.new(single_enc_io, {row_sep: "\n"}, buffer_size: 4)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      _first = pio.gets("\n")           # drains the 4-byte buffer
+      second = pio.gets("\n")           # frozen-exhausted path: delegates to @io.gets
+      expect(second.encoding).to eq(Encoding::ISO_8859_1)
+      expect(second.b).to eq("foo\xE9bar\n".b) # bytes unchanged, only tag differs
     end
   end
 end

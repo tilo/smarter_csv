@@ -105,7 +105,15 @@ module SmarterCSV
         return line if int && line.encoding == int
 
         out_enc = @emit_encoding || external_encoding
-        line = line.force_encoding(out_enc) if out_enc
+        # Needed for the single-encoding case (int == nil) when the source declares an
+        # external_encoding but returns ASCII-8BIT from #gets (wrapper IOs: EncodedBytesIO,
+        # pipes, STDIN, decompression streams). maybe_transcode is a no-op when int is nil,
+        # so this is the only step that tags the line in the correct external encoding —
+        # otherwise reader.rb#enforce_utf8_encoding would misread the bytes as UTF-8.
+        # Redundant on the transcoding-pair path (maybe_transcode force_encodes there too),
+        # but the guard keeps it cheap. Covered by peekable_io_spec.rb frozen-exhausted
+        # single-encoding test.
+        line = line.force_encoding(out_enc) if out_enc && line.encoding != out_enc
         return maybe_transcode(line)
       end
 
