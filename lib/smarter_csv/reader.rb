@@ -562,13 +562,15 @@ module SmarterCSV
 
     # True when the IO is genuinely seekable — i.e. rewind will succeed at the kernel
     # level, not just the Ruby method table. IO.pipe readers respond to :rewind but
-    # raise Errno::ESPIPE when called; probing #pos surfaces that at decision time.
+    # raise at the kernel layer when called; probing #pos surfaces that at decision time.
+    # Rescue SystemCallError (parent of all Errno::*) because the exact subclass varies
+    # by Ruby implementation: MRI raises Errno::ESPIPE, jruby raises Errno::EPIPE.
     def seekable?(io)
       return false unless io.respond_to?(:rewind)
 
       io.pos if io.respond_to?(:pos)
       true
-    rescue Errno::ESPIPE, IOError, NotImplementedError
+    rescue SystemCallError, IOError, NotImplementedError
       false
     end
 
