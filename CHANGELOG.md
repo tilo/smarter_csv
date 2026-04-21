@@ -16,12 +16,18 @@ RSpec tests: **1,434 → 1,842** (+408 tests)
 
 * Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
 
-### Bug Fixes
+## 1.16.4 (2026-04-21) — Bug Fixes
 
-* Fixed `enforce_utf8_encoding` incorrectly replacing all non-ASCII bytes when the input string was tagged as `ASCII-8BIT` (binary). The encoding is now relabeled to UTF-8 before transcoding, so only genuinely invalid byte sequences are replaced.
+RSpec tests: **1,434 → 1,467** (+33 tests)
+
+### Bug Fixes
 
 * Fixed bug in `SmarterCSV.errors` that could lose collected records when processing raises mid-stream,
   e.g. when `bad_row_limit:` was exceeded (`TooManyBadRows`), or when a user's block raised through `.process` / `.each` / `.each_chunk`.
+
+* Fixed `enforce_utf8_encoding` incorrectly replacing all non-ASCII bytes when the input string was tagged as `ASCII-8BIT` (binary).
+  The encoding is now relabeled to UTF-8 before transcoding, so only genuinely invalid byte sequences are replaced.
+
 ## 1.16.3 (2026-04-14) — New Feature
 
 RSpec tests: **1,425 → 1,434** (+9 tests)

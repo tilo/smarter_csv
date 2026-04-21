@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'tempfile'
+
 RSpec.describe SmarterCSV do
   # ---------------------------------------------------------------------------
   # enforce_utf8_encoding — unit-level tests
@@ -149,7 +151,7 @@ RSpec.describe SmarterCSV do
 
       it 'does not insert replacement for valid transcoded bytes (ISO-8859-1 → UTF-8)' do
         result = reader.send(:enforce_utf8_encoding, line_iso, { invalid_byte_sequence: '?' })
-        expect(result).to eq('München')  # ü transcodes cleanly — no replacement needed
+        expect(result).to eq('München') # ü transcodes cleanly — no replacement needed
       end
     end
   end
@@ -220,6 +222,22 @@ RSpec.describe SmarterCSV do
         result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet)
         expect(result.first[:price]).to eq('€100')
         expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+      end
+    end
+
+    context 'windows-1252:UTF-8 (via Tempfile — same path as the iso-8859-1 test above)' do
+      # \x80 = € in Windows-1252
+      let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
+
+      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+        Tempfile.open(['w1252', '.csv']) do |f|
+          f.binmode
+          f.write(csv_w1252_bytes)
+          f.close
+          result = SmarterCSV.process(f.path, file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet)
+          expect(result.first[:price]).to eq('€100')
+          expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+        end
       end
     end
   end
