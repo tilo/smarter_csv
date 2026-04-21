@@ -147,9 +147,9 @@ module SmarterCSV
           options[:_keep_bitmap]       = keep_flags.map { |f| f ? 1 : 0 }.pack('C*').freeze
           options[:_keep_extra_cols]   = @only_headers_set ? false : true
           options[:_early_exit_after]  = (@only_headers_set && !options[:strict]) ? (keep_flags.rindex(true) || -1) : -1
-          options[:_keep_cols]         = nil   # nil signals C: "filter active, check _keep_bitmap"
+          options[:_keep_cols]         = nil # nil signals C: "filter active, check _keep_bitmap"
         else
-          options[:_keep_cols] = false  # sentinel: no filtering active — C skips all bitmap paths
+          options[:_keep_cols] = false # sentinel: no filtering active — C skips all bitmap paths
           # Do NOT insert _keep_bitmap/_keep_extra_cols/_early_exit_after when unused.
           # Keeping the options hash as small as possible avoids hash table resize and
           # keeps all 10 per-row rb_hash_aref lookups hitting the same cache lines.
@@ -214,18 +214,18 @@ module SmarterCSV
         # on_start / on_chunk / on_complete are optional callables (nil by default).
         # Hooks only fire from `process` (library-controlled iteration). Enumerator
         # modes (each / each_chunk) do not fire hooks — the caller owns the lifecycle.
-        _on_start    = options[:on_start]
-        _on_chunk    = options[:on_chunk]
-        _on_complete = options[:on_complete]
-        _start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if _on_start || _on_complete
+        on_start    = options[:on_start]
+        on_chunk    = options[:on_chunk]
+        on_complete = options[:on_complete]
+        start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if on_start || on_complete
 
-        if _on_start
-          _input_meta = if @input.is_a?(String)
+        if on_start
+          input_meta = if @input.is_a?(String)
                           { input: @input, file_size: (File.size(@input) rescue nil) }
                         else
                           { input: @input.class.name, file_size: nil }
-                        end
-          _on_start.call(_input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
+                       end
+          on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
 
         # now on to processing all the rest of the lines in the CSV file:
@@ -385,7 +385,7 @@ module SmarterCSV
             chunk << hash # append temp result to chunk
 
             if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
-              _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+              on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
               # do something with the chunk
               if block_given?
                 yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -414,7 +414,7 @@ module SmarterCSV
 
         # handling of last chunk:
         if !chunk.nil? && chunk.size > 0
-          _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+          on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
           # do something with the chunk
           if block_given?
             yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -425,13 +425,13 @@ module SmarterCSV
           # chunk = [] # initialize for next chunk of data
         end
 
-        if _on_complete
-          _on_complete.call({
-            total_rows:   @csv_line_count,
-            total_chunks: @chunk_count,
-            duration:     Process.clock_gettime(Process::CLOCK_MONOTONIC) - _start_time,
-            bad_rows:     @errors[:bad_row_count] || 0,
-          })
+        if on_complete
+          on_complete.call({
+                             total_rows: @csv_line_count,
+                             total_chunks: @chunk_count,
+                             duration: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time,
+                             bad_rows: @errors[:bad_row_count] || 0,
+                           })
         end
       ensure
         fh.close if fh.respond_to?(:close)
@@ -662,12 +662,10 @@ module SmarterCSV
             # else: mid-field quote → literal, no state change
           elsif !in_quotes
             # Non-quote character: track whether field has started
-            if strip
-              # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+            if strip # -- two direct == comparisons are faster than Array#include? in this hot loop
               field_started = true unless line[i] == ' ' || line[i] == "\t"
-              # rubocop:enable Style/MultipleComparison
-            else
-              field_started = true
+                          else
+                            field_started = true
             end
           end
           i += 1
@@ -780,9 +778,13 @@ module SmarterCSV
     end
 
     def enforce_utf8_encoding(line, options)
-      # return line unless options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
-
-      line.force_encoding('utf-8').encode('utf-8', invalid: :replace, undef: :replace, replace: options[:invalid_byte_sequence])
+      replace = options[:invalid_byte_sequence]
+      # ASCII_8BIT (Encoding::BINARY is an alias) has no codepoint mapping above 0x7F,
+      # so encode('utf-8', ASCII_8BIT) would replace every non-ASCII byte. Relabel as
+      # UTF-8 first so encode() treats the bytes as already-UTF-8 and only replaces
+      # sequences that are actually invalid.
+      line = line.force_encoding('utf-8') if line.encoding == Encoding::ASCII_8BIT
+      line.encode('utf-8', line.encoding, invalid: :replace, undef: :replace, replace: replace)
     end
 
     def handle_bad_row(error, line, start_csv_line, start_file_line, options)
