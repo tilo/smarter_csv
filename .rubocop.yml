@@ -13,6 +13,9 @@ Layout/SpaceInsideHashLiteralBraces:
 Layout/SpaceAroundOperators:
   Enabled: false
 
+Lint/UnderscorePrefixedVariableName:
+  Enabled: false
+
 Metrics/AbcSize:
   Enabled: false
 
@@ -124,6 +127,9 @@ Style/PercentLiteralDelimiters:
 Style/RegexpLiteral:
   Enabled: false
 
+Style/RescueModifier:
+  Enabled: false
+
 Style/SafeNavigation:
   Enabled: false
 
@@ -154,6 +160,9 @@ Style/SymbolArray:
   Enabled: false
 
 Style/SymbolProc: # old Ruby versions can't do this
+  Enabled: false
+
+Style/TernaryParentheses: # parentheses are good!
   Enabled: false
 
 Style/TrailingCommaInArrayLiteral:

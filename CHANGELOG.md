@@ -1,9 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0 (unreleased)
+## 1.17.3 (unreleased)
 
-RSpec tests: **1,434 → 1,829** (+395 tests)
+RSpec tests: **1,434 → 1,842** (+408 tests)
 
 ### New Features
 

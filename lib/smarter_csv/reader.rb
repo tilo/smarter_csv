@@ -111,48 +111,60 @@ module SmarterCSV
       @verbose = options[:verbose]
 
       begin
-        fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
-        # buffer_size can be passed directly; otherwise it scales from auto_row_sep_chars.
-        # 2× auto_row_sep_chars ensures the first peek covers the full row_sep scan with
-        # room for col_sep detection. Falls back to DEFAULT_PEEK_SIZE when auto_row_sep_chars
-        # is 0 (scan whole file).
-        buf_size = if options[:buffer_size]
-                     options[:buffer_size].to_i
-                   else
-                     auto_row_sep_chars = options[:auto_row_sep_chars].to_i
-                     auto_row_sep_chars > 0 ? 2 * auto_row_sep_chars : SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE
-                   end
-        fh = SmarterCSV::PeekableIO.new(fh, options, buffer_size: buf_size)
+        fh = input.is_a?(String) ? File.open(input, "r:#{options[:file_encoding]}") : input
+
+        # Rewindable inputs (File, Tempfile, StringIO, Zlib::GzipReader, ...) use
+        # native rewind for auto-detection — no wrapper overhead in the hot loop.
+        # Non-rewindable streams (pipes, STDIN, custom non-seekable IOs) go through
+        # PeekableIO which buffers the first chunk so detection can replay without
+        # seeking the underlying source.
+        has_rewind = seekable?(fh)
+
+        unless has_rewind
+          # buffer_size can be passed directly; otherwise it scales from auto_row_sep_chars.
+          # 2× auto_row_sep_chars ensures the first peek covers the full row_sep scan with
+          # room for col_sep detection. Falls back to DEFAULT_PEEK_SIZE when auto_row_sep_chars
+          # is 0 (scan whole file).
+          buf_size = if options[:buffer_size]
+                       options[:buffer_size].to_i
+                     else
+                       auto_row_sep_chars = options[:auto_row_sep_chars].to_i
+                       auto_row_sep_chars > 0 ? 2 * auto_row_sep_chars : SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE
+                     end
+          fh = SmarterCSV::PeekableIO.new(fh, options, buffer_size: buf_size)
+        end
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
           warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
         end
 
-        # Auto-detection: peek ahead into a rewindable buffer so detection passes
-        # can replay without seeking the underlying IO (works for pipes, STDIN, Zlib, etc.).
-        # Buffer management is explicit here — detection functions are pure (no rewind calls inside).
-        #
-        # Flow when any separator is :auto:
-        #   1. peek      — fill the buffer from the underlying IO
-        #   2. guess row_sep — scans chars from the buffer
-        #   3. rewind_buffer — replay from byte 0 for next pass
-        #   4. skip_lines — skip comment/header-skip lines so col_sep detection
-        #                    sees data lines, not comment lines
-        #   5. guess col_sep — reads 1-5 lines from the buffer
-        #   6. freeze_buffer! — lock the buffer; subsequent reads beyond it go to @io
-        #   7. rewind_buffer — replay from byte 0 for actual processing
-        #
+        # Auto-detection. Two orchestrations, same detection functions:
+        #   has_rewind=true  → native fh.rewind between passes; BOM is stripped by
+        #                      next_line_with_counts on the first real line.
+        #   has_rewind=false → PeekableIO buffers the first chunk; peek strips BOM,
+        #                      rewind_buffer replays, freeze_buffer! locks the buffer.
         if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
-          fh.peek
-          options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
-          rewind_buffer(fh)
-          # skip_lines in the detection block exists only to feed clean data lines to
-          # guess_column_separator. When col_sep is explicit, this skip is wasted work —
-          # the bytes are consumed and then immediately rewound. Guard it.
-          skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
-          options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
-          fh.freeze_buffer!
-          rewind_buffer(fh)
+          if has_rewind
+            options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+            fh.rewind
+            @file_line_count = 0
+            @csv_line_count = 0
+            # skip_lines feeds clean data lines to guess_column_separator. When col_sep is
+            # explicit, it's wasted work — the bytes are consumed and rewound. Guard it.
+            skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
+            options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+            fh.rewind
+            @file_line_count = 0
+            @csv_line_count = 0
+          else
+            fh.peek
+            options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+            rewind_buffer(fh)
+            skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
+            options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+            fh.freeze_buffer!
+            rewind_buffer(fh)
+          end
         end
 
         skip_lines(fh, options) if options[:skip_lines] # skip comments
@@ -180,9 +192,9 @@ module SmarterCSV
           options[:_keep_bitmap]       = keep_flags.map { |f| f ? 1 : 0 }.pack('C*').freeze
           options[:_keep_extra_cols]   = @only_headers_set ? false : true
           options[:_early_exit_after]  = (@only_headers_set && !options[:strict]) ? (keep_flags.rindex(true) || -1) : -1
-          options[:_keep_cols]         = nil   # nil signals C: "filter active, check _keep_bitmap"
+          options[:_keep_cols]         = nil # nil signals C: "filter active, check _keep_bitmap"
         else
-          options[:_keep_cols] = false  # sentinel: no filtering active — C skips all bitmap paths
+          options[:_keep_cols] = false # sentinel: no filtering active — C skips all bitmap paths
           # Do NOT insert _keep_bitmap/_keep_extra_cols/_early_exit_after when unused.
           # Keeping the options hash as small as possible avoids hash table resize and
           # keeps all 10 per-row rb_hash_aref lookups hitting the same cache lines.
@@ -247,18 +259,18 @@ module SmarterCSV
         # on_start / on_chunk / on_complete are optional callables (nil by default).
         # Hooks only fire from `process` (library-controlled iteration). Enumerator
         # modes (each / each_chunk) do not fire hooks — the caller owns the lifecycle.
-        _on_start    = options[:on_start]
-        _on_chunk    = options[:on_chunk]
-        _on_complete = options[:on_complete]
-        _start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if _on_start || _on_complete
+        on_start    = options[:on_start]
+        on_chunk    = options[:on_chunk]
+        on_complete = options[:on_complete]
+        start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if on_start || on_complete
 
-        if _on_start
-          _input_meta = if @input.is_a?(String)
+        if on_start
+          input_meta = if @input.is_a?(String)
                           { input: @input, file_size: (File.size(@input) rescue nil) }
                         else
                           { input: @input.class.name, file_size: nil }
                         end
-          _on_start.call(_input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
+          on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
 
         # now on to processing all the rest of the lines in the CSV file:
@@ -418,7 +430,7 @@ module SmarterCSV
             chunk << hash # append temp result to chunk
 
             if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
-              _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+              on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
               # do something with the chunk
               if block_given?
                 yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -447,7 +459,7 @@ module SmarterCSV
 
         # handling of last chunk:
         if !chunk.nil? && chunk.size > 0
-          _on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+          on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
           # do something with the chunk
           if block_given?
             yield chunk, @chunk_count # do something with the hashes in the chunk in the block
@@ -458,13 +470,13 @@ module SmarterCSV
           # chunk = [] # initialize for next chunk of data
         end
 
-        if _on_complete
-          _on_complete.call({
-            total_rows:   @csv_line_count,
-            total_chunks: @chunk_count,
-            duration:     Process.clock_gettime(Process::CLOCK_MONOTONIC) - _start_time,
-            bad_rows:     @errors[:bad_row_count] || 0,
-          })
+        if on_complete
+          on_complete.call({
+                              total_rows: @csv_line_count,
+                              total_chunks: @chunk_count,
+                              duration: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time,
+                              bad_rows: @errors[:bad_row_count] || 0,
+                            })
         end
       ensure
         fh.close if fh.respond_to?(:close)
@@ -547,6 +559,18 @@ module SmarterCSV
     end
 
     private
+
+    # True when the IO is genuinely seekable — i.e. rewind will succeed at the kernel
+    # level, not just the Ruby method table. IO.pipe readers respond to :rewind but
+    # raise Errno::ESPIPE when called; probing #pos surfaces that at decision time.
+    def seekable?(io)
+      return false unless io.respond_to?(:rewind)
+
+      io.pos if io.respond_to?(:pos)
+      true
+    rescue Errno::ESPIPE, IOError, NotImplementedError
+      false
+    end
 
     # Determine if a line has unbalanced quotes requiring multiline stitching.
     # For :auto mode, uses dual counting to avoid false multiline detection.
@@ -695,12 +719,10 @@ module SmarterCSV
             # else: mid-field quote → literal, no state change
           elsif !in_quotes
             # Non-quote character: track whether field has started
-            if strip
-              # rubocop:disable Style/MultipleComparison -- two direct == comparisons are faster than Array#include? in this hot loop
+            if strip # -- two direct == comparisons are faster than Array#include? in this hot loop
               field_started = true unless line[i] == ' ' || line[i] == "\t"
-              # rubocop:enable Style/MultipleComparison
-            else
-              field_started = true
+                          else
+                            field_started = true
             end
           end
           i += 1
