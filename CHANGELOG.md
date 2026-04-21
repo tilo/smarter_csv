@@ -1,14 +1,17 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.16.4 (2026-04-18) — Bug Fix
+## 1.16.4 (2026-04-21) — Bug Fixes
 
-RSpec tests: **1,434 → 1,446** (+12 tests)
+RSpec tests: **1,434 → 1,467** (+33 tests)
 
 ### Bug Fixes
 
 * Fixed bug in `SmarterCSV.errors` that could lose collected records when processing raises mid-stream,
   e.g. when `bad_row_limit:` was exceeded (`TooManyBadRows`), or when a user's block raised through `.process` / `.each` / `.each_chunk`.
+
+* Fixed `enforce_utf8_encoding` incorrectly replacing all non-ASCII bytes when the input string was tagged as `ASCII-8BIT` (binary).
+  The encoding is now relabeled to UTF-8 before transcoding, so only genuinely invalid byte sequences are replaced.
 
 ## 1.16.3 (2026-04-14) — New Feature
 
