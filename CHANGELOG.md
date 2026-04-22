@@ -3,7 +3,7 @@
 
 ## 1.17.3 (unreleased)
 
-RSpec tests: **1,434 → 1,842** (+408 tests)
+RSpec tests: **1,434 → 1,864** (+430 tests)
 
 ### New Features
 

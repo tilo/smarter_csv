@@ -41,37 +41,75 @@ module SmarterCSV
       candidates.key(candidates.values.max)
     end
 
-    # Scans up to auto_row_sep_chars characters to count line endings.
-    # Stops early once the limit is reached; set auto_row_sep_chars: 0 to scan the full file.
+    # Hard cap on total bytes scanned looking for a decisive row separator.
+    # Kept as a constant for now; we can promote it to an option if a real
+    # use case appears.
+    MAX_AUTO_SCAN = 65_536
+
+    # Guess the row separator ("\n", "\r\n", or "\r") by counting occurrences
+    # in the unquoted portion of the stream.
+    #
+    # Reads one chunk of options[:auto_row_sep_chars] bytes at a time and
+    # grows the buffer up to MAX_AUTO_SCAN bytes while no candidate has a clear
+    # majority (count > sum of the others).
+    #
+    # When a chunk ends exactly on "\r", one extra byte is read so a lone
+    # "\r" is never mistaken for the first half of "\r\n".
+    #
+    # Falls back to "\n" (and emits a warning unless verbose: :quiet) when:
+    #   * no known separator is found within MAX_AUTO_SCAN bytes — e.g. a file
+    #     that uses an exotic separator like "\u2028"; or
+    #   * a tie between candidates persists across MAX_AUTO_SCAN bytes.
+    #
+    # The fallback preserves 14 years of permissive behavior; the warning lets
+    # infrastructure code (logs, captured stderr) surface the ambiguity.
     def guess_line_ending(filehandle, options)
-      counts = {"\n" => 0, "\r" => 0, "\r\n" => 0}
-      quoted_char = false
+      q = Regexp.escape(options[:quote_char])
+      quoted_re = /#{q}[^#{q}]*#{q}/
+      chunk_size = [options[:auto_row_sep_chars].to_i, 64].max
+      buf = String.new
+      bytes_read = false
+      crlf = lf = cr = 0
 
-      # count how many of the pre-defined line-endings we find
-      # ignoring those contained within quote characters
-      last_char = nil
-      lines = 0
-      filehandle.each_char do |c|
-        quoted_char = !quoted_char if c == options[:quote_char]
-        next if quoted_char
+      loop do
+        part = filehandle.read(chunk_size)
+        break if part.nil? || part.empty?
 
-        if last_char == "\r"
-          if c == "\n"
-            counts["\r\n"] += 1
-          else
-            counts["\r"] += 1 # \r are counted after they appeared
-          end
-        elsif c == "\n"
-          counts["\n"] += 1
+        bytes_read = true
+        buf << part
+
+        if buf.end_with?("\r")
+          extra = filehandle.read(1)
+          buf << extra if extra
         end
-        last_char = c
-        lines += 1
-        break if options[:auto_row_sep_chars] && options[:auto_row_sep_chars] > 0 && lines >= options[:auto_row_sep_chars]
+
+        unquoted = buf.gsub(quoted_re, '')
+        crlf = unquoted.scan("\r\n").size
+        lf   = unquoted.count("\n") - crlf
+        cr   = unquoted.count("\r") - crlf
+
+        # Clear majority: winner strictly greater than the sum of the others.
+        return "\r\n" if crlf > lf + cr
+        return "\n"   if lf   > crlf + cr
+        return "\r"   if cr   > crlf + lf
+
+        break if buf.bytesize >= MAX_AUTO_SCAN
       end
-      counts["\r"] += 1 if last_char == "\r"
-      # find the most frequent key/value pair:
-      most_frequent_key, _count = counts.max_by{|_, v| v}
-      most_frequent_key
+
+      # Empty stream — return harmless fallback; downstream raises EmptyFileError.
+      return "\n" unless bytes_read
+
+      unless options[:verbose] == :quiet
+        if crlf == 0 && lf == 0 && cr == 0
+          warn "SmarterCSV: no row separator found in first #{buf.bytesize} bytes; " \
+               "defaulting to \"\\n\". Pass row_sep: explicitly if this is wrong."
+        else
+          warn "SmarterCSV: no clear row separator in first #{buf.bytesize} bytes " \
+               "(saw #{lf}×\"\\n\", #{crlf}×\"\\r\\n\", #{cr}×\"\\r\"); defaulting to \"\\n\". " \
+               "Pass row_sep: explicitly if this is wrong."
+        end
+      end
+      "\n"
     end
   end
 end
