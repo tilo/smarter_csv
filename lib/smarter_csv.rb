@@ -67,24 +67,30 @@ module SmarterCSV
   #   reader = SmarterCSV::Reader.new(input, options)
   #   reader.process # with or without block
   #
-  # After calling any of the class-level methods, errors from the last run are available via:
+  # After calling any of the class-level methods, errors and warnings from the last run
+  # are available via:
   #
-  #   SmarterCSV.errors  # => { bad_row_count: 2, bad_rows: [...] }
+  #   SmarterCSV.errors    # => { bad_row_count: 2, bad_rows: [...] }
+  #   SmarterCSV.warnings  # => [ { type:, code:, message:, count: }, ... ]
   #
-  # This exposes the same reader.errors hash without requiring access to the Reader instance.
-  # Errors are cleared at the start of each call and stored per-thread, so this is safe in
-  # multi-threaded environments (Puma, Sidekiq). Note: only the most recent call's errors
-  # are retained per thread.
+  # These expose the same reader.errors / reader.warnings without requiring access to the
+  # Reader instance. Both are cleared at the start of each call and stored per-thread, so
+  # this is safe in multi-threaded environments (Puma, Sidekiq). Only the most recent
+  # call's errors and warnings are retained per thread.
   #
   def self.process(input, given_options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
+    Thread.current[:current_thread_recent_warnings] = []
     reader = Reader.new(input, given_options)
     reader.process(&block)
   ensure
     # Preserve partial error state when processing raises mid-stream
     # (e.g. TooManyBadRows, or a user block raising). `reader` is nil if
     # Reader.new itself raised before the local was assigned.
-    Thread.current[:current_thread_recent_errors] = reader.errors if reader
+    if reader
+      Thread.current[:current_thread_recent_errors] = reader.errors
+      Thread.current[:current_thread_recent_warnings] = reader.warnings
+    end
   end
 
   # Convenience method for parsing a CSV string directly.
@@ -112,10 +118,14 @@ module SmarterCSV
   #   SmarterCSV.each("data.csv").lazy.map { |h| h[:name] }.first(10)
   def self.each(input, options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
+    Thread.current[:current_thread_recent_warnings] = []
     reader = Reader.new(input, options)
     reader.each(&block)
   ensure
-    Thread.current[:current_thread_recent_errors] = reader.errors if reader
+    if reader
+      Thread.current[:current_thread_recent_errors] = reader.errors
+      Thread.current[:current_thread_recent_warnings] = reader.warnings
+    end
   end
 
   # Yields each chunk as Array<Hash> plus its 0-based chunk index.
@@ -129,10 +139,14 @@ module SmarterCSV
   #   SmarterCSV.each_chunk("data.csv", chunk_size: 100).with_index { |chunk, i| ... }
   def self.each_chunk(input, options = {}, &block)
     Thread.current[:current_thread_recent_errors] = {}
+    Thread.current[:current_thread_recent_warnings] = []
     reader = Reader.new(input, options)
     reader.each_chunk(&block)
   ensure
-    Thread.current[:current_thread_recent_errors] = reader.errors if reader
+    if reader
+      Thread.current[:current_thread_recent_errors] = reader.errors
+      Thread.current[:current_thread_recent_warnings] = reader.warnings
+    end
   end
 
   # Returns the errors from the most recent call to .process, .parse, .each, or .each_chunk
@@ -148,6 +162,21 @@ module SmarterCSV
   #
   def self.errors
     Thread.current[:current_thread_recent_errors] || {}
+  end
+
+  # Returns the warnings from the most recent call to .process, .parse, .each, or .each_chunk
+  # on the current thread. Cleared at the start of each new call.
+  #
+  # Each warning is a Hash: { type:, code:, message:, count: }.
+  # Repeated warnings of the same (type, code) are deduped — `count` tracks
+  # the number of occurrences.
+  #
+  # Example:
+  #   SmarterCSV.process('data.csv')
+  #   SmarterCSV.warnings.each { |w| logger.warn("[#{w[:type]}/#{w[:code]}] #{w[:message]} (×#{w[:count]})") }
+  #
+  def self.warnings
+    Thread.current[:current_thread_recent_warnings] || []
   end
 
   # Convenience method for generating CSV files, IO objects, or in-memory strings.
@@ -185,7 +214,6 @@ module SmarterCSV
   #     end
   #   end
   #
-  # rubocop:disable Lint/UnusedMethodArgument
   def self.generate(file_path_or_io = nil, options = {}, &block)
     raise ArgumentError, "SmarterCSV.generate requires a block" unless block_given?
 
@@ -214,5 +242,4 @@ module SmarterCSV
       end
     end
   end
-  # rubocop:enable Lint/UnusedMethodArgument
 end

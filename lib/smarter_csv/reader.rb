@@ -10,6 +10,20 @@ module SmarterCSV
     # A warning is emitted to STDERR so users know to configure it explicitly.
     DEFAULT_CHUNK_SIZE = 100
 
+    # Maps warning type → Rails.logger severity. Config hints are informational;
+    # everything else (deprecations, row_sep ambiguity, encoding issues) is a warn.
+    # Unknown types fall back to :warn via fetch default.
+    WARNING_SEVERITY_BY_TYPE = {
+      config: :warn,
+      deprecation: :warn,
+      row_sep: :error, # this is weird.. if it is considered an error, it should go through the @errors mechanism
+      # we should consider re-visiting this!
+      # Maybe instead of passing "type" to the record_warning, we should just pass the severity??
+      # and we need to think more in-depth about what a default row_sep means, and how it would impact the user if they get an error instead of a warning,
+      # and if a warning may be just deceivingly too quiet here...? Need to tihnk about that one.
+      encoding: :warn,
+    }.freeze
+
     include ::SmarterCSV::Reader::Options
     include ::SmarterCSV::FileIO
     include ::SmarterCSV::AutoDetection
@@ -21,7 +35,7 @@ module SmarterCSV
 
     attr_reader :input, :options
     attr_reader :csv_line_count, :chunk_count, :file_line_count
-    attr_reader :enforce_utf8, :has_rails, :has_acceleration
+    attr_reader :enforce_utf8, :has_rails, :has_rails_logger, :has_acceleration
     attr_reader :errors, :warnings, :headers, :raw_header, :result
 
     def self.default_options
@@ -41,6 +55,7 @@ module SmarterCSV
     def initialize(input, given_options = {})
       @input = input
       @has_rails = !!defined?(Rails)
+      @has_rails_logger = defined?(::Rails) && ::Rails.respond_to?(:logger) && !::Rails.logger.nil?
       @csv_line_count = 0
       @chunk_count = 0
       @errors = {}
@@ -579,7 +594,8 @@ module SmarterCSV
     # increment count and return without yielding the block.
     # `dedup: false` bypasses the dedup map (still appends a new record per call);
     # reserve for per-occurrence warnings where each call carries distinct info.
-    # Rails.logger routing will layer on later; today the sink is always `warn`.
+    # Sink: Rails.logger with severity-by-type when Rails is present; otherwise `warn`.
+    # @has_rails is set once at initialize so this stays a cheap boolean branch.
     def record_warning(type:, code:, dedup: true)
       key = [type, code]
       if dedup && (existing = @warnings_by_key[key])
@@ -592,7 +608,12 @@ module SmarterCSV
       @warnings << record
       @warnings_by_key[key] = record if dedup
 
-      warn "SmarterCSV: #{message}"
+      if @has_rails_logger
+        severity = WARNING_SEVERITY_BY_TYPE.fetch(type, :warn)
+        ::Rails.logger.public_send(severity, "SmarterCSV: #{message}")
+      else
+        warn "SmarterCSV: #{message}"
+      end
     end
 
     # True when the IO is genuinely seekable — i.e. rewind will succeed at the kernel
