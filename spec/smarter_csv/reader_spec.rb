@@ -16,7 +16,6 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.input).to eq filename
       expect(reader.headers).to be_nil
       expect(reader.raw_header).to be_nil
-      expect(reader.headerA).to eq []
       expect(reader.warnings).to be_empty
       expect(reader.errors).to be_empty
       expect(reader.result).to eq []
@@ -35,6 +34,33 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.options[:row_sep]).to eq "\r\n"
       expect(reader.options[:quote_char]).to eq "'"
       expect(reader.options[:accelleration]).to eq false
+    end
+  end
+
+  describe "#headerA (deprecated)" do
+    let(:filename) { "#{fixture_path}/basic.csv" }
+    let(:reader) { SmarterCSV::Reader.new(filename) }
+
+    it "returns the initial value of @headerA" do
+      allow(reader).to receive(:warn) # suppress the deprecation message
+      expect(reader.headerA).to eq []
+    end
+
+    it "records a :deprecation / :header_a_method warning" do
+      allow(reader).to receive(:warn)
+      reader.headerA
+      w = reader.warnings.first
+      expect(w[:type]).to eq :deprecation
+      expect(w[:code]).to eq :header_a_method
+      expect(w[:message]).to match(/'headerA' will be removed/)
+      expect(w[:count]).to eq 1
+    end
+
+    it "dedupes repeat calls into a single record" do
+      allow(reader).to receive(:warn)
+      3.times { reader.headerA }
+      expect(reader.warnings.size).to eq 1
+      expect(reader.warnings.first[:count]).to eq 3
     end
   end
 

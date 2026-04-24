@@ -30,7 +30,9 @@ module SmarterCSV
 
     # rubocop:disable Naming/MethodName
     def headerA
-      warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
+      record_warning(type: :deprecation, code: :header_a_method) do
+        "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
+      end
       @headerA
     end
     # rubocop:enable Naming/MethodName
@@ -47,7 +49,8 @@ module SmarterCSV
       @headers = nil
       @raw_header = nil # header as it appears in the file
       @result = []
-      @warnings = {}
+      @warnings = []
+      @warnings_by_key = {}
       @enforce_utf8 = false # only set to true if needed (after options parsing)
       @options = process_options(given_options)
       # true if it is compiled with accelleration
@@ -87,7 +90,11 @@ module SmarterCSV
 
       chunk_size = @options[:chunk_size]
       if chunk_size.nil?
-        warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning." unless @options[:verbose] == :quiet
+        unless @options[:verbose] == :quiet
+          record_warning(type: :config, code: :chunk_size_default) do
+            "chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning."
+          end
+        end
         chunk_size = DEFAULT_CHUNK_SIZE
       end
       unless chunk_size.is_a?(Integer) && chunk_size >= 1
@@ -106,7 +113,7 @@ module SmarterCSV
       end
     end
 
-    def process(&block) # rubocop:disable Lint/UnusedMethodArgument
+    def process(&block)
       @enforce_utf8 = options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
       @verbose = options[:verbose]
 
@@ -135,7 +142,11 @@ module SmarterCSV
         end
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
-          warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
+          unless options[:verbose] == :quiet
+            record_warning(type: :encoding, code: :utf8_missing_binary_mode) do
+              'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+            end
+          end
         end
 
         # Auto-detection. Two orchestrations, same detection functions:
@@ -266,10 +277,10 @@ module SmarterCSV
 
         if on_start
           input_meta = if @input.is_a?(String)
-                          { input: @input, file_size: (File.size(@input) rescue nil) }
-                        else
-                          { input: @input.class.name, file_size: nil }
-                        end
+                         { input: @input, file_size: (File.size(@input) rescue nil) }
+                       else
+                         { input: @input.class.name, file_size: nil }
+                       end
           on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
 
@@ -472,11 +483,11 @@ module SmarterCSV
 
         if on_complete
           on_complete.call({
-                              total_rows: @csv_line_count,
-                              total_chunks: @chunk_count,
-                              duration: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time,
-                              bad_rows: @errors[:bad_row_count] || 0,
-                            })
+                             total_rows: @csv_line_count,
+                             total_chunks: @chunk_count,
+                             duration: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time,
+                             bad_rows: @errors[:bad_row_count] || 0,
+                           })
         end
       ensure
         fh.close if fh.respond_to?(:close)
@@ -559,6 +570,30 @@ module SmarterCSV
     end
 
     private
+
+    # Records a warning into the histogram and emits it to the warning sink.
+    # `@warnings` is an Array of unique (type, code) records with a `count` field.
+    # `@warnings_by_key` is a dedup map keyed by `[type, code]` — key shape must
+    # stay fixed to keep both structures bounded by distinct codes, not by calls.
+    # The block form avoids string allocation on dedup-hit: on a repeat call we
+    # increment count and return without yielding the block.
+    # `dedup: false` bypasses the dedup map (still appends a new record per call);
+    # reserve for per-occurrence warnings where each call carries distinct info.
+    # Rails.logger routing will layer on later; today the sink is always `warn`.
+    def record_warning(type:, code:, dedup: true)
+      key = [type, code]
+      if dedup && (existing = @warnings_by_key[key])
+        existing[:count] += 1
+        return
+      end
+
+      message = yield
+      record = { type: type, code: code, message: message, count: 1 }
+      @warnings << record
+      @warnings_by_key[key] = record if dedup
+
+      warn "SmarterCSV: #{message}"
+    end
 
     # True when the IO is genuinely seekable — i.e. rewind will succeed at the kernel
     # level, not just the Ruby method table. IO.pipe readers respond to :rewind but
@@ -722,9 +757,9 @@ module SmarterCSV
           elsif !in_quotes
             # Non-quote character: track whether field has started
             if strip # -- two direct == comparisons are faster than Array#include? in this hot loop
-              field_started = true unless line[i] == ' ' || line[i] == "\t"
-                          else
-                            field_started = true
+              field_started = true unless [' ', "\t"].include?(line[i])
+            else
+              field_started = true
             end
           end
           i += 1

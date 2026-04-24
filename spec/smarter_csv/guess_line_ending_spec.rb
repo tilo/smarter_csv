@@ -246,4 +246,130 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
       expect(["\n", "\r\n", "\r"]).to include(guess(io))
     end
   end
+
+  # ------------------------------------------------------------------
+  # record_warning contract — verifies the wrapper API at the call-site
+  # boundary, independent of where the warning eventually lands (stderr
+  # today, potentially Rails.logger tomorrow).
+  # ------------------------------------------------------------------
+  describe 'record_warning contract' do
+    context 'when zero known separators are found past the hard cap' do
+      it 'calls record_warning with :row_sep / :no_row_sep_found' do
+        io = StringIO.new('x' * 70_000)
+        expect(reader).to receive(:record_warning)
+          .with(type: :row_sep, code: :no_row_sep_found).and_call_original
+        guess(io)
+      end
+
+      it 'yields a message containing "no row separator found"' do
+        io = StringIO.new('x' * 70_000)
+        expect(reader).to receive(:record_warning) do |**_kwargs, &block|
+          expect(block.call).to match(/no row separator found/)
+        end
+        guess(io)
+      end
+    end
+
+    context 'when an exotic separator like \u2028 is used' do
+      it 'calls record_warning with :row_sep / :no_row_sep_found' do
+        rows = (1..200).map { |i| "id#{i},name#{i},note#{i}\u2028" }.join
+        io = StringIO.new(rows)
+        expect(reader).to receive(:record_warning)
+          .with(type: :row_sep, code: :no_row_sep_found).and_call_original
+        guess(io)
+      end
+    end
+
+    context 'when a true tie between known separators reaches the hard cap' do
+      it 'calls record_warning with :row_sep / :no_clear_row_sep' do
+        io = StringIO.new("\n\r\n" * 25_000)
+        expect(reader).to receive(:record_warning)
+          .with(type: :row_sep, code: :no_clear_row_sep).and_call_original
+        guess(io)
+      end
+
+      it 'yields a message containing "no clear row separator"' do
+        io = StringIO.new("\n\r\n" * 25_000)
+        expect(reader).to receive(:record_warning) do |**_kwargs, &block|
+          expect(block.call).to match(/no clear row separator/)
+        end
+        guess(io)
+      end
+    end
+
+    context 'when verbose: :quiet' do
+      it 'does not call record_warning on zero-separator input' do
+        io = StringIO.new('x' * 70_000)
+        expect(reader).not_to receive(:record_warning)
+        guess(io, verbose: :quiet)
+      end
+
+      it 'does not call record_warning on a truly tied stream past the cap' do
+        io = StringIO.new("\n\r\n" * 25_000)
+        expect(reader).not_to receive(:record_warning)
+        guess(io, verbose: :quiet)
+      end
+    end
+
+    context 'when detection succeeds with a clear majority' do
+      it 'does not call record_warning on a "\n"-only file' do
+        io = StringIO.new("a,b,c\n1,2,3\n4,5,6\n")
+        expect(reader).not_to receive(:record_warning)
+        guess(io)
+      end
+
+      it 'does not call record_warning when a near-tie is resolved by the margin-1 rule' do
+        row = "a,b,c"
+        block = "#{row}\n#{row}\r\n"
+        io = StringIO.new(block * 6000)
+        expect(reader).not_to receive(:record_warning)
+        guess(io)
+      end
+    end
+
+    # --- histogram collection ----------------------------------------
+    context 'histogram collection into reader.warnings' do
+      it 'populates reader.warnings with a record on first occurrence' do
+        io = StringIO.new('x' * 70_000)
+        guess(io)
+        expect(reader.warnings.size).to eq 1
+        w = reader.warnings.first
+        expect(w[:type]).to eq :row_sep
+        expect(w[:code]).to eq :no_row_sep_found
+        expect(w[:count]).to eq 1
+        expect(w[:message]).to match(/no row separator found/)
+      end
+
+      it 'dedupes repeat (type, code) into count, not new records' do
+        3.times { guess(StringIO.new('x' * 70_000)) }
+        expect(reader.warnings.size).to eq 1
+        expect(reader.warnings.first[:count]).to eq 3
+      end
+
+      it 'stores distinct (type, code) pairs as separate records' do
+        guess(StringIO.new('x' * 70_000))       # :no_row_sep_found
+        guess(StringIO.new("\n\r\n" * 25_000))  # :no_clear_row_sep
+        codes = reader.warnings.map { |w| w[:code] }
+        expect(codes).to contain_exactly(:no_row_sep_found, :no_clear_row_sep)
+        expect(reader.warnings.map { |w| w[:count] }).to all(eq(1))
+      end
+
+      it 'does not re-emit to the sink on dedup hits' do
+        allow(reader).to receive(:warn)
+        2.times { guess(StringIO.new('x' * 70_000)) }
+        expect(reader).to have_received(:warn).once
+      end
+
+      it 'does not allocate the message on dedup hits' do
+        # First call allocates. Second call must not invoke the block.
+        guess(StringIO.new('x' * 70_000))
+        calls = 0
+        reader.send(:record_warning, type: :row_sep, code: :no_row_sep_found) do
+          calls += 1
+          'lazy message'
+        end
+        expect(calls).to eq 0
+      end
+    end
+  end
 end
