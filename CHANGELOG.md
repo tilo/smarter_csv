@@ -28,7 +28,9 @@ RSpec tests: **1,434 → 1,905** (+471 tests)
 
 * Improved auto-detection of `row_sep` and `col_sep` — giving more accurate results on files with comment headers.
 
-* Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
+* Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines. 
+Values below `8192` (and `nil` / `0`) are now rejected and fall back to the default `8192` with a warning message.
+  This is a change from the previous `nil` / `0` were documented as "scan whole file".
 
 * `guess_line_ending` now scans the input in chunks up to a 64KB hard cap, returning as soon as one separator has a clear majority. Near-tie chunk-boundary artifacts no longer cause spurious warnings; only true ties at the hard cap fall back to `"\n"` and emit a `:no_clear_row_sep` warning at `:error` severity (silent miss-parse risk).
 
