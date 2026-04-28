@@ -187,10 +187,14 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 
 ### I/O Patterns
 
+SmarterCSV accepts any IO-compatible source — file paths, open `File` handles, `StringIO`, and **non-seekable streams** like pipes, `STDIN`, and `Zlib::GzipReader`. Auto-detection of `row_sep` / `col_sep` works on streaming sources too: SmarterCSV captures the first bytes in an internal peek buffer and replays them, so the underlying source never needs to support `rewind` or `seek`. (Streaming IO support landed in 1.17.0.)
+
 | Source | Issue | Status | Notes |
 |--------|-------|--------|-------|
-| Gzipped CSV (`.csv.gz`) | Compressed file | 🔘 | Decompress and pass the resulting IO object: `SmarterCSV.process(Zlib::GzipReader.open(path))`. |
+| Gzipped CSV (`.csv.gz`) | Compressed, non-seekable stream | 🔘 | `SmarterCSV.process(Zlib::GzipReader.open(path))` — no need to decompress to disk first. |
 | HTTP streaming | Parsing from a live HTTP response | 🔘 | Pass any IO-compatible object that responds to `#gets`. |
+| `STDIN` / shell pipes | Non-seekable input | 🔘 | `cat data.csv \| ruby -rsmarter_csv -e 'SmarterCSV.process(STDIN) { \|h\| ... }'` |
+| `IO.popen` output | Non-seekable subprocess stream | 🔘 | `IO.popen('zcat data.csv.gz') { \|io\| SmarterCSV.process(io) }` |
 
 †: Legacy Apple DB Dump and older UNIX data dumps use ASCII control characters as delimiters:
 

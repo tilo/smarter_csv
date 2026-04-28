@@ -16,7 +16,9 @@
 
   The library includes intelligent defaults, automatic detection of column and row separators, and flexible header/value transformations. These features eliminate much of the boilerplate typically required when working with CSV data and help keep ingestion code concise and maintainable.
 
-  For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines. The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
+  For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines.
+  As of 1.17.0, SmarterCSV also accepts **non-seekable streaming inputs** — pipes, `STDIN`, `Zlib::GzipReader`, and HTTP responses — with no need to materialize the file on disk first.
+  The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
 
   The interface is intentionally designed to robustly handle messy real-world CSV while keeping application code clean. Developers can easily map headers, skip unwanted rows, quarantine problematic data, and transform values on the fly without building custom post-processing pipelines. See [Real-World CSV Files](docs/real_world_csv.md) for a comprehensive guide to production CSV patterns.
 

@@ -31,7 +31,7 @@
 
 Convenient defaults allow automatic detection of the column and row separators: `row_sep: :auto`, `col_sep: :auto`. This makes it easier to process any CSV files without having to examine the line endings or column separators, e.g. when users upload CSV files to your service and you have no control over the incoming files.
 
-You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); `nil` or `0` will check the whole file). Of course you can also set the `:row_sep` manually.
+The setting `:auto_row_sep_chars` controls the chunk size used while scanning for the row separator (default is 8192). Detection reads in chunks of this size and stops as soon as one separator has a clear majority, with a 64KB hard cap. Values below 8192 (and `nil` / `0`) are rejected and fall back to the default with a warning. Of course you can also set the `:row_sep` manually.
 
 
 ## Column Separator `col_sep`
