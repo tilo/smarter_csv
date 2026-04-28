@@ -7,7 +7,18 @@ fixture_path = 'spec/fixtures'
 describe 'SmarterCSV.warnings — class-level warning access' do
   let(:sample_csv) { "#{fixture_path}/sample.csv" }
 
-  before { allow_any_instance_of(Object).to receive(:warn) } # silence stderr during specs
+  # Silence stderr during specs without stubbing Kernel#warn — rspec-mocks can't
+  # intercept methods on prepended modules (which is how Ruby 2.7 / JRuby surface
+  # warn in some setups). Replacing $stderr is portable across all engines.
+  around do |example|
+    original_stderr = $stderr
+    $stderr = StringIO.new
+    begin
+      example.run
+    ensure
+      $stderr = original_stderr
+    end
+  end
 
   # -------------------------------------------------------------------------
   # Initial state
