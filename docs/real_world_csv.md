@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [**Real-World CSV Files**](./real_world_csv.md)

@@ -123,8 +123,9 @@ reader.each do |hash|
   MyModel.upsert(hash)
 end
 
-puts reader.headers       # accessible after processing
+puts reader.headers        # accessible after processing
 puts reader.errors.inspect
+puts reader.warnings       # see [Warnings](./warnings.md)
 ```
 
 ### Returns an Enumerator when called without a block

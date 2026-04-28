@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -142,7 +143,7 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:with_line_numbers` | `false` | Add `:csv_line_number` to each result hash. |
-| `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. |
+| `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. See [Warnings](./warnings.md) for the structured warning collection. |
 
 ### Instrumentation Hooks
 

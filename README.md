@@ -223,6 +223,7 @@ Or install it yourself as:
   * [Data Transformations](docs/data_transformations.md)
   * [Value Converters](docs/value_converters.md)
   * [Bad Row Quarantine](docs/bad_row_quarantine.md)
+  * [Warnings](docs/warnings.md)
   * [Instrumentation Hooks](docs/instrumentation.md)
   * [Examples](docs/examples.md)
   * [Real-World CSV Files](docs/real_world_csv.md)

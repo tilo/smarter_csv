@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [**Bad Row Quarantine**](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -339,4 +340,4 @@ Normal rows (where the entire line fits within the limit) bypass per-field check
 
 --------------------
 
-PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Instrumentation Hooks](./instrumentation.md) | UP: [README](../README.md)
+PREVIOUS: [Value Converters](./value_converters.md) | NEXT: [Warnings](./warnings.md) | UP: [README](../README.md)
