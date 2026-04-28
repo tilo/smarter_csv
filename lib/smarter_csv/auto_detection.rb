@@ -101,12 +101,12 @@ module SmarterCSV
 
       unless options[:verbose] == :quiet
         if crlf == 0 && lf == 0 && cr == 0
-          record_warning(type: :row_sep, code: :no_row_sep_found) do
+          record_warning(type: :row_sep, code: :no_row_sep_found, severity: :error) do
             "no row separator found in first #{buf.bytesize} bytes; " \
             "defaulting to \"\\n\". Pass row_sep: explicitly if this is wrong."
           end
         else
-          record_warning(type: :row_sep, code: :no_clear_row_sep) do
+          record_warning(type: :row_sep, code: :no_clear_row_sep, severity: :error) do
             "no clear row separator in first #{buf.bytesize} bytes " \
             "(saw #{lf}×\"\\n\", #{crlf}×\"\\r\\n\", #{cr}×\"\\r\"); defaulting to \"\\n\". " \
             "Pass row_sep: explicitly if this is wrong."

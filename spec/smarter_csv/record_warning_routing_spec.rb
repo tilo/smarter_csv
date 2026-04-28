@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 # Tests for Reader#record_warning sink routing:
-#   - No Rails.logger → emits via Kernel#warn
-#   - Rails.logger present → emits via Rails.logger with severity per type
+#   - No Rails.logger → emits via Kernel#warn (severity is ignored)
+#   - Rails.logger present → emits via Rails.logger at the given severity
+#   - severity is passed by the caller (default :warn); type is purely a
+#     semantic grouping for callers iterating reader.warnings.
 
 require 'stringio'
 
@@ -10,7 +12,7 @@ describe 'SmarterCSV::Reader#record_warning — sink routing' do
   let(:csv) { "a,b\n1,2\n" }
 
   # -------------------------------------------------------------------------
-  # Non-Rails branch: uses Kernel#warn
+  # Non-Rails branch: uses Kernel#warn regardless of severity
   # -------------------------------------------------------------------------
   describe 'without Rails' do
     it 'routes every warning to Kernel#warn' do
@@ -28,13 +30,29 @@ describe 'SmarterCSV::Reader#record_warning — sink routing' do
       reader.send(:record_warning, type: :config, code: :test_code) { 'boom' }
       expect(reader.warnings.map { |w| w[:code] }).to include(:test_code)
     end
+
+    it 'falls back to Kernel#warn even when severity: :error' do
+      reader = SmarterCSV::Reader.new(StringIO.new(csv))
+
+      expect(reader).to receive(:warn).with(a_string_including('SmarterCSV:', 'oops'))
+      reader.send(:record_warning, type: :row_sep, code: :no_clear_row_sep, severity: :error) { 'oops' }
+    end
+
+    it 'records the severity on the warning record' do
+      reader = SmarterCSV::Reader.new(StringIO.new(csv))
+      allow(reader).to receive(:warn)
+
+      reader.send(:record_warning, type: :row_sep, code: :no_clear_row_sep, severity: :error) { 'oops' }
+      record = reader.warnings.find { |w| w[:code] == :no_clear_row_sep }
+      expect(record[:severity]).to eq(:error)
+    end
   end
 
   # -------------------------------------------------------------------------
-  # Rails branch: uses Rails.logger with severity mapping
+  # Rails branch: uses Rails.logger at caller-supplied severity
   # -------------------------------------------------------------------------
   describe 'with Rails.logger present' do
-    let(:fake_logger) { instance_double('Logger', info: nil, warn: nil, error: nil) }
+    let(:fake_logger) { instance_double('Logger', debug: nil, info: nil, warn: nil, error: nil, fatal: nil) }
 
     before do
       stub_const('Rails', Class.new)
@@ -46,48 +64,49 @@ describe 'SmarterCSV::Reader#record_warning — sink routing' do
       expect(reader.has_rails_logger).to be true
     end
 
-    it 'routes :config warnings at :info severity' do
+    it 'defaults to :warn severity when none is passed' do
       reader = SmarterCSV::Reader.new(StringIO.new(csv))
 
-      expect(fake_logger).to receive(:info).with(a_string_including('SmarterCSV:', 'chunk hint'))
-      expect(fake_logger).not_to receive(:warn)
+      expect(fake_logger).to receive(:warn).with(a_string_including('SmarterCSV:', 'default'))
+      expect(fake_logger).not_to receive(:info)
 
-      reader.send(:record_warning, type: :config, code: :chunk_hint) { 'chunk hint' }
+      reader.send(:record_warning, type: :config, code: :test_code) { 'default' }
     end
 
-    it 'routes :deprecation warnings at :warn severity' do
+    it 'routes at :error when severity: :error' do
       reader = SmarterCSV::Reader.new(StringIO.new(csv))
 
-      expect(fake_logger).to receive(:warn).with(a_string_including('SmarterCSV:', 'gone soon'))
-      reader.send(:record_warning, type: :deprecation, code: :old_method) { 'gone soon' }
+      expect(fake_logger).to receive(:error).with(a_string_including('SmarterCSV:', 'silent miss'))
+      reader.send(:record_warning, type: :row_sep, code: :no_clear_row_sep, severity: :error) { 'silent miss' }
     end
 
-    it 'routes :row_sep warnings at :warn severity' do
+    it 'routes at :info when severity: :info' do
       reader = SmarterCSV::Reader.new(StringIO.new(csv))
 
-      expect(fake_logger).to receive(:warn).with(a_string_including('SmarterCSV:', 'ambiguous'))
-      reader.send(:record_warning, type: :row_sep, code: :no_clear_row_sep) { 'ambiguous' }
+      expect(fake_logger).to receive(:info).with(a_string_including('SmarterCSV:', 'fyi'))
+      reader.send(:record_warning, type: :config, code: :hint, severity: :info) { 'fyi' }
     end
 
-    it 'routes :encoding warnings at :warn severity' do
+    it 'routes at :debug when severity: :debug' do
       reader = SmarterCSV::Reader.new(StringIO.new(csv))
 
-      expect(fake_logger).to receive(:warn).with(a_string_including('SmarterCSV:', 'utf8'))
-      reader.send(:record_warning, type: :encoding, code: :utf8_missing_binary_mode) { 'utf8' }
-    end
-
-    it 'falls back to :warn severity for unknown types' do
-      reader = SmarterCSV::Reader.new(StringIO.new(csv))
-
-      expect(fake_logger).to receive(:warn).with(a_string_including('SmarterCSV:', 'mystery'))
-      reader.send(:record_warning, type: :some_future_type, code: :whatever) { 'mystery' }
+      expect(fake_logger).to receive(:debug).with(a_string_including('SmarterCSV:', 'noise'))
+      reader.send(:record_warning, type: :config, code: :verbose, severity: :debug) { 'noise' }
     end
 
     it 'never calls Kernel#warn when Rails.logger is present' do
       reader = SmarterCSV::Reader.new(StringIO.new(csv))
 
       expect(reader).not_to receive(:warn)
-      reader.send(:record_warning, type: :config, code: :chunk_hint) { 'chunk hint' }
+      reader.send(:record_warning, type: :config, code: :test_code) { 'hi' }
+    end
+
+    it 'records the severity on the warning record' do
+      reader = SmarterCSV::Reader.new(StringIO.new(csv))
+
+      reader.send(:record_warning, type: :row_sep, code: :no_clear_row_sep, severity: :error) { 'silent miss' }
+      record = reader.warnings.find { |w| w[:code] == :no_clear_row_sep }
+      expect(record[:severity]).to eq(:error)
     end
   end
 
@@ -124,7 +143,7 @@ describe 'SmarterCSV::Reader#record_warning — sink routing' do
       allow(Rails).to receive(:logger).and_return(fake_logger)
 
       expect(reader).to receive(:warn)
-      expect(fake_logger).not_to receive(:info)
+      expect(fake_logger).not_to receive(:warn)
       reader.send(:record_warning, type: :config, code: :test_code) { 'hi' }
     end
   end

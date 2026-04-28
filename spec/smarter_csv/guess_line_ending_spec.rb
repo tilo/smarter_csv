@@ -254,10 +254,10 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
   # ------------------------------------------------------------------
   describe 'record_warning contract' do
     context 'when zero known separators are found past the hard cap' do
-      it 'calls record_warning with :row_sep / :no_row_sep_found' do
+      it 'calls record_warning with :row_sep / :no_row_sep_found at :error severity' do
         io = StringIO.new('x' * 70_000)
         expect(reader).to receive(:record_warning)
-          .with(type: :row_sep, code: :no_row_sep_found).and_call_original
+          .with(type: :row_sep, code: :no_row_sep_found, severity: :error).and_call_original
         guess(io)
       end
 
@@ -271,20 +271,20 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
     end
 
     context 'when an exotic separator like \u2028 is used' do
-      it 'calls record_warning with :row_sep / :no_row_sep_found' do
+      it 'calls record_warning with :row_sep / :no_row_sep_found at :error severity' do
         rows = (1..200).map { |i| "id#{i},name#{i},note#{i}\u2028" }.join
         io = StringIO.new(rows)
         expect(reader).to receive(:record_warning)
-          .with(type: :row_sep, code: :no_row_sep_found).and_call_original
+          .with(type: :row_sep, code: :no_row_sep_found, severity: :error).and_call_original
         guess(io)
       end
     end
 
     context 'when a true tie between known separators reaches the hard cap' do
-      it 'calls record_warning with :row_sep / :no_clear_row_sep' do
+      it 'calls record_warning with :row_sep / :no_clear_row_sep at :error severity' do
         io = StringIO.new("\n\r\n" * 25_000)
         expect(reader).to receive(:record_warning)
-          .with(type: :row_sep, code: :no_clear_row_sep).and_call_original
+          .with(type: :row_sep, code: :no_clear_row_sep, severity: :error).and_call_original
         guess(io)
       end
 

@@ -7,22 +7,9 @@ module SmarterCSV
     include Enumerable
 
     # Default chunk size used by each_chunk when chunk_size is not explicitly set.
-    # A warning is emitted to STDERR so users know to configure it explicitly.
+    # A warning is recorded (and emitted via Rails.logger or Kernel#warn) so users
+    # know to configure it explicitly.
     DEFAULT_CHUNK_SIZE = 100
-
-    # Maps warning type → Rails.logger severity. Config hints are informational;
-    # everything else (deprecations, row_sep ambiguity, encoding issues) is a warn.
-    # Unknown types fall back to :warn via fetch default.
-    WARNING_SEVERITY_BY_TYPE = {
-      config: :warn,
-      deprecation: :warn,
-      row_sep: :error, # this is weird.. if it is considered an error, it should go through the @errors mechanism
-      # we should consider re-visiting this!
-      # Maybe instead of passing "type" to the record_warning, we should just pass the severity??
-      # and we need to think more in-depth about what a default row_sep means, and how it would impact the user if they get an error instead of a warning,
-      # and if a warning may be just deceivingly too quiet here...? Need to tihnk about that one.
-      encoding: :warn,
-    }.freeze
 
     include ::SmarterCSV::Reader::Options
     include ::SmarterCSV::FileIO
@@ -594,9 +581,10 @@ module SmarterCSV
     # increment count and return without yielding the block.
     # `dedup: false` bypasses the dedup map (still appends a new record per call);
     # reserve for per-occurrence warnings where each call carries distinct info.
-    # Sink: Rails.logger with severity-by-type when Rails is present; otherwise `warn`.
-    # @has_rails is set once at initialize so this stays a cheap boolean branch.
-    def record_warning(type:, code:, dedup: true)
+    # `severity:` controls the Rails.logger level (`:debug`/`:info`/`:warn`/`:error`/`:fatal`);
+    # the non-Rails fallback is always `Kernel#warn` regardless of severity.
+    # `type` is purely a semantic grouping for callers iterating reader.warnings.
+    def record_warning(type:, code:, severity: :warn, dedup: true)
       key = [type, code]
       if dedup && (existing = @warnings_by_key[key])
         existing[:count] += 1
@@ -604,12 +592,11 @@ module SmarterCSV
       end
 
       message = yield
-      record = { type: type, code: code, message: message, count: 1 }
+      record = { type: type, code: code, severity: severity, message: message, count: 1 }
       @warnings << record
       @warnings_by_key[key] = record if dedup
 
       if @has_rails_logger
-        severity = WARNING_SEVERITY_BY_TYPE.fetch(type, :warn)
         ::Rails.logger.public_send(severity, "SmarterCSV: #{message}")
       else
         warn "SmarterCSV: #{message}"

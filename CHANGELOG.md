@@ -1,20 +1,36 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.3 (unreleased)
+## 1.17.0.pre5 (2026-04-28)
 
-RSpec tests: **1,434 → 1,864** (+430 tests)
+RSpec tests: **1,434 → 1,905** (+471 tests)
 
 ### New Features
 
 * **Streaming IO support** — SmarterCSV now works with non-seekable IO sources such as pipes, STDIN, and Zlib streams.
   A rewindable peek buffer transparently captures the first bytes of the stream so that `row_sep` and `col_sep` auto-detection can replay them without requiring the underlying source to support `rewind` or `seek`.
 
+* **Structured warnings** — auto-detection and configuration warnings are now collected on the Reader as a deduped histogram:
+
+  ```ruby
+  reader = SmarterCSV::Reader.new('data.csv')
+  reader.process
+  reader.warnings  # => [{ type:, code:, severity:, message:, count: }, ...]
+  ```
+
+  Repeated warnings of the same `(type, code)` are deduped — `count` tracks occurrences. Available codes today: `:chunk_size_default`, `:header_a_method`, `:utf8_missing_binary_mode`, `:no_clear_row_sep`, `:no_row_sep_found`.
+
+* **Class-level `SmarterCSV.warnings`** accessor — mirrors `SmarterCSV.errors`. Per-thread, cleared at the start of each `.process` / `.parse` / `.each` / `.each_chunk` call. Safe under Puma/Sidekiq.
+
+* **Rails.logger routing** — when `Rails.logger` is present, warnings are routed through it at the severity declared at the call site (`:debug` / `:info` / `:warn` / `:error` / `:fatal`); otherwise `Kernel#warn` is used as a fallback. Detection is cached at construct time, no per-call overhead.
+
 ### Improvements
 
 * Improved auto-detection of `row_sep` and `col_sep` — giving more accurate results on files with comment headers.
 
 * Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines.
+
+* `guess_line_ending` now scans the input in chunks up to a 64KB hard cap, returning as soon as one separator has a clear majority. Near-tie chunk-boundary artifacts no longer cause spurious warnings; only true ties at the hard cap fall back to `"\n"` and emit a `:no_clear_row_sep` warning at `:error` severity (silent miss-parse risk).
 
 ## 1.16.4 (2026-04-21) — Bug Fixes
 
