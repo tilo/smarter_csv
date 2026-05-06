@@ -101,6 +101,28 @@ When the warning is emitted, the sink is selected at Reader construction time:
 
 Detection is one-shot at construct time, so there is no per-call overhead.
 
+### In a Rails app
+
+No setup needed. SmarterCSV detects `Rails.logger` automatically, and warnings appear in your Rails log at their declared severity:
+
+```ruby
+SmarterCSV.process('data.csv')
+# In log/development.log:
+# [WARN]  SmarterCSV: chunk_size not set, defaulting to 100. ...
+```
+
+### Without Rails (CLI scripts, plain Ruby, Sinatra, etc.)
+
+Falls back to `Kernel#warn`, which writes to `$stderr`:
+
+```ruby
+SmarterCSV.process('data.csv')
+# stderr:
+# SmarterCSV: chunk_size not set, defaulting to 100. ...
+```
+
+The programmatic `reader.warnings` / `SmarterCSV.warnings` collection is identical in both modes — you can always inspect warnings without parsing log output.
+
 ## Suppressing warnings
 
 Pass `verbose: :quiet` to suppress both the recording and the log emission of

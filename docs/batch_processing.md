@@ -211,6 +211,30 @@ SmarterCSV::Reader.new('products.csv', chunk_size: 25).each_chunk do |chunk, _in
 end
 ```
 
+## Example: Resumable Import (Plain Ruby)
+
+Track the chunk cursor in a JSON state file so an interrupted import can resume where it left off — no Rails / ActiveJob required:
+
+```ruby
+require 'json'
+
+STATE_FILE = '/var/run/import.state.json'
+
+state = File.exist?(STATE_FILE) ? JSON.parse(File.read(STATE_FILE)) : { 'cursor' => 0 }
+
+SmarterCSV.process('import.csv', chunk_size: 500) do |chunk, chunk_index|
+  next if chunk_index < state['cursor']  # skip already-processed chunks on resume
+
+  MyModel.import!(chunk)
+  state['cursor'] = chunk_index + 1
+  File.write(STATE_FILE, JSON.dump(state))
+end
+
+File.delete(STATE_FILE)  # done — clear the cursor
+```
+
+If the process is killed at chunk 7, the next run skips chunks 0–6 quickly via `next` and resumes at chunk 7. For Rails 8.1+ projects, see [Examples → Resumable CSV Import with Rails ActiveJob](./examples.md#example-12-resumable-csv-import-with-rails-activejob-rails-81) for the framework-native version.
+
 ## Example: Reading a CSV from S3
 
 SmarterCSV accepts any IO-like object, so you can stream directly from S3 without

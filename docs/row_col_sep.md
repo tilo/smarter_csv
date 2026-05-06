@@ -40,6 +40,25 @@ The automatic detection of column separators considers: `,`, `\t`, `;`, `:`, `|`
 
 Some CSV files may contain an unusual column separqator, which could even be a control character.
 
+### Tab-Separated Values (TSV)
+
+Tab-separated files are auto-detected by default — no options needed:
+
+```ruby
+$ cat data.tsv
+id<TAB>name<TAB>amount
+1<TAB>Alice<TAB>100
+2<TAB>Bob<TAB>200
+
+# Auto-detected — col_sep: :auto is the default
+SmarterCSV.process('data.tsv')
+
+# Or set the separator explicitly
+SmarterCSV.process('data.tsv', col_sep: "\t")
+```
+
+The default `col_sep: :auto` picks tab when it's the dominant delimiter in the first chunk of the file. The explicit form is useful in test fixtures or when you want to fail fast on unexpected formats.
+
 ## Row Separator `row_sep`
 
 The automatic detection of row separators considers: `\n`, `\r\n`, `\r`.

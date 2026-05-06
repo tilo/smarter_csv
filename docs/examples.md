@@ -44,6 +44,11 @@
 11. [Batch Processing with Sidekiq](#example-11-batch-processing-with-sidekiq)
 12. [Resumable CSV Import with Rails ActiveJob](#example-12-resumable-csv-import-with-rails-activejob-rails-81)
 13. [Instrumentation](#example-13-instrumentation)
+14. [Streaming Inputs (Non-Seekable IO)](#example-14-streaming-inputs-non-seekable-io)
+15. [Resumable Import (Plain Ruby)](#example-15-resumable-import-plain-ruby)
+16. [CSV Files with Comment Lines](#example-16-csv-files-with-comment-lines)
+17. [Tab-Separated Values (TSV)](#example-17-tab-separated-values-tsv)
+18. [Multi-Line Fields](#example-18-multi-line-fields)
 
 ---
 
@@ -369,6 +374,60 @@ SmarterCSV.process('large_import.csv',
 ```
 
 See [Instrumentation Hooks](./instrumentation.md).
+
+---
+
+## Example 14: Streaming Inputs (Non-Seekable IO)
+
+*(1.17.0+)* SmarterCSV reads from gzipped files, HTTP responses, S3 objects, or piped STDIN — no need to materialize the file on disk first.
+
+```ruby
+require 'zlib'
+Zlib::GzipReader.open('huge.csv.gz') do |io|
+  SmarterCSV.process(io) { |row| MyModel.upsert(row.first) }
+end
+```
+
+See [Real-World CSV Files → I/O Patterns](./real_world_csv.md#io-patterns) for gzip, S3, HTTP, STDIN, and `IO.popen` worked examples.
+
+---
+
+## Example 15: Resumable Import (Plain Ruby)
+
+A non-Rails counterpart to Example 12 — track the chunk cursor in a JSON file so an interrupted import resumes where it left off.
+
+See [Batch Processing → Resumable Import (Plain Ruby)](./batch_processing.md#example-resumable-import-plain-ruby) for the worked example.
+
+---
+
+## Example 16: CSV Files with Comment Lines
+
+Strip lines matching a pattern (e.g. `#`-prefixed comments in DB dumps and log exports) using `comment_regexp`:
+
+```ruby
+SmarterCSV.process('data.csv', comment_regexp: /\A#/)
+```
+
+See [Header Transformations → CSV Files with Comment Lines](./header_transformations.md#csv-files-with-comment-lines) for the worked example.
+
+---
+
+## Example 17: Tab-Separated Values (TSV)
+
+```ruby
+SmarterCSV.process('data.tsv')                  # auto-detected
+SmarterCSV.process('data.tsv', col_sep: "\t")   # explicit
+```
+
+See [Row and Column Separators → Tab-Separated Values (TSV)](./row_col_sep.md#tab-separated-values-tsv) for details.
+
+---
+
+## Example 18: Multi-Line Fields
+
+Newlines inside `"..."` are preserved as part of the field — common in addresses, CRM notes, and free-text comments. No configuration needed.
+
+See [Real-World CSV Files → Multi-Line Quoted Fields](./real_world_csv.md#multi-line-quoted-fields) for the worked example.
 
 --------------------
 PREVIOUS: [Instrumentation Hooks](./instrumentation.md) | NEXT: [Real-World CSV Files](./real_world_csv.md) | UP: [README](../README.md)

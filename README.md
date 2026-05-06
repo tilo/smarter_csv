@@ -14,6 +14,8 @@
 
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
+  In a Rails app, warnings auto-route through `Rails.logger` and instrumentation hooks compose with `ActiveSupport::Notifications` — no setup required. Outside Rails, warnings fall back to `$stderr` and the same APIs work without any framework dependency.
+
   The library includes intelligent defaults, automatic detection of column and row separators, and flexible header/value transformations. These features eliminate much of the boilerplate typically required when working with CSV data and help keep ingestion code concise and maintainable.
 
   For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines.
@@ -126,6 +128,23 @@ strip_whitespace → nil_values_matching → remove_empty_values → remove_zero
 
 Each step is individually configurable. See [Data Transformations](docs/data_transformations.md) and [Value Converters](docs/value_converters.md) for details.
 
+### Value Converters
+
+Per-column lambdas convert raw strings into typed values — dates, currency, booleans:
+
+```ruby
+require 'date'
+
+data = SmarterCSV.process('orders.csv',
+  value_converters: {
+    dob:    ->(v) { v && Date.strptime(v, '%m/%d/%Y') },
+    price:  ->(v) { v&.delete('$,')&.to_f },
+    active: ->(v) { v&.match?(/\Atrue\z/i) },
+  })
+```
+
+See [Value Converters](docs/value_converters.md).
+
 ### Batch Processing:
 
 Processing large CSV files in chunks minimizes memory usage and enables powerful workflows:
@@ -149,6 +168,8 @@ SmarterCSV.process(filename, chunk_size: 100) do |chunk|
 end
 ```
 
+See [Batch Processing](docs/batch_processing.md) for chunk sizing, `each_chunk`, and parallel-worker patterns.
+
 ### Modern Enumerator API:
 
 `Reader#each` is the modern, idiomatic way to process rows — `Reader` includes `Enumerable`, so all standard Ruby methods work:
@@ -168,6 +189,27 @@ first_ten = reader.lazy.select { |h| h[:active] }.first(10)
 reader.each_slice(500) { |batch| MyModel.insert_all(batch) }
 ```
 
+See [The Basic Read API](docs/basic_read_api.md) for the full `Reader` interface.
+
+### Streaming / Non-Seekable Inputs (1.17.0+):
+
+SmarterCSV reads directly from any IO — no need to materialize the file on disk first. Auto-detection works on streaming inputs without rewinding; the first chunk is buffered transparently.
+
+```ruby
+# Gzipped CSV — stream-decompressed, never written to disk
+require 'zlib'
+Zlib::GzipReader.open('huge.csv.gz') do |io|
+  SmarterCSV.process(io) { |row| MyModel.upsert(row.first) }
+end
+
+# STDIN / pipes
+SmarterCSV.process($stdin) { |row, _| ... }
+
+# HTTP response body
+require 'open-uri'
+URI.open('https://example.com/data.csv') { |io| SmarterCSV.process(io) }
+```
+
 ### Bad Row Handling:
 
 SmarterCSV can quarantine malformed rows instead of crashing the entire import:
@@ -184,7 +226,33 @@ end
 
 See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details including `bad_row_limit` and `field_size_limit`.
 
-See [13 Examples](docs/examples.md) for more, including value converters, header validation, writing CSV, encoding handling, and resumable Rails ActiveJob imports.
+### Header Validation:
+
+Raise early if the file is missing required columns, before any data row is processed:
+
+```ruby
+begin
+  SmarterCSV.process('transactions.csv',
+    required_keys: [:account_id, :amount, :currency])
+rescue SmarterCSV::MissingKeys => e
+  abort "CSV missing columns: #{e.keys.join(', ')}"
+end
+```
+
+See [Header Validations](docs/header_validations.md).
+
+### Writing CSV:
+
+```ruby
+SmarterCSV.generate('output.csv') do |csv|
+  csv << { name: 'Alice', age: 30, city: 'New York' }
+  csv << { name: 'Bob',   age: 25, city: 'Chicago'  }
+end
+```
+
+Hashes (not arrays) make column-shift bugs impossible — adding a column never silently misaligns existing rows. See [The Basic Write API](docs/basic_write_api.md) for header renaming, value converters, and ordered output.
+
+See [18 Examples](docs/examples.md) for more, including encoding and preamble handling, key mapping, instrumentation hooks, and resumable Rails ActiveJob imports.
 
 ## Requirements
 

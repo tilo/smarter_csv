@@ -189,6 +189,31 @@ File.open('output.csv', 'w') do |f|
 end
 ```
 
+**Write to STDOUT (e.g. piping to another process):**
+
+```ruby
+SmarterCSV.generate($stdout) do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+Useful in CLI scripts: `ruby export.rb | gzip > out.csv.gz`.
+
+**Stream a CSV upload to S3 — never written to disk:**
+
+```ruby
+require 'aws-sdk-s3'
+
+obj = Aws::S3::Object.new(bucket_name: 'exports', key: 'reports/daily.csv')
+obj.upload_stream do |stream|
+  SmarterCSV.generate(stream) do |csv|
+    Order.find_each { |o| csv << o.attributes }
+  end
+end
+```
+
+`upload_stream` performs a multipart upload, so the CSV is sent to S3 incrementally as it's generated — memory usage stays flat regardless of result size.
+
 ### Full Interface
 
 The full interface gives you direct access to the `Writer` instance, which is useful when you
