@@ -49,6 +49,7 @@
 16. [CSV Files with Comment Lines](#example-16-csv-files-with-comment-lines)
 17. [Tab-Separated Values (TSV)](#example-17-tab-separated-values-tsv)
 18. [Multi-Line Fields](#example-18-multi-line-fields)
+19. [Filtering and Transforming a CSV File](#example-19-filtering-and-transforming-a-csv-file)
 
 ---
 
@@ -428,6 +429,71 @@ See [Row and Column Separators → Tab-Separated Values (TSV)](./row_col_sep.md#
 Newlines inside `"..."` are preserved as part of the field — common in addresses, CRM notes, and free-text comments. No configuration needed.
 
 See [Real-World CSV Files → Multi-Line Quoted Fields](./real_world_csv.md#multi-line-quoted-fields) for the worked example.
+
+---
+
+## Example 19: Filtering and Transforming a CSV File
+
+The Ruby CSV library has `CSV.filter` for "read CSV, mutate each row, write CSV." In SmarterCSV this is a two-line composition of `SmarterCSV.each` and `SmarterCSV.generate`:
+
+```ruby
+SmarterCSV.generate('out.csv') do |csv|
+  SmarterCSV.each('in.csv') do |row|
+    row[:price] = (row[:price] * 1.1).round(2)
+    row.delete(:internal_notes)
+    csv << row
+  end
+end
+```
+
+The explicit `csv << row` is the win over `CSV.filter` — emission is intentional, not a side effect of mutating the block argument.
+
+### Pipeline (STDIN → STDOUT)
+
+```ruby
+# cat in.csv | ruby filter.rb > out.csv
+SmarterCSV.generate($stdout) do |csv|
+  SmarterCSV.each($stdin) { |row| csv << row }
+end
+```
+
+### Skipping rows
+
+```ruby
+SmarterCSV.generate('out.csv') do |csv|
+  SmarterCSV.each('in.csv') do |row|
+    next if row[:status] == 'archived'   # just skip — no emit
+    csv << row
+  end
+end
+```
+
+### Compressed in, compressed out
+
+```ruby
+require 'zlib'
+Zlib::GzipWriter.open('out.csv.gz') do |gz_out|
+  SmarterCSV.generate(gz_out) do |csv|
+    Zlib::GzipReader.open('in.csv.gz') do |gz_in|
+      SmarterCSV.each(gz_in) { |row| csv << row }
+    end
+  end
+end
+```
+
+Both endpoints are non-seekable streams — a pattern `CSV.filter` cannot handle, since it requires seekable input/output.
+
+### Header renaming on the way through
+
+```ruby
+SmarterCSV.generate('out.csv', headers: [:given_name, :family_name, :email]) do |csv|
+  SmarterCSV.each('in.csv',
+    key_mapping: { first_name: :given_name, last_name: :family_name }
+  ) { |row| csv << row }
+end
+```
+
+Use `key_mapping:` on the read side to rename columns and `headers:` on the write side to enforce output column order.
 
 --------------------
 PREVIOUS: [Instrumentation Hooks](./instrumentation.md) | NEXT: [Real-World CSV Files](./real_world_csv.md) | UP: [README](../README.md)

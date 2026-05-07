@@ -186,6 +186,10 @@ reader.each { |hash| MyModel.upsert(hash) }
 reader.errors[:bad_rows].each { |rec| puts "Bad row: #{rec[:error_message]}" }
 ```
 
+### Read-Transform-Write Pipelines
+
+Composing `SmarterCSV.each` with `SmarterCSV.generate` is the idiomatic replacement for Ruby's `CSV.filter` — read CSV, mutate each row, write the result. See [Examples → Filtering and Transforming a CSV File](./examples.md#example-19-filtering-and-transforming-a-csv-file) for the full set of patterns (file → file, STDIN → STDOUT, gzip → gzip, header renaming).
+
 ---
 
 ## Value Transformation Pipeline

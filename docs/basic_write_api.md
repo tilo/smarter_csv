@@ -642,6 +642,10 @@ end
 > **Note:** `write_headers: false` only suppresses the header line. All other
 > options (`col_sep:`, `row_sep:`, `value_converters:`, etc.) apply as normal.
 
+## Read-Transform-Write Pipelines
+
+Pairing `SmarterCSV.generate` with `SmarterCSV.each` on the read side is the idiomatic replacement for Ruby's `CSV.filter`. See [Examples → Filtering and Transforming a CSV File](./examples.md#example-19-filtering-and-transforming-a-csv-file) for the full set of patterns, including streaming gzip → gzip pipelines.
+
 ## More Examples
 
 Check out the [RSpec tests](../spec/smarter_csv/writer_spec.rb) for more examples.
