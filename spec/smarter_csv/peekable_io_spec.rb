@@ -268,6 +268,55 @@ RSpec.describe SmarterCSV::PeekableIO do
   # ---------------------------------------------------------------------------
   # #eof?
   # ---------------------------------------------------------------------------
+  # eof? has the same `if buffer_exhausted?` early-return pattern as the
+  # pre-fix read() and each_char() — it delegates to @io.eof? without checking
+  # @buffer_frozen. read() and each_char() needed the @buffer_frozen guard
+  # because they CONSUMED bytes from @io that needed to be appended to the
+  # buffer for later replay. eof? is a pure query — no state mutation, no
+  # bytes consumed — so the same pattern should be safe. These tests verify
+  # that claim by exercising the buffer-exhausted-but-not-frozen state.
+  describe '#eof? — buffer-exhausted-but-not-frozen (regression coverage)' do
+    let(:opts) { {row_sep: "\n"} }
+
+    it 'returns false when buffer is exhausted but @io still has bytes' do
+      pio = described_class.new(StringIO.new('abcdefghij'), opts, buffer_size: 4)
+      pio.peek                            # buffer = "abcd", pos 0
+      _ = pio.read(4)                     # consumes the buffer; pos == bytesize, NOT frozen
+      expect(pio.eof?).to eq false        # @io has "efghij" remaining
+    end
+
+    it 'returns true when buffer is exhausted and @io is at EOF' do
+      pio = described_class.new(StringIO.new('abc'), opts, buffer_size: 4)
+      pio.peek                            # reads only "abc" — fewer than buffer_size
+      _ = pio.read                        # drains everything to the caller
+      expect(pio.eof?).to eq true
+    end
+
+    it 'returns false while replaying a frozen buffer with bytes still unread' do
+      pio = described_class.new(StringIO.new("abcd\nefgh\n"), opts, buffer_size: 8)
+      pio.peek
+      pio.freeze_buffer!
+      pio.rewind_buffer
+      expect(pio.eof?).to eq false        # frozen, not exhausted
+      _ = pio.read(4)
+      expect(pio.eof?).to eq false        # frozen, partly replayed
+    end
+
+    it 'subsequent reads after eof?: false still extend the buffer (no bytes lost)' do
+      # If eof? had the same bug as the old read() — delegating to @io
+      # without preserving state — a subsequent rewind_buffer would lose
+      # the bytes between peek and the eof? call. Verify it doesn't.
+      pio = described_class.new(StringIO.new('abcdefghij'), opts, buffer_size: 4)
+      pio.peek
+      _ = pio.read(4)                     # exhaust the buffer
+      pio.eof?                            # should not consume from @io
+      pio.rewind_buffer
+      replayed = pio.read(4)
+      expect(replayed.bytesize).to eq 4
+      expect(replayed).to eq 'abcd'       # bytes still recoverable
+    end
+  end
+
   describe '#eof?' do
     it 'is false while peek buffer has unread bytes' do
       pio.peek(16_384)
@@ -1192,6 +1241,55 @@ RSpec.describe SmarterCSV::PeekableIO do
       second = pio.gets("\n")           # frozen-exhausted path: delegates to @io.gets
       expect(second.encoding).to eq(Encoding::ISO_8859_1)
       expect(second.b).to eq("foo\xE9bar\n".b) # bytes unchanged, only tag differs
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Stress matrix: PeekableIO at sub-floor buffer sizes (below the public
+  # MIN_BUFFER_SIZE of 4096). Previously these ran as integration tests through
+  # SmarterCSV.process at small buffer_sizes. Once buffer_size gained a public
+  # floor with validation/clamping, those cases are no longer reachable through
+  # the public API — but PeekableIO itself still has to work correctly at any
+  # buffer size, so we exercise it directly here.
+  #
+  # Each test mimics the sequence Reader#process performs:
+  #   peek → drive a few gets (mimics auto-detection extending the buffer) →
+  #   rewind_buffer → freeze_buffer! → rewind_buffer → gets-loop until EOF
+  #
+  # That exercises buffer extension, frozen-phase replay, and delegate-to-@io
+  # paths in a single test, across all common col_sep × row_sep combinations.
+  [3, 19, 128, 512].each do |test_buffer_size|
+    describe "stress matrix at sub-floor buffer_size: #{test_buffer_size}" do
+      col_seps    = [',', ';', "\t", '|', ':']
+      row_sep_map = { 'LF' => "\n", 'CRLF' => "\r\n", 'CR' => "\r" }
+
+      col_seps.each do |col_sep|
+        col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+        row_sep_map.each do |row_label, row_sep|
+          it "delivers all lines via gets for col_sep=#{col_label} row_sep=#{row_label}" do
+            header  = "name#{col_sep}value#{row_sep}"
+            rows    = (1..20).map { |i| "item_#{i}#{col_sep}#{i * 10}#{row_sep}" }.join
+            content = header + rows
+
+            pio = described_class.new(StringIO.new(content), { row_sep: row_sep, quote_char: '"' }, buffer_size: test_buffer_size)
+            pio.peek
+            # Drive a few gets to extend the buffer (mimics what auto-detection does)
+            3.times { pio.gets(row_sep) }
+            pio.rewind_buffer
+            pio.freeze_buffer!
+            pio.rewind_buffer
+
+            lines = []
+            while (line = pio.gets(row_sep))
+              lines << line
+            end
+
+            expect(lines.length).to eq(21) # 1 header + 20 data rows
+            expect(lines.first).to eq(header)
+            expect(lines.last).to  eq("item_20#{col_sep}200#{row_sep}")
+          end
+        end
+      end
     end
   end
 end

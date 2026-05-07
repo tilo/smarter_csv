@@ -14,7 +14,7 @@ require 'stringio'
 #   * Separators inside quoted regions are NOT counted (single-byte quote_char)
 #   * Empty / ambiguous input returns "\n" as a safe fallback
 #   * On tie or zero-found within the initial chunk, the method reads more input
-#     up to a hard cap (MAX_AUTO_SCAN = 65_536 bytes)
+#     up to a hard cap (MAX_AUTO_ROW_SEP_CHARS = 65_536 bytes)
 #   * When the initial chunk ends exactly on "\r", one extra byte is read so
 #     "\r\n" is never misclassified as "\r"
 #   * Does not mutate the options hash
@@ -25,7 +25,7 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
   def guess(io, **opts)
     options = {
       quote_char: '"',
-      auto_row_sep_chars: 8192,
+      auto_row_sep_chars: SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS,
     }.merge(opts)
     reader.send(:guess_line_ending, io, options)
   end
@@ -159,7 +159,7 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
     end
 
     it 'warns and returns "\n" fallback when no known separator is found within the hard cap' do
-      # 70 KB of data with zero known separators anywhere — exceeds MAX_AUTO_SCAN (64 KB).
+      # 70 KB of data with zero known separators anywhere — exceeds MAX_AUTO_ROW_SEP_CHARS (64 KB).
       # This models an exotic-separator file (e.g. iTunes-style "\u2028").
       io = StringIO.new('x' * 70_000)
       result = nil
@@ -195,12 +195,12 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
     end
 
     it 'warns and returns "\n" fallback when a truly tied stream reaches the hard cap' do
-      # Repeating unit "\n\r\n" keeps counts exactly tied at every chunk boundary:
-      # each 8192-byte read ends on "\r", the existing extra-byte read pulls in
-      # the following "\n", and the buffer lands on a whole-block boundary with
-      # 1× "\n" and 1× "\r\n" per 3 bytes. After ~8 iterations the 64 KB cap is
-      # hit with counts still equal, exercising the warn-and-fallback path.
-      io = StringIO.new("\n\r\n" * 25_000) # 75 KB — past 64 KB cap
+      # Period-4 unit "\nx\rx" gives 1 lone \n and 1 lone \r per 4 bytes (no \r\n).
+      # All adaptive doubling chunk sizes (512, 1024, 2048, 4096, 8192) are
+      # multiples of 4, so every read boundary lands cleanly on unit-end and
+      # the counts (lf == cr, crlf == 0) stay tied through every check until
+      # MAX_AUTO_ROW_SEP_CHARS is reached, exercising the warn-and-fallback path.
+      io = StringIO.new("\nx\rx" * 17_500) # 70 KB — past 64 KB cap
       result = nil
       expect { result = guess(io) }.to output(/no clear row separator/).to_stderr
       expect(result).to eq "\n"
@@ -282,14 +282,14 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
 
     context 'when a true tie between known separators reaches the hard cap' do
       it 'calls record_warning with :row_sep / :no_clear_row_sep at :error severity' do
-        io = StringIO.new("\n\r\n" * 25_000)
+        io = StringIO.new("\nx\rx" * 17_500)
         expect(reader).to receive(:record_warning)
           .with(type: :row_sep, code: :no_clear_row_sep, severity: :error).and_call_original
         guess(io)
       end
 
       it 'yields a message containing "no clear row separator"' do
-        io = StringIO.new("\n\r\n" * 25_000)
+        io = StringIO.new("\nx\rx" * 17_500)
         expect(reader).to receive(:record_warning) do |**_kwargs, &block|
           expect(block.call).to match(/no clear row separator/)
         end
@@ -305,7 +305,7 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
       end
 
       it 'does not call record_warning on a truly tied stream past the cap' do
-        io = StringIO.new("\n\r\n" * 25_000)
+        io = StringIO.new("\nx\rx" * 17_500)
         expect(reader).not_to receive(:record_warning)
         guess(io, verbose: :quiet)
       end
@@ -348,7 +348,7 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
 
       it 'stores distinct (type, code) pairs as separate records' do
         guess(StringIO.new('x' * 70_000))       # :no_row_sep_found
-        guess(StringIO.new("\n\r\n" * 25_000))  # :no_clear_row_sep
+        guess(StringIO.new("\nx\rx" * 17_500))  # :no_clear_row_sep
         codes = reader.warnings.map { |w| w[:code] }
         expect(codes).to contain_exactly(:no_row_sep_found, :no_clear_row_sep)
         expect(reader.warnings.map { |w| w[:count] }).to all(eq(1))
@@ -370,6 +370,72 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
         end
         expect(calls).to eq 0
       end
+    end
+  end
+
+  # Adaptive scan: the first read is auto_row_sep_chars bytes (default = MIN
+  # = 512). Iter 2 reuses the iter-1 size; iter 3+ doubles each iteration up
+  # to MAX_AUTO_ROW_SEP_CHARS. Common files (clear majority within ~50 bytes)
+  # resolve at iter 1; ambiguous files escalate.
+  describe 'adaptive scan chunk sizing' do
+    # Tracks bytes requested per read() call so we can verify the read pattern.
+    class TrackingIO
+      attr_reader :read_sizes
+
+      def initialize(content)
+        @io = StringIO.new(content)
+        @read_sizes = []
+      end
+
+      def read(n)
+        @read_sizes << n
+        @io.read(n)
+      end
+    end
+
+    let(:min_arc) { SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS }
+
+    it 'first read uses auto_row_sep_chars (default = MIN_AUTO_ROW_SEP_CHARS = 512)' do
+      content = "a,b\n" + (1..50).map { |i| "x_#{i},y_#{i}\n" }.join # ~600 bytes, clear LF majority
+      io = TrackingIO.new(content)
+      result = guess(io)  # uses helper default = MIN_AUTO_ROW_SEP_CHARS
+      expect(result).to eq("\n")
+      expect(io.read_sizes.first).to eq(min_arc)
+    end
+
+    it 'returns from the first chunk when separator is unambiguous (no escalation)' do
+      content = "a,b\n" + (1..30).map { |i| "x_#{i},y_#{i}\n" }.join # well under 512 bytes
+      io = TrackingIO.new(content)
+      guess(io)
+      # Only the initial chunk was read; loop returned on first iteration.
+      # (May include a 1-byte read for the \r-straddle check, but no further chunk reads.)
+      large_reads = io.read_sizes.reject { |n| n == 1 }
+      expect(large_reads.size).to eq(1)
+      expect(large_reads.first).to eq(min_arc)
+    end
+
+    it 'doubles the chunk size starting at iter 3 when first chunks are ambiguous' do
+      # Period-4 tie unit ("\nx\rx") for the first 1024 bytes — kept tied at every
+      # multiple-of-4 read boundary — then a clear LF tail that resolves at iter 3.
+      tie_region = "\nx\rx" * 256  # 1024 bytes of perfect lf/cr tie (crlf=0)
+      tail       = "a\n" * 200     # 400 bytes of pure LF
+      io         = TrackingIO.new(tie_region + tail)
+      guess(io)
+      large_reads = io.read_sizes.reject { |n| n == 1 }
+      expect(large_reads[0]).to eq(512)   # iter 1: auto_row_sep_chars
+      expect(large_reads[1]).to eq(512)   # iter 2: same as iter 1
+      expect(large_reads[2]).to eq(1024)  # iter 3: doubled
+    end
+
+    it 'follows the doubling pattern through many iterations on long ambiguous files' do
+      # 64KB of period-4 tie forces the loop to run until MAX_AUTO_ROW_SEP_CHARS.
+      tie_region = "\nx\rx" * 16_384  # 65536 bytes of perfect tie
+      io         = TrackingIO.new(tie_region)
+      expect { guess(io) }.to output(/no clear row separator/).to_stderr
+      large_reads = io.read_sizes.reject { |n| n == 1 }
+      # Doubling: 512, 512, 1024, 2048, 4096, 8192, 16384, 32768
+      # After iter 8 (cumulative 65536), loop breaks via MAX_AUTO_ROW_SEP_CHARS.
+      expect(large_reads.first(8)).to eq([512, 512, 1024, 2048, 4096, 8192, 16384, 32768])
     end
   end
 end

@@ -5,8 +5,13 @@ module SmarterCSV
     module Options
       DEFAULT_OPTIONS = {
         acceleration: true, # if user wants to use accelleration or not
-        auto_row_sep_chars: 8_192,
+        auto_row_sep_chars: SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS, # initial scan chunk size (default 512).
+        #                                                                       Validated against [MIN, MAX]_AUTO_ROW_SEP_CHARS in reader_options.rb.
+        #                                                                       Doubling escalation in guess_line_ending caps at MAX_AUTO_ROW_SEP_CHARS.
         bad_row_limit: nil,
+        buffer_size: SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE, # peek buffer chunk size for non-seekable inputs.
+        #                                                         Validated: nil/0 → use default; clamped to [MIN_BUFFER_SIZE, MAX_BUFFER_SIZE];
+        #                                                         bumped if < auto_row_sep_chars (see validation in reader_options.rb).
         chunk_size: nil,
         col_sep: :auto, # was: ',',
         collect_raw_lines: true,
@@ -118,12 +123,14 @@ module SmarterCSV
           values = Array(@options[:only_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { only: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
+
           @options[:only_headers] = values.map(&:to_sym)
         end
         if @options[:except_headers]
           values = Array(@options[:except_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { except: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
+
           @options[:except_headers] = values.map(&:to_sym)
         end
 
@@ -188,17 +195,46 @@ module SmarterCSV
           errors << "invalid quote_boundary: must be :legacy or :standard"
         end
         arc = options[:auto_row_sep_chars]
-        unless arc.is_a?(Integer) && arc >= DEFAULT_OPTIONS[:auto_row_sep_chars]
-          warn "WARNING: invalid auto_row_sep_chars value #{arc.inspect} — must be an Integer >= #{DEFAULT_OPTIONS[:auto_row_sep_chars]}; using default (#{DEFAULT_OPTIONS[:auto_row_sep_chars]})" unless options[:verbose] == :quiet
-          options[:auto_row_sep_chars] = DEFAULT_OPTIONS[:auto_row_sep_chars]
+        min_arc = SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS
+        default_arc = DEFAULT_OPTIONS[:auto_row_sep_chars]
+        unless arc.is_a?(Integer) && arc >= min_arc
+          warn "WARNING: invalid auto_row_sep_chars value #{arc.inspect} — must be an Integer >= #{min_arc}; using default (#{default_arc})" unless options[:verbose] == :quiet
+          options[:auto_row_sep_chars] = default_arc
         end
-        # buffer_size is an internal option used by tests to exercise small-buffer boundary conditions.
-        # It is purposely not part of the public API and purposely not listed in DEFAULT_OPTIONS.
-        if options.key?(:buffer_size)
-          bs = options[:buffer_size]
-          unless bs.is_a?(Integer) && bs > 0
-            errors << "invalid buffer_size: must be a positive Integer (got #{bs.inspect})"
-          end
+        # buffer_size validation:
+        #   nil / 0           → unset, use default
+        #   non-Integer       → warn, use default
+        #   < MIN_BUFFER_SIZE → warn, clamp to MIN_BUFFER_SIZE
+        #   > MAX_BUFFER_SIZE → warn, clamp to MAX_BUFFER_SIZE
+        # Cross-validation (after the above):
+        #   < auto_row_sep_chars → warn, bump to max(2 * buffer_size, MIN_AUTO_ROW_SEP_CHARS)
+        bs = options[:buffer_size]
+        default_bs = DEFAULT_OPTIONS[:buffer_size]
+        min_bs = SmarterCSV::PeekableIO::MIN_BUFFER_SIZE
+        max_bs = SmarterCSV::PeekableIO::MAX_BUFFER_SIZE
+        quiet = options[:verbose] == :quiet
+
+        if bs.nil? || bs == 0
+          options[:buffer_size] = default_bs
+        elsif !bs.is_a?(Integer)
+          warn "WARNING: invalid buffer_size value #{bs.inspect} — must be an Integer; using default (#{default_bs})" unless quiet
+          options[:buffer_size] = default_bs
+        elsif bs < min_bs
+          warn "WARNING: buffer_size #{bs} is below minimum (#{min_bs}); clamping to #{min_bs}" unless quiet
+          options[:buffer_size] = min_bs
+        elsif bs > max_bs
+          warn "WARNING: buffer_size #{bs} exceeds maximum (#{max_bs}); clamping to #{max_bs}" unless quiet
+          options[:buffer_size] = max_bs
+        end
+
+        # Cross-validation: ensure buffer_size is reasonably sized relative to auto_row_sep_chars.
+        # Gentle bump (does not strictly enforce buffer_size >= auto_row_sep_chars — PeekableIO
+        # handles smaller buffers via multiple reads — but ensures at least one default scan window fits).
+        arc = options[:auto_row_sep_chars]
+        if arc.is_a?(Integer) && options[:buffer_size] < arc
+          bumped = [2 * options[:buffer_size], SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS].max
+          warn "WARNING: buffer_size (#{options[:buffer_size]}) < auto_row_sep_chars (#{arc}); bumping buffer_size to #{bumped}" unless quiet
+          options[:buffer_size] = bumped
         end
         fsl = options[:field_size_limit]
         unless fsl.nil? || (fsl.is_a?(Integer) && fsl > 0)

@@ -87,12 +87,15 @@ class EncodedBytesIO
 end
 
 # Sizes chosen to stress-test distinct code paths in PeekableIO:
-#   3    — forces \r\n to straddle every other boundary; maximally exercises straddle detection
-#   19   — prime close to one data row (~13-19 bytes); hits different byte offsets than 3
-#   128  — ~1/3 of the 400-byte matrix content; several extend_buffer! calls + short frozen phase
-#   512  — larger than matrix content; frozen phase starts early; stress-tests large-file delegation
-#   4096 — roughly 1/10 of the 44KB large-file content; exercises both detection and long frozen phase
-INTERESTING_BUFFER_SIZES = [3, 19, 128, 512, 4096].freeze
+# Public-API valid values only — buffer_size now has a public floor of MIN_BUFFER_SIZE (4096)
+# and a ceiling of MAX_BUFFER_SIZE (65_536). Sub-floor values (3, 19, 128, 512) are tested
+# directly against PeekableIO in spec/smarter_csv/peekable_io_spec.rb (stress matrix block).
+#
+#   4096   — at the floor; cross-validation bumps it to MIN_AUTO_ROW_SEP_CHARS (8192) at runtime
+#   8192   — equal to default auto_row_sep_chars; one-shot fill of the auto-detection budget
+#   16_384 — current default; one EBS gp3 I/O block
+#   65_536 — at the ceiling; matches MAX_AUTO_ROW_SEP_CHARS
+INTERESTING_BUFFER_SIZES = [4096, 8192, 16_384, 65_536].freeze
 
 RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # Shared generator — used by both the in-memory and Tempfile-based test sections.
@@ -814,12 +817,20 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # same oversized rows from @io.
   # ---------------------------------------------------------------------------
   describe 'single data row wider than buffer_size' do
+    # Stubs the public buffer_size floor so we can exercise sub-floor behavior
+    # at the integration layer. This is what the test was originally designed for.
+    before do
+      stub_const('SmarterCSV::PeekableIO::MIN_BUFFER_SIZE', 1)
+      stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
+    end
+
     it 'handles rows longer than buffer_size via multiple extend_buffer! calls' do
       wide_value = 'x' * 200
       rows = (1..10).map { |i| "item_#{i},#{wide_value}_#{i}\n" }.join
       csv  = "name,description\n" + rows
       io   = NonSeekableIO.new(csv)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 32)
+      # auto_row_sep_chars: 32 matches buffer_size: 32 — avoids the cross-validation bump.
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 32, auto_row_sep_chars: 32)
       expect(result.length).to eq(10)
       expect(result.first[:name]).to eq('item_1')
       expect(result.first[:description]).to eq("#{wide_value}_1")
@@ -836,12 +847,17 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # times per record, crossing the buffer/IO boundary within one CSV row.
   # ---------------------------------------------------------------------------
   describe 'quoted fields containing embedded newlines' do
+    before do
+      stub_const('SmarterCSV::PeekableIO::MIN_BUFFER_SIZE', 1)
+      stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
+    end
+
     it 'parses multi-line quoted fields across buffer boundaries on NonSeekableIO' do
       csv = "name,bio\n" \
             "\"Alice\",\"line one\nline two\nline three\"\n" \
             "Bob,plain\n"
       io = NonSeekableIO.new(csv)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 16)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 16, auto_row_sep_chars: 16)
       expect(result.length).to eq(2)
       expect(result.first[:name]).to eq('Alice')
       expect(result.first[:bio]).to eq("line one\nline two\nline three")
@@ -1086,10 +1102,15 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # extend_buffer! calls during detection.
   # ---------------------------------------------------------------------------
   describe 'buffer_size option flowing through SmarterCSV.process' do
+    before do
+      stub_const('SmarterCSV::PeekableIO::MIN_BUFFER_SIZE', 1)
+      stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
+    end
+
     it 'auto-detects separators correctly with a tiny buffer_size (forces many extend_buffer! calls)' do
       content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
       io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 3)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 3, auto_row_sep_chars: 3)
       expect(result.length).to eq(20)
       expect(result.first).to eq({ name: 'item_1', value: 10 })
       expect(result.last).to  eq({ name: 'item_20', value: 200 })
@@ -1098,7 +1119,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     it 'auto-detects separators correctly with a moderate buffer_size' do
       content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
       io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 128)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 128, auto_row_sep_chars: 128)
       expect(result.length).to eq(20)
       expect(result.first).to eq({ name: 'item_1', value: 10 })
       expect(result.last).to  eq({ name: 'item_20', value: 200 })
@@ -1107,7 +1128,7 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     it 'auto-detects separators correctly with buffer_size larger than the full content' do
       content = "name,value\n" + (1..5).map { |i| "item_#{i},#{i * 10}\n" }.join
       io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 4096)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 4096, auto_row_sep_chars: 4096)
       expect(result.length).to eq(5)
       expect(result.first).to eq({ name: 'item_1', value: 10 })
     end
@@ -1116,7 +1137,51 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       reader, writer = IO.pipe
       writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
       writer.close
-      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, buffer_size: 8)
+      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, buffer_size: 8, auto_row_sep_chars: 8)
+      expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
+    ensure
+      reader.close unless reader.closed?
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Regression coverage for the PeekableIO read()/each_char() buffer-extension bug
+  #
+  # Symptom: when both `buffer_size` and `auto_row_sep_chars` were below the
+  # previous implicit 64-byte floor in guess_line_ending, the buffer ended up
+  # frozen mid-line and parsing lost rows or corrupted header keys.
+  #
+  # Root cause: read() and each_char() in PeekableIO delegated to @io as soon
+  # as `buffer_exhausted?` was true, without checking `@buffer_frozen` first.
+  # During auto-detection the buffer is NOT yet frozen, so bytes consumed from
+  # @io were never appended to @peek_buf — and a subsequent rewind_buffer
+  # could not replay them.
+  #
+  # Fix: read() and each_char() now mirror gets() — only delegate to @io when
+  # the buffer is frozen and exhausted.
+  # ---------------------------------------------------------------------------
+  describe 'tiny chunks at sub-64 sizes (regression — peekable_io read/each_char)' do
+    before do
+      stub_const('SmarterCSV::PeekableIO::MIN_BUFFER_SIZE', 1)
+      stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
+    end
+
+    it 'parses all rows correctly at buffer_size=3, auto_row_sep_chars=3' do
+      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+      io = NonSeekableIO.new(content)
+      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto,
+                                  buffer_size: 3, auto_row_sep_chars: 3)
+      expect(result.length).to eq(20)
+      expect(result.first).to eq({ name: 'item_1', value: 10 })
+      expect(result.last).to  eq({ name: 'item_20', value: 200 })
+    end
+
+    it 'parses correctly on tab-separated pipe at buffer_size=8, auto_row_sep_chars=8' do
+      reader, writer = IO.pipe
+      writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
+      writer.close
+      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto,
+                                  buffer_size: 8, auto_row_sep_chars: 8)
       expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
     ensure
       reader.close unless reader.closed?

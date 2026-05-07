@@ -5,10 +5,10 @@ require "smarter_csv/version"
 require "smarter_csv/errors"
 
 require "smarter_csv/file_io"
+require "smarter_csv/auto_detection" # MAX_AUTO_ROW_SEP_CHARS is the canonical 64KB cap; loaded first so peekable_io.rb and reader_options.rb can reference it
 require "smarter_csv/peekable_io"
 require "smarter_csv/reader_options"
 require "smarter_csv/writer_options"
-require "smarter_csv/auto_detection"
 require 'smarter_csv/header_transformations'
 require 'smarter_csv/header_validations'
 require "smarter_csv/headers"

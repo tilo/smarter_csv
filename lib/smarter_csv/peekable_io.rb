@@ -22,7 +22,18 @@ module SmarterCSV
   #
   class PeekableIO
     # 16KB is enough for separator detection on any real-world CSV header.
+    # Matches one EBS gp3 I/O block and one Apple Silicon VM page exactly.
     DEFAULT_PEEK_SIZE = 16_384
+
+    # Lower bound for a sane peek buffer chunk size. Below this the buffer is
+    # too small to be useful even on local SSD (one VM page on x86 is 4 KB).
+    MIN_BUFFER_SIZE = 4_096
+
+    # Upper bound for the peek buffer chunk size. Equal to
+    # AutoDetection::MAX_AUTO_ROW_SEP_CHARS — beyond this, bytes are unused by
+    # auto-detection and only delay parse start by pre-loading bytes that
+    # would have been read during parsing anyway.
+    MAX_BUFFER_SIZE = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
 
     def initialize(io, options, buffer_size: DEFAULT_PEEK_SIZE)
       @io = io
@@ -236,7 +247,13 @@ module SmarterCSV
     end
 
     def read(n = nil)
-      return @io.read(n) if buffer_exhausted?
+      # Delegate to @io only when (a) we never peeked, or (b) the buffer is
+      # frozen and fully replayed. During auto-detection (not frozen) the
+      # buffer must be extended even when @peek_pos has caught up to its end,
+      # otherwise bytes read from @io are not appended to @peek_buf and a
+      # subsequent rewind_buffer would lose them.
+      return @io.read(n) if @peek_buf.nil?
+      return @io.read(n) if @buffer_frozen && buffer_exhausted?
 
       buffered = @peek_buf.byteslice(@peek_pos..-1)
       out_enc = @emit_encoding || Encoding::ASCII_8BIT
@@ -266,7 +283,11 @@ module SmarterCSV
 
     def each_char(&block)
       return enum_for(:each_char) unless block_given?
-      return @io.each_char(&block) if buffer_exhausted?
+      # Same guard as read(): only delegate when never peeked, or when frozen
+      # and fully replayed. Otherwise we must extend the buffer so rewind_buffer
+      # can replay the bytes during the parsing phase.
+      return @io.each_char(&block) if @peek_buf.nil?
+      return @io.each_char(&block) if @buffer_frozen && buffer_exhausted?
 
       rest = @peek_buf.byteslice(@peek_pos..-1)
       rest.force_encoding(@emit_encoding || external_encoding || Encoding::ASCII_8BIT)

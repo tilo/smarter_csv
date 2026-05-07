@@ -73,7 +73,8 @@
 |--------|---------|-------------|
 | `:col_sep` | `:auto` | Column separator. `:auto` detects from file content (previous default was `','`). |
 | `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content by scanning in chunks of `auto_row_sep_chars` bytes, up to a 64KB hard cap. |
-| `:auto_row_sep_chars` | `8192` | Chunk size used while scanning for `:row_sep => :auto`. Detection stops as soon as one separator has a clear majority, with a 64KB hard cap. Must be an Integer ≥ 8192; smaller values, `nil`, or `0` are rejected and fall back to the default with a warning. |
+| `:auto_row_sep_chars` | `512` | Initial chunk size for `:row_sep => :auto` detection. Detection uses an adaptive doubling pattern: iter 1 reads this many bytes, iter 2 reuses the same size, iter 3+ doubles each iteration up to `MAX_AUTO_ROW_SEP_CHARS` (65_536). Total scan stops as soon as one separator has a clear majority, with a 64KB hard cap. Must be an Integer in `[512, 65_536]` (`[MIN_AUTO_ROW_SEP_CHARS, MAX_AUTO_ROW_SEP_CHARS]`); out-of-range values, `nil`, or `0` are rejected and fall back to the default with a warning. Bump this if your files have wide headers / long comment preambles and you want a more aggressive initial scan. |
+| `:buffer_size` | `16_384` | Peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default matches one EBS gp3 I/O block and one Apple Silicon VM page. Validated and clamped to `[4096, 65_536]` (`MIN_BUFFER_SIZE` / `MAX_BUFFER_SIZE`); out-of-range values warn and clamp to the boundary. If less than `auto_row_sep_chars`, bumps to `max(2 × buffer_size, MIN_AUTO_ROW_SEP_CHARS)`. Has no effect on seekable inputs (file paths, `File`, `StringIO`, `Tempfile`) — those use native `rewind` for auto-detection. |
 
 ### Quoting
 

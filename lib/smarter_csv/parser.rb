@@ -205,8 +205,9 @@ module SmarterCSV
 
         remove_empty = options[:remove_empty_values]
         hash = {}
-        fields.each_with_index do |v, i|  # C-level iteration, faster than Ruby while counter loop
+        fields.each_with_index do |v, i| # C-level iteration, faster than Ruby while counter loop
           next if remove_empty && v.empty?
+
           hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
         end
 
@@ -385,12 +386,12 @@ module SmarterCSV
             if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(i - 1) == quote_byte
               field = line.byteslice(start + 1, field_len - 2)
               field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
-              field.strip! if strip  # in-place: no extra allocation; safe on fresh byteslice
+              field.strip! if strip # in-place: no extra allocation; safe on fresh byteslice
               elements << field
             else
               field = line.byteslice(start, field_len)
               field = cleanup_quotes(field, quote)
-              elements << (strip ? field.strip : field)  # cleanup_quotes may return frozen EMPTY_STRING
+              elements << (strip ? field.strip : field) # cleanup_quotes may return frozen EMPTY_STRING
             end
             i += 1
             start = i

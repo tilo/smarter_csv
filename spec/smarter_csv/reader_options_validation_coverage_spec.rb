@@ -116,20 +116,63 @@ describe 'options validation coverage' do
   end
 
   describe 'buffer_size validation' do
-    it 'raises ValidationError for a non-integer type' do
-      expect do
-        instance.process_options(buffer_size: '1024')
-      end.to raise_error(SmarterCSV::ValidationError, /invalid buffer_size/)
+    let(:default_bs) { SmarterCSV::Reader::Options::DEFAULT_OPTIONS[:buffer_size] }
+    let(:min_bs)     { SmarterCSV::PeekableIO::MIN_BUFFER_SIZE }
+    let(:max_bs)     { SmarterCSV::PeekableIO::MAX_BUFFER_SIZE }
+
+    it 'uses default for nil (treated as "unset", no warning)' do
+      expect { instance.process_options(buffer_size: nil, verbose: :quiet) }.not_to raise_error
+      expect(instance.options[:buffer_size]).to eq default_bs
     end
 
-    it 'raises ValidationError for zero or negative value' do
-      expect do
-        instance.process_options(buffer_size: 0)
-      end.to raise_error(SmarterCSV::ValidationError, /invalid buffer_size/)
+    it 'uses default for 0 (treated as "unset", no warning)' do
+      expect { instance.process_options(buffer_size: 0, verbose: :quiet) }.not_to raise_error
+      expect(instance.options[:buffer_size]).to eq default_bs
     end
 
-    it 'accepts a positive integer' do
-      expect { instance.process_options(buffer_size: 16_384) }.not_to raise_error
+    it 'warns and uses default for a non-integer type' do
+      expect { instance.process_options(buffer_size: '1024') }.to output(/invalid buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq default_bs
+    end
+
+    it 'warns when value is below MIN_BUFFER_SIZE' do
+      # MIN clamp brings buffer_size to 4096; cross-validation then bumps to 8192
+      # because auto_row_sep_chars defaults to 8192. Both warnings fire.
+      expect { instance.process_options(buffer_size: 100) }.to output(/below minimum/).to_stderr
+      expect(instance.options[:buffer_size]).to be >= min_bs
+    end
+
+    it 'warns and clamps to MAX_BUFFER_SIZE for values above the ceiling' do
+      expect { instance.process_options(buffer_size: 10_000_000) }.to output(/exceeds maximum/).to_stderr
+      expect(instance.options[:buffer_size]).to eq max_bs
+    end
+
+    it 'accepts a value within bounds without warning' do
+      expect { instance.process_options(buffer_size: 16_384, verbose: :quiet) }.not_to raise_error
+      expect(instance.options[:buffer_size]).to eq 16_384
+    end
+
+    it 'bumps buffer_size when it is below auto_row_sep_chars' do
+      # buffer_size = 4096 (at MIN), auto_row_sep_chars = 16384.
+      # Cross-validation triggers: bump = max(2 * 4096, MIN_AUTO_ROW_SEP_CHARS) = max(8192, 8192) = 8192.
+      expect do
+        instance.process_options(buffer_size: 4_096, auto_row_sep_chars: 16_384)
+      end.to output(/bumping buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq 8_192
+    end
+
+    it 'does not bump when buffer_size is already >= auto_row_sep_chars' do
+      expect do
+        instance.process_options(buffer_size: 16_384, auto_row_sep_chars: 8_192, verbose: :quiet)
+      end.not_to output(/bumping buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq 16_384
+    end
+
+    it 'suppresses all buffer_size warnings under verbose: :quiet' do
+      expect do
+        instance.process_options(buffer_size: 100, verbose: :quiet)
+      end.not_to output.to_stderr
+      expect(instance.options[:buffer_size]).to be >= min_bs
     end
   end
 

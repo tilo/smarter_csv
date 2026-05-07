@@ -130,17 +130,10 @@ module SmarterCSV
         has_rewind = seekable?(fh)
 
         unless has_rewind
-          # buffer_size can be passed directly; otherwise it scales from auto_row_sep_chars.
-          # 2× auto_row_sep_chars ensures the first peek covers the full row_sep scan with
-          # room for col_sep detection. Falls back to DEFAULT_PEEK_SIZE when auto_row_sep_chars
-          # is 0 (scan whole file).
-          buf_size = if options[:buffer_size]
-                       options[:buffer_size].to_i
-                     else
-                       auto_row_sep_chars = options[:auto_row_sep_chars].to_i
-                       auto_row_sep_chars > 0 ? 2 * auto_row_sep_chars : SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE
-                     end
-          fh = SmarterCSV::PeekableIO.new(fh, options, buffer_size: buf_size)
+          # buffer_size has been validated and clamped by reader_options.rb to be in
+          # [MIN_BUFFER_SIZE, MAX_BUFFER_SIZE], with a cross-validation bump if it was
+          # below auto_row_sep_chars. Use it directly.
+          fh = SmarterCSV::PeekableIO.new(fh, options, buffer_size: options[:buffer_size])
         end
 
         if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
