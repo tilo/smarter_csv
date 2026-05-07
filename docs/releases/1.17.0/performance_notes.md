@@ -47,13 +47,13 @@ The C parser hot path was not modified in 1.17.0. All 1.16.0 optimizations carry
 - Byte-level indexing (`getbyte`, `byteslice`, `memchr` skip-ahead)
 - `-fno-semantic-interposition`, `cold`/`hot` attributes
 
-What did change:
+**Dominant factor: `auto_row_sep_chars` default `500` → `8192`** — the auto-detection scan window is now 16× larger by default. The benchmark config leaves `row_sep` at `:auto` for every file, so every run reads ~7 KB up front (vs ~500 bytes before) and runs the row-separator scan over it. On small / fast files where total parse time is 25–30 ms, that one-time cost shows up as a 5–15% slowdown. On larger files where parse time dominates, the same change is invisible or even net-positive — the wider window often finds a clear majority on the first chunk, avoiding the chunk-grow loop that 1.16.4 sometimes paid.
 
-1. **`auto_row_sep_chars` default `500` → `8192`** — the auto-detection scan window is now 16× larger by default. On files with short lines, more bytes are read up front before parsing begins. This is a small one-time cost, but on small files (20k rows × short lines) it's a measurable fraction of total parse time.
-2. **`guess_line_ending` chunked scan with 64KB hard cap** — replaces the previous undocumented "scan whole file" behavior on `nil`/`0`. Likely faster on huge files; slightly slower on tiny ones because the chunk loop has overhead.
-3. **Internal buffering on the read path** — adds an indirection layer between the IO and the parser to support non-seekable streams. Even when reading from a file path (where seeking would be available), the buffer is consulted for the first chunk during auto-detection.
+A related change — **`guess_line_ending` chunked scan with 64KB hard cap** — replaces the previous undocumented "scan whole file" behavior on `nil`/`0`. Same code path; tied to the same trade-off.
 
-The gains and regressions are both consistent with this: files with long lines / lots of work per row absorb the auto-detection cost easily and benefit from any small parser-side improvement. Files with short lines / minimal work per row see the auto-detection cost more visibly.
+The gains and regressions are both consistent with this single cause: files with long lines / lots of work per row absorb the wider scan cost easily; files with short lines / minimal work per row see the cost more visibly.
+
+**Not a factor on these benchmarks:** the buffering layer that supports non-seekable streams. The benchmark adapter passes file paths to `SmarterCSV.process`, which opens them as seekable `File` objects. The seekable-input fast path is taken and no buffering wrapper is instantiated (verified by inspection of `Reader#process` — `seekable?(fh)` returns true for `File`, so the wrapping branch is skipped). The buffering layer only runs for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies) which aren't part of this benchmark suite.
 
 ---
 
