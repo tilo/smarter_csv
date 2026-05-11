@@ -13,6 +13,9 @@ Layout/SpaceInsideHashLiteralBraces:
 Layout/SpaceAroundOperators:
   Enabled: false
 
+Lint/ConstantDefinitionInBlock:
+  Enabled: false
+
 Lint/UnderscorePrefixedVariableName:
   Enabled: false
 

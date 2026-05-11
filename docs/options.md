@@ -53,19 +53,19 @@
 
 ### File Input & Encoding
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:file_encoding` | `utf-8` | Set the file encoding, e.g. `'windows-1252'` or `'iso-8859-1'`. |
-| `:invalid_byte_sequence` | `''` | What to replace invalid byte sequences with. |
-| `:force_utf8` | `false` | Force UTF-8 encoding of all lines (including headers) in the CSV file. |
+| Option                   | Default | Explanation                                                            |
+|--------------------------|---------|------------------------------------------------------------------------|
+| `:file_encoding`         | `utf-8` | Set the file encoding, e.g. `'windows-1252'` or `'iso-8859-1'`.        |
+| `:invalid_byte_sequence` | `''`    | What to replace invalid byte sequences with.                           |
+| `:force_utf8`            | `false` | Force UTF-8 encoding of all lines (including headers) in the CSV file. |
 
 ### File Layout
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:skip_lines` | `nil` | How many lines to skip before the first line or header line is processed. |
-| `:comment_regexp` | `nil` | Regular expression to ignore comment lines (e.g. `/\A#/`). See NOTE on CSV header. |
-| `:chunk_size` | `nil` | If set, data is yielded in chunks of this many rows instead of all at once. Use with `SmarterCSV.each_chunk` for memory-efficient batch processing. |
+| Option            | Default | Explanation                                                                                                                                         |
+|-------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `:skip_lines`     | `nil`   | How many lines to skip before the first line or header line is processed.                                                                           |
+| `:comment_regexp` | `nil`   | Regular expression to ignore comment lines (e.g. `/\A#/`). See NOTE on CSV header.                                                                  |
+| `:chunk_size`     | `nil`   | If set, data is yielded in chunks of this many rows instead of all at once. Use with `SmarterCSV.each_chunk` for memory-efficient batch processing. |
 
 ### Separators
 
@@ -73,8 +73,8 @@
 |--------|---------|-------------|
 | `:col_sep` | `:auto` | Column separator. `:auto` detects from file content (previous default was `','`). |
 | `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content by scanning in chunks of `auto_row_sep_chars` bytes, up to a 64KB hard cap. |
-| `:auto_row_sep_chars` | `512` | Initial chunk size for `:row_sep => :auto` detection. Detection uses an adaptive doubling pattern: iter 1 reads this many bytes, iter 2 reuses the same size, iter 3+ doubles each iteration up to `MAX_AUTO_ROW_SEP_CHARS` (65_536). Total scan stops as soon as one separator has a clear majority, with a 64KB hard cap. Must be an Integer in `[512, 65_536]` (`[MIN_AUTO_ROW_SEP_CHARS, MAX_AUTO_ROW_SEP_CHARS]`); out-of-range values, `nil`, or `0` are rejected and fall back to the default with a warning. Bump this if your files have wide headers / long comment preambles and you want a more aggressive initial scan. |
-| `:buffer_size` | `16_384` | Peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default matches one EBS gp3 I/O block and one Apple Silicon VM page. Validated and clamped to `[4096, 65_536]` (`MIN_BUFFER_SIZE` / `MAX_BUFFER_SIZE`); out-of-range values warn and clamp to the boundary. If less than `auto_row_sep_chars`, bumps to `max(2 × buffer_size, MIN_AUTO_ROW_SEP_CHARS)`. Has no effect on seekable inputs (file paths, `File`, `StringIO`, `Tempfile`) — those use native `rewind` for auto-detection. |
+| `:auto_row_sep_chars` | `4096` | Initial scan size for `:row_sep => :auto` detection. Scan stops as soon as one separator has a clear majority, up to a 64KB cap. Bump this if your files have very wide headers or long comment preambles. Out-of-range values, `nil`, or `0` fall back to the default with a warning. |
+| `:buffer_size` | `16_384` | Peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Out-of-range values warn and clamp to the supported range. Has no effect on seekable inputs (file paths, `File`, `StringIO`, `Tempfile`). |
 
 ### Quoting
 
@@ -158,9 +158,9 @@ See [Instrumentation Hooks](./instrumentation.md) for full details and payload r
 
 ### Performance
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:acceleration` | `true` | Use the C extension for parsing (MRI Ruby only). Set to `false` to force the pure-Ruby fallback (always used on JRuby/TruffleRuby). |
+| Option            | Default | Explanation                                                                                                                         |
+|-------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `:acceleration`   | `true`  | Use the C extension for parsing (MRI Ruby only). Set to `false` to force the pure-Ruby fallback (always used on JRuby/TruffleRuby). |
 
 ---
 

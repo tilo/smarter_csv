@@ -1,47 +1,23 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0.pre6 (NOT RELEASED)
+## 1.17.0.pre10 (NOT RELEASED)
 
-RSpec tests: **1,905 → 1,950** (+45 tests since pre5)
+RSpec tests: **1,434 → 2,065** (+631 tests)
 
 ### New / Changed Options
 
-* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384` (one EBS gp3 I/O block; one Apple Silicon VM page).
+* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384`. Out-of-range values warn and clamp to the supported range rather than raising.
 
-  Validation:
+* **`auto_row_sep_chars` default changed to `4096`** (was `500` in 1.16.x). Sized to cover wide-header CSVs in a single read. Bump it higher if your files have very wide headers or long comment preambles.
 
-  | Input                                | Behavior                                                                              |
-  |--------------------------------------|---------------------------------------------------------------------------------------|
-  | `nil` / `0`                          | Use default, no warning (treated as "unset")                                          |
-  | non-Integer                          | Warn, use default                                                                     |
-  | `< 4096` (`MIN_BUFFER_SIZE`)         | Warn, clamp to 4096                                                                   |
-  | `> 65_536` (`MAX_BUFFER_SIZE`)       | Warn, clamp to 65_536                                                                 |
-  | `< auto_row_sep_chars` (after above) | Warn, bump to `max(2 × buffer_size, MIN_AUTO_ROW_SEP_CHARS)`                          |
+### Bug Fixes
 
-  Replaces the previous internal-only `buffer_size` flag (which raised `ValidationError` on out-of-range values). The new validation clamps and warns rather than raising.
-
-* `auto_row_sep_chars` — default changed to `512` (was `500` in 1.16.x). Semantics: it now means the **initial scan chunk size** for the adaptive doubling loop in `guess_line_ending`, not a per-iteration chunk size. Validated to `[512, 65_536]`; out-of-range values, `nil`, or `0` are rejected and fall back to the default with a warning. Bump it if your files have wide headers / long comment preambles.
+* **Files ending in a lone `\r`** are now correctly detected as `\r`-terminated instead of falling through to a "no clear row separator" warning.
 
 ### Performance
 
-* **Adaptive doubling scan in `guess_line_ending`** — closes the small-file regression introduced when `auto_row_sep_chars` default rose from 500 to 8192 (in earlier 1.17.0 pre-releases). The first read is now `auto_row_sep_chars` bytes (default 512). Iter 2 reuses that size; iter 3+ doubles each iteration up to `MAX_AUTO_ROW_SEP_CHARS` (65_536). Common files (clear separator majority within the first ~50 bytes) pay only 512 bytes of regex scan; wide-header / preamble-heavy files escalate as needed.
-
-  **`auto_row_sep_chars` semantics changed**: it now means "initial scan chunk size" (default `512`), not "per-iteration scan chunk". Previously the option was the per-iteration chunk size; now it's the starting point for the doubling escalation. Validated to `[MIN_AUTO_ROW_SEP_CHARS, MAX_AUTO_ROW_SEP_CHARS]` = `[512, 65_536]`.
-
-  Read pattern with default `auto_row_sep_chars: 512`:
-
-  | iter | chunk | cumulative |
-  |------|-------|------------|
-  | 1    |   512 |   512      |
-  | 2    |   512 |   1 KB     |
-  | 3    |  1024 |   2 KB     |
-  | 4    |  2048 |   4 KB     |
-  | 5    |  4096 |   8 KB     |
-  | 6    |  8192 |  16 KB     |
-  | 7    | 16384 |  32 KB     |
-  | 8    | 32768 |  64 KB     |
-  | 9+   |       |  (loop ends at MAX_AUTO_SCAN = 64 KB) |
+* **Faster parsing of quoted-field-heavy CSVs** — files where most or all fields are wrapped in quotes (real-world data with city names, addresses, descriptions) parse an estimated 10–12% faster. Applies to both the C-accelerated and Ruby fallback paths. Files with few or no quoted fields are unchanged.
 
 
 ## 1.17.0.pre5 (2026-04-28)

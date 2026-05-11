@@ -398,7 +398,7 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
     it 'first read uses auto_row_sep_chars (default = MIN_AUTO_ROW_SEP_CHARS = 512)' do
       content = "a,b\n" + (1..50).map { |i| "x_#{i},y_#{i}\n" }.join # ~600 bytes, clear LF majority
       io = TrackingIO.new(content)
-      result = guess(io)  # uses helper default = MIN_AUTO_ROW_SEP_CHARS
+      result = guess(io) # uses helper default = MIN_AUTO_ROW_SEP_CHARS
       expect(result).to eq("\n")
       expect(io.read_sizes.first).to eq(min_arc)
     end
@@ -429,13 +429,128 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
 
     it 'follows the doubling pattern through many iterations on long ambiguous files' do
       # 64KB of period-4 tie forces the loop to run until MAX_AUTO_ROW_SEP_CHARS.
-      tie_region = "\nx\rx" * 16_384  # 65536 bytes of perfect tie
+      tie_region = "\nx\rx" * 16_384 # 65536 bytes of perfect tie
       io         = TrackingIO.new(tie_region)
       expect { guess(io) }.to output(/no clear row separator/).to_stderr
       large_reads = io.read_sizes.reject { |n| n == 1 }
       # Doubling: 512, 512, 1024, 2048, 4096, 8192, 16384, 32768
       # After iter 8 (cumulative 65536), loop breaks via MAX_AUTO_ROW_SEP_CHARS.
-      expect(large_reads.first(8)).to eq([512, 512, 1024, 2048, 4096, 8192, 16384, 32768])
+      expect(large_reads.first(8)).to eq([512, 512, 1024, 2048, 4096, 8192, 16_384, 32_768])
+    end
+  end
+
+  # Single-pass byte-level scan: each chunk is scanned only once and counts
+  # accumulate across iterations. The state that must persist between chunks:
+  #   * crlf, lf, cr running counts
+  #   * in_quote (separators inside a quoted region are not counted)
+  #   * pending_cr (a "\r" at chunk end is deferred so it can pair with a "\n"
+  #     starting the next chunk to form one "\r\n", not two separate seps).
+  #
+  # These tests use small auto_row_sep_chars values so a chunk boundary lands
+  # at a known byte position in short test content. stub_const lowers the
+  # defensive floor so the small values aren't clamped up.
+  describe 'chunk-boundary scanning (incremental, no cumulative re-scan)' do
+    before { stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1) }
+
+    it 'pairs a deferred "\r" with a "\n" at the start of the next chunk as crlf' do
+      # 11 bytes: "name,value\r" — chunk1 ends exactly on \r.
+      # Then "\nitem,1\nitem,2\n..." — chunk2 begins with \n.
+      content = "name,value\r\n" + (1..50).map { |i| "x_#{i},y_#{i}\r\n" }.join
+      io = StringIO.new(content)
+      expect(guess(io, auto_row_sep_chars: 11)).to eq("\r\n")
+    end
+
+    it 'resolves a deferred "\r" as cr at the start of iter 2 when chunk 2 does not begin with "\n"' do
+      # iter 1 (chunk_size=7) reads "a\rb\r\nx\r" → cr=1, crlf=1 (tied),
+      #   pending_cr=true at end of chunk.
+      # iter 2 reads "yz\rfoo\r" — first byte 'y' is not \n, so the deferred
+      #   "\r" is counted as a lone cr (line covered: pending_cr → cr branch).
+      # Final majority: cr=3, crlf=1 → returns "\r".
+      content = "a\rb\r\nx\ryz\rfoo\r"
+      io = StringIO.new(content)
+      expect(guess(io, auto_row_sep_chars: 7)).to eq("\r")
+    end
+
+    it 'counts a deferred "\r" as a lone cr when the next chunk does not start with "\n"' do
+      # Many lone \r between letters, plus four \r\n. The chunk boundary lands
+      # on a non-separator byte so no straddle is involved here — this verifies
+      # that lone \r within a chunk is counted as cr. Counts: 5 lone \r, 4 \r\n.
+      # cr (5) > lf+crlf (0+4) → result must be "\r".
+      content = "a\rb\rc\rd\re\rf\r\nname,val\r\nname,val\r\nname,val\r\n"
+      io = StringIO.new(content)
+      expect(guess(io, auto_row_sep_chars: 12)).to eq("\r")
+    end
+
+    it 'counts a deferred "\r" as cr when EOF arrives before any next byte' do
+      # File ends in a lone "\r" with no following "\n". Counts as cr.
+      io = StringIO.new("name,val\r")
+      expect(guess(io, auto_row_sep_chars: 9)).to eq("\r")
+    end
+
+    it 'does not count separators inside a quoted region that spans chunks' do
+      # The quoted field "abc\ndef\nghi" contains two \n bytes that must NOT
+      # be counted. The two real row separators are the \r\n after the quote
+      # and the trailing \r\n. Force a small chunk so the open quote is in
+      # chunk 1 and the close quote is in chunk 2.
+      content = %{a,"abc\ndef\nghi"\r\nb,c\r\n}
+      io = StringIO.new(content)
+      # auto_row_sep_chars=8 → chunk1 cuts the quoted region in half.
+      expect(guess(io, auto_row_sep_chars: 8)).to eq("\r\n")
+    end
+
+    it 'handles doubled quotes inside a quoted field correctly' do
+      # "a""b" — the doubled quotes naturally toggle in_quote off/on without
+      # any special-case code. The \n inside is still inside the quoted field.
+      content = %{c1,c2\n"a""b\nc","d"\n"x","y"\n"u","v"\n}
+      io = StringIO.new(content)
+      expect(guess(io, auto_row_sep_chars: 12)).to eq("\n")
+    end
+
+    it 'respects a custom quote_char' do
+      # Use single-quote as quote_char. Inside the quoted region, \n must not
+      # be counted as a row separator.
+      content = "h1,h2\n'a\nb','c'\n'x','y'\n'u','v'\n'p','q'\n"
+      io = StringIO.new(content)
+      expect(guess(io, auto_row_sep_chars: 7, quote_char: "'")).to eq("\n")
+    end
+
+    it 'handles a chunk that is entirely inside an unclosed quoted region' do
+      # chunk1 opens a quote that doesn't close → in_quote=true at end.
+      # chunk2 is ENTIRELY inside the still-open quote (no close byte) → the
+      # whole chunk is dropped (part = nil branch). chunk3 finally closes.
+      # The two real \n separators (after the close-quote and at EOF) win.
+      content = %{a,"OPEN_xxxxxxxxxxxxxxxxxxxxxxxxxx_CLOSE"\nb,c\n}
+      io = StringIO.new(content)
+      # chunk_size=10:
+      #   c1: 'a,"OPEN_xx'              → in_quote=true after strip
+      #   c2: 'xxxxxxxxxx'              → entirely inside quote → part = nil
+      #   c3: 'xxxxxxxxxx'              → still inside quote → part = nil
+      #   c4: 'xxxx_CLOSE'              → still no close → part = nil
+      #   c5: '"\nb,c\n'                → close found, then 2× \n counted
+      expect(guess(io, auto_row_sep_chars: 10)).to eq("\n")
+    end
+
+    it 'counts a trailing "\r" as cr (not deferred) when an unclosed open quote follows it in the same chunk' do
+      # Chunk1 ends with: ..."\r" + open-quote + content-to-EOS. After the gsub
+      # strips the open-quote-to-EOS, unquoted ends in "\r" AND in_quote=true.
+      # The byte right after the "\r" in the original chunk was the open-quote
+      # (not "\n"), so the "\r" is a lone cr — counting it now is correct;
+      # deferring would mispair against the next chunk's first byte (which is
+      # inside the still-open quote). One \r\n earlier in chunk1 keeps the
+      # post-chunk-1 majority indeterminate (crlf=1, cr=1, tied) so the loop
+      # continues into chunk2 instead of bailing on a 1-vs-0 majority.
+      content = "a,b\r\nc,d\r\"unclosed_to_chunk_end_padding_zzz\nclose\"\r\nz,w\r\nq,r\r\n"
+      io = StringIO.new(content)
+      # chunk_size=30 keeps the boundary inside the quoted region (the close
+      # quote is at byte 49) so chunk1's quote-count stays odd:
+      #   chunk1 = 'a,b\r\nc,d\r"unclosed_to_chunk_e'  (30 bytes)
+      #   gsub strips '"unclosed_to_chunk_e' → unquoted = "a,b\r\nc,d\r"
+      #   quote count = 1 (odd) → in_quote = true
+      #   trailing "\r" + in_quote branch: cr += 1   (line covered)
+      #   counts after chunk1: crlf=1, cr=1 → no clear majority, continue.
+      # chunk2 finds the close and counts 2× \r\n → crlf=3, cr=1.
+      # Final: crlf(3) > lf+cr(0+1=1) → "\r\n"
+      expect(guess(io, auto_row_sep_chars: 30)).to eq("\r\n")
     end
   end
 end

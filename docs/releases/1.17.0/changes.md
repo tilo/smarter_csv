@@ -27,16 +27,16 @@
 
 # SmarterCSV 1.17.0 — Changes
 
-RSpec tests: **1,434 → 1,905+** (+471 tests since 1.16.4)
+RSpec tests: **1,434 → 2065** (+631 tests since 1.16.4)
 
-1.17.0 is a **features-and-quality** release, focused on three things: streaming IO inputs, a structured warnings system, and Rails-friendly defaults. The C parser hot path is unchanged from 1.16.0 (see [`docs/releases/1.16.0/`](../1.16.0/changes.md) for the parser performance story). On the C-accelerated path, 1.17.0 vs 1.16.4 is a **mixed picture**: 5 files run 6.7%–15.5% faster (long-quoted-field and wide files), 3 files run 8.8%–14.4% slower (short-line / many-small-field files), and 11 are within noise. The Ruby path is parity throughout. The mixed pattern traces to the new auto-detection defaults (`auto_row_sep_chars` 500→8192) — see [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md) for the per-file breakdown.
+1.17.0 is a **features-and-quality** release, focused on three things: streaming IO inputs, a structured warnings system, and Rails-friendly defaults. The C parser hot path is unchanged from 1.16.0 (see [`docs/releases/1.16.0/`](../1.16.0/changes.md) for the parser performance story). On the C-accelerated path, 1.17.0 vs 1.16.4 is a **mixed picture**: 5 files run 6.7%–15.5% faster (long-quoted-field and wide files), 3 files run 8.8%–14.4% slower (short-line / many-small-field files), and 11 are within noise. The Ruby path is parity throughout. The mixed pattern traces to the new auto-detection defaults (`auto_row_sep_chars` 500→4096) — see [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md) for the per-file breakdown.
 
 ---
 
 ## Compatibility
 
 * **No breaking changes.** All 1.16.x code continues to work without modification.
-* **Behavior change worth noting:** `auto_row_sep_chars: nil` / `0` no longer means "scan whole file" — values below `8192` fall back to the default `8192` with a warning. The hard cap on `guess_line_ending` is now 64KB. If you relied on the previous undocumented "scan whole file" semantics, this is a visible change.
+* **Behavior change worth noting:** `auto_row_sep_chars: nil` / `0` no longer means "scan whole file" — these values fall back to the default with a warning. The total scan is hard-capped at 64KB. If you relied on the previous undocumented "scan whole file" semantics, this is a visible change.
 
 ---
 
@@ -131,13 +131,11 @@ See [Warnings → Log sink routing](../../warnings.md#log-sink-routing).
 
 * **Better auto-detection of `row_sep` and `col_sep`** — more accurate results on files with comment headers and other irregularities at the start of the stream.
 
-* **`auto_row_sep_chars` default and semantics** — defaults to `512` (was `500`). Now means **"initial scan chunk size"** for the adaptive doubling loop in `guess_line_ending`, not the per-iteration chunk size. Validated to `[512, 65_536]` = `[MIN_AUTO_ROW_SEP_CHARS, MAX_AUTO_ROW_SEP_CHARS]`. Out-of-range values, `nil`, or `0` are rejected and fall back to the default with a warning. **Behavior change vs 1.16.x:** the previous undocumented "scan whole file" semantics on `nil`/`0` is removed; the new total scan is hard-capped at 64KB.
+* **`auto_row_sep_chars` default changed to `4096`** (was `500` in 1.16.x). Sized to cover wide-header CSVs in a single read. Out-of-range values, `nil`, or `0` fall back to the default with a warning. **Behavior change vs 1.16.x:** the previous undocumented "scan whole file" semantics on `nil`/`0` is removed; the total scan is hard-capped at 64KB.
 
-* **`guess_line_ending` adaptive doubling scan** — first read is `auto_row_sep_chars` bytes (default 512); iter 2 reuses the same size; iter 3+ doubles each iteration up to `MAX_AUTO_ROW_SEP_CHARS`. Common files (clear separator within the first ~50 bytes) resolve at iter 1 with only 512 bytes of regex scan. Ambiguous files (wide headers, comment preambles) escalate naturally. Read pattern with default `auto_row_sep_chars: 512`: `512 → 512 → 1024 → 2048 → 4096 → 8192 → 16384 → 32768` (loop ends at MAX_AUTO_SCAN = 64KB). See [performance_notes.md](performance_notes.md).
+* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384`. Out-of-range values warn and clamp to the supported range rather than raising. Has no effect on seekable inputs (file paths, `File`, `StringIO`).
 
-* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384` (one EBS gp3 I/O block; one Apple Silicon VM page). Validated and clamped to `[MIN_BUFFER_SIZE, MAX_BUFFER_SIZE]` = `[4096, 65_536]`; out-of-range values warn and clamp to the boundary rather than raising. If `buffer_size < auto_row_sep_chars`, bumps to `max(2 × buffer_size, MIN_AUTO_ROW_SEP_CHARS)`. Has no effect on seekable inputs (file paths, `File`, `StringIO`).
-
-* **New constants** *(pre6)* — `SmarterCSV::PeekableIO::{MIN,MAX}_BUFFER_SIZE` (4096, 65_536) and `SmarterCSV::AutoDetection::{MIN,MAX}_AUTO_ROW_SEP_CHARS` (512, 65_536). `DEFAULT_OPTIONS[:auto_row_sep_chars]` and `DEFAULT_OPTIONS[:buffer_size]` reference these constants directly. Validation logic references the constants too, so test scenarios can use `stub_const` to exercise sub-floor behavior in PeekableIO unit tests.
+* **Files ending in a lone `\r`** are now correctly detected as `\r`-terminated instead of falling through to a "no clear row separator" warning.
 
 * **`SmarterCSV.errors` mid-stream preservation** *(merged from 1.16.4)* — fixed a bug where collected error records could be lost when processing raised mid-stream (e.g. `bad_row_limit:` exceeded → `TooManyBadRows`, or a user block raising through `.process` / `.each` / `.each_chunk`).
 

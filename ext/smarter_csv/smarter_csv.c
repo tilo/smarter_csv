@@ -134,24 +134,51 @@ static const rb_data_type_t parse_context_type = {
 };
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
-  char *buf = ALLOC_N(char, len);
-  long j = 0;
-  for (long i = 0; i < len; i++) {
-    if (str[i] == quote_char && i + 1 < len && str[i + 1] == quote_char) {
-      buf[j++] = quote_char;
-      i++; // skip second quote
-    } else {
-      buf[j++] = str[i];
-    }
+  // Fast path: scan for any doubled quote pair. If none present, the field has
+  // nothing to unescape — emit it directly via rb_enc_str_new and skip the
+  // temp buffer + byte-by-byte copy. memchr is SIMD-optimized; the scan cost
+  // is far less than the malloc/free pair this avoids.
+  char *p = str;
+  char *end = str + len;
+  while ((p = memchr(p, quote_char, end - p))) {
+    if (p + 1 < end && *(p + 1) == quote_char) goto needs_unescape;
+    p++;
   }
-  VALUE out = rb_enc_str_new(buf, j, encoding);
-  xfree(buf);
-  return out;
+  return rb_enc_str_new(str, len, encoding);
+
+needs_unescape:
+  // Slow path: at least one doubled quote pair was found. Allocate a temp
+  // buffer and walk byte-by-byte, collapsing "" → ".
+  {
+    char *buf = ALLOC_N(char, len);
+    long j = 0;
+    for (long i = 0; i < len; i++) {
+      if (str[i] == quote_char && i + 1 < len && str[i + 1] == quote_char) {
+        buf[j++] = quote_char;
+        i++; // skip second quote
+      } else {
+        buf[j++] = str[i];
+      }
+    }
+    VALUE out = rb_enc_str_new(buf, j, encoding);
+    xfree(buf);
+    return out;
+  }
+}
+
+/* Helper: build the 2-element [elements, data_size] tuple returned by rb_parse_csv_line.
+ * Aligns this function's return shape with parse_csv_line_ruby and rb_parse_line_to_hash_ctx:
+ * data_size = -1 signals "unclosed quoted field — needs more data". */
+static inline VALUE make_parse_result(VALUE elements, long data_size) {
+  VALUE result = rb_ary_new_capa(2);
+  rb_ary_push(result, elements);
+  rb_ary_push(result, LONG2FIX(data_size));
+  return result;
 }
 
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val, VALUE allow_escaped_quotes_val, VALUE quote_boundary_standard_val, VALUE row_sep_val) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
-    return rb_ary_new();
+    return make_parse_result(rb_ary_new(), 0);
   }
 
   if (RB_TYPE_P(line, T_STRING) != 1) {
@@ -178,7 +205,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   if (max_size != Qnil) {
     max_fields = NUM2INT(max_size);
     if (max_fields < 0) {
-      return rb_ary_new();
+      return make_parse_result(rb_ary_new(), 0);
     }
   }
 
@@ -237,7 +264,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
       rb_ary_push(elements, field);
     }
 
-    return elements;
+    return make_parse_result(elements, RARRAY_LEN(elements));
   }
 
   // === SLOW PATH: Quoted fields or multi-char separator ===
@@ -350,7 +377,13 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   }
 
   if (in_quotes) {
-    rb_raise(eMalformedCSVError, "Unclosed quoted field detected in line: %s", StringValueCStr(line));
+    /* Unclosed quoted field at EOL: signal "needs more data" rather than raising.
+     * Aligns with parse_csv_line_ruby and rb_parse_line_to_hash_ctx, which both
+     * return data_size = -1 on this condition. The Reader's stitch loop consumes
+     * the signal: append the next physical line and re-parse, or raise MalformedCSV
+     * at EOF if the field never closes. The parser does not decide "ultimately
+     * malformed"; the caller does. */
+    return make_parse_result(rb_ary_new(), -1);
   }
 
   if ((max_fields < 0) || (element_count < max_fields)) {
@@ -384,7 +417,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     rb_ary_push(elements, field);
   }
 
-  return elements;
+  return make_parse_result(elements, RARRAY_LEN(elements));
 }
 
 // Efficiently combine two arrays into a hash (replaces headers.zip(values).to_h)

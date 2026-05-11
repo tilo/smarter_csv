@@ -5,9 +5,9 @@ module SmarterCSV
     module Options
       DEFAULT_OPTIONS = {
         acceleration: true, # if user wants to use accelleration or not
-        auto_row_sep_chars: SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS, # initial scan chunk size (default 512).
-        #                                                                       Validated against [MIN, MAX]_AUTO_ROW_SEP_CHARS in reader_options.rb.
-        #                                                                       Doubling escalation in guess_line_ending caps at MAX_AUTO_ROW_SEP_CHARS.
+        auto_row_sep_chars: SmarterCSV::AutoDetection::DEFAULT_AUTO_ROW_SEP_CHARS, # initial scan chunk size (default 4096).
+        #                                                                           Validated against [MIN, MAX]_AUTO_ROW_SEP_CHARS in reader_options.rb.
+        #                                                                           Doubling escalation in guess_line_ending caps at MAX_AUTO_ROW_SEP_CHARS.
         bad_row_limit: nil,
         buffer_size: SmarterCSV::PeekableIO::DEFAULT_PEEK_SIZE, # peek buffer chunk size for non-seekable inputs.
         #                                                         Validated: nil/0 → use default; clamped to [MIN_BUFFER_SIZE, MAX_BUFFER_SIZE];

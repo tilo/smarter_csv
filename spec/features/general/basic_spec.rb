@@ -34,6 +34,12 @@ fixture_path = 'spec/fixtures'
 
         it 'loads_basic_csv_file from Rails' do
           stub_const('Rails', true)
+          # A real Rails-loaded environment provides `blank?` on value types via
+          # ActiveSupport. Stubbing only the `Rails` constant is incomplete — the
+          # production code's `v.blank?` call needs that method to actually exist.
+          # Delegate to the Reader's internal blank?(v) helper for identical semantics.
+          allow_any_instance_of(String).to receive(:blank?)   { |s| reader.send(:blank?, s) }
+          allow_any_instance_of(NilClass).to receive(:blank?) { |n| reader.send(:blank?, n) }
           data = reader.process
           expect(data.size).to eq 5
 
