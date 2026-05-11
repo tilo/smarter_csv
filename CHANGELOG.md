@@ -1,7 +1,7 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0.pre10 (NOT RELEASED)
+## 1.17.0.pre11 (NOT RELEASED)
 
 RSpec tests: **1,434 → 2,065** (+631 tests)
 
@@ -18,6 +18,7 @@ RSpec tests: **1,434 → 2,065** (+631 tests)
 ### Performance
 
 * **Faster parsing of quoted-field-heavy CSVs** — files where most or all fields are wrapped in quotes (real-world data with city names, addresses, descriptions) parse an estimated 10–12% faster. Applies to both the C-accelerated and Ruby fallback paths. Files with few or no quoted fields are unchanged.
+* Minor improvements in Ruby path.
 
 
 ## 1.17.0.pre5 (2026-04-28)
