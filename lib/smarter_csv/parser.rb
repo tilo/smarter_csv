@@ -276,11 +276,14 @@ module SmarterCSV
 
       col_sep = options[:col_sep]
       strip = options[:strip_whitespace]
+      # Prefer the cached ivar (set in Reader#initialize); fall back to options for callers
+      # that bypass Reader — e.g., test harnesses that include SmarterCSV::Parser directly.
+      quote = @quote_char || options[:quote_char]
 
       # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
       # always pass this, but direct callers may not)
       # rubocop:disable Style/OrAssignment
-      has_quotes = line.include?(options[:quote_char]) unless has_quotes
+      has_quotes = line.include?(quote) unless has_quotes
       # rubocop:enable Style/OrAssignment
 
       # Optimization #7: when line has no quotes, use String#split (C-implemented)
@@ -302,7 +305,9 @@ module SmarterCSV
       # Quoted-line path: character-by-character parsing required
       line_size = line.size
       col_sep_size = col_sep.size
-      quote = options[:quote_char]
+      # `quote` was set above. doubled_quotes: prefer the cached ivar; fall back for callers
+      # that bypass Reader#initialize (test harnesses including SmarterCSV::Parser directly).
+      doubled_quotes = @doubled_quote_chars || (quote * 2)
       elements = []
       start = 0
       i = 0
@@ -383,7 +388,7 @@ module SmarterCSV
               # Tighter guard: only walk the field with gsub! when a doubled quote pair
               # actually exists. include?(doubled_quote) is a single memmem scan; cheaper
               # than gsub!'s full walk when no doubled pair is present.
-              field.gsub!(doubled_quote(quote), quote) if field.include?(doubled_quote(quote))
+              field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip # in-place: no extra allocation; safe on fresh byteslice
               elements << field
             else
@@ -449,7 +454,7 @@ module SmarterCSV
           field_len = bytesize - start
           if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(bytesize - 1) == quote_byte
             field = line.byteslice(start + 1, field_len - 2)
-            field.gsub!(doubled_quote(quote), quote) if field.include?(doubled_quote(quote))
+            field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
             elements << field
           else
@@ -488,7 +493,7 @@ module SmarterCSV
             field_len = i - start
             if field_len >= 2 && line[start] == quote && line[i - 1] == quote
               field = line[start + 1...i - 1]
-              field.gsub!(doubled_quote(quote), quote) if field.include?(doubled_quote(quote))
+              field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip
               elements << field
             else
@@ -552,7 +557,7 @@ module SmarterCSV
           field_len = line_size - start
           if field_len >= 2 && line[start] == quote && line[line_size - 1] == quote
             field = line[start + 1..line_size - 2]
-            field.gsub!(doubled_quote(quote), quote) if field.include?(doubled_quote(quote))
+            field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
             elements << field
           else
@@ -570,19 +575,19 @@ module SmarterCSV
       return nil if field.nil?
       return EMPTY_STRING if field.empty?
 
+      # doubled_quotes: prefer the cached ivar (set in Reader#initialize); fall back for callers
+      # that bypass Reader — e.g., tests that call cleanup_quotes directly.
+      doubled_quotes = @doubled_quote_chars || (quote * 2)
+
       # Remove surrounding quotes if present
       if field.start_with?(quote) && field.end_with?(quote)
         field = field[1..-2]
       end
 
       # Replace double quotes with a single quote (skip the gsub walk when no doubled pair exists)
-      field.gsub!(doubled_quote(quote), quote) if field.include?(doubled_quote(quote))
+      field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
 
       field
-    end
-
-    def doubled_quote(quote)
-      @doubled_quote ||= (quote * 2).to_s.freeze
     end
   end
 end

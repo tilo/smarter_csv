@@ -55,6 +55,9 @@ module SmarterCSV
       @warnings_by_key = {}
       @enforce_utf8 = false # only set to true if needed (after options parsing)
       @options = process_options(given_options)
+      # Cache quote_char as an ivar — stable for the Reader's lifetime; avoids per-row/per-line hash lookups.
+      @quote_char = @options[:quote_char]
+      @doubled_quote_chars = @quote_char * 2
       # true if it is compiled with accelleration
       @has_acceleration = !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
     end
@@ -246,8 +249,6 @@ module SmarterCSV
         @delete_nil_keys   = !!options[:key_mapping]
         @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
 
-        # Cache quote_char as an ivar for the stitch-loop memchr guard (avoids hash lookup per continuation line).
-        @quote_char = options[:quote_char]
         # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
         @field_size_limit = options[:field_size_limit]
 
@@ -305,7 +306,7 @@ module SmarterCSV
                 hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
               end
             else
-              has_quotes = line.include?(options[:quote_char])
+              has_quotes = line.include?(@quote_char)
               hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
               if @quote_escaping_auto && data_size == -1 && line.include?('\\')
                 hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
