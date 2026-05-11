@@ -123,8 +123,8 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 | `:strip_whitespace` | `true` | Remove whitespace before/after values and headers. |
 | `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats to the appropriate numeric type. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
 | `:value_converters` | `nil` | Hash of `:header => converter`; converter can be a lambda/Proc or a class implementing `self.convert(value)`. See [Value Converters](./value_converters.md). |
-| `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil` or an empty string. |
-| `:remove_zero_values` | `false` | Remove key/value pairs where the numeric value equals zero. |
+| `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil`, empty, or whitespace-only — any Unicode whitespace, same as Ruby's `String#blank?`. |
+| `:remove_zero_values` | `false` | Remove key/value pairs whose value is zero — numeric `0` / `0.0`, or any textual form of zero (`"0"`, `"0.0"`, `"00.00"`, `"+0"`, `"-0.0"`, …). |
 | `:nil_values_matching` | `nil` | Set matching values to `nil`. Accepts a regular expression matched against the string representation of each value (e.g. `/\ANAN\z/` for NaN, `/\A#VALUE!\z/` for Excel errors). With `remove_empty_values: true` (default), nil-ified values are then removed. With `remove_empty_values: false`, the key is retained with a `nil` value. |
 | `:remove_empty_hashes` | `true` | Remove result hashes that have no key/value pairs or all-empty values. |
 

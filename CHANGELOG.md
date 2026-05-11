@@ -1,9 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0.pre13 (NOT RELEASED)
+## 1.17.0 (NOT RELEASED)
 
-RSpec tests: **1,434 → 2,125** (+691 tests)
+RSpec tests: **1,434 → 2,197** (+763 tests)
 
 ### New / Changed Options
 
@@ -21,8 +21,12 @@ RSpec tests: **1,434 → 2,125** (+691 tests)
 
 ### Performance
 
-* **Faster parsing of quoted-field-heavy CSVs** — files where most or all fields are wrapped in quotes (real-world data with city names, addresses, descriptions) parse an estimated 10–12% faster. Applies to both the C-accelerated and Ruby fallback paths. Files with few or no quoted fields are unchanged.
-* Minor improvements in Ruby path: fast-skip numeric conversion for non-numbers, and faster strip!
+Measured against 1.16.4 (Apple M3, Ruby 3.4.7):
+
+* **C-accelerated path (the default):** quote-heavy, large-field, and wide CSVs parse meaningfully faster — roughly **7–22% faster** (city/address-style files ~10–13%; long-field and wide files the most). CSVs with very short lines and many tiny fields are up to ~3% slower — a side effect of the larger default auto-detection scan window (see `auto_row_sep_chars`); set it back to a smaller value if that matters for your workload. Net: solid wins where there's real per-row work, a small cost on the trivially-cheap cases.
+* **Ruby fallback path (`acceleration: false`):** faster on nearly every file — typically **4–20% faster** than 1.16.4, with the biggest gains on wide and many-small-field CSVs.
+
+Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
 
 
 ## 1.17.0.pre5 (2026-04-28)

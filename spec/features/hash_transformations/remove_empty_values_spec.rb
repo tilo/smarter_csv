@@ -28,6 +28,8 @@ describe ':remove_empty_values and Unicode whitespace' do
     " " => 'line separator (U+2028)',
     " " => 'medium mathematical space (U+205F)',
     " " => 'Ogham space mark (U+1680)',
+    " " => 'en quad (U+2000) — low edge of the E2 80 8x whitespace range',
+    " " => 'hair space (U+200A) — high edge of that range (U+200B right after is NOT whitespace)',
     " \t 　" => 'mixed Unicode + ASCII whitespace',
   }.each do |blank_value, label|
     [true, false].each do |accel|

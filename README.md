@@ -210,6 +210,8 @@ require 'open-uri'
 URI.open('https://example.com/data.csv') { |io| SmarterCSV.process(io) }
 ```
 
+See [Row and Column Separators](docs/row_col_sep.md) for how `:auto` detection works on non-seekable streams, and [Configuration Options](docs/options.md) for `buffer_size` (the peek-buffer chunk size).
+
 ### Bad Row Handling:
 
 SmarterCSV can quarantine malformed rows instead of crashing the entire import:
