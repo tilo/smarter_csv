@@ -276,9 +276,7 @@ module SmarterCSV
 
       col_sep = options[:col_sep]
       strip = options[:strip_whitespace]
-      # Prefer the cached ivar (set in Reader#initialize); fall back to options for callers
-      # that bypass Reader — e.g., test harnesses that include SmarterCSV::Parser directly.
-      quote = @quote_char || options[:quote_char]
+      quote = @quote_char
 
       # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
       # always pass this, but direct callers may not)
@@ -305,9 +303,7 @@ module SmarterCSV
       # Quoted-line path: character-by-character parsing required
       line_size = line.size
       col_sep_size = col_sep.size
-      # `quote` was set above. doubled_quotes: prefer the cached ivar; fall back for callers
-      # that bypass Reader#initialize (test harnesses including SmarterCSV::Parser directly).
-      doubled_quotes = @doubled_quote_chars || (quote * 2)
+      doubled_quotes = @doubled_quote_chars
       elements = []
       start = 0
       i = 0
@@ -386,7 +382,7 @@ module SmarterCSV
             if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(i - 1) == quote_byte
               field = line.byteslice(start + 1, field_len - 2)
               # Tighter guard: only walk the field with gsub! when a doubled quote pair
-              # actually exists. include?(doubled_quote) is a single memmem scan; cheaper
+              # actually exists. include?(doubled_quotes) is a single memmem scan; cheaper
               # than gsub!'s full walk when no doubled pair is present.
               field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip # in-place: no extra allocation; safe on fresh byteslice
@@ -584,9 +580,7 @@ module SmarterCSV
       return nil if field.nil?
       return EMPTY_STRING if field.empty?
 
-      # doubled_quotes: prefer the cached ivar (set in Reader#initialize); fall back for callers
-      # that bypass Reader — e.g., tests that call cleanup_quotes directly.
-      doubled_quotes = @doubled_quote_chars || (quote * 2)
+      doubled_quotes = @doubled_quote_chars
 
       # Remove surrounding quotes if present
       if field.start_with?(quote) && field.end_with?(quote)

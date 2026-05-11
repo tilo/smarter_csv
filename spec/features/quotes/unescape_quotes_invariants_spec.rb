@@ -20,15 +20,23 @@
 
 class QuoteInvariantsHarness
   include SmarterCSV::Parser
+
+  # Mimic the relevant part of Reader#initialize so the Parser methods can read the
+  # cached @quote_char / @doubled_quote_chars ivars directly — same as in production.
+  def initialize(options = {})
+    @quote_char = options[:quote_char] || '"'
+    @doubled_quote_chars = @quote_char * 2
+  end
+
   def has_acceleration
     !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
   end
 end
 
-[true, false].each do |accel|
-  describe "quoted-field invariants with#{accel ? ' C-' : 'out '}acceleration" do
-    let(:options) { {col_sep: ',', row_sep: "\n", quote_char: '"', acceleration: accel } }
-    let(:parser) { QuoteInvariantsHarness.new }
+[true, false].each do |acceleration|
+  describe "quoted-field invariants with#{acceleration ? ' C-' : 'out '}acceleration" do
+    let(:options) { {col_sep: ',', row_sep: "\n", quote_char: '"', acceleration: acceleration } }
+    let(:parser) { QuoteInvariantsHarness.new(options) }
 
     # ----------------------------------------------------------------------
     # 1. Encoding tag preservation
