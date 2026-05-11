@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'stringio'
+
 fixture_path = 'spec/fixtures'
 
 [true, false].each do |accel|
@@ -20,6 +22,30 @@ fixture_path = 'spec/fixtures'
         expect(hash.values).not_to include(0)
 
         expect(hash.size).to be <= 6
+      end
+    end
+
+    # ZERO_REGEX = /\A[+-]?0+(?:\.0+)?\z/ — every textual form of zero, signed or not.
+    # The :a column carries the candidate value; :b / :c keep the row non-empty.
+    describe 'textual zero forms' do
+      let(:options) { { remove_zero_values: true, remove_empty_values: true, col_sep: ',', acceleration: accel } }
+
+      %w[0 00 000 0.0 0.00 00.00 +0 +0.0 +0.00 -0 -0.0 -0.00].each do |zero_string|
+        it "removes a field equal to #{zero_string.inspect}" do
+          io = StringIO.new("a,b,c\n#{zero_string},keep,1\n")
+          data = SmarterCSV.process(io, options)
+          expect(data).to eq [{ b: 'keep', c: 1 }]
+        end
+      end
+
+      # Not zeros — must survive (and not be coerced to 0)
+      %w[0.5 -0.5 +0.1 0.05 0.001 10 100 -1].each do |non_zero_string|
+        it "keeps a field equal to #{non_zero_string.inspect}" do
+          io = StringIO.new("a,b,c\n#{non_zero_string},keep,1\n")
+          data = SmarterCSV.process(io, options)
+          expect(data.first).to have_key(:a)
+          expect(data.first[:a]).not_to eq 0
+        end
       end
     end
   end

@@ -1,9 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0.pre12 (NOT RELEASED)
+## 1.17.0.pre13 (NOT RELEASED)
 
-RSpec tests: **1,434 → 2,065** (+631 tests)
+RSpec tests: **1,434 → 2,125** (+691 tests)
 
 ### New / Changed Options
 
@@ -14,6 +14,10 @@ RSpec tests: **1,434 → 2,065** (+631 tests)
 ### Bug Fixes
 
 * **Files ending in a lone `\r`** are now correctly detected as `\r`-terminated instead of falling through to a "no clear row separator" warning.
+
+* **`remove_empty_values` now treats Unicode whitespace as empty** — a field containing only whitespace, including characters like non-breaking space (U+00A0) or ideographic space (U+3000), is now dropped, the same way Ruby's `String#blank?` behaves. Previously only ASCII whitespace counted (and only Rails apps got the Unicode behavior, via `blank?` — an inconsistency that's now gone). Behavior is identical with or without the C extension.
+
+* **`remove_zero_values` now also removes signed zeros** — `+0`, `-0`, `-0.0`, `+0.00`, etc. are recognized as zero and dropped, just like `0` and `0.0`. (Only applies when `remove_zero_values: true`, which is off by default.)
 
 ### Performance
 

@@ -518,6 +518,37 @@ static inline VALUE try_numeric_conversion(char *trim_start, long trimmed_len) {
 }
 
 /*
+ * leading_whitespace_len - byte length (1, 2, or 3) of the whitespace character at the start of
+ * `s` (with `len` bytes available), or 0 if `s` does not start with whitespace.
+ *
+ * "Whitespace" here matches Ruby's [[:space:]] / Rails' String#blank? — the Unicode White_Space
+ * set — so the C blank check stays consistent with the Ruby fallback path (hash_transformations).
+ * ASCII bytes are handled with a single comparison; the multibyte arms are only reached when a
+ * byte >= 0x80 appears, so all-ASCII fields pay nothing extra.
+ */
+static inline int leading_whitespace_len(const char *s, long len) {
+  if (len < 1) return 0;
+  unsigned char b0 = (unsigned char)s[0];
+  if (b0 == 0x20 || (b0 >= 0x09 && b0 <= 0x0D)) return 1;  // space (most common) then \t \n \v \f \r
+  if (b0 < 0x80) return 0;                                 // any other ASCII byte: not whitespace
+  if (len < 2) return 0;
+  unsigned char b1 = (unsigned char)s[1];
+  if (b0 == 0xC2 && (b1 == 0x85 || b1 == 0xA0)) return 2;  // U+0085 NEL, U+00A0 NBSP
+  if (len < 3) return 0;
+  unsigned char b2 = (unsigned char)s[2];
+  if (b0 == 0xE1 && b1 == 0x9A && b2 == 0x80) return 3;    // U+1680 OGHAM SPACE MARK
+  if (b0 == 0xE2) {
+    // U+2000..U+200A (E2 80 80..8A) — note: 0x8B is U+200B ZERO WIDTH SPACE, NOT whitespace.
+    // U+2028 LINE SEP (A8), U+2029 PARA SEP (A9), U+202F NARROW NBSP (AF), U+205F MMSP (E2 81 9F).
+    if (b1 == 0x80 && ((b2 >= 0x80 && b2 <= 0x8A) || b2 == 0xA8 || b2 == 0xA9 || b2 == 0xAF)) return 3;
+    if (b1 == 0x81 && b2 == 0x9F) return 3;
+    return 0;
+  }
+  if (b0 == 0xE3 && b1 == 0x80 && b2 == 0x80) return 3;    // U+3000 IDEOGRAPHIC SPACE
+  return 0;
+}
+
+/*
  * ================================================================================
  * Transformation options struct - passed to insert_field_into_hash to avoid
  * repeating 10+ parameters at each of the 4 field-insertion call sites.
@@ -574,17 +605,16 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
   VALUE key = get_key_for_index(element_count, opts->headers, opts->headers_len, opts->prefix_str);
 
   // 1. Empty/blank field handling
-  // Check if field is blank: either zero-length, or all whitespace characters.
-  // This matches Ruby's blank? behavior (BLANK_RE = /\A\s*\z/) which considers
-  // spaces, tabs, \r, \n, \v, \f as whitespace.
+  // A field is blank if it is zero-length or consists entirely of whitespace characters.
+  // "Whitespace" matches Ruby's BLANK_RE = /\A[[:space:]]*\z/ (and Rails' String#blank?) — the
+  // Unicode White_Space set — so this stays consistent with the Ruby fallback path.
   if (opts->remove_empty_values) {
     bool is_blank = true;
-    for (long i = 0; i < trimmed_len; i++) {
-      char c = trim_start[i];
-      if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != '\v' && c != '\f') {
-        is_blank = false;
-        break;
-      }
+    long i = 0;
+    while (i < trimmed_len) {
+      int w = leading_whitespace_len(trim_start + i, trimmed_len - i);
+      if (w == 0) { is_blank = false; break; }
+      i += w;
     }
     if (is_blank) return false;  // skip blank value
   }
@@ -595,22 +625,25 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     return false;  // not a non-blank value
   }
 
-  // 2. String-based zero check — matches /\A0+(?:\.0+)?\z/
-  // Works independently of numeric conversion: "0", "00", "0.0", "00.00" etc.
+  // 2. String-based zero check — matches /\A[+-]?0+(?:\.0+)?\z/
+  // Works independently of numeric conversion: "0", "00", "0.0", "00.00", "+0", "-0.00" etc.
   // Outer quotes are stripped before this call, so the check applies equally
   // to quoted ("0") and unquoted (0) fields.
   if (opts->remove_zero_values) {
-    long i = 0;
-    // Must start with at least one '0'
-    if (trimmed_len > 0 && trim_start[0] == '0') {
+    char c0 = trim_start[0];  // trimmed_len > 0 guaranteed (zero-length handled above)
+    // Index i skips an optional leading sign; bail right away if the first byte can't begin a zero.
+    long i = (c0 == '0') ? 0
+           : (c0 == '+' || c0 == '-') ? 1
+           : trimmed_len;
+    if (i < trimmed_len && trim_start[i] == '0') {
       while (i < trimmed_len && trim_start[i] == '0') i++;
-      if (i == trimmed_len) return false;  // all zeros, e.g. "0", "00"
+      if (i == trimmed_len) return false;  // all zeros, e.g. "0", "00", "+0", "-00"
       if (trim_start[i] == '.') {
         i++;
         long dot_pos = i;
         while (i < trimmed_len && trim_start[i] == '0') i++;
         // Valid if we consumed everything AND had at least one zero after dot
-        if (i == trimmed_len && i > dot_pos) return false;  // e.g. "0.0", "00.00"
+        if (i == trimmed_len && i > dot_pos) return false;  // e.g. "0.0", "00.00", "+0.0", "-0.00"
       }
     }
   }

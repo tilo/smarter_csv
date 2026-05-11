@@ -775,7 +775,7 @@ module SmarterCSV
 
     # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
-    BLANK_RE = /\A\s*\z/.freeze
+    BLANK_RE = /\A[[:space:]]*\z/.freeze # Unicode whitespace, same as Rails' String#blank?
 
     # Optimization #5: fast-path empty string and nil checks before regex
     def blank?(value)

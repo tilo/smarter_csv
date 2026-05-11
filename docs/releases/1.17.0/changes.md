@@ -27,9 +27,9 @@
 
 # SmarterCSV 1.17.0 — Changes
 
-RSpec tests: **1,434 → 2065** (+631 tests since 1.16.4)
+RSpec tests: **1,434 → 2,125** (+691 tests since 1.16.4)
 
-1.17.0 is a **features-and-quality** release, focused on three things: streaming IO inputs, a structured warnings system, and Rails-friendly defaults. The C parser hot path is unchanged from 1.16.0 (see [`docs/releases/1.16.0/`](../1.16.0/changes.md) for the parser performance story). On the C-accelerated path, 1.17.0 vs 1.16.4 is a **mixed picture**: 5 files run 6.7%–15.5% faster (long-quoted-field and wide files), 3 files run 8.8%–14.4% slower (short-line / many-small-field files), and 11 are within noise. The Ruby path is parity throughout. The mixed pattern traces to the new auto-detection defaults (`auto_row_sep_chars` 500→4096) — see [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md) for the per-file breakdown.
+1.17.0 is a **features-and-quality** release, focused on three things: streaming IO inputs, a structured warnings system, and Rails-friendly defaults. The C parser's core line-parsing — separator splitting, quote/escape handling, multiline stitching — is unchanged from 1.16.0 (see [`docs/releases/1.16.0/`](../1.16.0/changes.md) for the parser performance story); what changed in the C path this cycle is a faster code path for quoted-field-heavy files and Unicode-aware blank detection. On the C-accelerated path, 1.17.0 vs 1.16.4 is a **mixed picture**: quoted-field-heavy and wide files run meaningfully faster, a handful of short-line / many-small-field files run a little slower, and the rest are within noise. The Ruby path is parity throughout. The wins come from the faster quoted-field handling; the small regressions trace to the new auto-detection default (`auto_row_sep_chars` 500→4096) plus a tiny per-line overhead — see [performance_notes.md](performance_notes.md) and [benchmarks.md](benchmarks.md) for the per-file breakdown.
 
 ---
 
