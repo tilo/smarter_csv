@@ -7,6 +7,13 @@ module SmarterCSV
     INTEGER_REGEX = /\A[+-]?\d+\z/.freeze
     ZERO_REGEX = /\A0+(?:\.0+)?\z/.freeze
 
+    # First-byte values that can begin a numeric literal — used to skip the numeric
+    # regexes for values that obviously aren't numbers (e.g. city names).
+    ZERO_BYTE  = '0'.ord # 48
+    NINE_BYTE  = '9'.ord # 57
+    PLUS_BYTE  = '+'.ord # 43
+    MINUS_BYTE = '-'.ord # 45
+
     def hash_transformations(hash, options)
       # Modify hash in-place for performance (avoids allocating a second hash per row)
 
@@ -52,10 +59,15 @@ module SmarterCSV
 
         # Convert to numeric if requested
         if convert_to_numeric && v.is_a?(String) && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-          if FLOAT_REGEX.match?(v)
-            hash[k] = v.to_f
-          elsif INTEGER_REGEX.match?(v)
-            hash[k] = v.to_i
+          # Fast-reject: the string is already stripped and both regexes are \A-anchored on a digit or sign, so a value whose
+          # first byte isn't a digit, '+', or '-' cannot be numeric — skip the regex entirely.
+          first_byte = v.getbyte(0)
+          if first_byte && ((first_byte >= ZERO_BYTE && first_byte <= NINE_BYTE) || first_byte == MINUS_BYTE || first_byte == PLUS_BYTE)
+            if FLOAT_REGEX.match?(v)
+              hash[k] = v.to_f
+            elsif INTEGER_REGEX.match?(v)
+              hash[k] = v.to_i
+            end
           end
         end
 

@@ -296,7 +296,9 @@ module SmarterCSV
 
         elements = line.split(col_sep, -1) # -1 preserves trailing empty fields
         elements = elements[0, header_size] if header_size
-        elements.map!(&:strip) if strip
+        # split returns fresh, mutable strings — strip them in place (strip! allocates
+        # nothing when there's no leading/trailing whitespace, which is the common case)
+        elements.each(&:strip!) if strip
         return [elements, elements.size]
       end
 
