@@ -107,9 +107,14 @@ describe 'numeric conversion of values' do
         ['1.5e3',  1500.0,           '1.5e3'],
         ['1.0e10', 10_000_000_000.0, '1.0e10'],
       ].each do |value, c_expected, rb_expected|
-        expected = acceleration ? c_expected : rb_expected
-        it "converts #{value.inspect} to #{expected.inspect} on the #{acceleration ? 'C' : 'Ruby'} path (characterization — see TO_DO.md)" do
-          expect(converted(value, acceleration)).to eql expected
+        if acceleration && RUBY_ENGINE == 'ruby' # only MRI runs the C-extension
+          it "converts #{value.inspect} to #{c_expected.inspect} on the C-path" do
+            expect(converted(value, acceleration)).to eql c_expected
+          end
+        else
+          it "converts #{value.inspect} to #{rb_expected.inspect} on the Ruby-path or non-MRI Ruby" do
+            expect(converted(value, acceleration)).to eql rb_expected
+          end
         end
       end
     end
