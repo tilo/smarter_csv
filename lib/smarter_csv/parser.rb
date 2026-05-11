@@ -390,12 +390,15 @@ module SmarterCSV
               # than gsub!'s full walk when no doubled pair is present.
               field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip # in-place: no extra allocation; safe on fresh byteslice
-              elements << field
             else
               field = line.byteslice(start, field_len)
               field = cleanup_quotes(field, quote)
-              elements << (strip ? field.strip : field) # cleanup_quotes may return frozen EMPTY_STRING
+              # cleanup_quotes may return the frozen EMPTY_STRING; all non-empty returns are
+              # fresh mutable byteslices/substrings. So strip! in place (no allocation), guarded
+              # by !field.empty? to skip the frozen-empty case (which needs no stripping anyway).
+              field.strip! if strip && !field.empty?
             end
+            elements << field
             i += 1
             start = i
             backslash_count = 0
@@ -456,12 +459,14 @@ module SmarterCSV
             field = line.byteslice(start + 1, field_len - 2)
             field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
-            elements << field
           else
             field = line.byteslice(start, field_len)
             field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+            # mutable byteslices — strip! in place, guarded by !field.empty? for the frozen case.
+            field.strip! if strip && !field.empty?
           end
+          elements << field
         end
       else
         # Multi-char col_sep: use substring comparison (original path)
@@ -495,12 +500,14 @@ module SmarterCSV
               field = line[start + 1...i - 1]
               field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip
-              elements << field
             else
               field = line[start...i]
               field = cleanup_quotes(field, quote)
-              elements << (strip ? field.strip : field)
+              # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+              # mutable substrings — strip! in place, guarded by !field.empty? for the frozen case.
+              field.strip! if strip && !field.empty?
             end
+            elements << field
             i += col_sep_size
             start = i
             backslash_count = 0
@@ -559,12 +566,14 @@ module SmarterCSV
             field = line[start + 1..line_size - 2]
             field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
-            elements << field
           else
             field = line[start..-1]
             field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+            # mutable substrings — strip! in place, guarded by !field.empty? for the frozen case.
+            field.strip! if strip && !field.empty?
           end
+          elements << field
         end
       end
 
