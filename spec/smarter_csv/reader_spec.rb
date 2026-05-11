@@ -249,8 +249,8 @@ RSpec.describe SmarterCSV::Reader do
     # Helper: create a reader, call process to initialise all required ivars
     # (@headers, @use_acceleration, @only_headers_set, @except_headers_set, etc.)
     # then return the fully-initialised reader for direct send(:process_line_to_hash) calls.
-    def make_reader(csv_string, opts = {})
-      r = SmarterCSV::Reader.new(StringIO.new(csv_string), {acceleration: false}.merge(opts))
+    def make_reader(csv_string, acceleration: false, **opts)
+      r = SmarterCSV::Reader.new(StringIO.new(csv_string), opts.merge(acceleration: acceleration))
       r.process
       r
     end
@@ -308,84 +308,62 @@ RSpec.describe SmarterCSV::Reader do
       expect(result).to be_nil
     end
 
-    context 'acceleration path (lines 565–584)' do
-      def make_accel_reader(csv_string, opts = {})
-        r = SmarterCSV::Reader.new(StringIO.new(csv_string), {acceleration: true}.merge(opts))
-        r.process
-        r
-      end
+    # Same assertions on both paths — post-parse orchestration (key handling,
+    # nil_values_matching, value_converters) is identical regardless of which
+    # parser produced the row.
+    [true, false].each do |acceleration|
+      context "acceleration: #{acceleration}" do
+        it 'returns a valid hash for a normal data line' do
+          r = make_reader("col1,col2\n", acceleration: acceleration)
+          result = r.send(:process_line_to_hash, "foo,bar", r.options)
+          expect(result).to be_a(Hash)
+          expect(result[:col1]).to eq 'foo'
+        end
 
-      before { skip 'C extension not available' unless SmarterCSV::Parser.respond_to?(:parse_csv_line_c) }
+        it 'executes nil/empty-key deletion when key_mapping is set' do
+          # key_mapping sets @delete_nil_keys=true and @delete_empty_keys=true;
+          # hash.delete(nil) and hash.delete('') execute (even if keys are absent)
+          r = make_reader("col1,col2\n", acceleration: acceleration, key_mapping: {col1: :a, col2: :b})
+          result = r.send(:process_line_to_hash, "foo,bar", r.options)
+          expect(result).to be_a(Hash)
+          expect(result.key?(nil)).to be false
+        end
 
-      it 'enters the acceleration branch and returns a valid hash (line 565)' do
-        r = make_accel_reader("col1,col2\n")
-        result = r.send(:process_line_to_hash, "foo,bar", r.options)
-        expect(result).to be_a(Hash)
-        expect(result[:col1]).to eq 'foo'
-      end
+        it 'nils values matching regex' do
+          r = make_reader("col1,col2\n", acceleration: acceleration)
+          opts = r.options.merge(nil_values_matching: /^foo$/)
+          result = r.send(:process_line_to_hash, "foo,bar", opts)
+          # remove_empty_values: true (default) → nil-ified value is then removed
+          expect(result.key?(:col1)).to be false
+          expect(result[:col2]).to eq 'bar'
+        end
 
-      it 'executes nil/empty-key deletion when key_mapping is set (lines 568–572)' do
-        # key_mapping sets @delete_nil_keys=true and @delete_empty_keys=true;
-        # hash.delete(nil) and hash.delete('') execute (even if keys are absent)
-        r = make_accel_reader("col1,col2\n", key_mapping: {col1: :a, col2: :b})
-        result = r.send(:process_line_to_hash, "foo,bar", r.options)
-        expect(result).to be_a(Hash)
-        expect(result.key?(nil)).to be false
-      end
+        it 'keeps key with nil value when remove_empty_values: false' do
+          r = make_reader("col1,col2\n", acceleration: acceleration)
+          opts = r.options.merge(nil_values_matching: /^foo$/, remove_empty_values: false)
+          result = r.send(:process_line_to_hash, "foo,bar", opts)
+          # remove_empty_values: false → key retained, value set to nil
+          expect(result.key?(:col1)).to be true
+          expect(result[:col1]).to be_nil
+          expect(result[:col2]).to eq 'bar'
+        end
 
-      it 'nils values matching regex in the acceleration path (lines 575–578)' do
-        r = make_accel_reader("col1,col2\n")
-        opts = r.options.merge(nil_values_matching: /^foo$/)
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        # remove_empty_values: true (default) → nil-ified value is then removed
-        expect(result.key?(:col1)).to be false
-        expect(result[:col2]).to eq 'bar'
-      end
+        it 'applies value_converters' do
+          converter = double('converter')
+          allow(converter).to receive(:convert).with('foo').and_return('CONVERTED')
+          r = make_reader("col1,col2\n", acceleration: acceleration)
+          opts = r.options.merge(value_converters: {col1: converter})
+          result = r.send(:process_line_to_hash, "foo,bar", opts)
+          expect(result[:col1]).to eq 'CONVERTED'
+        end
 
-      it 'keeps key with nil value when remove_empty_values: false in the acceleration path (lines 590–593)' do
-        r = make_accel_reader("col1,col2\n")
-        opts = r.options.merge(nil_values_matching: /^foo$/, remove_empty_values: false)
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        # remove_empty_values: false → key retained, value set to nil
-        expect(result.key?(:col1)).to be true
-        expect(result[:col1]).to be_nil
-        expect(result[:col2]).to eq 'bar'
-      end
-
-      it 'applies value_converters in the acceleration path (lines 582–584)' do
-        converter = double('converter')
-        allow(converter).to receive(:convert).with('foo').and_return('CONVERTED')
-        r = make_accel_reader("col1,col2\n")
-        opts = r.options.merge(value_converters: {col1: converter})
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        expect(result[:col1]).to eq 'CONVERTED'
-      end
-
-      it 'applies lambda value_converters in the acceleration path (issue #329)' do
-        converter = ->(v) { v.upcase }
-        r = make_accel_reader("col1,col2\n")
-        opts = r.options.merge(value_converters: {col1: converter})
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        expect(result[:col1]).to eq 'FOO'
-      end
-    end
-
-    context 'Ruby fallback path' do
-      it 'applies value_converters in the Ruby path' do
-        converter = double('converter')
-        allow(converter).to receive(:convert).with('foo').and_return('CONVERTED')
-        r = make_reader("col1,col2\n")
-        opts = r.options.merge(value_converters: {col1: converter})
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        expect(result[:col1]).to eq 'CONVERTED'
-      end
-
-      it 'applies lambda value_converters in the Ruby path (issue #329)' do
-        converter = ->(v) { v.upcase }
-        r = make_reader("col1,col2\n")
-        opts = r.options.merge(value_converters: {col1: converter})
-        result = r.send(:process_line_to_hash, "foo,bar", opts)
-        expect(result[:col1]).to eq 'FOO'
+        it 'applies lambda value_converters (issue #329)' do
+          converter = ->(v) { v.upcase }
+          r = make_reader("col1,col2\n", acceleration: acceleration)
+          opts = r.options.merge(value_converters: {col1: converter})
+          result = r.send(:process_line_to_hash, "foo,bar", opts)
+          expect(result[:col1]).to eq 'FOO'
+        end
       end
     end
   end

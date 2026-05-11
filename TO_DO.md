@@ -70,3 +70,40 @@ plus characterization tests for the stays-a-string set above; CHANGELOG line not
 fallback's numeric conversion now accepts scientific notation and bare-dot forms, matching the
 accelerated path. Behavior change affects `acceleration: false` users only — and aligns them with
 the default.
+
+
+## Warn once when the C extension didn't load on a platform that supports it
+
+Context: `acceleration: true` is the default. When the C extension fails to build / isn't loaded,
+SmarterCSV silently falls back to the Ruby parser — graceful degradation by design (so the gem
+keeps working for users with broken toolchains, JRuby, TruffleRuby, etc.). Today there is no
+signal to the user that they're not getting the C path; their CSV parsing is just slower than
+they might have expected.
+
+Idea: emit a one-time warning when:
+  * the C extension is NOT loaded — `!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)`, AND
+  * the platform is one where it *should* be available — `RUBY_ENGINE == 'ruby'` (MRI / CRuby).
+    JRuby and TruffleRuby don't load CRuby C extensions natively; nothing for the user to do.
+
+Where to fire:
+  * NOT at `require 'smarter_csv'` time — Rails.logger typically isn't set up yet, so any
+    "route through the warnings system" code would just fall through to `Kernel#warn` anyway,
+    and the warning would land in stderr instead of the Rails log where ops would see it.
+  * At first `Reader.new` / `SmarterCSV.process` call — Rails has booted, the existing
+    routing-through-Rails.logger-or-Kernel#warn infra works, and the existing deduped warnings
+    histogram means it fires once per process regardless of how many parse calls.
+
+Implementation sketch:
+  * Add a new warning code (e.g. `:c_extension_unavailable`) alongside the existing ones
+    (`:chunk_size_default`, `:header_a_method`, `:utf8_missing_binary_mode`, ...).
+  * Severity `:warn`. Suppressible via the existing `verbose: :quiet`.
+  * Message points at the fix — e.g. "C acceleration extension not loaded on this Ruby; using
+    Ruby parser. To enable acceleration, reinstall with `gem pristine smarter_csv` and check
+    the build log." Plus a link/pointer to a troubleshooting section in the docs.
+
+Bonus: add a public predicate `SmarterCSV.acceleration_available?` returning
+`Parser.respond_to?(:parse_csv_line_c)`. Zero noise, useful for scripts / CI / future spec
+files that want to branch on the environment fact rather than guess.
+
+NOT doing: a banner at `require` time (every Rails app would print it at boot, too noisy);
+warning when `acceleration: false` was explicitly chosen (the user knows what they're doing).
