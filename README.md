@@ -37,22 +37,31 @@ SmarterCSV is designed for **real-world CSV processing**, returning fully usable
 
 For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to SmarterCSV.
 
-| Comparison (SmarterCSV 1.16.0, C-accelerated)  | Range                   |
+| Comparison (SmarterCSV 1.17.0, C-accelerated)  | Range                   |
 |-------------------------------------------------|-------------------------|
-| vs SmarterCSV 1.15.2 (with C acceleration)      | up to 2.4× faster       |
-| vs SmarterCSV 1.14.4 (with C acceleration)      | 9×–65× faster           |
-| vs SmarterCSV 1.14.4 (Ruby path)                | 1.7×–10.6× faster       |
-| vs CSV.read  (arrays of arrays)                 | 1.7×–8.6× faster        |
-| vs CSV.table (arrays of hashes)                 | 7×–129× faster          |
-| vs ZSV (arrays of hashes, equiv. output)        | 1.1×–6.6× faster †      |
+| vs SmarterCSV 1.15.2 (with C acceleration)      | up to 2.8× faster       |
+| vs SmarterCSV 1.14.4 (with C acceleration)      | 9×–82× faster           |
+| vs SmarterCSV 1.14.4 (Ruby path)                | 2.4×–19.8× faster       |
+| vs CSV.read  (arrays of arrays)                 | 1.3×–7.9× faster        |
+| vs CSV.table (arrays of hashes)                 | 4.9×–132× faster        |
+| vs ZSV 1.3.0 (arrays of hashes, equiv. output)  | 1.1×–6.6× faster †      |
 
-† SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output.
+† SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output. ZSV row carried over from the 1.16.0 benchmark; not re-measured for 1.17.0.
 
-_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
+_Benchmarks: 19 CSV files (20k–240k rows), Ruby 3.4.7, Apple M4._
 
-![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
+> ⚠️ **Why these numbers look a touch lower than 1.16.0 charts?** TL;DR: beacuse we use different statistic methods.
+Earlier versions of these benchmarks reported the best-of-N sample (the absolute `min` / fastest run) for each measurement. A single lucky run — empty caches lining up, no scheduler interrupts — could shave up to ~10% off and become the headline number. I think that would be misleading.
+Because of that, we've switched to the 10th-percentile (`p10`) of multiple runs of 40 samples, which discards roughly the four luckiest runs and reports a time much closer to what you'll actually observe in production. On noisier fixtures `p10` is ~5–10% above `min`; on quiet ones it's within 1%. The relative ordering between versions and adapters is unchanged; the absolute speedup figures are simply more honest.
 
-![SmarterCSV 1.16.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.16.0_vs_previous_C-speedup.svg)
+### SmarterCSV vs Ruby CSV
+![SmarterCSV 1.17.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.17.0_vs_RubyCSV_3.3.5_speedup.png)
+
+### SmarterCSV C Path
+![SmarterCSV 1.17.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.17.0_vs_previous_C-speedup.svg)
+
+### SmarterCSV Ruby Path
+![SmarterCSV 1.17.0 vs previous versions — Ruby path](images/SmarterCSV_1.17.0_vs_previous_Rb-speedup.svg)
 
 See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
 

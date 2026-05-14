@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="668"
+     font-family="ui-monospace, 'Cascadia Code', 'Courier New', monospace" font-size="12">
+<rect width="820" height="668" fill="#ffffff"/>
+<text x="410" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#212121">SmarterCSV improvements 1.15.2, 1.16.4, 1.17.0 vs 1.14.4 — Ruby (not accelerated)</text>
+<text x="410" y="32" text-anchor="middle" font-size="10" fill="#9e9e9e">Speedup ratio = baseline version time ÷ newer version time  (higher = newer version is faster)</text>
+<text x="410" y="48" text-anchor="middle" font-size="11" fill="#616161">Ruby 3.4.7  [log scale, best of 40]</text>
+<line x1="220" y1="68" x2="220" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="220" y="64" text-anchor="middle" font-size="11" fill="#757575">1×</text>
+<line x1="323" y1="68" x2="323" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="323" y="64" text-anchor="middle" font-size="11" fill="#757575">2×</text>
+<line x1="459" y1="68" x2="459" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="459" y="64" text-anchor="middle" font-size="11" fill="#757575">5×</text>
+<line x1="561" y1="68" x2="561" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="561" y="64" text-anchor="middle" font-size="11" fill="#757575">10×</text>
+<line x1="664" y1="68" x2="664" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="664" y="64" text-anchor="middle" font-size="11" fill="#757575">20×</text>
+<line x1="800" y1="68" x2="800" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="800" y="64" text-anchor="middle" font-size="11" fill="#757575">50×</text>
+<line x1="220" y1="68" x2="220" y2="580" stroke="#9e9e9e" stroke-width="1.5"/>
+<line x1="220" y1="68" x2="800" y2="68" stroke="#bdbdbd" stroke-width="1"/>
+<rect x="0" y="86" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="103" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_C</text>
+<rect x="556" y="94" width="10" height="10" fill="#1565C0"/>
+<text x="518" y="103" font-size="10" fill="#1565C0">10.0×</text>
+<rect x="652" y="94" width="10" height="10" fill="#BF360C"/>
+<rect x="658" y="94" width="10" height="10" fill="#2E7D32"/>
+<text x="671" y="103" font-size="10" fill="#BF360C">19×</text>
+<text x="698" y="103" font-size="10" fill="#2E7D32">20×</text>
+<rect x="0" y="112" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="129" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_NC</text>
+<rect x="506" y="120" width="10" height="10" fill="#1565C0"/>
+<text x="475" y="129" font-size="10" fill="#1565C0">7.1×</text>
+<rect x="570" y="120" width="10" height="10" fill="#BF360C"/>
+<rect x="586" y="120" width="10" height="10" fill="#2E7D32"/>
+<text x="599" y="129" font-size="10" fill="#BF360C">11×</text>
+<text x="626" y="129" font-size="10" fill="#2E7D32">12×</text>
+<rect x="0" y="138" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="155" text-anchor="end" font-size="11" fill="#424242">whitespace_heavy_60k</text>
+<rect x="538" y="146" width="10" height="10" fill="#1565C0"/>
+<rect x="543" y="146" width="10" height="10" fill="#BF360C"/>
+<rect x="572" y="146" width="10" height="10" fill="#2E7D32"/>
+<text x="507" y="155" font-size="10" fill="#1565C0">8.8×</text>
+<text x="585" y="155" font-size="10" fill="#BF360C">9.1×</text>
+<text x="619" y="155" font-size="10" fill="#2E7D32">11×</text>
+<rect x="0" y="164" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="181" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_NB</text>
+<rect x="525" y="172" width="10" height="10" fill="#1565C0"/>
+<rect x="544" y="172" width="10" height="10" fill="#BF360C"/>
+<rect x="563" y="172" width="10" height="10" fill="#2E7D32"/>
+<text x="494" y="181" font-size="10" fill="#1565C0">8.1×</text>
+<text x="576" y="181" font-size="10" fill="#BF360C">9.2×</text>
+<text x="610" y="181" font-size="10" fill="#2E7D32">10×</text>
+<rect x="0" y="190" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="207" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_B</text>
+<rect x="525" y="198" width="10" height="10" fill="#1565C0"/>
+<rect x="538" y="198" width="10" height="10" fill="#BF360C"/>
+<rect x="550" y="198" width="10" height="10" fill="#2E7D32"/>
+<text x="494" y="207" font-size="10" fill="#1565C0">8.1×</text>
+<text x="563" y="207" font-size="10" fill="#BF360C">8.8×</text>
+<text x="597" y="207" font-size="10" fill="#2E7D32">9.6×</text>
+<rect x="0" y="216" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="233" text-anchor="end" font-size="11" fill="#424242">tab_separated_60k</text>
+<rect x="504" y="224" width="10" height="10" fill="#1565C0"/>
+<rect x="509" y="224" width="10" height="10" fill="#BF360C"/>
+<rect x="539" y="224" width="10" height="10" fill="#2E7D32"/>
+<text x="473" y="233" font-size="10" fill="#1565C0">7.0×</text>
+<text x="552" y="233" font-size="10" fill="#BF360C">7.3×</text>
+<text x="586" y="233" font-size="10" fill="#2E7D32">8.9×</text>
+<rect x="0" y="242" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="259" text-anchor="end" font-size="11" fill="#424242">multi_char_separator_60k</text>
+<rect x="466" y="250" width="10" height="10" fill="#1565C0"/>
+<text x="435" y="259" font-size="10" fill="#1565C0">5.4×</text>
+<rect x="503" y="250" width="10" height="10" fill="#BF360C"/>
+<rect x="529" y="250" width="10" height="10" fill="#2E7D32"/>
+<text x="542" y="259" font-size="10" fill="#BF360C">7.0×</text>
+<text x="576" y="259" font-size="10" fill="#2E7D32">8.3×</text>
+<rect x="0" y="268" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="285" text-anchor="end" font-size="11" fill="#424242">wide_500_cols_20k</text>
+<rect x="483" y="276" width="10" height="10" fill="#1565C0"/>
+<rect x="483" y="276" width="10" height="10" fill="#BF360C"/>
+<text x="452" y="285" font-size="10" fill="#1565C0">6.1×</text>
+<text x="496" y="285" font-size="10" fill="#BF360C">6.1×</text>
+<rect x="516" y="276" width="10" height="10" fill="#2E7D32"/>
+<text x="529" y="285" font-size="10" fill="#2E7D32">7.6×</text>
+<rect x="0" y="294" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="311" text-anchor="end" font-size="11" fill="#424242">utf8_multibyte_60k</text>
+<rect x="475" y="302" width="10" height="10" fill="#1565C0"/>
+<rect x="483" y="302" width="10" height="10" fill="#BF360C"/>
+<rect x="502" y="302" width="10" height="10" fill="#2E7D32"/>
+<text x="444" y="311" font-size="10" fill="#1565C0">5.8×</text>
+<text x="515" y="311" font-size="10" fill="#BF360C">6.1×</text>
+<text x="549" y="311" font-size="10" fill="#2E7D32">6.9×</text>
+<rect x="0" y="320" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="337" text-anchor="end" font-size="11" fill="#424242">many_empty_fields_60k</text>
+<rect x="393" y="328" width="10" height="10" fill="#1565C0"/>
+<text x="362" y="337" font-size="10" fill="#1565C0">3.3×</text>
+<rect x="454" y="328" width="10" height="10" fill="#BF360C"/>
+<rect x="474" y="328" width="10" height="10" fill="#2E7D32"/>
+<text x="487" y="337" font-size="10" fill="#BF360C">5.0×</text>
+<text x="521" y="337" font-size="10" fill="#2E7D32">5.7×</text>
+<rect x="0" y="346" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="363" text-anchor="end" font-size="11" fill="#424242">sample_100k</text>
+<rect x="434" y="354" width="10" height="10" fill="#1565C0"/>
+<rect x="439" y="354" width="10" height="10" fill="#BF360C"/>
+<rect x="456" y="354" width="10" height="10" fill="#2E7D32"/>
+<text x="403" y="363" font-size="10" fill="#1565C0">4.4×</text>
+<text x="469" y="363" font-size="10" fill="#BF360C">4.5×</text>
+<text x="503" y="363" font-size="10" fill="#2E7D32">5.1×</text>
+<rect x="0" y="372" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="389" text-anchor="end" font-size="11" fill="#424242">sensor_data_50krows_50cols</text>
+<rect x="454" y="380" width="10" height="10" fill="#1565C0"/>
+<rect x="455" y="380" width="10" height="10" fill="#2E7D32"/>
+<rect x="456" y="380" width="10" height="10" fill="#BF360C"/>
+<text x="423" y="389" font-size="10" fill="#1565C0">5.0×</text>
+<text x="469" y="389" font-size="10" fill="#2E7D32">5.1×</text>
+<text x="503" y="389" font-size="10" fill="#BF360C">5.1×</text>
+<rect x="0" y="398" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="415" text-anchor="end" font-size="11" fill="#424242">long_fields_40k</text>
+<rect x="301" y="406" width="10" height="10" fill="#1565C0"/>
+<text x="270" y="415" font-size="10" fill="#1565C0">1.8×</text>
+<rect x="416" y="406" width="10" height="10" fill="#BF360C"/>
+<rect x="416" y="406" width="10" height="10" fill="#2E7D32"/>
+<text x="429" y="415" font-size="10" fill="#BF360C">3.9×</text>
+<text x="463" y="415" font-size="10" fill="#2E7D32">3.9×</text>
+<rect x="0" y="424" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="441" text-anchor="end" font-size="11" fill="#424242">heavy_quoting_60k</text>
+<rect x="268" y="432" width="10" height="10" fill="#1565C0"/>
+<text x="237" y="441" font-size="10" fill="#1565C0">1.4×</text>
+<rect x="371" y="432" width="10" height="10" fill="#BF360C"/>
+<rect x="381" y="432" width="10" height="10" fill="#2E7D32"/>
+<text x="394" y="441" font-size="10" fill="#BF360C">2.9×</text>
+<text x="428" y="441" font-size="10" fill="#2E7D32">3.1×</text>
+<rect x="0" y="450" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="467" text-anchor="end" font-size="11" fill="#424242">embedded_separators_60k</text>
+<rect x="277" y="458" width="10" height="10" fill="#1565C0"/>
+<text x="246" y="467" font-size="10" fill="#1565C0">1.5×</text>
+<rect x="364" y="458" width="10" height="10" fill="#BF360C"/>
+<rect x="374" y="458" width="10" height="10" fill="#2E7D32"/>
+<text x="387" y="467" font-size="10" fill="#BF360C">2.7×</text>
+<text x="421" y="467" font-size="10" fill="#2E7D32">2.9×</text>
+<rect x="0" y="476" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="493" text-anchor="end" font-size="11" fill="#424242">worldcities</text>
+<rect x="270" y="484" width="10" height="10" fill="#1565C0"/>
+<text x="239" y="493" font-size="10" fill="#1565C0">1.4×</text>
+<rect x="366" y="484" width="10" height="10" fill="#BF360C"/>
+<rect x="372" y="484" width="10" height="10" fill="#2E7D32"/>
+<text x="385" y="493" font-size="10" fill="#BF360C">2.8×</text>
+<text x="419" y="493" font-size="10" fill="#2E7D32">2.9×</text>
+<rect x="0" y="502" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="519" text-anchor="end" font-size="11" fill="#424242">uscities</text>
+<rect x="269" y="510" width="10" height="10" fill="#1565C0"/>
+<text x="238" y="519" font-size="10" fill="#1565C0">1.4×</text>
+<rect x="359" y="510" width="10" height="10" fill="#BF360C"/>
+<rect x="365" y="510" width="10" height="10" fill="#2E7D32"/>
+<text x="378" y="519" font-size="10" fill="#BF360C">2.6×</text>
+<text x="412" y="519" font-size="10" fill="#2E7D32">2.8×</text>
+<rect x="0" y="528" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="545" text-anchor="end" font-size="11" fill="#424242">uszips</text>
+<rect x="273" y="536" width="10" height="10" fill="#1565C0"/>
+<text x="242" y="545" font-size="10" fill="#1565C0">1.5×</text>
+<rect x="356" y="536" width="10" height="10" fill="#BF360C"/>
+<rect x="361" y="536" width="10" height="10" fill="#2E7D32"/>
+<text x="374" y="545" font-size="10" fill="#BF360C">2.6×</text>
+<text x="408" y="545" font-size="10" fill="#2E7D32">2.7×</text>
+<rect x="0" y="554" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="571" text-anchor="end" font-size="11" fill="#424242">embedded_newlines_60k</text>
+<rect x="315" y="562" width="10" height="10" fill="#1565C0"/>
+<rect x="341" y="562" width="10" height="10" fill="#BF360C"/>
+<rect x="346" y="562" width="10" height="10" fill="#2E7D32"/>
+<text x="284" y="571" font-size="10" fill="#1565C0">2.0×</text>
+<text x="359" y="571" font-size="10" fill="#BF360C">2.3×</text>
+<text x="393" y="571" font-size="10" fill="#2E7D32">2.4×</text>
+<rect x="223" y="589" width="10" height="10" fill="#1565C0"/>
+<text x="240" y="598" font-size="11" fill="#1565C0">Ruby path (v1.15.2)</text>
+<rect x="223" y="609" width="10" height="10" fill="#BF360C"/>
+<text x="240" y="618" font-size="11" fill="#BF360C">Ruby path (v1.16.4)</text>
+<rect x="223" y="629" width="10" height="10" fill="#2E7D32"/>
+<text x="240" y="638" font-size="11" fill="#2E7D32">Ruby path (v1.17.0)</text>
+</svg>

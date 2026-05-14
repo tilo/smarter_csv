@@ -21,7 +21,7 @@ RSpec tests: **1,434 → 2,210** (+776 tests)
 
 ### Performance
 
-Measured against 1.16.4 (Apple M3, Ruby 3.4.7):
+Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
 
 * **C-accelerated path (the default):** quote-heavy, large-field, and wide CSVs parse meaningfully faster — roughly **7–22% faster** (city/address-style files ~10–13%; long-field and wide files the most). CSVs with very short lines and many tiny fields are up to ~3% slower — a side effect of the larger default auto-detection scan window (see `auto_row_sep_chars`); set it back to a smaller value if that matters for your workload. Net: solid wins where there's real per-row work, a small cost on the trivially-cheap cases.
 * **Ruby fallback path (`acceleration: false`):** faster on nearly every file — typically **4–20% faster** than 1.16.4, with the biggest gains on wide and many-small-field CSVs.

@@ -1,6 +1,6 @@
 # SmarterCSV 1.17.0 — Performance Notes
 
-The per-file tables below: Apple M3, Ruby 3.4.7 [arm64], 40 iterations per run × 8 runs, median across runs (p10-trimmed), measured 2026-05-11–12. 19-file corpus; `1.16.4 → 1.17.0`. Times in seconds — lower is better. (The "vs Ruby CSV" tables further down are from the earlier 2026-05-06 run — see Methodology.)
+The per-file tables below: Apple M4, Ruby 3.4.7 [arm64], 40 iterations per run × 8 runs, median across runs (p10-trimmed), measured 2026-05-11–12. 19-file corpus; `1.16.4 → 1.17.0`. Times in seconds — lower is better. (The "vs Ruby CSV" tables further down are from the earlier 2026-05-06 run — see Methodology.)
 
 ---
 
@@ -117,7 +117,7 @@ If you parse lots of very small files and care about that 1–3%, set `auto_row_
 ## Methodology
 
 Same as 1.16.0:
-- Apple M3, Ruby 3.4.7
+- Apple M4, Ruby 3.4.7
 - 40 iterations per run × 8 runs (2 warm-up), median across runs (p10-trimmed)
 - Raw .json captures preserved alongside the .md tables for reproducibility
 
