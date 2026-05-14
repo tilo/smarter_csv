@@ -196,9 +196,19 @@ module SmarterCSV
         end
         arc = options[:auto_row_sep_chars]
         min_arc = SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS
+        max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
         default_arc = DEFAULT_OPTIONS[:auto_row_sep_chars]
-        unless arc.is_a?(Integer) && arc >= min_arc
-          warn "WARNING: invalid auto_row_sep_chars value #{arc.inspect} — must be an Integer >= #{min_arc}; using default (#{default_arc})" unless options[:verbose] == :quiet
+
+        if arc.is_a?(Integer)
+          if arc < min_arc
+            warn "WARNING: auto_row_sep_chars value #{arc.inspect} is below minimum (#{min_arc}); using default (#{default_arc})" unless options[:verbose] == :quiet
+            options[:auto_row_sep_chars] = default_arc
+          elsif arc > max_arc
+            warn "WARNING: auto_row_sep_chars value #{arc.inspect} exceeds maximum (#{max_arc}); clamping to #{max_arc}" unless options[:verbose] == :quiet
+            options[:auto_row_sep_chars] = max_arc
+          end
+        else
+          warn "WARNING: invalid auto_row_sep_chars value #{arc.inspect} — must be an Integer; using default (#{default_arc})" unless options[:verbose] == :quiet
           options[:auto_row_sep_chars] = default_arc
         end
         # buffer_size validation:
@@ -233,6 +243,7 @@ module SmarterCSV
         arc = options[:auto_row_sep_chars]
         if arc.is_a?(Integer) && options[:buffer_size] < arc
           bumped = [2 * options[:buffer_size], SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS].max
+          bumped = [bumped, max_bs].min # Clamp bumped value to not exceed MAX_BUFFER_SIZE
           warn "WARNING: buffer_size (#{options[:buffer_size]}) < auto_row_sep_chars (#{arc}); bumping buffer_size to #{bumped}" unless quiet
           options[:buffer_size] = bumped
         end

@@ -9,6 +9,14 @@ describe 'options validation coverage' do
   let(:instance) { SmarterCSV::Reader.new('something', options) }
   let(:options) { {} }
 
+  describe 'constants invariant' do
+    it 'ensures MAX_AUTO_ROW_SEP_CHARS == MAX_BUFFER_SIZE to prevent accidental divergence' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      max_bs = SmarterCSV::PeekableIO::MAX_BUFFER_SIZE
+      expect(max_arc).to eq(max_bs)
+    end
+  end
+
   describe 'required_headers deprecation' do
     it 'converts required_headers to required_keys with a deprecation warning' do
       expect do
@@ -113,6 +121,30 @@ describe 'options validation coverage' do
     it 'accepts a value above the minimum' do
       expect { instance.process_options(auto_row_sep_chars: 16_384) }.not_to raise_error
     end
+
+    it 'warns and clamps to MAX_AUTO_ROW_SEP_CHARS for values exceeding the ceiling' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      expect do
+        instance.process_options(auto_row_sep_chars: max_arc + 1_000)
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(instance.options[:auto_row_sep_chars]).to eq max_arc
+    end
+
+    it 'warns and clamps to MAX_AUTO_ROW_SEP_CHARS for very large values' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      expect do
+        instance.process_options(auto_row_sep_chars: 1_000_000)
+      end.to output(/WARNING.*auto_row_sep_chars/).to_stderr
+      expect(instance.options[:auto_row_sep_chars]).to eq max_arc
+    end
+
+    it 'accepts a value at the maximum without warning' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      expect do
+        instance.process_options(auto_row_sep_chars: max_arc, verbose: :quiet)
+      end.not_to raise_error
+      expect(instance.options[:auto_row_sep_chars]).to eq max_arc
+    end
   end
 
   describe 'buffer_size validation' do
@@ -173,6 +205,37 @@ describe 'options validation coverage' do
         instance.process_options(buffer_size: 100, verbose: :quiet)
       end.not_to output.to_stderr
       expect(instance.options[:buffer_size]).to be >= min_bs
+    end
+
+    it 'clamps bumped buffer_size to MAX when it would exceed the ceiling' do
+      # buffer_size = 50_000, auto_row_sep_chars = 60_000
+      # Without fix: bump = max(2 * 50_000, MIN_AUTO_ROW_SEP_CHARS) = 100_000 (exceeds 65_536)
+      # With fix: should clamp to 65_536
+      expect do
+        instance.process_options(buffer_size: 50_000, auto_row_sep_chars: 60_000)
+      end.to output(/bumping buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq max_bs
+    end
+
+    it 'clamps bumped buffer_size with different overflow scenario' do
+      # buffer_size = 40_000, auto_row_sep_chars = 50_000
+      # Bump would be: 2 * 40_000 = 80_000 (exceeds 65_536)
+      # Should clamp to 65_536
+      expect do
+        instance.process_options(buffer_size: 40_000, auto_row_sep_chars: 50_000)
+      end.to output(/bumping buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq max_bs
+    end
+
+    it 'allows small buffer_size bump that does not exceed the ceiling' do
+      # buffer_size = 20_000, auto_row_sep_chars = 30_000
+      # Bump would be: 2 * 20_000 = 40_000 (within 65_536)
+      # Should succeed without clamping to max
+      expect do
+        instance.process_options(buffer_size: 20_000, auto_row_sep_chars: 30_000)
+      end.to output(/bumping buffer_size/).to_stderr
+      expect(instance.options[:buffer_size]).to eq 40_000
+      expect(instance.options[:buffer_size]).to be <= max_bs
     end
   end
 

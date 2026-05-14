@@ -437,6 +437,33 @@ describe 'SmarterCSV::AutoDetection#guess_line_ending' do
       # After iter 8 (cumulative 65536), loop breaks via MAX_AUTO_ROW_SEP_CHARS.
       expect(large_reads.first(8)).to eq([512, 512, 1024, 2048, 4096, 8192, 16_384, 32_768])
     end
+
+    it 'clamps first read to MAX_AUTO_ROW_SEP_CHARS even when auto_row_sep_chars is larger' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      content = "a,b\n" + (1..100).map { |i| "x_#{i},y_#{i}\n" }.join
+      io = TrackingIO.new(content)
+      # Pass auto_row_sep_chars larger than MAX
+      result = guess(io, auto_row_sep_chars: max_arc + 10_000)
+      expect(result).to eq("\n")
+      # First read should be capped at max_arc, not max_arc + 10_000
+      expect(io.read_sizes.first).to be <= max_arc
+    end
+
+    it 'respects MAX_AUTO_ROW_SEP_CHARS hard cap on total bytes read' do
+      max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
+      # Create a long ambiguous file; scan will attempt to read up to MAX
+      tie_region = "\nx\rx" * (max_arc / 4)
+      io = TrackingIO.new(tie_region)
+      guess(io)
+      large_reads = io.read_sizes.reject { |n| n == 1 }
+      # Total should not exceed max_arc (plus the accumulated doubling up to the cap)
+      cumulative = 0
+      large_reads.each do |read_size|
+        cumulative += read_size
+        break if cumulative >= max_arc
+      end
+      expect(cumulative).to be <= max_arc
+    end
   end
 
   # Single-pass byte-level scan: each chunk is scanned only once and counts

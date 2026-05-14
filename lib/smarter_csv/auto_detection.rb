@@ -112,6 +112,7 @@ module SmarterCSV
       # public process_options pipeline, validation already enforces this floor,
       # so this .max is inert in normal use.
       chunk_size = [options[:auto_row_sep_chars].to_i, MIN_AUTO_ROW_SEP_CHARS].max
+      chunk_size = [chunk_size, MAX_AUTO_ROW_SEP_CHARS].min # Defensive cap: do not read beyond MAX
       bytes_read = false
       total_bytes = 0
       crlf = lf = cr = 0
