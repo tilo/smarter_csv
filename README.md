@@ -50,12 +50,14 @@ For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to Smarter
 
 _Benchmarks: 19 CSV files (20k–240k rows), Ruby 3.4.7, Apple M4._
 
-> ⚠️ **Why these numbers look a touch lower than 1.16.0 charts?** TL;DR: beacuse we use different statistic methods.
-Earlier versions of these benchmarks reported the best-of-N sample (the absolute `min` / fastest run) for each measurement. A single lucky run — empty caches lining up, no scheduler interrupts — could shave up to ~10% off and become the headline number. I think that would be misleading.
-Because of that, we've switched to the 10th-percentile (`p10`) of multiple runs of 40 samples, which discards roughly the four luckiest runs and reports a time much closer to what you'll actually observe in production. On noisier fixtures `p10` is ~5–10% above `min`; on quiet ones it's within 1%. The relative ordering between versions and adapters is unchanged; the absolute speedup figures are simply more honest.
+> ⁉️ **Why these numbers look a touch lower than 1.16.0 charts?**
+> TL;DR: beacuse we use different statistic methods.
+>
+> Earlier versions of these benchmarks reported the best-of-N sample (the absolute `min` / fastest run) for each measurement. A single lucky run — empty caches lining up, no scheduler interrupts — could shave up to ~10% off and become the headline number. I think that would be misleading.
+> Because of that, we've switched to the 10th-percentile (`p10`) of multiple runs of 40 samples, which discards roughly the four luckiest runs and reports a time much closer to what you'll actually observe in production. On noisier fixtures `p10` is ~5–10% above `min`; on quiet ones it's within 1%. The relative ordering between versions and adapters is unchanged; the absolute speedup figures are simply more honest.
 
 ### SmarterCSV vs Ruby CSV
-![SmarterCSV 1.17.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.17.0_vs_RubyCSV_3.3.5_speedup.png)
+![SmarterCSV 1.17.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.17.0_vs_RubyCSV_3.3.5_speedup.svg)
 
 ### SmarterCSV C Path
 ![SmarterCSV 1.17.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.17.0_vs_previous_C-speedup.svg)
