@@ -18,15 +18,23 @@
 
 class Klass
   include SmarterCSV::Parser
+
+  # Mimic the relevant part of Reader#initialize so the Parser methods can read the
+  # cached @quote_char / @doubled_quote_chars ivars directly — same as in production.
+  def initialize(options = {})
+    @quote_char = options[:quote_char] || '"'
+    @doubled_quote_chars = @quote_char * 2
+  end
+
   def has_acceleration
     !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
   end
 end
 
-[true, false].each do |bool|
-  describe "fulfills RFC-4180 and more with#{bool ? ' C-' : 'out '}acceleration" do
-    let(:options) { {acceleration: bool} }
-    let(:instance) { Klass.new }
+[true, false].each do |acceleration|
+  describe "fulfills RFC-4180 and more with#{acceleration ? ' C-' : 'out '}acceleration" do
+    let(:options) { {acceleration: acceleration} }
+    let(:instance) { Klass.new(options) }
 
     describe 'splitting line up to max_size' do
       before do
@@ -157,5 +165,5 @@ end
         end
       end
     end
-  end # bool
+  end # acceleration
 end

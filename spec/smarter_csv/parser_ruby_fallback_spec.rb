@@ -7,6 +7,23 @@
 
 fixture_path = 'spec/fixtures'
 
+# Standalone harness that mimics the relevant part of Reader#initialize, so the Parser
+# methods can read the cached @quote_char / @doubled_quote_chars ivars directly — same
+# as in production. (Most tests in this file use a real SmarterCSV::Reader instance;
+# this Klass is for the few that exercise Parser methods in isolation.)
+class Klass
+  include SmarterCSV::Parser
+
+  def initialize(options = {})
+    @quote_char = options[:quote_char] || '"'
+    @doubled_quote_chars = @quote_char * 2
+  end
+
+  def has_acceleration
+    !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
+  end
+end
+
 describe 'parser Ruby fallback paths' do
   describe 'full CSV processing with acceleration: false' do
     describe 'with quote_escaping: :auto' do
@@ -463,11 +480,7 @@ end
 # quote characters when the field string starts AND ends with the quote char.
 # -----------------------------------------------------------------------
 describe 'cleanup_quotes (parser.rb line 571)' do
-  # Reuse the same Klass helper that includes SmarterCSV::Parser
-  let(:instance) do
-    klass = Class.new { include SmarterCSV::Parser }
-    klass.new
-  end
+  let(:instance) { Klass.new(quote_char: '"') }
 
   it 'returns nil for a nil field (line 566)' do
     expect(instance.send(:cleanup_quotes, nil, '"')).to be_nil
@@ -494,8 +507,12 @@ describe 'cleanup_quotes (parser.rb line 571)' do
     expect(instance.send(:cleanup_quotes, +'hello', '"')).to eq 'hello'
   end
 
-  it 'works with a custom quote character' do
-    expect(instance.send(:cleanup_quotes, "'hello'", "'")).to eq 'hello'
+  context 'with a custom quote character' do
+    let(:instance) { Klass.new(quote_char: "'") }
+
+    it 'strips the custom surrounding quote characters' do
+      expect(instance.send(:cleanup_quotes, "'hello'", "'")).to eq 'hello'
+    end
   end
 end
 

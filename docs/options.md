@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -52,27 +53,28 @@
 
 ### File Input & Encoding
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:file_encoding` | `utf-8` | Set the file encoding, e.g. `'windows-1252'` or `'iso-8859-1'`. |
-| `:invalid_byte_sequence` | `''` | What to replace invalid byte sequences with. |
-| `:force_utf8` | `false` | Force UTF-8 encoding of all lines (including headers) in the CSV file. |
+| Option                   | Default | Explanation                                                            |
+|--------------------------|---------|------------------------------------------------------------------------|
+| `:file_encoding`         | `utf-8` | Set the file encoding, e.g. `'windows-1252'` or `'iso-8859-1'`.        |
+| `:invalid_byte_sequence` | `''`    | What to replace invalid byte sequences with.                           |
+| `:force_utf8`            | `false` | Force UTF-8 encoding of all lines (including headers) in the CSV file. |
 
 ### File Layout
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:skip_lines` | `nil` | How many lines to skip before the first line or header line is processed. |
-| `:comment_regexp` | `nil` | Regular expression to ignore comment lines (e.g. `/\A#/`). See NOTE on CSV header. |
-| `:chunk_size` | `nil` | If set, data is yielded in chunks of this many rows instead of all at once. Use with `SmarterCSV.each_chunk` for memory-efficient batch processing. |
+| Option            | Default | Explanation                                                                                                                                         |
+|-------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `:skip_lines`     | `nil`   | How many lines to skip before the first line or header line is processed.                                                                           |
+| `:comment_regexp` | `nil`   | Regular expression to ignore comment lines (e.g. `/\A#/`). See NOTE on CSV header.                                                                  |
+| `:chunk_size`     | `nil`   | If set, data is yielded in chunks of this many rows instead of all at once. Use with `SmarterCSV.each_chunk` for memory-efficient batch processing. |
 
 ### Separators
 
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:col_sep` | `:auto` | Column separator. `:auto` detects from file content (previous default was `','`). |
-| `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content. Manual detection reads the whole file first (slow on large files). |
-| `:auto_row_sep_chars` | `500` | How many characters to analyze when using `:row_sep => :auto`. `nil` or `0` means whole file. |
+| `:row_sep` | `:auto` | Row / record separator. `:auto` detects from file content by scanning in chunks of `auto_row_sep_chars` bytes, up to a 64KB hard cap. |
+| `:auto_row_sep_chars` | `4096` | Initial scan size for `:row_sep => :auto` detection. Scan stops as soon as one separator has a clear majority, up to a 64KB cap. Bump this if your files have very wide headers or long comment preambles. Out-of-range values, `nil`, or `0` fall back to the default with a warning. |
+| `:buffer_size` | `16_384` | Peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Out-of-range values warn and clamp to the supported range. Has no effect on seekable inputs (file paths, `File`, `StringIO`, `Tempfile`). |
 
 ### Quoting
 
@@ -121,8 +123,8 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 | `:strip_whitespace` | `true` | Remove whitespace before/after values and headers. |
 | `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats to the appropriate numeric type. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
 | `:value_converters` | `nil` | Hash of `:header => converter`; converter can be a lambda/Proc or a class implementing `self.convert(value)`. See [Value Converters](./value_converters.md). |
-| `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil` or an empty string. |
-| `:remove_zero_values` | `false` | Remove key/value pairs where the numeric value equals zero. |
+| `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil`, empty, or whitespace-only — any Unicode whitespace, same as Ruby's `String#blank?`. |
+| `:remove_zero_values` | `false` | Remove key/value pairs whose value is zero — numeric `0` / `0.0`, or any textual form of zero (`"0"`, `"0.0"`, `"00.00"`, `"+0"`, `"-0.0"`, …). |
 | `:nil_values_matching` | `nil` | Set matching values to `nil`. Accepts a regular expression matched against the string representation of each value (e.g. `/\ANAN\z/` for NaN, `/\A#VALUE!\z/` for Excel errors). With `remove_empty_values: true` (default), nil-ified values are then removed. With `remove_empty_values: false`, the key is retained with a `nil` value. |
 | `:remove_empty_hashes` | `true` | Remove result hashes that have no key/value pairs or all-empty values. |
 
@@ -142,7 +144,7 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:with_line_numbers` | `false` | Add `:csv_line_number` to each result hash. |
-| `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. |
+| `:verbose` | `:normal` | Controls warning and diagnostic output. Accepted values:<br>• `:quiet` — suppress all warnings and notices (recommended for production)<br>• `:normal` — show behavioral warnings, e.g. auto-configuration notices **(default)**<br>• `:debug` — `:normal` + print computed options and per-row diagnostics to stderr<br>`nil` is silently treated as `:normal`. Passing `true` or `false` still works but is deprecated — see below. See [Warnings](./warnings.md) for the structured warning collection. |
 
 ### Instrumentation Hooks
 
@@ -156,9 +158,9 @@ See [Instrumentation Hooks](./instrumentation.md) for full details and payload r
 
 ### Performance
 
-| Option | Default | Explanation |
-|--------|---------|-------------|
-| `:acceleration` | `true` | Use the C extension for parsing (MRI Ruby only). Set to `false` to force the pure-Ruby fallback (always used on JRuby/TruffleRuby). |
+| Option            | Default | Explanation                                                                                                                         |
+|-------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `:acceleration`   | `true`  | Use the C extension for parsing (MRI Ruby only). Set to `false` to force the pure-Ruby fallback (always used on JRuby/TruffleRuby). |
 
 ---
 

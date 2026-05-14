@@ -3,9 +3,17 @@
 module SmarterCSV
   module HashTransformations
     # Frozen regex constants for performance (avoid recompilation on every value)
-    FLOAT_REGEX = /\A[+-]?\d+\.\d+\z/.freeze
-    INTEGER_REGEX = /\A[+-]?\d+\z/.freeze
-    ZERO_REGEX = /\A0+(?:\.0+)?\z/.freeze
+    NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?\z/.freeze
+    # FLOAT_REGEX = /\A[+-]?\d+\.\d+\z/.freeze
+    # INTEGER_REGEX = /\A[+-]?\d+\z/.freeze
+    ZERO_REGEX = /\A[+-]?0+(?:\.0+)?\z/.freeze # could be +0.0
+
+    # First-byte values that can begin a numeric literal — used to skip the numeric
+    # regexes for values that obviously aren't numbers (e.g. city names).
+    ZERO_BYTE  = '0'.ord # 48
+    NINE_BYTE  = '9'.ord # 57
+    PLUS_BYTE  = '+'.ord # 43
+    MINUS_BYTE = '-'.ord # 45
 
     def hash_transformations(hash, options)
       # Modify hash in-place for performance (avoids allocating a second hash per row)
@@ -24,7 +32,11 @@ module SmarterCSV
       # Early return if no transformations needed
       return hash unless remove_empty_values || remove_zero_values || nil_values_matching || convert_to_numeric || value_converters
 
-      keys_to_delete = []
+      # {only:}/{except:} limits on numeric conversion apply only when the option is a Hash;
+      # in the common case (true/false) skip the per-key check entirely.
+      numeric_has_limits = convert_to_numeric.is_a?(Hash)
+      rails = has_rails
+      keys_to_delete = nil # lazily allocated only if something is actually removed
 
       hash.each do |k, v|
         # Nil-ify values matching the pattern (keeps the key; remove_empty_values handles deletion)
@@ -39,23 +51,27 @@ module SmarterCSV
 
         # Check if this key/value should be removed
         # Note: numeric values (Integer/Float) are never blank, so skip the blank check for them
-        if remove_empty_values && !v.is_a?(Numeric) && (has_rails ? v.blank? : blank?(v))
-          keys_to_delete << k
+        if remove_empty_values && !v.is_a?(Numeric) && (rails ? v.blank? : blank?(v))
+          (keys_to_delete ||= []) << k
           next
         end
 
         # Handle both string zeros ("0", "0.0") and numeric zeros (already converted by C)
         if remove_zero_values && ((v.is_a?(String) && ZERO_REGEX.match?(v)) || (v.is_a?(Numeric) && v == 0))
-          keys_to_delete << k
+          (keys_to_delete ||= []) << k
           next
         end
 
         # Convert to numeric if requested
-        if convert_to_numeric && v.is_a?(String) && !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k)
-          if FLOAT_REGEX.match?(v)
-            hash[k] = v.to_f
-          elsif INTEGER_REGEX.match?(v)
-            hash[k] = v.to_i
+        if convert_to_numeric && v.is_a?(String) &&
+           (!numeric_has_limits || !limit_execution_for_only_or_except(options, :convert_values_to_numeric, k))
+          # Fast-reject: the string is already stripped and NUMERIC_REGEX is \A-anchored on a digit or sign,
+          # so a value whose first byte isn't a digit, '+', or '-' cannot be numeric — skip the regex entirely.
+          first_byte = v.getbyte(0)
+          if first_byte && ((first_byte >= ZERO_BYTE && first_byte <= NINE_BYTE) || first_byte == MINUS_BYTE || first_byte == PLUS_BYTE)
+            if NUMERIC_REGEX.match?(v)
+              hash[k] = v.include?('.') ? v.to_f : v.to_i
+            end
           end
         end
 
@@ -67,7 +83,7 @@ module SmarterCSV
       end
 
       # Delete marked keys
-      keys_to_delete.each { |k| hash.delete(k) }
+      keys_to_delete&.each { |key| hash.delete(key) }
 
       hash
     end

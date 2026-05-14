@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="668"
+     font-family="ui-monospace, 'Cascadia Code', 'Courier New', monospace" font-size="12">
+<rect width="820" height="668" fill="#ffffff"/>
+<text x="410" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#212121">SmarterCSV improvements 1.15.2, 1.16.4, 1.17.0 vs 1.14.4 — C accelerated</text>
+<text x="410" y="32" text-anchor="middle" font-size="10" fill="#9e9e9e">Speedup ratio = baseline version time ÷ newer version time  (higher = newer version is faster)</text>
+<text x="410" y="48" text-anchor="middle" font-size="11" fill="#616161">Ruby 3.4.7  [log scale, best of 40]</text>
+<line x1="220" y1="68" x2="220" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="220" y="64" text-anchor="middle" font-size="11" fill="#757575">1×</text>
+<line x1="307" y1="68" x2="307" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="307" y="64" text-anchor="middle" font-size="11" fill="#757575">2×</text>
+<line x1="423" y1="68" x2="423" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="423" y="64" text-anchor="middle" font-size="11" fill="#757575">5×</text>
+<line x1="510" y1="68" x2="510" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="510" y="64" text-anchor="middle" font-size="11" fill="#757575">10×</text>
+<line x1="597" y1="68" x2="597" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="597" y="64" text-anchor="middle" font-size="11" fill="#757575">20×</text>
+<line x1="713" y1="68" x2="713" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="713" y="64" text-anchor="middle" font-size="11" fill="#757575">50×</text>
+<line x1="800" y1="68" x2="800" y2="580" stroke="#e0e0e0" stroke-width="1"/>
+<text x="800" y="64" text-anchor="middle" font-size="11" fill="#757575">100×</text>
+<line x1="220" y1="68" x2="220" y2="580" stroke="#9e9e9e" stroke-width="1.5"/>
+<line x1="220" y1="68" x2="800" y2="68" stroke="#bdbdbd" stroke-width="1"/>
+<rect x="0" y="86" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="103" text-anchor="end" font-size="11" fill="#424242">long_fields_40k</text>
+<circle cx="645" cy="99" r="5" fill="#1565C0"/>
+<text x="616" y="103" font-size="10" fill="#1565C0">29×</text>
+<circle cx="744" cy="99" r="5" fill="#BF360C"/>
+<text x="715" y="103" font-size="10" fill="#BF360C">64×</text>
+<circle cx="775" cy="99" r="5" fill="#2E7D32"/>
+<text x="783" y="103" font-size="10" fill="#2E7D32">82×</text>
+<rect x="0" y="112" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="129" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_C</text>
+<circle cx="674" cy="125" r="5" fill="#1565C0"/>
+<circle cx="691" cy="125" r="5" fill="#2E7D32"/>
+<circle cx="693" cy="125" r="5" fill="#BF360C"/>
+<text x="645" y="129" font-size="10" fill="#1565C0">37×</text>
+<text x="701" y="129" font-size="10" fill="#2E7D32">42×</text>
+<text x="728" y="129" font-size="10" fill="#BF360C">43×</text>
+<rect x="0" y="138" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="155" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_NC</text>
+<circle cx="568" cy="151" r="5" fill="#1565C0"/>
+<circle cx="592" cy="151" r="5" fill="#2E7D32"/>
+<circle cx="596" cy="151" r="5" fill="#BF360C"/>
+<text x="539" y="155" font-size="10" fill="#1565C0">16×</text>
+<text x="604" y="155" font-size="10" fill="#2E7D32">19×</text>
+<text x="631" y="155" font-size="10" fill="#BF360C">20×</text>
+<rect x="0" y="164" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="181" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_NB</text>
+<circle cx="566" cy="177" r="5" fill="#1565C0"/>
+<circle cx="589" cy="177" r="5" fill="#2E7D32"/>
+<circle cx="591" cy="177" r="5" fill="#BF360C"/>
+<text x="537" y="181" font-size="10" fill="#1565C0">16×</text>
+<text x="599" y="181" font-size="10" fill="#2E7D32">19×</text>
+<text x="626" y="181" font-size="10" fill="#BF360C">19×</text>
+<rect x="0" y="190" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="207" text-anchor="end" font-size="11" fill="#424242">PEOPLE_IMPORT_B</text>
+<circle cx="565" cy="203" r="5" fill="#1565C0"/>
+<circle cx="587" cy="203" r="5" fill="#2E7D32"/>
+<circle cx="588" cy="203" r="5" fill="#BF360C"/>
+<text x="536" y="207" font-size="10" fill="#1565C0">15×</text>
+<text x="596" y="207" font-size="10" fill="#2E7D32">18×</text>
+<text x="623" y="207" font-size="10" fill="#BF360C">19×</text>
+<rect x="0" y="216" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="233" text-anchor="end" font-size="11" fill="#424242">whitespace_heavy_60k</text>
+<circle cx="551" cy="229" r="5" fill="#1565C0"/>
+<circle cx="574" cy="229" r="5" fill="#2E7D32"/>
+<circle cx="576" cy="229" r="5" fill="#BF360C"/>
+<text x="522" y="233" font-size="10" fill="#1565C0">14×</text>
+<text x="584" y="233" font-size="10" fill="#2E7D32">17×</text>
+<text x="611" y="233" font-size="10" fill="#BF360C">17×</text>
+<rect x="0" y="242" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="259" text-anchor="end" font-size="11" fill="#424242">sensor_data_50krows_50cols</text>
+<circle cx="560" cy="255" r="5" fill="#1565C0"/>
+<circle cx="571" cy="255" r="5" fill="#BF360C"/>
+<circle cx="571" cy="255" r="5" fill="#2E7D32"/>
+<text x="531" y="259" font-size="10" fill="#1565C0">15×</text>
+<text x="579" y="259" font-size="10" fill="#BF360C">16×</text>
+<text x="606" y="259" font-size="10" fill="#2E7D32">16×</text>
+<rect x="0" y="268" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="285" text-anchor="end" font-size="11" fill="#424242">tab_separated_60k</text>
+<circle cx="540" cy="281" r="5" fill="#1565C0"/>
+<circle cx="563" cy="281" r="5" fill="#2E7D32"/>
+<circle cx="565" cy="281" r="5" fill="#BF360C"/>
+<text x="511" y="285" font-size="10" fill="#1565C0">13×</text>
+<text x="573" y="285" font-size="10" fill="#2E7D32">15×</text>
+<text x="600" y="285" font-size="10" fill="#BF360C">15×</text>
+<rect x="0" y="294" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="311" text-anchor="end" font-size="11" fill="#424242">multi_char_separator_60k</text>
+<circle cx="538" cy="307" r="5" fill="#1565C0"/>
+<circle cx="561" cy="307" r="5" fill="#2E7D32"/>
+<circle cx="563" cy="307" r="5" fill="#BF360C"/>
+<text x="509" y="311" font-size="10" fill="#1565C0">13×</text>
+<text x="571" y="311" font-size="10" fill="#2E7D32">15×</text>
+<text x="598" y="311" font-size="10" fill="#BF360C">15×</text>
+<rect x="0" y="320" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="337" text-anchor="end" font-size="11" fill="#424242">heavy_quoting_60k</text>
+<circle cx="503" cy="333" r="5" fill="#1565C0"/>
+<text x="467" y="337" font-size="10" fill="#1565C0">9.4×</text>
+<circle cx="538" cy="333" r="5" fill="#BF360C"/>
+<circle cx="560" cy="333" r="5" fill="#2E7D32"/>
+<text x="568" y="337" font-size="10" fill="#BF360C">13×</text>
+<text x="595" y="337" font-size="10" fill="#2E7D32">15×</text>
+<rect x="0" y="346" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="363" text-anchor="end" font-size="11" fill="#424242">uszips</text>
+<circle cx="508" cy="359" r="5" fill="#1565C0"/>
+<text x="472" y="363" font-size="10" fill="#1565C0">9.8×</text>
+<circle cx="542" cy="359" r="5" fill="#BF360C"/>
+<circle cx="555" cy="359" r="5" fill="#2E7D32"/>
+<text x="563" y="363" font-size="10" fill="#BF360C">13×</text>
+<text x="590" y="363" font-size="10" fill="#2E7D32">14×</text>
+<rect x="0" y="372" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="389" text-anchor="end" font-size="11" fill="#424242">uscities</text>
+<circle cx="495" cy="385" r="5" fill="#1565C0"/>
+<text x="459" y="389" font-size="10" fill="#1565C0">8.9×</text>
+<circle cx="531" cy="385" r="5" fill="#BF360C"/>
+<circle cx="548" cy="385" r="5" fill="#2E7D32"/>
+<text x="556" y="389" font-size="10" fill="#BF360C">12×</text>
+<text x="583" y="389" font-size="10" fill="#2E7D32">13×</text>
+<rect x="0" y="398" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="415" text-anchor="end" font-size="11" fill="#424242">embedded_separators_60k</text>
+<circle cx="482" cy="411" r="5" fill="#1565C0"/>
+<text x="446" y="415" font-size="10" fill="#1565C0">8.0×</text>
+<circle cx="530" cy="411" r="5" fill="#BF360C"/>
+<circle cx="543" cy="411" r="5" fill="#2E7D32"/>
+<text x="551" y="415" font-size="10" fill="#BF360C">12×</text>
+<text x="578" y="415" font-size="10" fill="#2E7D32">13×</text>
+<rect x="0" y="424" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="441" text-anchor="end" font-size="11" fill="#424242">many_empty_fields_60k</text>
+<circle cx="514" cy="437" r="5" fill="#1565C0"/>
+<circle cx="540" cy="437" r="5" fill="#2E7D32"/>
+<circle cx="541" cy="437" r="5" fill="#BF360C"/>
+<text x="485" y="441" font-size="10" fill="#1565C0">10×</text>
+<text x="549" y="441" font-size="10" fill="#2E7D32">13×</text>
+<text x="576" y="441" font-size="10" fill="#BF360C">13×</text>
+<rect x="0" y="450" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="467" text-anchor="end" font-size="11" fill="#424242">worldcities</text>
+<circle cx="484" cy="463" r="5" fill="#1565C0"/>
+<text x="448" y="467" font-size="10" fill="#1565C0">8.1×</text>
+<circle cx="523" cy="463" r="5" fill="#BF360C"/>
+<circle cx="536" cy="463" r="5" fill="#2E7D32"/>
+<text x="544" y="467" font-size="10" fill="#BF360C">11×</text>
+<text x="571" y="467" font-size="10" fill="#2E7D32">12×</text>
+<rect x="0" y="476" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="493" text-anchor="end" font-size="11" fill="#424242">wide_500_cols_20k</text>
+<circle cx="525" cy="489" r="5" fill="#1565C0"/>
+<circle cx="527" cy="489" r="5" fill="#BF360C"/>
+<circle cx="527" cy="489" r="5" fill="#2E7D32"/>
+<text x="496" y="493" font-size="10" fill="#1565C0">11×</text>
+<text x="535" y="493" font-size="10" fill="#BF360C">11×</text>
+<text x="562" y="493" font-size="10" fill="#2E7D32">11×</text>
+<rect x="0" y="502" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="519" text-anchor="end" font-size="11" fill="#424242">utf8_multibyte_60k</text>
+<circle cx="494" cy="515" r="5" fill="#1565C0"/>
+<text x="458" y="519" font-size="10" fill="#1565C0">8.8×</text>
+<circle cx="525" cy="515" r="5" fill="#BF360C"/>
+<circle cx="525" cy="515" r="5" fill="#2E7D32"/>
+<text x="533" y="519" font-size="10" fill="#BF360C">11×</text>
+<text x="560" y="519" font-size="10" fill="#2E7D32">11×</text>
+<rect x="0" y="528" width="820" height="26" fill="#ffffff"/>
+<text x="212" y="545" text-anchor="end" font-size="11" fill="#424242">embedded_newlines_60k</text>
+<circle cx="479" cy="541" r="5" fill="#1565C0"/>
+<circle cx="495" cy="541" r="5" fill="#BF360C"/>
+<circle cx="503" cy="541" r="5" fill="#2E7D32"/>
+<text x="443" y="545" font-size="10" fill="#1565C0">7.8×</text>
+<text x="511" y="545" font-size="10" fill="#BF360C">8.9×</text>
+<text x="545" y="545" font-size="10" fill="#2E7D32">9.5×</text>
+<rect x="0" y="554" width="820" height="26" fill="#f5f5f5"/>
+<text x="212" y="571" text-anchor="end" font-size="11" fill="#424242">sample_100k</text>
+<circle cx="470" cy="567" r="5" fill="#1565C0"/>
+<circle cx="500" cy="567" r="5" fill="#2E7D32"/>
+<circle cx="502" cy="567" r="5" fill="#BF360C"/>
+<text x="434" y="571" font-size="10" fill="#1565C0">7.3×</text>
+<text x="510" y="571" font-size="10" fill="#2E7D32">9.2×</text>
+<text x="544" y="571" font-size="10" fill="#BF360C">9.4×</text>
+<circle cx="228" cy="594" r="5" fill="#1565C0"/>
+<text x="240" y="598" font-size="11" fill="#1565C0">C accelerated (v1.15.2)</text>
+<circle cx="228" cy="614" r="5" fill="#BF360C"/>
+<text x="240" y="618" font-size="11" fill="#BF360C">C accelerated (v1.16.4)</text>
+<circle cx="228" cy="634" r="5" fill="#2E7D32"/>
+<text x="240" y="638" font-size="11" fill="#2E7D32">C accelerated (v1.17.0)</text>
+</svg>

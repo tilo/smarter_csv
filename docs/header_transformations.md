@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -58,6 +59,28 @@ comment_regexp ──► strip_chars_from_headers ──► split on col_sep
 > `user_provided_headers` bypasses all file header reading and transformation entirely — your array is used as-is. Versions >1.13 automatically set `headers_in_file: false` when `user_provided_headers` is given; if the file has a header row you want to skip, set `headers_in_file: true` explicitly.
 
 See [Configuration Options](./options.md) for full option reference.
+
+---
+
+## CSV Files with Comment Lines
+
+Strip comment lines anywhere in the file — including before the header — using `comment_regexp`:
+
+```ruby
+$ cat data.csv
+# Generated 2026-01-15 by exporter v3.2
+# Confidential — internal use only
+id,name,amount
+1,Alice,100
+2,Bob,200
+# end of file
+
+data = SmarterCSV.process('data.csv', comment_regexp: /\A#/)
+# => [{id: 1, name: "Alice", amount: 100},
+#     {id: 2, name: "Bob",   amount: 200}]
+```
+
+Common in database dumps, log exports, and pipelines that prepend provenance metadata. The regexp is applied per line — any line matching is dropped before parsing.
 
 ---
 

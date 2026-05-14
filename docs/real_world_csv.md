@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [**Real-World CSV Files**](./real_world_csv.md)
@@ -186,10 +187,59 @@ Numeric conversion is one of the most common sources of data loss. SmarterCSV co
 
 ### I/O Patterns
 
+SmarterCSV accepts any IO-compatible source — file paths, open `File` handles, `StringIO`, and **non-seekable streams** like pipes, `STDIN`, and `Zlib::GzipReader`. Auto-detection of `row_sep` / `col_sep` works on streaming sources too thanks to internal buffering — the underlying source never needs to support `rewind` or `seek`. (Streaming IO support landed in 1.17.0.)
+
 | Source | Issue | Status | Notes |
 |--------|-------|--------|-------|
-| Gzipped CSV (`.csv.gz`) | Compressed file | 🔘 | Decompress and pass the resulting IO object: `SmarterCSV.process(Zlib::GzipReader.open(path))`. |
+| Gzipped CSV (`.csv.gz`) | Compressed, non-seekable stream | 🔘 | `SmarterCSV.process(Zlib::GzipReader.open(path))` — no need to decompress to disk first. |
 | HTTP streaming | Parsing from a live HTTP response | 🔘 | Pass any IO-compatible object that responds to `#gets`. |
+| `STDIN` / shell pipes | Non-seekable input | 🔘 | `cat data.csv \| ruby -rsmarter_csv -e 'SmarterCSV.process(STDIN) { \|h\| ... }'` |
+| `IO.popen` output | Non-seekable subprocess stream | 🔘 | `IO.popen('zcat data.csv.gz') { \|io\| SmarterCSV.process(io) }` |
+| S3 object body | Non-seekable HTTP stream | 🔘 | `SmarterCSV.process(s3.get_object(...).body)` — see worked example below. |
+
+#### Streaming Inputs
+
+```ruby
+# Gzipped CSV — stream-decompressed, never written to disk
+require 'zlib'
+Zlib::GzipReader.open('huge.csv.gz') do |io|
+  SmarterCSV.process(io) { |row| MyModel.upsert(row.first) }
+end
+
+# STDIN / pipes
+SmarterCSV.process($stdin) { |row, _| MyModel.upsert(row.first) }
+
+# HTTP response body
+require 'open-uri'
+URI.open('https://example.com/data.csv') { |io| SmarterCSV.process(io) }
+
+# S3 — stream the response body directly
+require 'aws-sdk-s3'
+obj = Aws::S3::Client.new.get_object(bucket: 'data', key: 'imports/users.csv')
+SmarterCSV::Reader.new(obj.body, chunk_size: 500).each_chunk do |chunk, _index|
+  MyModel.insert_all(chunk)
+end
+
+# Subprocess output
+IO.popen('zcat data.csv.gz') { |io| SmarterCSV.process(io) }
+```
+
+#### Multi-Line Quoted Fields
+
+Newlines inside `"..."` are preserved as part of the field — useful for address blocks, CRM notes, and free-text comments. No configuration needed:
+
+```ruby
+$ cat addresses.csv
+id,name,address
+1,Alice,"123 Main St
+Apt 4B
+Brooklyn, NY 11201"
+2,Bob,"42 Elm Ave"
+
+data = SmarterCSV.process('addresses.csv')
+# => [{id: 1, name: "Alice", address: "123 Main St\nApt 4B\nBrooklyn, NY 11201"},
+#     {id: 2, name: "Bob",   address: "42 Elm Ave"}]
+```
 
 †: Legacy Apple DB Dump and older UNIX data dumps use ASCII control characters as delimiters:
 

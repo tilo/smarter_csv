@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -187,6 +188,31 @@ File.open('output.csv', 'w') do |f|
   end
 end
 ```
+
+**Write to STDOUT (e.g. piping to another process):**
+
+```ruby
+SmarterCSV.generate($stdout) do |csv|
+  records.each { |r| csv << r }
+end
+```
+
+Useful in CLI scripts: `ruby export.rb | gzip > out.csv.gz`.
+
+**Stream a CSV upload to S3 — never written to disk:**
+
+```ruby
+require 'aws-sdk-s3'
+
+obj = Aws::S3::Object.new(bucket_name: 'exports', key: 'reports/daily.csv')
+obj.upload_stream do |stream|
+  SmarterCSV.generate(stream) do |csv|
+    Order.find_each { |o| csv << o.attributes }
+  end
+end
+```
+
+`upload_stream` performs a multipart upload, so the CSV is sent to S3 incrementally as it's generated — memory usage stays flat regardless of result size.
 
 ### Full Interface
 
@@ -615,6 +641,10 @@ end
 
 > **Note:** `write_headers: false` only suppresses the header line. All other
 > options (`col_sep:`, `row_sep:`, `value_converters:`, etc.) apply as normal.
+
+## Read-Transform-Write Pipelines
+
+Pairing `SmarterCSV.generate` with `SmarterCSV.each` on the read side is the idiomatic replacement for Ruby's `CSV.filter`. See [Examples → Filtering and Transforming a CSV File](./examples.md#example-19-filtering-and-transforming-a-csv-file) for the full set of patterns, including streaming gzip → gzip pipelines.
 
 ## More Examples
 

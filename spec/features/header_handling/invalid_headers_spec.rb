@@ -62,6 +62,22 @@ describe 'test exceptions for invalid headers' do
   context 'mapping_keys: exception for missing keys / header names' do
     subject(:process_file) { SmarterCSV.process("#{fixture_path}/user_import.csv", options) }
 
+    # Some examples in this context intentionally use `not_to raise_exception(SpecificClass, ...)`
+    # to document a historical regression (Issue 139): the 1.8 behavior was to raise
+    # `MissingKeys` for unmappable headers; 1.9 changed this to raise `KeyMappingError`.
+    # The negative assertion makes the "we no longer raise the wrong error" intent explicit
+    # for future readers, even though the paired positive assertion strictly implies it.
+    #
+    # RSpec warns this pattern risks false positives (any other error type would pass the
+    # negative). For these specific examples that's acceptable — the paired positive
+    # assertion catches any wrong-error regression. Suppress per-example via :allow_specific_not_to.
+    around(:each, :allow_specific_not_to) do |example|
+      original = RSpec::Expectations.configuration.on_potential_false_positives
+      RSpec::Expectations.configuration.on_potential_false_positives = :nothing
+      example.run
+      RSpec::Expectations.configuration.on_potential_false_positives = original
+    end
+
     context 'when one key_mapping key is missing' do
       let(:options) do
         {
@@ -70,7 +86,7 @@ describe 'test exceptions for invalid headers' do
         }
       end
 
-      it 'raises exception that header for the key mapping is missing in file' do
+      it 'raises exception that header for the key mapping is missing in file', :allow_specific_not_to do
         expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
         # we do not expect version 1.8 behavior:
         expect{ process_file }.not_to raise_exception(
@@ -111,7 +127,7 @@ describe 'test exceptions for invalid headers' do
       end
 
       context "when invalid key_mapping is given" do
-        it "does not raise a KeyMappingError exception when :silence_missing_keys is true" do
+        it "does not raise a KeyMappingError exception when :silence_missing_keys is true", :allow_specific_not_to do
           options[:silence_missing_keys] = true
           expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
           expect{ process_file }.not_to raise_exception SmarterCSV::KeyMappingError
@@ -122,7 +138,7 @@ describe 'test exceptions for invalid headers' do
         end
       end
 
-      it "does not raise an exception when :silence_missing_keys is an array containing the missing key" do
+      it "does not raise an exception when :silence_missing_keys is an array containing the missing key", :allow_specific_not_to do
         options[:silence_missing_keys] = [:missing_key, :other_optional_key]
         expect(SmarterCSV).not_to receive(:puts).with a_string_matching(/WARNING.*missing_key/)
         expect{ process_file }.not_to raise_exception(

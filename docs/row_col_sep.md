@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [Instrumentation Hooks](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -30,7 +31,7 @@
 
 Convenient defaults allow automatic detection of the column and row separators: `row_sep: :auto`, `col_sep: :auto`. This makes it easier to process any CSV files without having to examine the line endings or column separators, e.g. when users upload CSV files to your service and you have no control over the incoming files.
 
-You can change the setting `:auto_row_sep_chars` to only analyze the first N characters of the file (default is 500 characters); `nil` or `0` will check the whole file). Of course you can also set the `:row_sep` manually.
+The setting `:auto_row_sep_chars` controls the initial scan size used while detecting the row separator (default is `4096`). Detection stops as soon as one separator has a clear majority, up to a 64KB cap. Bump it higher if your files have very wide headers or long comment preambles; out-of-range values, `nil`, or `0` fall back to the default with a warning. Of course you can also set the `:row_sep` manually to skip auto-detection entirely.
 
 
 ## Column Separator `col_sep`
@@ -38,6 +39,25 @@ You can change the setting `:auto_row_sep_chars` to only analyze the first N cha
 The automatic detection of column separators considers: `,`, `\t`, `;`, `:`, `|`.
 
 Some CSV files may contain an unusual column separqator, which could even be a control character.
+
+### Tab-Separated Values (TSV)
+
+Tab-separated files are auto-detected by default — no options needed:
+
+```ruby
+$ cat data.tsv
+id<TAB>name<TAB>amount
+1<TAB>Alice<TAB>100
+2<TAB>Bob<TAB>200
+
+# Auto-detected — col_sep: :auto is the default
+SmarterCSV.process('data.tsv')
+
+# Or set the separator explicitly
+SmarterCSV.process('data.tsv', col_sep: "\t")
+```
+
+The default `col_sep: :auto` picks tab when it's the dominant delimiter in the first chunk of the file. The explicit form is useful in test fixtures or when you want to fail fast on unexpected formats.
 
 ## Row Separator `row_sep`
 

@@ -5,12 +5,17 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in smarter_csv.gemspec
 gemspec
 
-gem "rake"
-gem "rake-compiler"
+group :development do
+  gem "rake"
+  gem "rake-compiler"
+  gem "ostruct"          # silences rake's stdlib-deprecation warning during dev
+  gem "rubocop"
+end
 
-gem "awesome_print"
-gem 'pry'
-gem "rubocop"
+group :development, :test do
+  gem "awesome_print"
+  gem "pry"              # required in spec_helper.rb; also useful in dev console
+end
 
 group :test do
   gem "rspec"

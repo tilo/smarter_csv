@@ -193,6 +193,38 @@ RSpec.describe SmarterCSV do
       end
     end
 
+    context 'windows-1252:UTF-8' do
+      # Build an in-memory Windows-1252 CSV with the euro sign (\x80).
+      # Use a TranscodedIO so PeekableIO sees the correct ext/int encoding pair.
+      let(:transcoded_io_class) do
+        Class.new do
+          def initialize(raw_bytes, ext, int)
+            @io  = StringIO.new(raw_bytes.b)
+            @ext = Encoding.find(ext)
+            @int = Encoding.find(int)
+          end
+          def read(n = nil)             ; @io.read(n)                                   ; end
+          def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep); end
+          def readline(sep = $/)        ; @io.readline(sep)                             ; end
+          def each_char(&block)         ; @io.each_char(&block)                         ; end
+          def eof?                      ; @io.eof?                                      ; end
+          def close                     ; nil                                           ; end
+          def external_encoding         ; @ext                                          ; end
+          def internal_encoding         ; @int                                          ; end
+        end
+      end
+
+      # \x80 = € in Windows-1252
+      let(:csv_w1252) { "product,price\nWidget,\x80100\n".b }
+
+      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+        io = transcoded_io_class.new(csv_w1252, 'Windows-1252', 'UTF-8')
+        result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet)
+        expect(result.first[:price]).to eq('€100')
+        expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+      end
+    end
+
     context 'windows-1252:UTF-8 (via Tempfile — same path as the iso-8859-1 test above)' do
       # \x80 = € in Windows-1252
       let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }

@@ -7,7 +7,8 @@ module SmarterCSV
     include Enumerable
 
     # Default chunk size used by each_chunk when chunk_size is not explicitly set.
-    # A warning is emitted to STDERR so users know to configure it explicitly.
+    # A warning is recorded (and emitted via Rails.logger or Kernel#warn) so users
+    # know to configure it explicitly.
     DEFAULT_CHUNK_SIZE = 100
 
     include ::SmarterCSV::Reader::Options
@@ -21,7 +22,7 @@ module SmarterCSV
 
     attr_reader :input, :options
     attr_reader :csv_line_count, :chunk_count, :file_line_count
-    attr_reader :enforce_utf8, :has_rails, :has_acceleration
+    attr_reader :enforce_utf8, :has_rails, :has_rails_logger, :has_acceleration
     attr_reader :errors, :warnings, :headers, :raw_header, :result
 
     def self.default_options
@@ -30,7 +31,9 @@ module SmarterCSV
 
     # rubocop:disable Naming/MethodName
     def headerA
-      warn "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
+      record_warning(type: :deprecation, code: :header_a_method) do
+        "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
+      end
       @headerA
     end
     # rubocop:enable Naming/MethodName
@@ -39,6 +42,7 @@ module SmarterCSV
     def initialize(input, given_options = {})
       @input = input
       @has_rails = !!defined?(Rails)
+      @has_rails_logger = defined?(::Rails) && ::Rails.respond_to?(:logger) && !::Rails.logger.nil?
       @csv_line_count = 0
       @chunk_count = 0
       @errors = {}
@@ -47,9 +51,13 @@ module SmarterCSV
       @headers = nil
       @raw_header = nil # header as it appears in the file
       @result = []
-      @warnings = {}
+      @warnings = []
+      @warnings_by_key = {}
       @enforce_utf8 = false # only set to true if needed (after options parsing)
       @options = process_options(given_options)
+      # Cache quote_char as an ivar — stable for the Reader's lifetime; avoids per-row/per-line hash lookups.
+      @quote_char = @options[:quote_char]
+      @doubled_quote_chars = @quote_char * 2
       # true if it is compiled with accelleration
       @has_acceleration = !!SmarterCSV::Parser.respond_to?(:parse_csv_line_c)
     end
@@ -87,7 +95,11 @@ module SmarterCSV
 
       chunk_size = @options[:chunk_size]
       if chunk_size.nil?
-        warn "SmarterCSV: chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning." unless @options[:verbose] == :quiet
+        unless @options[:verbose] == :quiet
+          record_warning(type: :config, code: :chunk_size_default) do
+            "chunk_size not set, defaulting to #{DEFAULT_CHUNK_SIZE}. Set chunk_size explicitly to suppress this warning."
+          end
+        end
         chunk_size = DEFAULT_CHUNK_SIZE
       end
       unless chunk_size.is_a?(Integer) && chunk_size >= 1
@@ -106,23 +118,65 @@ module SmarterCSV
       end
     end
 
-    def process(&block) # rubocop:disable Lint/UnusedMethodArgument
+    def process(&block)
       @enforce_utf8 = options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
       @verbose = options[:verbose]
 
       begin
-        fh = input.respond_to?(:readline) ? input : File.open(input, "r:#{options[:file_encoding]}")
+        fh = input.is_a?(String) ? File.open(input, "r:#{options[:file_encoding]}") : input
 
-        if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
-          warn 'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".' unless options[:verbose] == :quiet
+        # Rewindable inputs (File, Tempfile, StringIO, Zlib::GzipReader, ...) use
+        # native rewind for auto-detection — no wrapper overhead in the hot loop.
+        # Non-rewindable streams (pipes, STDIN, custom non-seekable IOs) go through
+        # PeekableIO which buffers the first chunk so detection can replay without
+        # seeking the underlying source.
+        has_rewind = seekable?(fh)
+
+        unless has_rewind
+          # buffer_size has been validated and clamped by reader_options.rb to be in
+          # [MIN_BUFFER_SIZE, MAX_BUFFER_SIZE], with a cross-validation bump if it was
+          # below auto_row_sep_chars. Use it directly.
+          fh = SmarterCSV::PeekableIO.new(fh, options, buffer_size: options[:buffer_size])
         end
 
-        # auto-detect the row separator
-        options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
-        # attempt to auto-detect column separator
-        options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+        if (options[:force_utf8] || options[:file_encoding] =~ /utf-8/i) && (fh.respond_to?(:external_encoding) && fh.external_encoding != Encoding.find('UTF-8') || fh.respond_to?(:encoding) && fh.encoding != Encoding.find('UTF-8'))
+          unless options[:verbose] == :quiet
+            record_warning(type: :encoding, code: :utf8_missing_binary_mode) do
+              'WARNING: you are trying to process UTF-8 input, but did not open the input with "b:utf-8" option. See README file "NOTES about File Encodings".'
+            end
+          end
+        end
 
-        skip_lines(fh, options)
+        # Auto-detection. Two orchestrations, same detection functions:
+        #   has_rewind=true  → native fh.rewind between passes; BOM is stripped by
+        #                      next_line_with_counts on the first real line.
+        #   has_rewind=false → PeekableIO buffers the first chunk; peek strips BOM,
+        #                      rewind_buffer replays, freeze_buffer! locks the buffer.
+        if options[:row_sep]&.to_sym == :auto || options[:col_sep]&.to_sym == :auto
+          if has_rewind
+            options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+            fh.rewind
+            @file_line_count = 0
+            @csv_line_count = 0
+            # skip_lines feeds clean data lines to guess_column_separator. When col_sep is
+            # explicit, it's wasted work — the bytes are consumed and rewound. Guard it.
+            skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
+            options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+            fh.rewind
+            @file_line_count = 0
+            @csv_line_count = 0
+          else
+            fh.peek
+            options[:row_sep] = guess_line_ending(fh, options) if options[:row_sep]&.to_sym == :auto
+            rewind_buffer(fh)
+            skip_lines(fh, options) if options[:skip_lines] && options[:col_sep]&.to_sym == :auto
+            options[:col_sep] = guess_column_separator(fh, options) if options[:col_sep]&.to_sym == :auto
+            fh.freeze_buffer!
+            rewind_buffer(fh)
+          end
+        end
+
+        skip_lines(fh, options) if options[:skip_lines] # skip comments
 
         # NOTE: we are no longer using header_size
         @headers, _header_size = process_headers(fh, options)
@@ -195,8 +249,6 @@ module SmarterCSV
         @delete_nil_keys   = !!options[:key_mapping]
         @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
 
-        # Cache quote_char as an ivar for the stitch-loop memchr guard (avoids hash lookup per continuation line).
-        @quote_char = options[:quote_char]
         # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
         @field_size_limit = options[:field_size_limit]
 
@@ -221,9 +273,9 @@ module SmarterCSV
 
         if on_start
           input_meta = if @input.is_a?(String)
-                          { input: @input, file_size: (File.size(@input) rescue nil) }
-                        else
-                          { input: @input.class.name, file_size: nil }
+                         { input: @input, file_size: (File.size(@input) rescue nil) }
+                       else
+                         { input: @input.class.name, file_size: nil }
                        end
           on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
@@ -254,7 +306,7 @@ module SmarterCSV
                 hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
               end
             else
-              has_quotes = line.include?(options[:quote_char])
+              has_quotes = line.include?(@quote_char)
               hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
               if @quote_escaping_auto && data_size == -1 && line.include?('\\')
                 hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
@@ -515,6 +567,50 @@ module SmarterCSV
 
     private
 
+    # Records a warning into the histogram and emits it to the warning sink.
+    # `@warnings` is an Array of unique (type, code) records with a `count` field.
+    # `@warnings_by_key` is a dedup map keyed by `[type, code]` — key shape must
+    # stay fixed to keep both structures bounded by distinct codes, not by calls.
+    # The block form avoids string allocation on dedup-hit: on a repeat call we
+    # increment count and return without yielding the block.
+    # `dedup: false` bypasses the dedup map (still appends a new record per call);
+    # reserve for per-occurrence warnings where each call carries distinct info.
+    # `severity:` controls the Rails.logger level (`:debug`/`:info`/`:warn`/`:error`/`:fatal`);
+    # the non-Rails fallback is always `Kernel#warn` regardless of severity.
+    # `type` is purely a semantic grouping for callers iterating reader.warnings.
+    def record_warning(type:, code:, severity: :warn, dedup: true)
+      key = [type, code]
+      if dedup && (existing = @warnings_by_key[key])
+        existing[:count] += 1
+        return
+      end
+
+      message = yield
+      record = { type: type, code: code, severity: severity, message: message, count: 1 }
+      @warnings << record
+      @warnings_by_key[key] = record if dedup
+
+      if @has_rails_logger
+        ::Rails.logger.public_send(severity, "SmarterCSV: #{message}")
+      else
+        warn "SmarterCSV: #{message}"
+      end
+    end
+
+    # True when the IO is genuinely seekable — i.e. rewind will succeed at the kernel
+    # level, not just the Ruby method table. IO.pipe readers respond to :rewind but
+    # raise at the kernel layer when called; probing #pos surfaces that at decision time.
+    # Rescue SystemCallError (parent of all Errno::*) because the exact subclass varies
+    # by Ruby implementation: MRI raises Errno::ESPIPE, jruby raises Errno::EPIPE.
+    def seekable?(io)
+      return false unless io.respond_to?(:rewind)
+
+      io.pos if io.respond_to?(:pos)
+      true
+    rescue SystemCallError, IOError, NotImplementedError
+      false
+    end
+
     # Determine if a line has unbalanced quotes requiring multiline stitching.
     # For :auto mode, uses dual counting to avoid false multiline detection.
     # For :standard quote_boundary mode, uses a full state machine so that
@@ -663,9 +759,9 @@ module SmarterCSV
           elsif !in_quotes
             # Non-quote character: track whether field has started
             if strip # -- two direct == comparisons are faster than Array#include? in this hot loop
-              field_started = true unless line[i] == ' ' || line[i] == "\t"
-                          else
-                            field_started = true
+              field_started = true unless [' ', "\t"].include?(line[i])
+            else
+              field_started = true
             end
           end
           i += 1
@@ -679,7 +775,7 @@ module SmarterCSV
 
     # SEE: https://github.com/rails/rails/blob/32015b6f369adc839c4f0955f2d9dce50c0b6123/activesupport/lib/active_support/core_ext/object/blank.rb#L121
     # and in the future we might also include UTF-8 space characters: https://www.compart.com/en/unicode/category/Zs
-    BLANK_RE = /\A\s*\z/.freeze
+    BLANK_RE = /\A[[:space:]]*\z/.freeze # Unicode whitespace, same as Rails' String#blank?
 
     # Optimization #5: fast-path empty string and nil checks before regex
     def blank?(value)

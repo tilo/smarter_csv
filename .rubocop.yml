@@ -13,6 +13,12 @@ Layout/SpaceInsideHashLiteralBraces:
 Layout/SpaceAroundOperators:
   Enabled: false
 
+Lint/ConstantDefinitionInBlock:
+  Enabled: false
+
+Lint/UnderscorePrefixedVariableName:
+  Enabled: false
+
 Metrics/AbcSize:
   Enabled: false
 
@@ -35,6 +41,9 @@ Metrics/ModuleLength:
   Enabled: false
 
 Metrics/PerceivedComplexity:
+  Enabled: false
+
+Naming/MethodParameterName:
   Enabled: false
 
 Naming/PredicateName:
@@ -156,7 +165,7 @@ Style/SymbolArray:
 Style/SymbolProc: # old Ruby versions can't do this
   Enabled: false
 
-Style/TernaryParentheses:
+Style/TernaryParentheses: # parentheses are good!
   Enabled: false
 
 Style/TrailingCommaInArrayLiteral:

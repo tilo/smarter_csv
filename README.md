@@ -14,9 +14,13 @@
 
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
+  In a Rails app, warnings auto-route through `Rails.logger` and instrumentation hooks compose with `ActiveSupport::Notifications` — no setup required. Outside Rails, warnings fall back to `$stderr` and the same APIs work without any framework dependency.
+
   The library includes intelligent defaults, automatic detection of column and row separators, and flexible header/value transformations. These features eliminate much of the boilerplate typically required when working with CSV data and help keep ingestion code concise and maintainable.
 
-  For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines. The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
+  For large files, SmarterCSV supports both chunked processing (arrays of hashes) and streaming via Enumerable APIs, enabling efficient batch jobs and low-memory pipelines.
+  As of 1.17.0, SmarterCSV also accepts **non-seekable streaming inputs** — pipes, `STDIN`, `Zlib::GzipReader`, and HTTP responses — with no need to materialize the file on disk first.
+  The C acceleration further optimizes the full ingestion path — including parsing, hash construction, and conversions — so performance gains reflect real-world workloads, not just tokenizer benchmarks.
 
   The interface is intentionally designed to robustly handle messy real-world CSV while keeping application code clean. Developers can easily map headers, skip unwanted rows, quarantine problematic data, and transform values on the fly without building custom post-processing pipelines. See [Real-World CSV Files](docs/real_world_csv.md) for a comprehensive guide to production CSV patterns.
 
@@ -33,22 +37,33 @@ SmarterCSV is designed for **real-world CSV processing**, returning fully usable
 
 For a fair comparison, `CSV.table` is the closest Ruby CSV equivalent to SmarterCSV.
 
-| Comparison (SmarterCSV 1.16.0, C-accelerated)  | Range                   |
+| Comparison (SmarterCSV 1.17.0, C-accelerated)  | Range                   |
 |-------------------------------------------------|-------------------------|
-| vs SmarterCSV 1.15.2 (with C acceleration)      | up to 2.4× faster       |
-| vs SmarterCSV 1.14.4 (with C acceleration)      | 9×–65× faster           |
-| vs SmarterCSV 1.14.4 (Ruby path)                | 1.7×–10.6× faster       |
-| vs CSV.read  (arrays of arrays)                 | 1.7×–8.6× faster        |
-| vs CSV.table (arrays of hashes)                 | 7×–129× faster          |
-| vs ZSV (arrays of hashes, equiv. output)        | 1.1×–6.6× faster †      |
+| vs SmarterCSV 1.15.2 (with C acceleration)      | up to 2.8× faster       |
+| vs SmarterCSV 1.14.4 (with C acceleration)      | 9×–82× faster           |
+| vs SmarterCSV 1.14.4 (Ruby path)                | 2.4×–19.8× faster       |
+| vs CSV.read  (arrays of arrays)                 | 1.3×–7.9× faster        |
+| vs CSV.table (arrays of hashes)                 | 4.9×–132× faster        |
+| vs ZSV 1.3.0 (arrays of hashes, equiv. output)  | 1.1×–6.6× faster †      |
 
-† SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output.
+† SmarterCSV faster on 15 of 16 files. ZSV raw arrays (no hashes, no conversions) are 2×–14× faster — but that omits the post-processing work needed to produce usable output. ZSV row carried over from the 1.16.0 benchmark; not re-measured for 1.17.0.
 
-_Benchmarks: 19 CSV files (20k–80k rows), Ruby 3.4.7, Apple M1._
+_Benchmarks: 19 CSV files (20k–240k rows), Ruby 3.4.7, Apple M4._
 
-![SmarterCSV 1.16.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.16.0_vs_RubyCSV_3.3.5_speedup.png)
+> ⁉️ **Why these numbers look a touch lower than 1.16.0 charts?**
+> TL;DR: because we use different statistic methods.
+>
+> Earlier versions of these benchmarks reported the best-of-N sample (the absolute `min` / fastest run) for each measurement. A single lucky run — empty caches lining up, no scheduler interrupts — could shave up to ~10% off and become the headline number. I think that would be misleading.
+> Because of that, we've switched to the 10th-percentile (`p10`) of multiple runs of 40 samples, which discards roughly the four luckiest runs and reports a time much closer to what you'll actually observe in production. On noisier fixtures `p10` is ~5–10% above `min`; on quiet ones it's within 1%. The relative ordering between versions and adapters is unchanged; the absolute speedup figures are simply more honest.
 
-![SmarterCSV 1.16.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.16.0_vs_previous_C-speedup.svg)
+### SmarterCSV vs Ruby CSV
+![SmarterCSV 1.17.0 vs Ruby CSV 3.3.5 speedup](images/SmarterCSV_1.17.0_vs_RubyCSV_3.3.5_speedup.svg)
+
+### SmarterCSV C Path
+![SmarterCSV 1.17.0 vs previous versions — C-accelerated path](images/SmarterCSV_1.17.0_vs_previous_C-speedup.svg)
+
+### SmarterCSV Ruby Path
+![SmarterCSV 1.17.0 vs previous versions — Ruby path](images/SmarterCSV_1.17.0_vs_previous_Rb-speedup.svg)
 
 See [SmarterCSV 1.15.2: Faster Than Raw CSV Arrays](https://tilo-sloboda.medium.com/smartercsv-1-15-2-faster-than-raw-csv-arrays-benchmarks-zsv-and-the-full-pipeline-2c12a798032e) and [PR #319](https://github.com/tilo/smarter_csv/pull/319) for more details.
 
@@ -61,7 +76,7 @@ It's a one-line change:
 # Before
 rows = CSV.table('data.csv').map(&:to_h)
 
-# After — up to 129× faster, same symbol keys
+# After — up to 132× faster, same symbol keys
 rows = SmarterCSV.process('data.csv')
 ```
 
@@ -124,6 +139,23 @@ strip_whitespace → nil_values_matching → remove_empty_values → remove_zero
 
 Each step is individually configurable. See [Data Transformations](docs/data_transformations.md) and [Value Converters](docs/value_converters.md) for details.
 
+### Value Converters
+
+Per-column lambdas convert raw strings into typed values — dates, currency, booleans:
+
+```ruby
+require 'date'
+
+data = SmarterCSV.process('orders.csv',
+  value_converters: {
+    dob:    ->(v) { v && Date.strptime(v, '%m/%d/%Y') },
+    price:  ->(v) { v&.delete('$,')&.to_f },
+    active: ->(v) { v&.match?(/\Atrue\z/i) },
+  })
+```
+
+See [Value Converters](docs/value_converters.md).
+
 ### Batch Processing:
 
 Processing large CSV files in chunks minimizes memory usage and enables powerful workflows:
@@ -147,6 +179,8 @@ SmarterCSV.process(filename, chunk_size: 100) do |chunk|
 end
 ```
 
+See [Batch Processing](docs/batch_processing.md) for chunk sizing, `each_chunk`, and parallel-worker patterns.
+
 ### Modern Enumerator API:
 
 `Reader#each` is the modern, idiomatic way to process rows — `Reader` includes `Enumerable`, so all standard Ruby methods work:
@@ -166,6 +200,29 @@ first_ten = reader.lazy.select { |h| h[:active] }.first(10)
 reader.each_slice(500) { |batch| MyModel.insert_all(batch) }
 ```
 
+See [The Basic Read API](docs/basic_read_api.md) for the full `Reader` interface.
+
+### Streaming / Non-Seekable Inputs (1.17.0+):
+
+SmarterCSV reads directly from any IO — no need to materialize the file on disk first. Auto-detection works on streaming inputs without rewinding; the first chunk is buffered transparently.
+
+```ruby
+# Gzipped CSV — stream-decompressed, never written to disk
+require 'zlib'
+Zlib::GzipReader.open('huge.csv.gz') do |io|
+  SmarterCSV.process(io) { |row| MyModel.upsert(row.first) }
+end
+
+# STDIN / pipes
+SmarterCSV.process($stdin) { |row, _| ... }
+
+# HTTP response body
+require 'open-uri'
+URI.open('https://example.com/data.csv') { |io| SmarterCSV.process(io) }
+```
+
+See [Row and Column Separators](docs/row_col_sep.md) for how `:auto` detection works on non-seekable streams, and [Configuration Options](docs/options.md) for `buffer_size` (the peek-buffer chunk size).
+
 ### Bad Row Handling:
 
 SmarterCSV can quarantine malformed rows instead of crashing the entire import:
@@ -182,7 +239,33 @@ end
 
 See [Bad Row Quarantine](docs/bad_row_quarantine.md) for full details including `bad_row_limit` and `field_size_limit`.
 
-See [13 Examples](docs/examples.md) for more, including value converters, header validation, writing CSV, encoding handling, and resumable Rails ActiveJob imports.
+### Header Validation:
+
+Raise early if the file is missing required columns, before any data row is processed:
+
+```ruby
+begin
+  SmarterCSV.process('transactions.csv',
+    required_keys: [:account_id, :amount, :currency])
+rescue SmarterCSV::MissingKeys => e
+  abort "CSV missing columns: #{e.keys.join(', ')}"
+end
+```
+
+See [Header Validations](docs/header_validations.md).
+
+### Writing CSV:
+
+```ruby
+SmarterCSV.generate('output.csv') do |csv|
+  csv << { name: 'Alice', age: 30, city: 'New York' }
+  csv << { name: 'Bob',   age: 25, city: 'Chicago'  }
+end
+```
+
+Hashes (not arrays) make column-shift bugs impossible — adding a column never silently misaligns existing rows. See [The Basic Write API](docs/basic_write_api.md) for header renaming, value converters, and ordered output.
+
+See [18 Examples](docs/examples.md) for more, including encoding and preamble handling, key mapping, instrumentation hooks, and resumable Rails ActiveJob imports.
 
 ## Requirements
 
@@ -223,6 +306,7 @@ Or install it yourself as:
   * [Data Transformations](docs/data_transformations.md)
   * [Value Converters](docs/value_converters.md)
   * [Bad Row Quarantine](docs/bad_row_quarantine.md)
+  * [Warnings](docs/warnings.md)
   * [Instrumentation Hooks](docs/instrumentation.md)
   * [Examples](docs/examples.md)
   * [Real-World CSV Files](docs/real_world_csv.md)

@@ -16,6 +16,7 @@
   * [Data Transformations](./data_transformations.md)
   * [Value Converters](./value_converters.md)
   * [Bad Row Quarantine](./bad_row_quarantine.md)
+  * [Warnings](./warnings.md)
   * [**Instrumentation Hooks**](./instrumentation.md)
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
@@ -163,4 +164,4 @@ SmarterCSV.process(file, on_start: ON_START, on_complete: ON_COMPLETE)
 ```
 
 --------------------
-PREVIOUS: [Bad Row Quarantine](./bad_row_quarantine.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)
+PREVIOUS: [Warnings](./warnings.md) | NEXT: [Examples](./examples.md) | UP: [README](../README.md)

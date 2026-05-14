@@ -45,14 +45,14 @@ rows with type conversion applied. SmarterCSV/C is dramatically faster:
 
 ### C path
 
-| Gain         | Files                                                               |
-|--------------|---------------------------------------------------------------------|
-| **2.4×**     | long_fields — biggest win; `memchr` skip-ahead in quoted fields     |
-| **1.5×**     | heavy_quoting — same skip-ahead benefit                             |
-| **1.4×**     | tab_separated                                                       |
+| Gain         | Files                                                                       |
+|--------------|-----------------------------------------------------------------------------|
+| **2.4×**     | long_fields — biggest win; `memchr` skip-ahead in quoted fields             |
+| **1.5×**     | heavy_quoting — same skip-ahead benefit                                     |
+| **1.4×**     | tab_separated                                                               |
 | **1.2–1.3×** | embedded_sep, utf8, PEOPLE_IMPORT_C/NC, worldcities, whitespace, multi_char |
-| **1.1–1.2×** | PEOPLE_IMPORT_B/NB, uszips, sample_10M, wide_500_cols               |
-| **~1.0×**    | sensor_data, embedded_newlines (within noise)                       |
+| **1.1–1.2×** | PEOPLE_IMPORT_B/NB, uszips, sample_10M, wide_500_cols                       |
+| **~1.0×**    | sensor_data, embedded_newlines (within noise)                               |
 
 15 of 19 files are measurably faster; 2 within noise; 2 files show a small regression
 (PEOPLE_IMPORT_NB −7%, wide_500_cols −5%) attributable to the new `quote_boundary: :standard`
@@ -60,11 +60,11 @@ default adding one extra state check on the unquoted fast path.
 
 ### Ruby path
 
-| Gain         | Files                                                               |
-|--------------|---------------------------------------------------------------------|
+| Gain         | Files                                                                             |
+|--------------|-----------------------------------------------------------------------------------|
 | **1.9×**     | PEOPLE_IMPORT_C (117 cols) — direct hash construction bypasses intermediate Array |
-| **1.5×**     | PEOPLE_IMPORT_NC, multi_char_sep                                    |
-| **1.0–1.1×** | most other files                                                    |
+| **1.5×**     | PEOPLE_IMPORT_NC, multi_char_sep                                                  |
+| **1.0–1.1×** | most other files                                                                  |
 
 The Ruby path gains are concentrated on wide/complex files where the direct-hash
 construction optimization (Opt #11) has the most impact.
@@ -106,9 +106,9 @@ are skipped entirely in the C hot path — no string allocation, no conversion, 
 insertion. Benchmark on `wide_500_cols_20k.csv` (500 columns):
 
 | Columns kept | Speedup vs no selection |
-|---|---|
-| 2 of 500  | ~16× faster |
-| 10 of 500 | ~8× faster  |
-| 50 of 500 | ~3× faster  |
+|--------------|-------------------------|
+|    2 of 500  |             ~16× faster |
+|   10 of 500  |             ~8× faster  |
+|   50 of 500  |             ~3× faster  |
 
 This is additive on top of the baseline gains above.

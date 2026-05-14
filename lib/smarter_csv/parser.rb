@@ -30,8 +30,7 @@ module SmarterCSV
 
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash, options[:quote_boundary] == :standard, options[:row_sep])
-          [elements, elements.size]
+          parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], options[:quote_escaping] == :backslash, options[:quote_boundary] == :standard, options[:row_sep])
           # :nocov:
         else
           # puts "WARNING: SmarterCSV is using un-accelerated parsing of lines. Check options[:acceleration]"
@@ -53,8 +52,7 @@ module SmarterCSV
       unless line.include?('\\')
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
-          return [elements, elements.size]
+          return parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
           # :nocov:
         else
           return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
@@ -67,8 +65,7 @@ module SmarterCSV
         # Try backslash-escape interpretation first
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
-          [elements, elements.size]
+          parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], true, options[:quote_boundary] == :standard, options[:row_sep])
           # :nocov:
         else
           parse_csv_line_ruby(line, @quote_escaping_backslash, header_size, has_quotes)
@@ -77,8 +74,7 @@ module SmarterCSV
         # Backslash raised a hard error — fall back to RFC 4180 immediately
         if options[:acceleration] && has_acceleration
           # :nocov:
-          elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
-          return [elements, elements.size]
+          return parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
           # :nocov:
         else
           return parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
@@ -89,8 +85,7 @@ module SmarterCSV
       if result[1] == -1
         rfc_result = if options[:acceleration] && has_acceleration
                        # :nocov:
-                       elements = parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
-                       [elements, elements.size]
+                       parse_csv_line_c(line, options[:col_sep], options[:quote_char], header_size, has_quotes, options[:strip_whitespace], false, options[:quote_boundary] == :standard, options[:row_sep])
                        # :nocov:
                      else
                        parse_csv_line_ruby(line, @quote_escaping_double, header_size, has_quotes)
@@ -205,8 +200,9 @@ module SmarterCSV
 
         remove_empty = options[:remove_empty_values]
         hash = {}
-        fields.each_with_index do |v, i|  # C-level iteration, faster than Ruby while counter loop
+        fields.each_with_index do |v, i| # C-level iteration, faster than Ruby while counter loop
           next if remove_empty && v.empty?
+
           hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
         end
 
@@ -280,11 +276,12 @@ module SmarterCSV
 
       col_sep = options[:col_sep]
       strip = options[:strip_whitespace]
+      quote = @quote_char
 
       # Ensure has_quotes is set correctly (callers via parse/parse_line_to_hash
       # always pass this, but direct callers may not)
       # rubocop:disable Style/OrAssignment
-      has_quotes = line.include?(options[:quote_char]) unless has_quotes
+      has_quotes = line.include?(quote) unless has_quotes
       # rubocop:enable Style/OrAssignment
 
       # Optimization #7: when line has no quotes, use String#split (C-implemented)
@@ -299,14 +296,16 @@ module SmarterCSV
 
         elements = line.split(col_sep, -1) # -1 preserves trailing empty fields
         elements = elements[0, header_size] if header_size
-        elements.map!(&:strip) if strip
+        # split returns fresh, mutable strings — strip them in place (strip! allocates
+        # nothing when there's no leading/trailing whitespace, which is the common case)
+        elements.each(&:strip!) if strip
         return [elements, elements.size]
       end
 
       # Quoted-line path: character-by-character parsing required
       line_size = line.size
       col_sep_size = col_sep.size
-      quote = options[:quote_char]
+      doubled_quotes = @doubled_quote_chars
       elements = []
       start = 0
       i = 0
@@ -384,14 +383,20 @@ module SmarterCSV
             field_len = i - start
             if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(i - 1) == quote_byte
               field = line.byteslice(start + 1, field_len - 2)
-              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
-              field.strip! if strip  # in-place: no extra allocation; safe on fresh byteslice
-              elements << field
+              # Tighter guard: only walk the field with gsub! when a doubled quote pair
+              # actually exists. include?(doubled_quotes) is a single memmem scan; cheaper
+              # than gsub!'s full walk when no doubled pair is present.
+              field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
+              field.strip! if strip # in-place: no extra allocation; safe on fresh byteslice
             else
               field = line.byteslice(start, field_len)
               field = cleanup_quotes(field, quote)
-              elements << (strip ? field.strip : field)  # cleanup_quotes may return frozen EMPTY_STRING
+              # cleanup_quotes may return the frozen EMPTY_STRING; all non-empty returns are
+              # fresh mutable byteslices/substrings. So strip! in place (no allocation), guarded
+              # by !field.empty? to skip the frozen-empty case (which needs no stripping anyway).
+              field.strip! if strip && !field.empty?
             end
+            elements << field
             i += 1
             start = i
             backslash_count = 0
@@ -450,14 +455,16 @@ module SmarterCSV
           field_len = bytesize - start
           if field_len >= 2 && line.getbyte(start) == quote_byte && line.getbyte(bytesize - 1) == quote_byte
             field = line.byteslice(start + 1, field_len - 2)
-            field.gsub!(doubled_quote(quote), quote)
+            field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
-            elements << field
           else
             field = line.byteslice(start, field_len)
             field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+            # mutable byteslices — strip! in place, guarded by !field.empty? for the frozen case.
+            field.strip! if strip && !field.empty?
           end
+          elements << field
         end
       else
         # Multi-char col_sep: use substring comparison (original path)
@@ -489,14 +496,16 @@ module SmarterCSV
             field_len = i - start
             if field_len >= 2 && line[start] == quote && line[i - 1] == quote
               field = line[start + 1...i - 1]
-              field.gsub!(doubled_quote(quote), quote) if field.include?(quote)
+              field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
               field.strip! if strip
-              elements << field
             else
               field = line[start...i]
               field = cleanup_quotes(field, quote)
-              elements << (strip ? field.strip : field)
+              # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+              # mutable substrings — strip! in place, guarded by !field.empty? for the frozen case.
+              field.strip! if strip && !field.empty?
             end
+            elements << field
             i += col_sep_size
             start = i
             backslash_count = 0
@@ -553,14 +562,16 @@ module SmarterCSV
           field_len = line_size - start
           if field_len >= 2 && line[start] == quote && line[line_size - 1] == quote
             field = line[start + 1..line_size - 2]
-            field.gsub!(doubled_quote(quote), quote)
+            field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
             field.strip! if strip
-            elements << field
           else
             field = line[start..-1]
             field = cleanup_quotes(field, quote)
-            elements << (strip ? field.strip : field)
+            # cleanup_quotes may return the frozen EMPTY_STRING; non-empty returns are fresh
+            # mutable substrings — strip! in place, guarded by !field.empty? for the frozen case.
+            field.strip! if strip && !field.empty?
           end
+          elements << field
         end
       end
 
@@ -571,19 +582,17 @@ module SmarterCSV
       return nil if field.nil?
       return EMPTY_STRING if field.empty?
 
+      doubled_quotes = @doubled_quote_chars
+
       # Remove surrounding quotes if present
       if field.start_with?(quote) && field.end_with?(quote)
         field = field[1..-2]
       end
 
-      # Replace double quotes with a single quote
-      field.gsub!(doubled_quote(quote), quote)
+      # Replace double quotes with a single quote (skip the gsub walk when no doubled pair exists)
+      field.gsub!(doubled_quotes, quote) if field.include?(doubled_quotes)
 
       field
-    end
-
-    def doubled_quote(quote)
-      @doubled_quote ||= (quote * 2).to_s.freeze
     end
   end
 end
