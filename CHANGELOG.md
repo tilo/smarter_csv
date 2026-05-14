@@ -5,34 +5,6 @@
 
 RSpec tests: **1,434 → 2,210** (+776 tests)
 
-### New / Changed Options
-
-* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384`. Out-of-range values warn and clamp to the supported range rather than raising.
-
-* **`auto_row_sep_chars` default changed to `4096`** (was `500` in 1.16.x). Sized to cover wide-header CSVs in a single read. Bump it higher if your files have very wide headers or long comment preambles.
-
-### Bug Fixes
-
-* **Files ending in a lone `\r`** are now correctly detected as `\r`-terminated instead of falling through to a "no clear row separator" warning.
-
-* **`remove_empty_values` now treats Unicode whitespace as empty** — a field containing only whitespace, including characters like non-breaking space (U+00A0) or ideographic space (U+3000), is now dropped, the same way Ruby's `String#blank?` behaves. Previously only ASCII whitespace counted (and only Rails apps got the Unicode behavior, via `blank?` — an inconsistency that's now gone). Behavior is identical with or without the C extension.
-
-* **`remove_zero_values` now also removes signed zeros** — `+0`, `-0`, `-0.0`, `+0.00`, etc. are recognized as zero and dropped, just like `0` and `0.0`. (Only applies when `remove_zero_values: true`, which is off by default.)
-
-### Performance
-
-Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
-
-* **C-accelerated path (the default):** quote-heavy, large-field, and wide CSVs parse meaningfully faster — roughly **7–22% faster** (city/address-style files ~10–13%; long-field and wide files the most). CSVs with very short lines and many tiny fields are up to ~3% slower — a side effect of the larger default auto-detection scan window (see `auto_row_sep_chars`); set it back to a smaller value if that matters for your workload. Net: solid wins where there's real per-row work, a small cost on the trivially-cheap cases.
-* **Ruby fallback path (`acceleration: false`):** faster on nearly every file — typically **4–20% faster** than 1.16.4, with the biggest gains on wide and many-small-field CSVs.
-
-Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
-
-
-## 1.17.0.pre5 (2026-04-28)
-
-RSpec tests: **1,434 → 1,905** (+471 tests)
-
 ### New Features
 
 * **Streaming IO support** — SmarterCSV now works with non-seekable IO sources such as pipes, STDIN, and Zlib streams.
@@ -56,11 +28,32 @@ RSpec tests: **1,434 → 1,905** (+471 tests)
 
 * Improved auto-detection of `row_sep` and `col_sep` — giving more accurate results on files with comment headers.
 
-* Default value for `auto_row_sep_chars` changed from `500` to `8192`, providing a larger scan window for accurate row separator detection on files with wide headers or long first lines. 
-Values below `8192` (and `nil` / `0`) are now rejected and fall back to the default `8192` with a warning message.
-  This is a change from the previous `nil` / `0` were documented as "scan whole file".
+* Larger scan window for accurate row separator detection on files with wide headers or long first lines.
 
 * `guess_line_ending` now scans the input in chunks up to a 64KB hard cap, returning as soon as one separator has a clear majority. Near-tie chunk-boundary artifacts no longer cause spurious warnings; only true ties at the hard cap fall back to `"\n"` and emit a `:no_clear_row_sep` warning at `:error` severity (silent miss-parse risk).
+
+### New / Changed Options
+
+* **`buffer_size` is now a public option** — peek buffer chunk size for non-seekable inputs (pipes, gzip readers, HTTP/S3 bodies). Default `16_384`. Out-of-range values warn and clamp to the supported range rather than raising.
+
+* **`auto_row_sep_chars` default changed to `4096`** (was `500` in 1.16.x). Sized to cover wide-header CSVs in a single read. Bump it higher if your files have very wide headers or long comment preambles.
+
+### Bug Fixes
+
+* **Files ending in a lone `\r`** are now correctly detected as `\r`-terminated instead of falling through to a "no clear row separator" warning.
+
+* **`remove_empty_values` now treats Unicode whitespace as empty** — a field containing only whitespace, including characters like non-breaking space (U+00A0) or ideographic space (U+3000), is now dropped, the same way Ruby's `String#blank?` behaves. Previously only ASCII whitespace counted (and only Rails apps got the Unicode behavior, via `blank?` — an inconsistency that's now gone). Behavior is identical with or without the C extension.
+
+* **`remove_zero_values` now also removes signed zeros** — `+0`, `-0`, `-0.0`, `+0.00`, etc. are recognized as zero and dropped, just like `0` and `0.0`. (Only applies when `remove_zero_values: true`, which is off by default.)
+
+### Performance
+
+Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
+
+* **C-accelerated path (the default):** quote-heavy, large-field, and wide CSVs parse meaningfully faster — roughly **7–22% faster** (city/address-style files ~10–12%; long-field and wide files the most). CSVs with very short lines and many tiny fields are up to ~3% slower — a side effect of the larger default auto-detection scan window (see `auto_row_sep_chars`); set it back to a smaller value if that matters for your workload. Net: solid wins where there's real per-row work, a small cost on the trivially-cheap cases.
+* **Ruby fallback path (`acceleration: false`):** faster on nearly every file — typically **3–20% faster** than 1.16.4, with the biggest gains on wide and many-small-field CSVs.
+
+Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
 
 ## 1.16.4 (2026-04-21) — Bug Fixes
 
