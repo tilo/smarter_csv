@@ -17,6 +17,7 @@ require "smarter_csv/hash_transformations"
 require "smarter_csv/parser"
 require "smarter_csv/writer"
 require "smarter_csv/reader"
+require "smarter_csv/slicer"
 
 # load the C-extension:
 case RUBY_ENGINE
@@ -91,6 +92,29 @@ module SmarterCSV
       Thread.current[:current_thread_recent_errors] = reader.errors
       Thread.current[:current_thread_recent_warnings] = reader.warnings
     end
+  end
+
+  # Slices a (seekable) CSV file into byte-range slices for parallel
+  # processing — see SmarterCSV::Slicer. One cheap quote-aware pass that also
+  # does the header processing once; returns an Array of slice Hashes, each
+  # describing up to `slice_size` logical data rows and carrying the
+  # fully-processed `headers`. A worker reconstructs its slice with
+  #   bytes = File.open(d[:input], 'rb') { |f| f.seek(d[:from_byte]); f.read(d[:to_byte] - d[:from_byte]) }
+  #   SmarterCSV.process(StringIO.new(bytes.force_encoding(d[:options][:file_encoding])), **d[:options])
+  # (d[:options] already has headers_in_file: false / user_provided_headers: d[:headers])
+  # and recovers global row numbers as  d[:row_offset] + local_index.
+  #
+  # Two orthogonal row-count knobs:
+  #   - :slice_size  — rows per worker slice (this method's argument)
+  #   - :chunk_size  — rows per yield to the worker's block (Reader's existing
+  #                    option, passed through in d[:options] untouched)
+  #
+  # Example:
+  #   SmarterCSV.slice("big.csv", slice_size: 50_000, chunk_size: 500).each do |d|
+  #     ImportSliceJob.perform_async(d[:input], d[:from_byte], d[:to_byte], d[:row_offset])
+  #   end
+  def self.slice(input, slice_size:, **given_options)
+    Slicer.new(input, given_options).slice(slice_size: slice_size)
   end
 
   # Convenience method for parsing a CSV string directly.
