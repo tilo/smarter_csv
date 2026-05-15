@@ -11,9 +11,9 @@ fixture_path = 'spec/fixtures'
       let(:file) { 'something' }
 
       it "handles escaped characters and regular characters" do
-        expect(reader.count_quote_chars("\"No\" \"Escaping\"", "\"", ",", :backslash)).to eq 4
-        expect(reader.count_quote_chars("\"D\\\"Angelos\"", "\"", ",", :backslash)).to eq 2
-        expect(reader.count_quote_chars("\!D\\\!Angelos\!", "\!", ",", :backslash)).to eq 2
+        expect(reader.send(:count_quote_chars, "\"No\" \"Escaping\"", "\"", ",", :backslash)).to eq 4
+        expect(reader.send(:count_quote_chars, "\"D\\\"Angelos\"", "\"", ",", :backslash)).to eq 2
+        expect(reader.send(:count_quote_chars, "\!D\\\!Angelos\!", "\!", ",", :backslash)).to eq 2
       end
     end
 
@@ -22,15 +22,15 @@ fixture_path = 'spec/fixtures'
 
       it "counts all quote chars without treating backslash as escape" do
         # No backslashes — same result either mode
-        expect(reader.count_quote_chars("\"No\" \"Escaping\"", "\"", ",", :double_quotes)).to eq 4
+        expect(reader.send(:count_quote_chars, "\"No\" \"Escaping\"", "\"", ",", :double_quotes)).to eq 4
 
         # Backslash-quote: in :double_quotes mode, backslash is literal, quote is counted
         # "D\"Angelos" has 3 quote chars (positions 0, 2, 10)
-        expect(reader.count_quote_chars("\"D\\\"Angelos\"", "\"", ",", :double_quotes)).to eq 3
+        expect(reader.send(:count_quote_chars, "\"D\\\"Angelos\"", "\"", ",", :double_quotes)).to eq 3
 
         # Custom quote char: \!D\\!\Angelos\! has 3 ! chars in :double_quotes mode
         # (in :backslash mode, the \! between D and Angelos is escaped, giving only 2)
-        expect(reader.count_quote_chars("\!D\\\!Angelos\!", "\!", ",", :double_quotes)).to eq 3
+        expect(reader.send(:count_quote_chars, "\!D\\\!Angelos\!", "\!", ",", :double_quotes)).to eq 3
       end
     end
 
@@ -39,12 +39,12 @@ fixture_path = 'spec/fixtures'
 
       it "returns [escaped_count, rfc_count] for dual counting" do
         # No backslashes — both counts are the same
-        escaped, rfc = reader.count_quote_chars_auto("\"No\" \"Escaping\"", "\"", ",")
+        escaped, rfc = reader.send(:count_quote_chars_auto, "\"No\" \"Escaping\"", "\"", ",")
         expect(escaped).to eq 4
         expect(rfc).to eq 4
 
         # "D\"Angelos" — backslash-aware count skips the escaped quote
-        escaped, rfc = reader.count_quote_chars_auto("\"D\\\"Angelos\"", "\"", ",")
+        escaped, rfc = reader.send(:count_quote_chars_auto, "\"D\\\"Angelos\"", "\"", ",")
         expect(escaped).to eq 2
         expect(rfc).to eq 3
 
@@ -55,7 +55,7 @@ fixture_path = 'spec/fixtures'
         # " -> rfc=2, escaped: yes -> skip, escaped=false
         # , -> escaped=false
         # Y -> escaped=false
-        escaped, rfc = reader.count_quote_chars_auto("\"\\\",Y", "\"", ",")
+        escaped, rfc = reader.send(:count_quote_chars_auto, "\"\\\",Y", "\"", ",")
         expect(escaped).to eq 1
         expect(rfc).to eq 2
       end

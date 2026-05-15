@@ -186,88 +186,11 @@ module SmarterCSV
 
         header_validations(@headers, options)
 
-        # Precompute column filter sets for only_headers / except_headers (O(1) lookup per row)
-        @only_headers_set   = options[:only_headers]   ? Set.new(options[:only_headers])   : nil
-        @except_headers_set = options[:except_headers] ? Set.new(options[:except_headers]) : nil
-
-        # Precompute column-filter bitmap for the C extension.
-        #
-        # The bitmap is a loop invariant — headers and filter settings never change between rows.
-        # We store it as a packed binary String so C can copy it with a single memcpy instead of
-        # N rb_ary_entry calls per row.  early_exit_after and keep_extra_cols are pre-stored so
-        # C reads them with O(1) hash lookups rather than recomputing per row.
-        if @only_headers_set || @except_headers_set
-          keep_flags = @headers.map { |h| @only_headers_set ? @only_headers_set.include?(h) : !@except_headers_set.include?(h) }
-          options[:_keep_bitmap]       = keep_flags.map { |f| f ? 1 : 0 }.pack('C*').freeze
-          options[:_keep_extra_cols]   = @only_headers_set ? false : true
-          options[:_early_exit_after]  = (@only_headers_set && !options[:strict]) ? (keep_flags.rindex(true) || -1) : -1
-          options[:_keep_cols]         = nil # nil signals C: "filter active, check _keep_bitmap"
-        else
-          options[:_keep_cols] = false # sentinel: no filtering active — C skips all bitmap paths
-          # Do NOT insert _keep_bitmap/_keep_extra_cols/_early_exit_after when unused.
-          # Keeping the options hash as small as possible avoids hash table resize and
-          # keeps all 10 per-row rb_hash_aref lookups hitting the same cache lines.
-        end
-
-        # Precompute all hot-path strategy ivars once — eliminates per-row option lookups
-        # and method-dispatch overhead in the main loop.
-        #
-        # @quote_escaping_backslash / @quote_escaping_double may already exist if
-        # parse_with_auto_fallback ran during header parsing (lazily created there).
-        # Ensure they exist and carry the now-final _keep_cols (and bitmap keys only when active).
-        @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
-        @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
-        @quote_escaping_backslash[:_keep_cols] = options[:_keep_cols]
-        @quote_escaping_double[:_keep_cols]    = options[:_keep_cols]
-        if @only_headers_set || @except_headers_set
-          %i[_keep_bitmap _keep_extra_cols _early_exit_after].each do |k|
-            @quote_escaping_backslash[k] = options[k]
-            @quote_escaping_double[k]    = options[k]
-          end
-        end
-
-        @quote_escaping_auto = options[:quote_escaping] == :auto
-        @use_acceleration    = options[:acceleration] && has_acceleration
-
-        # The single options hash used on the hot path — for :auto we always try backslash
-        # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
-        @hot_path_options = @quote_escaping_auto ? @quote_escaping_backslash : options
-
-        # Build ParseContext objects once after headers are known.
-        # Eliminates ~10 rb_hash_aref calls per row by pre-baking all loop-invariant
-        # options into a C struct accessed via direct pointer dereference.
-        if @use_acceleration
-          hot_opts    = @hot_path_options
-          double_opts = @quote_escaping_double
-          @parse_ctx        = SmarterCSV::Parser.new_parse_context_c(@headers, hot_opts)
-          @parse_ctx_double = SmarterCSV::Parser.new_parse_context_c(@headers, double_opts)
-        end
-
-        # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
-        # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
-        # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
-        @delete_nil_keys   = !!options[:key_mapping]
-        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
-
-        # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
-        @field_size_limit = options[:field_size_limit]
-
-        # in case we use chunking.. we'll need to set it up..
-        if options[:chunk_size].to_i > 0
-          use_chunks = true
-          chunk_size = options[:chunk_size].to_i
-          @chunk_count = 0
-          chunk = []
-        else
-          use_chunks = false
-        end
-
-        # --- INSTRUMENTATION HOOKS ---
-        # on_start / on_chunk / on_complete are optional callables (nil by default).
-        # Hooks only fire from `process` (library-controlled iteration). Enumerator
-        # modes (each / each_chunk) do not fire hooks — the caller owns the lifecycle.
+        # --- INSTRUMENTATION HOOKS (whole-import scoped) ---
+        # on_start / on_complete fire once per import. They live in process() — NOT in
+        # process_rows — so workers calling process_rows directly (per-slice path) do
+        # not fire them. on_chunk is per-batch and lives inside process_rows.
         on_start    = options[:on_start]
-        on_chunk    = options[:on_chunk]
         on_complete = options[:on_complete]
         start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if on_start || on_complete
 
@@ -280,202 +203,7 @@ module SmarterCSV
           on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
 
-        # now on to processing all the rest of the lines in the CSV file:
-        while (line = next_line_with_counts(fh, options))
-
-          # replace invalid byte sequence in UTF-8 with question mark to avoid errors
-          line = enforce_utf8_encoding(line, options) if @enforce_utf8
-
-          $stderr.print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose == :debug
-
-          next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
-
-          # Snapshot line counters before multiline stitching so error records reflect
-          # where the bad row started, not where it failed.
-          bad_row_start_csv_line  = @csv_line_count
-          bad_row_start_file_line = @file_line_count
-
-          begin
-            # --- PARSE (inlined — no method-wrapper overhead on the hot path) ---
-            # Replaces: process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto
-            # All routing decisions are pre-baked into ivars set up after header processing.
-            if @use_acceleration
-              hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
-              # :auto only: if unclosed quote AND backslash present, RFC may close it differently
-              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
-              end
-            else
-              has_quotes = line.include?(@quote_char)
-              hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
-              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
-              end
-            end
-
-            # --- MULTILINE STITCH ---
-            # data_size == -1 means the parser saw an unclosed quoted field at end-of-line.
-            # Fetch the next physical line, append, and re-parse until the field closes.
-            while data_size == -1
-              next_line = fh.gets(options[:row_sep])
-              raise MalformedCSV, "Unclosed quoted field detected in multiline data" if next_line.nil?
-
-              next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
-              line += next_line
-              @file_line_count += 1
-              $stderr.print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose == :debug
-
-              # DoS guard: prevent runaway multiline accumulation (vectors: never-closing quote, huge embedded content)
-              if @field_size_limit && line.bytesize > @field_size_limit
-                raise SmarterCSV::FieldSizeLimitExceeded,
-                      "Multiline field exceeds field_size_limit of #{@field_size_limit} bytes " \
-                      "(accumulated #{line.bytesize} bytes)"
-              end
-
-              # Opt #8 (memchr guard): if the newly appended line contains no quote character,
-              # it cannot close the currently open quoted field — skip the full re-parse and
-              # keep accumulating physical lines.  String#include? uses memchr internally (C speed).
-              next unless next_line.include?(@quote_char)
-
-              if @use_acceleration
-                # :nocov:
-                hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
-                if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                  hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
-                end
-                # :nocov:
-              else
-                # Optimization #18: use detect_multiline as a cheap gate before attempting a full
-                # Ruby re-parse on the growing stitched line. detect_multiline_strict now uses
-                # byteindex skip-ahead (Opt #17) and is faster than parse_line_to_hash_ruby on
-                # the same content. Saves N-2 wasted full parses per multiline row.
-                next if detect_multiline(line, options)
-
-                has_quotes = true # we know the line has quotes — we've been stitching a quoted field
-                hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
-                if @quote_escaping_auto && data_size == -1 && line.include?('\\')
-                  hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
-                end
-              end
-            end
-
-            # --- EXTRA COLUMNS ---
-            if data_size > @headers.size
-              raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}" if options[:missing_headers] == :raise
-
-              while @headers.size < data_size
-                @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
-              end
-            end
-
-            next if hash.nil?
-
-            # --- FIELD SIZE LIMIT CHECK ---
-            # Pre-filter: if the raw line fits within the limit, no individual field can exceed it
-            # (a field is always a substring of its row). Only iterate over values for large rows.
-            if @field_size_limit && line.bytesize > @field_size_limit
-              hash.each_value do |v|
-                if v.is_a?(String) && v.bytesize > @field_size_limit
-                  raise SmarterCSV::FieldSizeLimitExceeded,
-                        "Field exceeds field_size_limit of #{@field_size_limit} bytes (got #{v.bytesize} bytes)"
-                end
-              end
-            end
-
-            # --- COLUMN SELECTION ---
-            hash.select! { |k, _| @only_headers_set.include?(k) }   if @only_headers_set
-            hash.reject! { |k, _| @except_headers_set.include?(k) } if @except_headers_set
-
-            # --- HASH CLEANUP & TRANSFORMATIONS ---
-            if @use_acceleration
-              # C already applied: remove_empty_values, convert_values_to_numeric, remove_zero_values.
-              # Remove nil/"" keys left by key_mapping or empty CSV headers.
-              if @delete_nil_keys
-                hash.delete(nil)
-                hash.delete('')
-              end
-              hash.delete(:"") if @delete_empty_keys
-
-              if (matcher = options[:nil_values_matching])
-                if options[:remove_empty_values]
-                  hash.delete_if do |_k, v|
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    str_val && matcher.match?(str_val)
-                  end
-                else
-                  hash.each_key do |k|
-                    v = hash[k]
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    hash[k] = nil if str_val && matcher.match?(str_val)
-                  end
-                end
-              end
-
-              if options[:value_converters]
-                options[:value_converters].each do |key, converter|
-                  hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
-                end
-              end
-            else
-              hash = hash_transformations(hash, options)
-            end
-
-            next if options[:remove_empty_hashes] && hash.empty?
-
-            $stderr.puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == :debug
-            # optional adding of csv_line_number to the hash to help debugging
-            hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
-          rescue SmarterCSV::Error, EOFError => e
-            raise if options[:on_bad_row] == :raise
-
-            handle_bad_row(e, line, bad_row_start_csv_line, bad_row_start_file_line, options)
-            next
-          end
-
-          # process the chunks or the resulting hash
-          if use_chunks
-            chunk << hash # append temp result to chunk
-
-            if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
-              on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
-              # do something with the chunk
-              if block_given?
-                yield chunk, @chunk_count # do something with the hashes in the chunk in the block
-              else
-                @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
-              end
-              @chunk_count += 1
-              chunk.clear # re-initialize for next chunk of data
-            else
-              # the last chunk may contain partial data, which is handled below
-            end
-            # while a chunk is being filled up we don't need to do anything else here
-
-          else # no chunk handling
-            if block_given?
-              yield [hash], @chunk_count # do something with the hash in the block (better to use chunking here)
-              @chunk_count += 1
-            else
-              @result << hash
-            end
-          end
-        end
-
-        # print new line to retain last processing line message
-        $stderr.print "\n" if @verbose == :debug
-
-        # handling of last chunk:
-        if !chunk.nil? && chunk.size > 0
-          on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
-          # do something with the chunk
-          if block_given?
-            yield chunk, @chunk_count # do something with the hashes in the chunk in the block
-          else
-            @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
-          end
-          @chunk_count += 1
-          # chunk = [] # initialize for next chunk of data
-        end
+        process_rows(fh, &block)
 
         if on_complete
           on_complete.call({
@@ -493,6 +221,294 @@ module SmarterCSV
         @chunk_count # when we do processing through a block we only care how many chunks we processed
       else
         @result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
+      end
+    end
+
+    private
+
+    # Internal: the shared row-parsing core. Both Reader#process (whole-file path) and
+    # Reader#process_slice (per-slice path, Part 2 of the parallel-processing design) call
+    # this after their respective setup phases. NOT part of the public API.
+    #
+    # Expects: @headers set, options frozen on separators, fh positioned at the first
+    # data byte. Computes the per-call A2 ivars (@parse_ctx, @hot_path_options,
+    # @use_acceleration, ...) and runs the row loop to completion. Populates @result /
+    # @chunk_count / @csv_line_count / @errors. Caller owns fh's lifecycle (open/close).
+    def process_rows(fh, &block)
+      # Precompute column filter sets for only_headers / except_headers (O(1) lookup per row)
+      @only_headers_set   = options[:only_headers]   ? Set.new(options[:only_headers])   : nil
+      @except_headers_set = options[:except_headers] ? Set.new(options[:except_headers]) : nil
+
+      # Precompute column-filter bitmap for the C extension.
+      #
+      # The bitmap is a loop invariant — headers and filter settings never change between rows.
+      # We store it as a packed binary String so C can copy it with a single memcpy instead of
+      # N rb_ary_entry calls per row.  early_exit_after and keep_extra_cols are pre-stored so
+      # C reads them with O(1) hash lookups rather than recomputing per row.
+      if @only_headers_set || @except_headers_set
+        keep_flags = @headers.map { |h| @only_headers_set ? @only_headers_set.include?(h) : !@except_headers_set.include?(h) }
+        options[:_keep_bitmap]       = keep_flags.map { |f| f ? 1 : 0 }.pack('C*').freeze
+        options[:_keep_extra_cols]   = @only_headers_set ? false : true
+        options[:_early_exit_after]  = (@only_headers_set && !options[:strict]) ? (keep_flags.rindex(true) || -1) : -1
+        options[:_keep_cols]         = nil # nil signals C: "filter active, check _keep_bitmap"
+      else
+        options[:_keep_cols] = false # sentinel: no filtering active — C skips all bitmap paths
+        # Do NOT insert _keep_bitmap/_keep_extra_cols/_early_exit_after when unused.
+        # Keeping the options hash as small as possible avoids hash table resize and
+        # keeps all 10 per-row rb_hash_aref lookups hitting the same cache lines.
+      end
+
+      # Precompute all hot-path strategy ivars once — eliminates per-row option lookups
+      # and method-dispatch overhead in the main loop.
+      #
+      # @quote_escaping_backslash / @quote_escaping_double may already exist if
+      # parse_with_auto_fallback ran during header parsing (lazily created there).
+      # Ensure they exist and carry the now-final _keep_cols (and bitmap keys only when active).
+      @quote_escaping_backslash ||= options.merge(quote_escaping: :backslash)
+      @quote_escaping_double    ||= options.merge(quote_escaping: :double_quotes)
+      @quote_escaping_backslash[:_keep_cols] = options[:_keep_cols]
+      @quote_escaping_double[:_keep_cols]    = options[:_keep_cols]
+      if @only_headers_set || @except_headers_set
+        %i[_keep_bitmap _keep_extra_cols _early_exit_after].each do |k|
+          @quote_escaping_backslash[k] = options[k]
+          @quote_escaping_double[k]    = options[k]
+        end
+      end
+
+      @quote_escaping_auto = options[:quote_escaping] == :auto
+      @use_acceleration    = options[:acceleration] && has_acceleration
+
+      # The single options hash used on the hot path — for :auto we always try backslash
+      # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
+      @hot_path_options = @quote_escaping_auto ? @quote_escaping_backslash : options
+
+      # Build ParseContext objects once after headers are known.
+      # Eliminates ~10 rb_hash_aref calls per row by pre-baking all loop-invariant
+      # options into a C struct accessed via direct pointer dereference.
+      if @use_acceleration
+        hot_opts    = @hot_path_options
+        double_opts = @quote_escaping_double
+        @parse_ctx        = SmarterCSV::Parser.new_parse_context_c(@headers, hot_opts)
+        @parse_ctx_double = SmarterCSV::Parser.new_parse_context_c(@headers, double_opts)
+      end
+
+      # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
+      # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
+      # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
+      @delete_nil_keys   = !!options[:key_mapping]
+      @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
+
+      # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
+      @field_size_limit = options[:field_size_limit]
+
+      # in case we use chunking.. we'll need to set it up..
+      if options[:chunk_size].to_i > 0
+        use_chunks = true
+        chunk_size = options[:chunk_size].to_i
+        @chunk_count = 0
+        chunk = []
+      else
+        use_chunks = false
+      end
+
+      # Per-batch hook (fires from inside the row loop and the last-chunk flush).
+      on_chunk = options[:on_chunk]
+
+      # now on to processing all the rest of the lines in the CSV file:
+      while (line = next_line_with_counts(fh, options))
+
+        # replace invalid byte sequence in UTF-8 with question mark to avoid errors
+        line = enforce_utf8_encoding(line, options) if @enforce_utf8
+
+        $stderr.print "processing file line %10d, csv line %10d\r" % [@file_line_count, @csv_line_count] if @verbose == :debug
+
+        next if options[:comment_regexp] && line =~ options[:comment_regexp] # ignore all comment lines if there are any
+
+        # Snapshot line counters before multiline stitching so error records reflect
+        # where the bad row started, not where it failed.
+        bad_row_start_csv_line  = @csv_line_count
+        bad_row_start_file_line = @file_line_count
+
+        begin
+          # --- PARSE (inlined — no method-wrapper overhead on the hot path) ---
+          # Replaces: process_line_to_hash → parse_line_to_hash → parse_line_to_hash_auto
+          # All routing decisions are pre-baked into ivars set up after header processing.
+          if @use_acceleration
+            hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
+            # :auto only: if unclosed quote AND backslash present, RFC may close it differently
+            if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+              hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
+            end
+          else
+            has_quotes = line.include?(@quote_char)
+            hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
+            if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+              hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
+            end
+          end
+
+          # --- MULTILINE STITCH ---
+          # data_size == -1 means the parser saw an unclosed quoted field at end-of-line.
+          # Fetch the next physical line, append, and re-parse until the field closes.
+          while data_size == -1
+            next_line = fh.gets(options[:row_sep])
+            raise MalformedCSV, "Unclosed quoted field detected in multiline data" if next_line.nil?
+
+            next_line = enforce_utf8_encoding(next_line, options) if @enforce_utf8
+            line += next_line
+            @file_line_count += 1
+            $stderr.print "\nline contains unclosed quoted field, including content through file line %d\n" % @file_line_count if @verbose == :debug
+
+            # DoS guard: prevent runaway multiline accumulation (vectors: never-closing quote, huge embedded content)
+            if @field_size_limit && line.bytesize > @field_size_limit
+              raise SmarterCSV::FieldSizeLimitExceeded,
+                    "Multiline field exceeds field_size_limit of #{@field_size_limit} bytes " \
+                    "(accumulated #{line.bytesize} bytes)"
+            end
+
+            # Opt #8 (memchr guard): if the newly appended line contains no quote character,
+            # it cannot close the currently open quoted field — skip the full re-parse and
+            # keep accumulating physical lines.  String#include? uses memchr internally (C speed).
+            next unless next_line.include?(@quote_char)
+
+            if @use_acceleration
+              # :nocov:
+              hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx)
+              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                hash, data_size = parse_line_to_hash_ctx_c(line, @parse_ctx_double)
+              end
+              # :nocov:
+            else
+              # Optimization #18: use detect_multiline as a cheap gate before attempting a full
+              # Ruby re-parse on the growing stitched line. detect_multiline_strict now uses
+              # byteindex skip-ahead (Opt #17) and is faster than parse_line_to_hash_ruby on
+              # the same content. Saves N-2 wasted full parses per multiline row.
+              next if detect_multiline(line, options)
+
+              has_quotes = true # we know the line has quotes — we've been stitching a quoted field
+              hash, data_size = parse_line_to_hash_ruby(line, @headers, @hot_path_options, has_quotes)
+              if @quote_escaping_auto && data_size == -1 && line.include?('\\')
+                hash, data_size = parse_line_to_hash_ruby(line, @headers, @quote_escaping_double, has_quotes)
+              end
+            end
+          end
+
+          # --- EXTRA COLUMNS ---
+          if data_size > @headers.size
+            raise SmarterCSV::HeaderSizeMismatch, "extra columns detected on line #{@file_line_count}" if options[:missing_headers] == :raise
+
+            while @headers.size < data_size
+              @headers << "#{options[:missing_header_prefix]}#{@headers.size + 1}".to_sym
+            end
+          end
+
+          next if hash.nil?
+
+          # --- FIELD SIZE LIMIT CHECK ---
+          # Pre-filter: if the raw line fits within the limit, no individual field can exceed it
+          # (a field is always a substring of its row). Only iterate over values for large rows.
+          if @field_size_limit && line.bytesize > @field_size_limit
+            hash.each_value do |v|
+              if v.is_a?(String) && v.bytesize > @field_size_limit
+                raise SmarterCSV::FieldSizeLimitExceeded,
+                      "Field exceeds field_size_limit of #{@field_size_limit} bytes (got #{v.bytesize} bytes)"
+              end
+            end
+          end
+
+          # --- COLUMN SELECTION ---
+          hash.select! { |k, _| @only_headers_set.include?(k) }   if @only_headers_set
+          hash.reject! { |k, _| @except_headers_set.include?(k) } if @except_headers_set
+
+          # --- HASH CLEANUP & TRANSFORMATIONS ---
+          if @use_acceleration
+            # C already applied: remove_empty_values, convert_values_to_numeric, remove_zero_values.
+            # Remove nil/"" keys left by key_mapping or empty CSV headers.
+            if @delete_nil_keys
+              hash.delete(nil)
+              hash.delete('')
+            end
+            hash.delete(:"") if @delete_empty_keys
+
+            if (matcher = options[:nil_values_matching])
+              if options[:remove_empty_values]
+                hash.delete_if do |_k, v|
+                  str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+                  str_val && matcher.match?(str_val)
+                end
+              else
+                hash.each_key do |k|
+                  v = hash[k]
+                  str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
+                  hash[k] = nil if str_val && matcher.match?(str_val)
+                end
+              end
+            end
+
+            if options[:value_converters]
+              options[:value_converters].each do |key, converter|
+                hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
+              end
+            end
+          else
+            hash = hash_transformations(hash, options)
+          end
+
+          next if options[:remove_empty_hashes] && hash.empty?
+
+          $stderr.puts "CSV Line #{@file_line_count}: #{pp(hash)}" if @verbose == :debug
+          # optional adding of csv_line_number to the hash to help debugging
+          hash[:csv_line_number] = @csv_line_count if options[:with_line_numbers]
+        rescue SmarterCSV::Error, EOFError => e
+          raise if options[:on_bad_row] == :raise
+
+          handle_bad_row(e, line, bad_row_start_csv_line, bad_row_start_file_line, options)
+          next
+        end
+
+        # process the chunks or the resulting hash
+        if use_chunks
+          chunk << hash # append temp result to chunk
+
+          if chunk.size >= chunk_size || fh.eof? # if chunk if full, or EOF reached
+            on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+            # do something with the chunk
+            if block_given?
+              yield chunk, @chunk_count # do something with the hashes in the chunk in the block
+            else
+              @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
+            end
+            @chunk_count += 1
+            chunk.clear # re-initialize for next chunk of data
+          else
+            # the last chunk may contain partial data, which is handled below
+          end
+          # while a chunk is being filled up we don't need to do anything else here
+
+        else # no chunk handling
+          if block_given?
+            yield [hash], @chunk_count # do something with the hash in the block (better to use chunking here)
+            @chunk_count += 1
+          else
+            @result << hash
+          end
+        end
+      end
+
+      # print new line to retain last processing line message
+      $stderr.print "\n" if @verbose == :debug
+
+      # handling of last chunk:
+      if !chunk.nil? && chunk.size > 0
+        on_chunk&.call({ chunk_number: @chunk_count + 1, rows_in_chunk: chunk.size, total_rows_so_far: @csv_line_count })
+        # do something with the chunk
+        if block_given?
+          yield chunk, @chunk_count # do something with the hashes in the chunk in the block
+        else
+          @result << chunk.dup # Append chunk to result (use .dup to keep a copy after we do chunk.clear)
+        end
+        @chunk_count += 1
+        # chunk = [] # initialize for next chunk of data
       end
     end
 
@@ -564,8 +580,6 @@ module SmarterCSV
 
       [escaped_count, rfc_count]
     end
-
-    private
 
     # Records a warning into the histogram and emits it to the warning sink.
     # `@warnings` is an Array of unique (type, code) records with a `count` field.
