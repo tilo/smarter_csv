@@ -1,8 +1,8 @@
 
 # SmarterCSV
 
-  ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [View on RubyGems](https://rubygems.org/gems/smarter_csv) [View on RubyToolbox](https://www.ruby-toolbox.com/search?q=smarter_csv)
-
+![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [![Downloads](https://img.shields.io/gem/dt/smarter_csv)](https://rubygems.org/gems/smarter_csv) [![RubyGems](https://img.shields.io/badge/RubyGems-smarter__csv-e9573f?logo=rubygems&logoColor=white)](https://rubygems.org/gems/smarter_csv) [![Ruby Toolbox](https://img.shields.io/badge/Ruby%20Toolbox-smarter__csv-blue)](https://www.ruby-toolbox.com/search?q=smarter_csv)
+        
   SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fast end-to-end CSV ingestion of real-world data — no silent failures, no surprises, not just tokenization.
 
   ⭐ If SmarterCSV saved you hours of import time, please star the repo, and consider sponsoring this project.
