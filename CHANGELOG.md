@@ -2,7 +2,7 @@
 # SmarterCSV 1.x Change Log
 
 
-## 1.17.1 (2026-05-18)
+## 1.17.1 (2026-05-17)
 
 RSpec tests: **2,210→ 2,220** (+10 tests)
 
@@ -64,7 +64,7 @@ Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
 
 Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
 
-## 1.16.5 (2026-05-18)
+## 1.16.5 (2026-05-17)
 
 ### Bug Fix
 
@@ -222,7 +222,7 @@ Measured on 19 benchmark files, Apple M1, Ruby 3.4.7. See [benchmarks](docs/rele
  * **Writer temp file** no longer hardcoded to `/tmp` (fixes Windows); properly cleaned up with `Tempfile#close!`.
  * **Writer `StringIO`**: `finalize` no longer attempts to close a caller-owned `StringIO`.
 
-## 1.15.3 (2026-05-18)
+## 1.15.3 (2026-05-17)
 
 ### Bug Fix
 
