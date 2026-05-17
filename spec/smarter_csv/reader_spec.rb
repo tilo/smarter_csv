@@ -326,6 +326,18 @@ RSpec.describe SmarterCSV::Reader do
         expect(result[:col2]).to eq 'bar'
       end
 
+      it 'preserves an all-blank row as an empty hash when remove_empty_hashes is false in the acceleration path' do
+        r = make_accel_reader("col1,col2\n", remove_empty_hashes: false)
+        result = r.send(:process_line_to_hash, ",", r.options)
+        expect(result).to eq({})
+      end
+
+      it 'returns nil for an all-blank row when remove_empty_hashes is true in the acceleration path' do
+        r = make_accel_reader("col1,col2\n", remove_empty_hashes: true)
+        result = r.send(:process_line_to_hash, ",", r.options)
+        expect(result).to be_nil
+      end
+
       it 'applies value_converters in the acceleration path (lines 582–584)' do
         converter = double('converter')
         allow(converter).to receive(:convert).with('foo').and_return('CONVERTED')

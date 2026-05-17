@@ -1,6 +1,12 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.16.5 (2026-05-18)
+
+### Bug Fix
+
+  - fixing issue with `remove_empty_hashes: false` not being honored in accelerated path (does not affect you when you use default settings)
+
 ## 1.16.4 (2026-04-21) — Bug Fixes
 
 RSpec tests: **1,434 → 1,467** (+33 tests)
