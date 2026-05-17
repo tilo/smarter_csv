@@ -799,12 +799,20 @@ static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, VALUE headers, VALUE 
    * return nil instead of the hash so the row can be skipped.
    * With lazy allocation, if all_blank is true, xform.hash is still Qnil —
    * no hash was ever allocated.
+   *
+   * If remove_empty_hashes is disabled, preserve the row as an empty hash.
+   * This keeps parity with the Ruby path without allocating hashes for the
+   * common non-blank case.
    */
-  if (remove_empty && all_blank) {
-    VALUE result = rb_ary_new_capa(2);
-    rb_ary_push(result, Qnil);
-    rb_ary_push(result, LONG2FIX(element_count));
-    return result;
+  if (all_blank) {
+    if (remove_empty) {
+      VALUE result = rb_ary_new_capa(2);
+      rb_ary_push(result, Qnil);
+      rb_ary_push(result, LONG2FIX(element_count));
+      return result;
+    }
+
+    ensure_hash_allocated(&xform);
   }
 
   /* ----------------------------------------

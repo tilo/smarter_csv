@@ -38,7 +38,7 @@ describe 'C-accelerated hash transformations' do
         it 'handles very large integers (Bignum)' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv", acceleration: acceleration)
 
-          expect(data[0][:big_number]).to eq 99999999999999999999
+          expect(data[0][:big_number]).to eq 99_999_999_999_999_999_999
           expect(data[0][:big_number]).to be_a_kind_of(Integer)
         end
 
@@ -52,7 +52,7 @@ describe 'C-accelerated hash transformations' do
 
         it 'does not convert when convert_values_to_numeric is false' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration, convert_values_to_numeric: false)
+                                    acceleration: acceleration, convert_values_to_numeric: false)
 
           data.each do |hash|
             expect(hash[:int_val]).to be_a_kind_of(String) unless hash[:int_val].nil?
@@ -62,8 +62,8 @@ describe 'C-accelerated hash transformations' do
 
         it 'respects only: option for selective conversion' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   convert_values_to_numeric: { only: :int_val })
+                                    acceleration: acceleration,
+                                    convert_values_to_numeric: { only: :int_val })
 
           expect(data[0][:int_val]).to eq 42
           expect(data[0][:float_val]).to eq '3.14'
@@ -72,8 +72,8 @@ describe 'C-accelerated hash transformations' do
 
         it 'respects except: option for selective conversion' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   convert_values_to_numeric: { except: [:not_numeric, :name] })
+                                    acceleration: acceleration,
+                                    convert_values_to_numeric: { except: [:not_numeric, :name] })
 
           expect(data[0][:int_val]).to eq 42
           expect(data[0][:float_val]).to eq 3.14
@@ -87,10 +87,10 @@ describe 'C-accelerated hash transformations' do
         it 'removes string zeros independently of numeric conversion' do
           # With numeric conversion OFF, zero strings should still be removed
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   convert_values_to_numeric: false,
-                                   remove_zero_values: true,
-                                   remove_empty_values: true)
+                                    acceleration: acceleration,
+                                    convert_values_to_numeric: false,
+                                    remove_zero_values: true,
+                                    remove_empty_values: true)
 
           data.each do |hash|
             # No values should be "0", "00", "0.0", "00.00", "000.000" etc.
@@ -102,9 +102,9 @@ describe 'C-accelerated hash transformations' do
 
         it 'removes numeric zeros when conversion is enabled' do
           data = SmarterCSV.process("#{fixture_path}/basic.csv",
-                                   acceleration: acceleration,
-                                   remove_zero_values: true,
-                                   remove_empty_values: true)
+                                    acceleration: acceleration,
+                                    remove_zero_values: true,
+                                    remove_empty_values: true)
 
           data.each do |hash|
             expect(hash.values).not_to include(0)
@@ -114,10 +114,10 @@ describe 'C-accelerated hash transformations' do
 
         it 'removes various zero string patterns' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   convert_values_to_numeric: false,
-                                   remove_zero_values: true,
-                                   remove_empty_values: true)
+                                    acceleration: acceleration,
+                                    convert_values_to_numeric: false,
+                                    remove_zero_values: true,
+                                    remove_empty_values: true)
 
           # Row 1 (Bob): zero_int="00", zero_float="00.00"
           bob = data[1]
@@ -136,8 +136,8 @@ describe 'C-accelerated hash transformations' do
       describe 'remove_empty_values' do
         it 'removes blank and whitespace-only fields' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   remove_empty_values: true)
+                                    acceleration: acceleration,
+                                    remove_empty_values: true)
 
           data.each do |hash|
             expect(hash).not_to have_key(:blank_field)
@@ -147,9 +147,9 @@ describe 'C-accelerated hash transformations' do
 
         it 'keeps empty fields when remove_empty_values is false' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   remove_empty_values: false,
-                                   convert_values_to_numeric: false)
+                                    acceleration: acceleration,
+                                    remove_empty_values: false,
+                                    convert_values_to_numeric: false)
 
           # All rows should have all keys present
           expect(data[0]).to have_key(:blank_field)
@@ -161,20 +161,32 @@ describe 'C-accelerated hash transformations' do
       describe 'remove_empty_hashes' do
         it 'skips all-blank rows' do
           data = SmarterCSV.process("#{fixture_path}/basic.csv",
-                                   acceleration: acceleration,
-                                   remove_empty_hashes: true,
-                                   remove_empty_values: true)
+                                    acceleration: acceleration,
+                                    remove_empty_hashes: true,
+                                    remove_empty_values: true)
 
           # basic.csv has 2 all-blank rows out of 7 data rows
           expect(data.size).to eq 5
         end
 
+        it 'preserves all-blank rows as empty hashes when remove_empty_hashes is false' do
+          data = SmarterCSV.process("#{fixture_path}/basic.csv",
+                                    acceleration: acceleration,
+                                    remove_empty_hashes: false,
+                                    remove_empty_values: true)
+
+          expect(data.size).to eq 7
+          expect(data.count(&:empty?)).to eq 2
+          expect(data[2]).to eq({})
+          expect(data[6]).to eq({})
+        end
+
         it 'skips rows where all values are filtered out' do
           data = SmarterCSV.process("#{fixture_path}/basic.csv",
-                                   acceleration: acceleration,
-                                   remove_empty_hashes: true,
-                                   remove_empty_values: true,
-                                   remove_zero_values: true)
+                                    acceleration: acceleration,
+                                    remove_empty_hashes: true,
+                                    remove_empty_values: true,
+                                    remove_zero_values: true)
 
           # Row "Miles,O'Brian,0,0,0,21" has zeros for dogs/cats/birds but fish=21
           # All-blank rows are removed, but Miles row should remain (has name + fish)
@@ -190,15 +202,15 @@ describe 'C-accelerated hash transformations' do
       describe 'combined transformations' do
         it 'applies all transformations together' do
           data = SmarterCSV.process("#{fixture_path}/transformations.csv",
-                                   acceleration: acceleration,
-                                   remove_empty_values: true,
-                                   remove_zero_values: true)
+                                    acceleration: acceleration,
+                                    remove_empty_values: true,
+                                    remove_zero_values: true)
 
           alice = data[0]
           expect(alice[:name]).to eq 'Alice'
           expect(alice[:int_val]).to eq 42
           expect(alice[:float_val]).to eq 3.14
-          expect(alice).not_to have_key(:zero_int)       # "0" removed
+          expect(alice).not_to have_key(:zero_int) # "0" removed
           expect(alice).not_to have_key(:zero_float)      # "0.0" removed
           expect(alice).not_to have_key(:blank_field)     # empty removed
           expect(alice).not_to have_key(:whitespace_only) # whitespace removed

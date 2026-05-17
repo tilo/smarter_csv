@@ -22,6 +22,17 @@ describe 'CSV file with more columns that shown in header' do
         end
       end
 
+      context "when strict is explicitly false" do
+        before do
+          options.merge!(strict: false)
+        end
+
+        it "does not raise and auto-generates headers for extra columns" do
+          expect { reader.process }.not_to raise_error
+          expect(reader.headers).to eq %i[one two three four five six column_7 column_8 column_9 column_10 column_11]
+        end
+      end
+
       it "reads all lines of the file" do
         data = reader.process
         expect(data.size).to eq 5

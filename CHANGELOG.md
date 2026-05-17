@@ -1,6 +1,12 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.15.3 (2026-05-18)
+
+### Bug Fix
+
+ - Fix accelerated parsing so `remove_empty_hashes: false` preserves fully blank rows, matching the non-accelerated path. This does not affect default behavior.
+
 ## 1.15.2 (2026-02-20)
 
 * Performance Optimizations
