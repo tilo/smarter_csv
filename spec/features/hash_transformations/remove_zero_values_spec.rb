@@ -25,6 +25,16 @@ fixture_path = 'spec/fixtures'
       end
     end
 
+    it 'keeps zero values when remove_zero_values is false' do
+      data = SmarterCSV.process("#{fixture_path}/basic.csv", remove_zero_values: false, remove_empty_values: true, acceleration: accel)
+
+      expect(data.size).to eq 5
+      expect(data.any? { |hash| hash.values.include?(0) }).to eq true
+
+      miles = data.find { |hash| hash[:first_name] == 'Miles' }
+      expect(miles).to include(dogs: 0, cats: 0, birds: 0, fish: 21)
+    end
+
     # ZERO_REGEX = /\A[+-]?0+(?:\.0+)?\z/ — every textual form of zero, signed or not.
     # The :a column carries the candidate value; :b / :c keep the row non-empty.
     describe 'textual zero forms' do
