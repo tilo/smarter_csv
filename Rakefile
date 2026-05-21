@@ -21,8 +21,13 @@ RuboCop::RakeTask.new
 
 require "rake/extensiontask"
 
-if RUBY_ENGINE == 'jruby'
-
+if RUBY_ENGINE != 'ruby'
+  # Non-MRI (JRuby, TruffleRuby, ...): there is no C extension to build. Define the
+  # native-build tasks as no-ops so the same default task list works on every engine
+  # and any caller (CI, rake-compiler, downstream) succeeds without trying to build or
+  # copy a .so. Runtime uses the pure-Ruby parser.
+  task :compile # no-op
+  task :clobber # no-op
   task default: %i[spec]
 
 else

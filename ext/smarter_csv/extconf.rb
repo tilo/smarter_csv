@@ -7,7 +7,7 @@ require "rbconfig"
 # it breaks `gem install` for anything that depends on smarter_csv. Write a no-op Makefile so install
 # succeeds, then stop. At runtime SmarterCSV falls back to its pure-Ruby parser (it checks whether the
 # C functions actually loaded via respond_to?(:parse_csv_line_c)).
-unless RUBY_ENGINE == 'ruby'
+if RUBY_ENGINE != 'ruby'
   File.write('Makefile', dummy_makefile($srcdir).join)
   exit 0
 end
