@@ -410,15 +410,28 @@ module SmarterCSV
                 if !allow_escaped_quotes || backslash_count % 2 == 0
                   if quote_boundary_standard
                     if in_quotes
-                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
                       next_i = i + 1
-                      if next_i >= bytesize ||
-                         line.getbyte(next_i) == col_sep_byte ||
-                         (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
+                      if next_i + 1 < bytesize && line.getbyte(next_i) == quote_byte
+                        # RFC doubled quote inside a quoted field ("" → ").
+                        # Give this precedence over the closing-quote check, but only
+                        # when another byte follows the doubled pair.
+                        #
+                        # Compatibility note: we intentionally do NOT force terminal
+                        # "" to be consumed here. SmarterCSV has a long-standing lenient
+                        # behavior for malformed tails like ...\"" in :double_quotes mode:
+                        # the final quote may still close the field instead of turning the
+                        # row into an unclosed-quote error. Issue #334 needs doubled-quote
+                        # precedence for ..."",... (more content follows), but we keep the
+                        # historical leniency for terminal ..."".
+                        i = next_i
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      elsif next_i >= bytesize ||
+                            line.getbyte(next_i) == col_sep_byte ||
+                            (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
                         in_quotes = false
                         field_started = true
                       end
-                      # else: quote inside quoted field → literal (handles "" doubling)
+                      # else: quote inside quoted field → literal
                     elsif !field_started # at field boundary: open quoted field
                       in_quotes = true
                       field_started = true
@@ -519,15 +532,28 @@ module SmarterCSV
                 if !allow_escaped_quotes || backslash_count % 2 == 0
                   if quote_boundary_standard
                     if in_quotes
-                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
                       next_i = i + 1
-                      if next_i >= line_size ||
-                         line[next_i...next_i + col_sep_size] == col_sep ||
-                         (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                      if next_i + 1 < line_size && line[next_i] == quote
+                        # RFC doubled quote inside a quoted field ("" → ").
+                        # Give this precedence over the closing-quote check, but only
+                        # when another character follows the doubled pair.
+                        #
+                        # Compatibility note: we intentionally do NOT force terminal
+                        # "" to be consumed here. SmarterCSV has a long-standing lenient
+                        # behavior for malformed tails like ...\"" in :double_quotes mode:
+                        # the final quote may still close the field instead of turning the
+                        # row into an unclosed-quote error. Issue #334 needs doubled-quote
+                        # precedence for ..."",... (more content follows), but we keep the
+                        # historical leniency for terminal ..."".
+                        i = next_i
+                      # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                      elsif next_i >= line_size ||
+                            line[next_i...next_i + col_sep_size] == col_sep ||
+                            (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
                         in_quotes = false
                         field_started = true
                       end
-                      # else: quote inside quoted field → literal (handles "" doubling)
+                      # else: quote inside quoted field → literal
                     elsif !field_started # at field boundary: open quoted field
                       in_quotes = true
                       field_started = true

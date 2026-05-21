@@ -113,21 +113,21 @@ describe 'parser Ruby fallback paths' do
 
     it 'returns empty array for nil line' do
       options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, strip_whitespace: false}
-      elements, size = reader.send(:parse_csv_line_ruby,nil, options)
+      elements, size = reader.send(:parse_csv_line_ruby, nil, options)
       expect(elements).to eq []
       expect(size).to eq 0
     end
 
     it 'respects header_size limit' do
       options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes, strip_whitespace: false}
-      elements, _size = reader.send(:parse_csv_line_ruby,"a,b,c,d,e", options, 3)
+      elements, _size = reader.send(:parse_csv_line_ruby, "a,b,c,d,e", options, 3)
       expect(elements.size).to eq 3
       expect(elements).to eq ['a', 'b', 'c']
     end
 
     it 'handles multi-character col_sep' do
       options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes, strip_whitespace: false}
-      elements, size = reader.send(:parse_csv_line_ruby,'a||b||c', options)
+      elements, size = reader.send(:parse_csv_line_ruby, 'a||b||c', options)
       expect(elements).to eq ['a', 'b', 'c']
       expect(size).to eq 3
     end
@@ -158,7 +158,7 @@ describe 'parser Ruby fallback paths' do
       # Each segment: 100 x-chars followed by "" (doubled quote).
       # After cleanup_quotes, "" becomes a single ".
       segment   = 'x' * 100 + '""'
-      raw_inner = segment * 10                       # 1000 x-chars + 20 doubled quotes
+      raw_inner = segment * 10 # 1000 x-chars + 20 doubled quotes
       expected  = raw_inner.gsub('""', '"')
       options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
                  strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
@@ -167,11 +167,34 @@ describe 'parser Ruby fallback paths' do
       expect(elements[0]).to eq expected
     end
 
+    it 'keeps a comma after an RFC doubled quote inside the same quoted field (Issue #334)' do
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      line = 'A4,"Width: 8.27"", Height: 11.69""",1'
+
+      elements, size = reader.send(:parse_csv_line_ruby, line, options)
+
+      expect(size).to eq 3
+      expect(elements).to eq(['A4', 'Width: 8.27", Height: 11.69"', '1'])
+    end
+
+    it 'keeps a comma after an RFC doubled quote inside the same quoted field when byteindex is unavailable (Issue #334)' do
+      stub_const('SmarterCSV::Parser::BYTEINDEX_AVAILABLE', false)
+      options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      line = 'A,"He said ""Hi"", then left",2'
+
+      elements, size = reader.send(:parse_csv_line_ruby, line, options)
+
+      expect(size).to eq 3
+      expect(elements).to eq(['A', 'He said "Hi", then left', '2'])
+    end
+
     it 'returns -1 (unclosed) for a long quoted field with no closing quote (skip-ahead nil branch)' do
       long_content = 'y' * 5_000
       options = {col_sep: ',', quote_char: '"', quote_escaping: :double_quotes,
                  strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
-      elements, size = reader.send(:parse_csv_line_ruby, "\"#{long_content}", options)
+      _elements, size = reader.send(:parse_csv_line_ruby, "\"#{long_content}", options)
       expect(size).to eq(-1)
     end
 
@@ -188,7 +211,7 @@ describe 'parser Ruby fallback paths' do
     it 'returns -1 for unclosed quote with multi-char col_sep (skip-ahead nil branch, multi-char path)' do
       options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
                  strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
-      elements, size = reader.send(:parse_csv_line_ruby, '"unclosed||field', options)
+      _elements, size = reader.send(:parse_csv_line_ruby, '"unclosed||field', options)
       expect(size).to eq(-1)
     end
   end
@@ -304,7 +327,6 @@ describe 'parser Ruby fallback paths' do
       expect(data[0][:col]).to eq "line1\n\\"
     end
   end
-
 end
 
 # -----------------------------------------------------------------------
@@ -378,12 +400,13 @@ describe 'parse_line_to_hash_auto (parser.rb lines 117–163)' do
     # Mock parse_csv_line_ruby to raise only when called with backslash escaping
     allow(reader).to receive(:parse_csv_line_ruby).and_wrap_original do |orig, ln, opts, *rest|
       raise SmarterCSV::MalformedCSV, "mocked" if opts[:quote_escaping] == :backslash
+
       orig.call(ln, opts, *rest)
     end
     # Line must have a quote so parse_line_to_hash_ruby takes the quoted path
     # (which calls parse_csv_line_ruby). Unquoted lines now use the direct-split
     # path and never call parse_csv_line_ruby, so the mock would never fire.
-    hash, size = reader.send(:parse_line_to_hash_auto, '"val\\",c', headers, auto_opts)
+    _hash, size = reader.send(:parse_line_to_hash_auto, '"val\\",c', headers, auto_opts)
     expect(size).to eq 2
   end
 end
@@ -596,10 +619,11 @@ describe 'parse_with_auto_fallback rescue else-branch (parser.rb lines 71, 77)' 
   it 'evaluates line 71 as false and executes RFC fallback at line 77' do
     allow(reader).to receive(:parse_csv_line_ruby).and_wrap_original do |orig, ln, opts, *rest|
       raise SmarterCSV::MalformedCSV, "mocked" if opts[:quote_escaping] == :backslash
+
       orig.call(ln, opts, *rest)
     end
     # Line has a backslash so the backslash path is tried and rescued
-    elements, size = reader.send(:parse_with_auto_fallback, 'a\\b,c', auto_opts)
+    _elements, size = reader.send(:parse_with_auto_fallback, 'a\\b,c', auto_opts)
     expect(size).to eq 2
   end
 end
