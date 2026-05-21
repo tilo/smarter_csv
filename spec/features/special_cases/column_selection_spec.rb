@@ -249,6 +249,54 @@ fixture_path = 'spec/fixtures'
       end
     end
 
+    # --- BUG: headers: { except: } + UNDECLARED extra columns of varying width ---
+    # The C ctx parser captures keep_bitmap sized to the declared header width, but @headers grows
+    # in-place as undeclared extras appear. Indexing the bitmap by the live (grown) headers_len
+    # instead of the captured keep_bitmap_len reads PAST the bitmap allocation (out-of-bounds) and
+    # silently drops kept columns on the C path. The Ruby path is correct. Both paths must agree.
+    context "headers: { except: } with undeclared extra columns of varying width" do
+      it "keeps a later narrower row's extra column (wide row first, then narrower)" do
+        csv = "name,value\nAlice,1,bonus_x,bonus_y\nBob,2,bonus_z\n"
+        data = SmarterCSV.process(StringIO.new(csv), base_options.merge(headers: { except: [:value] }))
+        expect(data).to eq([
+                             { name: "Alice", column_3: "bonus_x", column_4: "bonus_y" },
+                             { name: "Bob", column_3: "bonus_z" },
+                           ])
+      end
+
+      it "keeps a MIDDLE extra column on a later wider row (narrow row first, then wider)" do
+        csv = "name,value\nBob,2,bonus_z\nAlice,1,bonus_x,bonus_y\n"
+        data = SmarterCSV.process(StringIO.new(csv), base_options.merge(headers: { except: [:value] }))
+        expect(data).to eq([
+                             { name: "Bob", column_3: "bonus_z" },
+                             { name: "Alice", column_3: "bonus_x", column_4: "bonus_y" },
+                           ])
+      end
+
+      # remove_empty_values: false forces the C nil-pad path (the 4th OOB site). For except:,
+      # short rows must pad the grown extra columns with nil; the OOB read drops them on the C path.
+      it "nil-pads grown extra columns on short rows (remove_empty_values: false)" do
+        csv = "name,value\nAlice,1,bonus_x,bonus_y\nBob,2\nCarol,3,bonus_z\n"
+        data = SmarterCSV.process(StringIO.new(csv),
+                                  base_options.merge(headers: { except: [:value] }, remove_empty_values: false))
+        expect(data).to eq([
+                             { name: "Alice", column_3: "bonus_x", column_4: "bonus_y" },
+                             { name: "Bob", column_3: nil, column_4: nil },
+                             { name: "Carol", column_3: "bonus_z", column_4: nil },
+                           ])
+      end
+    end
+
+    # only: is structurally protected (early_exit truncates the returned field count, so headers
+    # never grow). Green today; kept as a regression guard so it stays correct after the C fix.
+    context "headers: { only: } with undeclared extra columns of varying width" do
+      it "drops all undeclared extras and agrees across both paths" do
+        csv = "name,value\nAlice,1,bonus_x,bonus_y\nBob,2,bonus_z\n"
+        data = SmarterCSV.process(StringIO.new(csv), base_options.merge(headers: { only: [:name] }))
+        expect(data).to eq([{ name: "Alice" }, { name: "Bob" }])
+      end
+    end
+
     # --- backwards compatibility: deprecated only_headers: / except_headers: still work ---
 
     it 'deprecated only_headers: still works (emits warning)' do

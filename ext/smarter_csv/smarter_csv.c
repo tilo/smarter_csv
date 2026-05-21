@@ -778,6 +778,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    * the frame stays well below 4 KB and ___chkstk_darwin never fires on ARM64 macOS.
    */
   bool *keep_bitmap = NULL;
+  /* In THIS (non-ctx) function the bitmap is alloca'd to headers_len on every call (see the alloca
+   * sites below), so keep_bitmap[] is exactly headers_len long and headers_len is the correct bound
+   * at all access sites. Do NOT mirror rb_parse_line_to_hash_ctx's keep_bitmap_len here: that variant
+   * caches its bitmap across rows (where @headers can grow), so it must use the captured length; this
+   * one rebuilds per call and does not. */
   bool keep_extra_columns = true; /* extra cols (> headers_len): keep by default */
   bool has_only = false;          /* true when only_headers: filtering is active */
   long early_exit_after = -1;     /* column index after which we stop; -1 = no early exit */
@@ -1459,6 +1464,14 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
   int  numeric_mode        = ctx->numeric_mode;
   VALUE numeric_keys       = ctx->numeric_keys;
   bool *keep_bitmap         = ctx->keep_bitmap;
+  /* keep_bitmap is cached in the context (xmalloc'd once at construction, sized to the header count
+   * THEN). @headers can grow in place as undeclared extra columns appear, so the live headers_len
+   * (re-read each call below) may exceed the bitmap's length. Every keep_bitmap[] access in this
+   * function MUST be bounded by keep_bitmap_len, never headers_len — indices past the bitmap are
+   * extra columns and follow keep_extra_columns. Bounding by the grown headers_len was an
+   * out-of-bounds heap read (the bug). The sibling rb_parse_line_to_hash safely uses headers_len
+   * because it re-allocs its bitmap to headers_len on every call. */
+  long  keep_bitmap_len     = ctx->keep_bitmap_len;
   bool  keep_extra_columns  = ctx->keep_extra_columns;
   long  early_exit_after    = ctx->early_exit_after;
 
@@ -1560,7 +1573,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
           while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
         }
         long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
         }
@@ -1581,7 +1594,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
           while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
         }
         long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
         }
@@ -1644,7 +1657,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
 
         bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
 
-        if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+        if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
             all_blank = false;
         }
@@ -1770,7 +1783,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
 
       bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
 
-      if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
+      if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
           all_blank = false;
       }
@@ -1798,7 +1811,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
   if (!remove_empty_values) {
     ensure_hash_allocated(&xform);
     for (long i = element_count; i < headers_len; i++) {
-      if (!keep_bitmap || keep_bitmap[i]) {
+      if (!keep_bitmap || (i < keep_bitmap_len ? keep_bitmap[i] : keep_extra_columns)) {
         rb_hash_aset(xform.hash, rb_ary_entry(headers, i), Qnil);
       }
     }
