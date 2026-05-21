@@ -73,6 +73,16 @@ Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
 
 Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
 
+## 1.16.6 (2026-05-21)
+
+RSpec tests: **1,467 → 1,591** (+124 tests)
+
+### Bug Fix
+
+  - fixed [Issue #334](https://github.com/tilo/smarter_csv/issues/334) with escaped double quote followed by comma. Thanks to [conorg](https://github.com/conorg)
+  - fixed bug when using `headers: { except: }`
+  - added more tests
+
 ## 1.16.5 (2026-05-17)
 
 ### Bug Fix
