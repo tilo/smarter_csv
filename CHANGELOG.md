@@ -3,7 +3,7 @@
 
 ## 1.16.6 (2026-05-21)
 
-RSpec tests: **1,467 → 1,591** (+10 tests)
+RSpec tests: **1,467 → 1,591** (+124 tests)
 
 ### Bug Fix
 
