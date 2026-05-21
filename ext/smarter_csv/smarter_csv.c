@@ -304,25 +304,40 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
           if (!allow_escaped_quotes || backslash_count % 2 == 0) {
             if (__builtin_expect(quote_boundary_standard, 1)) {
               if (in_quotes) {
-                // closing quote: only valid if followed by col_sep, row_sep, or end of line
-                bool valid_close = (p + 1 >= endP);
-                if (!valid_close) {
-                  valid_close = true;
-                  for (long j = 0; j < col_sep_len; j++) {
-                    if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                if (p + 2 < endP && *(p + 1) == quote_char_val) {
+                  /* RFC doubled quote inside a quoted field ("" → ").
+                   * Give this precedence over the closing-quote check, but only
+                   * when another byte follows the doubled pair.
+                   *
+                   * Compatibility note: we intentionally do NOT force terminal
+                   * "" to be consumed here. SmarterCSV has a long-standing lenient
+                   * behavior for malformed tails like ...\"" in :double_quotes mode:
+                   * the final quote may still close the field instead of turning the
+                   * row into an unclosed-quote error. Issue #334 needs doubled-quote
+                   * precedence for ..."",... (more content follows), but we keep the
+                   * historical leniency for terminal ..."". */
+                  p++;
+                } else {
+                  // closing quote: only valid if followed by col_sep, row_sep, or end of line
+                  bool valid_close = (p + 1 >= endP);
+                  if (!valid_close) {
+                    valid_close = true;
+                    for (long j = 0; j < col_sep_len; j++) {
+                      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                    }
                   }
-                }
-                if (!valid_close && row_sep_len > 0) {
-                  valid_close = true;
-                  for (long j = 0; j < row_sep_len; j++) {
-                    if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
+                  if (!valid_close && row_sep_len > 0) {
+                    valid_close = true;
+                    for (long j = 0; j < row_sep_len; j++) {
+                      if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
+                    }
                   }
+                  if (valid_close) {
+                    in_quotes = false;
+                    field_started = true;
+                  }
+                  // else: quote inside quoted field → literal
                 }
-                if (valid_close) {
-                  in_quotes = false;
-                  field_started = true;
-                }
-                // else: quote inside quoted field → literal (handles "" doubling)
               } else if (!field_started) {
                 in_quotes = true;     // opening quote at field boundary
                 field_started = true;
@@ -1081,25 +1096,40 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
             if (!allow_escaped_quotes || backslash_count % 2 == 0) {
               if (__builtin_expect(quote_boundary_standard, 1)) {
                 if (in_quotes) {
-                  // closing quote: only valid if followed by col_sep, row_sep, or end of line
-                  bool valid_close = (p + 1 >= endP);
-                  if (!valid_close) {
-                    valid_close = true;
-                    for (long j = 0; j < col_sep_len; j++) {
-                      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                  if (p + 2 < endP && *(p + 1) == quote_char_val) {
+                    /* RFC doubled quote inside a quoted field ("" → ").
+                     * Give this precedence over the closing-quote check, but only
+                     * when another byte follows the doubled pair.
+                     *
+                     * Compatibility note: we intentionally do NOT force terminal
+                     * "" to be consumed here. SmarterCSV has a long-standing lenient
+                     * behavior for malformed tails like ...\"" in :double_quotes mode:
+                     * the final quote may still close the field instead of turning the
+                     * row into an unclosed-quote error. Issue #334 needs doubled-quote
+                     * precedence for ..."",... (more content follows), but we keep the
+                     * historical leniency for terminal ..."". */
+                    p++;
+                  } else {
+                    // closing quote: only valid if followed by col_sep, row_sep, or end of line
+                    bool valid_close = (p + 1 >= endP);
+                    if (!valid_close) {
+                      valid_close = true;
+                      for (long j = 0; j < col_sep_len; j++) {
+                        if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                      }
                     }
-                  }
-                  if (!valid_close && row_sep_len2 > 0) {
-                    valid_close = true;
-                    for (long j = 0; j < row_sep_len2; j++) {
-                      if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
+                    if (!valid_close && row_sep_len2 > 0) {
+                      valid_close = true;
+                      for (long j = 0; j < row_sep_len2; j++) {
+                        if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
+                      }
                     }
+                    if (valid_close) {
+                      in_quotes = false;
+                      field_started = true;
+                    }
+                    // else: quote inside quoted field → literal
                   }
-                  if (valid_close) {
-                    in_quotes = false;
-                    field_started = true;
-                  }
-                  // else: quote inside quoted field → literal (handles "" doubling)
                 } else if (!field_started) {
                   in_quotes = true;     // opening quote at field boundary
                   field_started = true;
@@ -1648,25 +1678,40 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
             if (!allow_escaped_quotes || backslash_count % 2 == 0) {
               if (__builtin_expect(quote_boundary_standard, 1)) {
                 if (in_quotes) {
-                  /* closing quote: only valid if followed by col_sep, row_sep, or end */
-                  bool valid_close = (p + 1 >= endP);
-                  if (!valid_close) {
-                    valid_close = true;
-                    for (long j = 0; j < col_sep_len; j++) {
-                      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                  if (p + 2 < endP && *(p + 1) == quote_char_val) {
+                    /* RFC doubled quote inside a quoted field ("" → ").
+                     * Give this precedence over the closing-quote check, but only
+                     * when another byte follows the doubled pair.
+                     *
+                     * Compatibility note: we intentionally do NOT force terminal
+                     * "" to be consumed here. SmarterCSV has a long-standing lenient
+                     * behavior for malformed tails like ...\"" in :double_quotes mode:
+                     * the final quote may still close the field instead of turning the
+                     * row into an unclosed-quote error. Issue #334 needs doubled-quote
+                     * precedence for ..."",... (more content follows), but we keep the
+                     * historical leniency for terminal ..."". */
+                    p++;
+                  } else {
+                    /* closing quote: only valid if followed by col_sep, row_sep, or end */
+                    bool valid_close = (p + 1 >= endP);
+                    if (!valid_close) {
+                      valid_close = true;
+                      for (long j = 0; j < col_sep_len; j++) {
+                        if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+                      }
                     }
-                  }
-                  if (!valid_close && row_sep_len2 > 0) {
-                    valid_close = true;
-                    for (long j = 0; j < row_sep_len2; j++) {
-                      if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
+                    if (!valid_close && row_sep_len2 > 0) {
+                      valid_close = true;
+                      for (long j = 0; j < row_sep_len2; j++) {
+                        if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
+                      }
                     }
+                    if (valid_close) {
+                      in_quotes     = false;
+                      field_started = true;
+                    }
+                    /* else: quote inside quoted field → literal */
                   }
-                  if (valid_close) {
-                    in_quotes     = false;
-                    field_started = true;
-                  }
-                  /* else: quote inside quoted field → literal (handles "" doubling) */
                 } else if (!field_started) {
                   in_quotes     = true;   /* opening quote at field boundary */
                   field_started = true;
