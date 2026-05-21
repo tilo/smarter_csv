@@ -43,6 +43,25 @@ describe 'CSV file with more columns that shown in header' do
         end
       end
 
+      # Why this test exists (and why the plain "missing_headers: :raise" test above is not enough):
+      #
+      # missing_headers: :raise gets turned into strict=true in reader_options.rb, and strict is the
+      # flag the C code actually reads. With headers: { only: }, the C code has a speed shortcut: it
+      # stops reading a row as soon as it has the columns you asked for. strict TURNS OFF that shortcut,
+      # so the whole row is read and the extra columns are still noticed (and raised on). If the line
+      # that sets strict from missing_headers ever gets deleted, only: + missing_headers: :raise would
+      # quietly stop raising. (Without only:, the raise comes straight from reader.rb and does not need
+      # that line — so this only:-combination is the one that actually guards it.)
+      context "when headers: { only: } is combined with missing_headers: :raise" do
+        before do
+          options.merge!(headers: { only: [:one, :two] }, missing_headers: :raise)
+        end
+
+        it "still raises HeaderSizeMismatch on extra columns (guards the strict/missing_headers link)" do
+          expect { reader.process }.to raise_error(SmarterCSV::HeaderSizeMismatch, /extra columns detected/)
+        end
+      end
+
       context "when missing_headers: :auto (new API, default)" do
         before do
           options.merge!(missing_headers: :auto)
