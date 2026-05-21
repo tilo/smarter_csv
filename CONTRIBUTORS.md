@@ -1,4 +1,4 @@
-# A Big Thank You to all 63 Contributors!!
+# A Big Thank You to all 64 Contributors!!
 
 
 A Big Thank you to everyone who filed issues, sent comments, and who contributed with pull requests:
@@ -66,3 +66,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Dom Lebron](https://github.com/biglebronski)
  * [Paho Lurie-Gregg](https://github.com/paholg)
  * [Jonas Staškevičius](https://github.com/pirminis)
+ * [conorg](https://github.com/conorg)

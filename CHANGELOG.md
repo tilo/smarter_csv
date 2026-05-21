@@ -1,6 +1,15 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.17.2 (2026-05-21)
+
+RSpec tests: **2,220→ 2,274** (+54 tests)
+
+### Bug Fix
+
+  - fixed [Issue #334](https://github.com/tilo/smarter_csv/issues/334) with escaped double quote followed by comma. Thanks to [conorg](https://github.com/conorg)
+  - fixed bug when using `headers: { except: }`
+  - added more tests
 
 ## 1.17.1 (2026-05-17)
 
