@@ -39,15 +39,12 @@ RSpec.describe 'SmarterCSV.slice' do
   let(:fixture_path) { 'spec/fixtures' }
   let(:slice_keys) { SmarterCSV::Slicer::SLICE_KEYS }
 
-  # Re-process a single slice exactly the way a worker would: seek to
-  # the byte range, re-tag with the file encoding, hand it to SmarterCSV.process.
+  # Re-process a single slice via the production worker entry point.
+  # Until Step 2b landed this helper inlined the seek + read + StringIO recipe;
+  # delegating through SmarterCSV.process_slice means slicer_spec's parity
+  # matrix now exercises the same code path Sidekiq workers will hit.
   def process_slice(slice)
-    bytes = File.open(slice[:input], 'rb') do |f|
-      f.seek(slice[:from_byte])
-      f.read(slice[:to_byte] - slice[:from_byte])
-    end
-    bytes.force_encoding(slice[:options][:file_encoding] || 'UTF-8')
-    SmarterCSV.process(StringIO.new(bytes), **slice[:options])
+    SmarterCSV.process_slice(slice)
   end
 
   # ==========================================================================

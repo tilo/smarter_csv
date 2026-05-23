@@ -224,6 +224,39 @@ module SmarterCSV
       end
     end
 
+    # Worker-side entry point for the parallel slice-mode design. Takes a slice
+    # hash produced by SmarterCSV.slice (or a hand-built equivalent with the same
+    # keys), reads the slice's byte range from the input file, and yields its
+    # parsed rows the same way Reader#process does — row-by-row, or in
+    # chunk_size batches if slice[:options][:chunk_size] is set.
+    #
+    # Global row numbers in the caller's results are slice[:row_offset] +
+    # local_index. After the call, reader.headers / reader.warnings /
+    # reader.errors reflect what THIS slice contained; aggregating across
+    # workers is the application's responsibility (see docs/parallel_slicing.md).
+    #
+    # The slice's pre-baked options carry the auto-detected separators,
+    # file_encoding, and user_provided_headers — so this path skips Reader's
+    # auto-detection / header-parsing phase entirely. The shared row-parsing
+    # core (process_rows) is reused unchanged.
+    def process_slice(slice, &block)
+      @enforce_utf8 = options[:force_utf8] || options[:file_encoding] !~ /utf-8/i
+      @verbose = options[:verbose]
+
+      begin
+        fh = setup_from_slice(slice)
+        process_rows(fh, &block)
+      ensure
+        fh.close if fh.respond_to?(:close)
+      end
+
+      if block_given?
+        @chunk_count # when we do processing through a block we only care how many chunks we processed
+      else
+        @result # returns either an Array of Hashes, or an Array of Arrays of Hashes (if in chunked mode)
+      end
+    end
+
     private
 
     # Internal: the shared row-parsing core. Both Reader#process (whole-file path) and
@@ -510,6 +543,51 @@ module SmarterCSV
         @chunk_count += 1
         # chunk = [] # initialize for next chunk of data
       end
+    end
+
+    # Internal: the slice-mode equivalent of Reader#process's A1 phase. Where
+    # process() opens the file, runs auto-detection, parses the header line,
+    # and lands the IO at the first data byte — this method does the same job
+    # for one slice, using the slice's pre-baked state:
+    #   - @headers is dup'd from slice[:headers] (no header line to parse; the
+    #     slicer already did that for the whole file). The dup matters: the
+    #     Slicer points every slice's [:headers] at the SAME Array object as a
+    #     memory optimization, but process_rows mutates @headers when wide rows
+    #     appear (line 401's synthetic-column growth). Without dup, slice 1's
+    #     growth would leak into slice 2's starting state. Dup makes each
+    #     Reader's @headers truly its own.
+    #   - line counters reset so error reports / with_line_numbers reflect
+    #     within-slice positions (caller adds slice[:row_offset] for global)
+    #   - bytes [from_byte, to_byte) read from the input file into a StringIO
+    #     and tagged with the file encoding, so process_rows reads them the
+    #     same way it would read a real fh
+    # Returns the StringIO ready for process_rows.
+    def setup_from_slice(slice)
+      validate_slice!(slice)
+
+      @headers          = slice[:headers].dup
+      @headerA          = @headers
+      @file_line_count  = 0
+      @csv_line_count   = 0
+
+      bytes = File.open(slice[:input], 'rb') do |f|
+        f.seek(slice[:from_byte])
+        f.read(slice[:to_byte] - slice[:from_byte])
+      end
+      bytes.force_encoding(options[:file_encoding] || 'UTF-8')
+      StringIO.new(bytes)
+    end
+
+    # Internal: strict allow-list check on a slice hash. We have one producer
+    # (SmarterCSV::Slicer) so the contract is narrow — raise loudly on anything
+    # unanticipated rather than tolerate it. SLICE_KEYS is the canonical shape;
+    # missing keys is the only failure mode we need to flag (extra keys are
+    # ignored).
+    def validate_slice!(slice)
+      raise ArgumentError, "slice must be a Hash (got #{slice.class})" unless slice.is_a?(Hash)
+
+      missing = SmarterCSV::Slicer::SLICE_KEYS - slice.keys
+      raise ArgumentError, "slice missing keys: #{missing.inspect}" unless missing.empty?
     end
 
     def count_quote_chars(line, quote_char, col_sep = ",", quote_escaping = :double_quotes)

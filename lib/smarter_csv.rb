@@ -94,27 +94,52 @@ module SmarterCSV
     end
   end
 
-  # Slices a (seekable) CSV file into byte-range slices for parallel
-  # processing — see SmarterCSV::Slicer. One cheap quote-aware pass that also
-  # does the header processing once; returns an Array of slice Hashes, each
-  # describing up to `slice_size` logical data rows and carrying the
-  # fully-processed `headers`. A worker reconstructs its slice with
-  #   bytes = File.open(d[:input], 'rb') { |f| f.seek(d[:from_byte]); f.read(d[:to_byte] - d[:from_byte]) }
-  #   SmarterCSV.process(StringIO.new(bytes.force_encoding(d[:options][:file_encoding])), **d[:options])
-  # (d[:options] already has headers_in_file: false / user_provided_headers: d[:headers])
-  # and recovers global row numbers as  d[:row_offset] + local_index.
+  # Slices a (seekable) CSV file into byte-range slices for parallel processing — see
+  # SmarterCSV::Slicer and docs/parallel_slicing.md. One cheap quote-aware pass that also does the
+  # header processing once; returns an Array of slice Hashes, each describing up to `slice_size`
+  # logical data rows and carrying the fully-processed `headers`. Workers consume each slice via
+  # SmarterCSV.process_slice and recover global row numbers as slice[:row_offset] + local_index.
   #
   # Two orthogonal row-count knobs:
   #   - :slice_size  — rows per worker slice (this method's argument)
-  #   - :chunk_size  — rows per yield to the worker's block (Reader's existing
-  #                    option, passed through in d[:options] untouched)
+  #   - :chunk_size  — rows per yield to the worker's block (Reader's existing option, passed
+  #                    through in slice[:options] untouched)
   #
   # Example:
-  #   SmarterCSV.slice("big.csv", slice_size: 50_000, chunk_size: 500).each do |d|
-  #     ImportSliceJob.perform_async(d[:input], d[:from_byte], d[:to_byte], d[:row_offset])
+  #   SmarterCSV.slice("big.csv", slice_size: 50_000, chunk_size: 500).each do |slice|
+  #     ImportSliceJob.perform_async(slice)
   #   end
   def self.slice(input, slice_size:, **given_options)
     Slicer.new(input, given_options).slice(slice_size: slice_size)
+  end
+
+  # Worker-side entry point for parallel slice-mode processing — see SmarterCSV.slice for the
+  # producer side and docs/parallel_slicing.md for end-to-end usage and aggregation patterns.
+  #
+  # Takes a slice hash produced by SmarterCSV.slice and yields its parsed rows (or chunk_size:
+  # batches, if slice[:options][:chunk_size] is set) to the block, the same way SmarterCSV.process
+  # does on a whole file. Global row numbers are slice[:row_offset] + local_index.
+  #
+  # Errors and warnings from this slice are accessible via SmarterCSV.errors / SmarterCSV.warnings
+  # (thread-local, reset at the start of each call) — same pattern as SmarterCSV.process.
+  #
+  # Example:
+  #   SmarterCSV.slice("big.csv", slice_size: 50_000, chunk_size: 500).each do |slice|
+  #     SmarterCSV.process_slice(slice) { |batch| Model.insert_all(batch) }
+  #   end
+  def self.process_slice(slice, &block)
+    Thread.current[:current_thread_recent_errors] = {}
+    Thread.current[:current_thread_recent_warnings] = []
+    reader = Reader.new(slice[:input], slice[:options])
+    reader.process_slice(slice, &block)
+  ensure
+    # Preserve partial error/warning state when processing raises mid-stream
+    # (e.g. MalformedCSV, or a user block raising). `reader` is nil if
+    # Reader.new itself raised before the local was assigned.
+    if reader
+      Thread.current[:current_thread_recent_errors] = reader.errors
+      Thread.current[:current_thread_recent_warnings] = reader.warnings
+    end
   end
 
   # Convenience method for parsing a CSV string directly.
