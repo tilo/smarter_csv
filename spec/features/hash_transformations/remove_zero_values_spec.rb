@@ -58,5 +58,25 @@ fixture_path = 'spec/fixtures'
         end
       end
     end
+
+    describe ':remove_zero_values default (false): zeros are preserved' do
+      let(:options) { { remove_zero_values: false, col_sep: ',', acceleration: accel } }
+
+      it 'keeps integer zeros across mixed-value rows' do
+        io = StringIO.new("a,b,c\n0,1,2\n3,0,4\n5,6,0\n")
+        data = SmarterCSV.process(io, options)
+        expect(data).to eq([
+                             { a: 0, b: 1, c: 2 },
+                             { a: 3, b: 0, c: 4 },
+                             { a: 5, b: 6, c: 0 },
+                           ])
+      end
+
+      it 'keeps float zeros' do
+        io = StringIO.new("a,b\n0.0,1\n")
+        data = SmarterCSV.process(io, options)
+        expect(data.first).to eq({ a: 0.0, b: 1 })
+      end
+    end
   end
 end

@@ -312,5 +312,40 @@ fixture_path = 'spec/fixtures'
         data.each { |row| expect(row.keys).not_to include(:dogs) }
       end.to output(/DEPRECATION WARNING.*except_headers/).to_stderr
     end
+
+    # --- keep_extra_cols (internal flag derived from headers: { only / except }) ---
+    #
+    # The C path's keep_extra_cols flag decides whether columns beyond the user-declared
+    # header set get materialized as :column_N keys. The flag is derived from which
+    # headers filter is active:
+    #   - no headers: { only/except } set  → flag true  (extras → :column_N)
+    #   - headers: { only: ... } set       → flag false (restrictive — extras dropped)
+    #   - headers: { except: ... } set     → flag true  (subtractive — extras KEPT)
+    # `only:` is restrictive ("give me exactly these"); `except:` is subtractive
+    # ("give me everything except these"), and "everything" includes the file's
+    # extra columns.
+    context "keep_extra_cols behavior (derived from headers filter presence)" do
+      let(:extras_csv) { "name,value\nAlice,1,bonus_x,bonus_y\nBob,2,bonus_z\n" }
+
+      it 'without headers filter: materializes extras as :column_N' do
+        data = SmarterCSV.process(StringIO.new(extras_csv), base_options)
+        expect(data[0]).to eq({ name: 'Alice', value: 1, column_3: 'bonus_x', column_4: 'bonus_y' })
+        expect(data[1]).to eq({ name: 'Bob',   value: 2, column_3: 'bonus_z' })
+      end
+
+      it 'with headers: { only: } set: drops extras (no :column_N keys)' do
+        data = SmarterCSV.process(StringIO.new(extras_csv), base_options.merge(headers: { only: [:name] }))
+        data.each do |row|
+          expect(row.keys).to match_array([:name])
+          expect(row.keys).not_to include(:column_3, :column_4)
+        end
+      end
+
+      it 'with headers: { except: } set: still materializes extras (subtractive semantics)' do
+        data = SmarterCSV.process(StringIO.new(extras_csv), base_options.merge(headers: { except: [:value] }))
+        expect(data[0]).to eq({ name: 'Alice', column_3: 'bonus_x', column_4: 'bonus_y' })
+        expect(data[1]).to eq({ name: 'Bob',   column_3: 'bonus_z' })
+      end
+    end
   end
 end

@@ -214,6 +214,32 @@ describe 'parser Ruby fallback paths' do
       _elements, size = reader.send(:parse_csv_line_ruby, '"unclosed||field', options)
       expect(size).to eq(-1)
     end
+
+    # --- Closing-quote validity, row_sep arm (multi-char col_sep path) ---
+    # In standard boundary mode a closing quote ends the quoted field only when it
+    # is followed by col_sep, row_sep, or end-of-line. These cover the row_sep arm
+    # specifically — the multi-char-col_sep twin of the single-char row_sep check.
+    # An embedded row_sep after a closing quote is what a stitched multiline buffer
+    # looks like; recognizing it lets the following col_sep split the record.
+
+    it 'closes a quoted field when its closing quote is followed by row_sep (multi-char col_sep, standard boundary)' do
+      options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      # The closing quote of the first field is followed by an embedded "\n" (row_sep),
+      # so the quote closes and the subsequent "||" splits the record into two fields.
+      elements, size = reader.send(:parse_csv_line_ruby, "\"a\"\nb||c", options)
+      expect(size).to eq 2
+      expect(elements).to eq ["\"a\"\nb", 'c']
+    end
+
+    it 'does NOT close a quoted field when its closing quote is followed by a non-separator char (multi-char col_sep, standard boundary)' do
+      options = {col_sep: '||', quote_char: '"', quote_escaping: :double_quotes,
+                 strip_whitespace: false, row_sep: "\n", quote_boundary: :standard}
+      # The quote is followed by 'x' — not col_sep, row_sep, or end-of-line — so it is a
+      # literal mid-field quote, the field stays open, and the line reads as needs-more (-1).
+      _elements, size = reader.send(:parse_csv_line_ruby, "\"a\"x||c", options)
+      expect(size).to eq(-1)
+    end
   end
 
   describe 'parse_line_to_hash_ruby — Optimization #11 (direct hash construction)' do

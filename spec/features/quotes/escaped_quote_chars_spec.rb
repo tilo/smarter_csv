@@ -146,5 +146,25 @@ fixture_path = 'spec/fixtures'
         expect(data.size).to eq 2
       end
     end
+
+    context 'with quote_escaping: :double_quotes (RFC-4180 doubled-quote escaping)' do
+      let(:options) { { acceleration: bool, quote_escaping: :double_quotes } }
+
+      it 'unescapes doubled quotes inside quoted fields' do
+        csv = %(name,note\n"Alice","She said ""hi"" today"\nBob,plain\n)
+        data = SmarterCSV.process(StringIO.new(csv), options)
+        expect(data).to eq([
+                             { name: 'Alice', note: 'She said "hi" today' },
+                             { name: 'Bob',   note: 'plain' },
+                           ])
+      end
+
+      it 'treats backslash as literal content (not an escape character)' do
+        # In :double_quotes mode, the only escape is `""`; `\` is regular content.
+        csv = %(name,path\n"Alice","a\\b"\n)
+        data = SmarterCSV.process(StringIO.new(csv), options)
+        expect(data.first[:path]).to eq('a\\b')
+      end
+    end
   end
 end

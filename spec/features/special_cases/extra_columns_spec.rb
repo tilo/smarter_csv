@@ -171,6 +171,20 @@ describe 'CSV file with more columns that shown in header' do
           expect(data[4]).to eq({a: 1, column_10: 10})
         end
       end
+
+      context "when strict: false explicitly (deprecated option, no-raise behavior)" do
+        # strict: false is the deprecated equivalent of missing_headers: :auto:
+        # extras get absorbed as :column_N keys; no exception is raised.
+        it "does not raise on extra columns" do
+          expect { SmarterCSV::Reader.new(csv_path, options.merge(strict: false)).process }
+            .not_to raise_error
+        end
+
+        it "absorbs extras as :column_N keys" do
+          data = SmarterCSV::Reader.new(csv_path, options.merge(strict: false)).process
+          expect(data[0]).to eq({one: 1, two: 2, five: 5, column_8: 8, column_9: 9})
+        end
+      end
     end
   end
 end
