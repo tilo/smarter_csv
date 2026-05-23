@@ -7,7 +7,8 @@
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
-  * [**Batch Processing**](././batch_processing.md)
+  * [**Batch Processing**](./batch_processing.md)
+  * [Slicing & Parallel Processing](./parallel_slicing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
@@ -21,7 +22,7 @@
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
-  * [Release Notes](./releases/1.16.0/changes.md)
+  * [Release Notes](./releases/1.18.0/changes.md)
 
 --------------
 
@@ -233,7 +234,7 @@ end
 File.delete(STATE_FILE)  # done — clear the cursor
 ```
 
-If the process is killed at chunk 7, the next run skips chunks 0–6 quickly via `next` and resumes at chunk 7. For Rails 8.1+ projects, see [Examples → Resumable CSV Import with Rails ActiveJob](./examples.md#example-12-resumable-csv-import-with-rails-activejob-rails-81) for the framework-native version.
+If the process is killed at chunk 7, the next run skips chunks 0–6 quickly via `next` and resumes at chunk 7. For Rails 8.1+ projects, see [Examples → Resumable CSV Import with Rails ActiveJob](./examples.md#resumable-csv-import-with-rails-activejob-rails-81) for the framework-native version.
 
 ## Example: Reading a CSV from S3
 
@@ -262,4 +263,4 @@ end
 
 ----------------
 
-PREVIOUS: [The Basic Write API](./basic_write_api.md) | NEXT: [Configuration Options](./options.md) | UP: [README](../README.md)
+PREVIOUS: [The Basic Write API](./basic_write_api.md) | NEXT: [Slicing & Parallel Processing](./parallel_slicing.md) | UP: [README](../README.md)

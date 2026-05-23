@@ -7,7 +7,8 @@
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
-  * [Batch Processing](././batch_processing.md)
+  * [Batch Processing](./batch_processing.md)
+  * [Slicing & Parallel Processing](./parallel_slicing.md)
   * [**Configuration Options**](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
@@ -21,7 +22,7 @@
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
-  * [Release Notes](./releases/1.16.0/changes.md)
+  * [Release Notes](./releases/1.18.0/changes.md)
 
 --------------
 
@@ -178,4 +179,4 @@ These options are still accepted but emit a deprecation warning. They will be re
 
 -------------
 
-PREVIOUS: [Batch Processing](./batch_processing.md) | NEXT: [Row and Column Separators](./row_col_sep.md) | UP: [README](../README.md)
+PREVIOUS: [Slicing & Parallel Processing](./parallel_slicing.md) | NEXT: [Row and Column Separators](./row_col_sep.md) | UP: [README](../README.md)

@@ -68,7 +68,7 @@ SmarterCSV::Reader.new(obj.body, chunk_size: 500).each_chunk do |chunk, _|
 end
 ```
 
-Auto-detection of `row_sep` and `col_sep` works on these streaming sources thanks to internal buffering — the underlying source never needs to support `rewind` or `seek`. See [Real-World CSV Files → I/O Patterns](../../real_world_csv.md#io-patterns) and [Examples → Streaming Inputs](../../examples.md#example-14-streaming-inputs-non-seekable-io).
+Auto-detection of `row_sep` and `col_sep` works on these streaming sources thanks to internal buffering — the underlying source never needs to support `rewind` or `seek`. See [Real-World CSV Files → I/O Patterns](../../real_world_csv.md#io-patterns) and [Examples → Streaming](../../examples.md#streaming).
 
 ### 2. Structured Warnings Collection
 

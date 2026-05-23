@@ -7,7 +7,8 @@
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [The Basic Write API](./basic_write_api.md)
-  * [Batch Processing](././batch_processing.md)
+  * [Batch Processing](./batch_processing.md)
+  * [Slicing & Parallel Processing](./parallel_slicing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
@@ -21,7 +22,7 @@
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
-  * [Release Notes](./releases/1.16.0/changes.md)
+  * [Release Notes](./releases/1.18.0/changes.md)
 
 --------------
 
@@ -70,7 +71,7 @@ SmarterCSV was created to solve exactly these problems: nightly imports of large
   `on_start`, `on_chunk`, and `on_complete` callbacks give you visibility into import progress — useful for logging, progress bars, and alerting in long-running jobs. See [Instrumentation Hooks](./instrumentation.md).
 
 * **Resumable imports:**
-  The `chunk_index` parameter pairs naturally with Rails 8.1's `ActiveJob::Continuable` for jobs that can pause and resume mid-import without reprocessing already-completed chunks. See [Examples](./examples.md#example-12-resumable-csv-import-with-rails-activejob-rails-81).
+  The `chunk_index` parameter pairs naturally with Rails 8.1's `ActiveJob::Continuable` for jobs that can pause and resume mid-import without reprocessing already-completed chunks. See [Examples](./examples.md#resumable-csv-import-with-rails-activejob-rails-81).
 
 * **CSV writing:**
   `SmarterCSV.generate` writes arrays of hashes to CSV, with support for header renaming and value converters on output. See [The Basic Write API](./basic_write_api.md).

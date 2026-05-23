@@ -7,7 +7,8 @@
   * [Parsing Strategy](./parsing_strategy.md)
   * [The Basic Read API](./basic_read_api.md)
   * [**The Basic Write API**](./basic_write_api.md)
-  * [Batch Processing](././batch_processing.md)
+  * [Batch Processing](./batch_processing.md)
+  * [Slicing & Parallel Processing](./parallel_slicing.md)
   * [Configuration Options](./options.md)
   * [Row and Column Separators](./row_col_sep.md)
   * [Header Transformations](./header_transformations.md)
@@ -21,7 +22,7 @@
   * [Examples](./examples.md)
   * [Real-World CSV Files](./real_world_csv.md)
   * [SmarterCSV over the Years](./history.md)
-  * [Release Notes](./releases/1.16.0/changes.md)
+  * [Release Notes](./releases/1.18.0/changes.md)
 
 --------------
 
@@ -644,7 +645,7 @@ end
 
 ## Read-Transform-Write Pipelines
 
-Pairing `SmarterCSV.generate` with `SmarterCSV.each` on the read side is the idiomatic replacement for Ruby's `CSV.filter`. See [Examples → Filtering and Transforming a CSV File](./examples.md#example-19-filtering-and-transforming-a-csv-file) for the full set of patterns, including streaming gzip → gzip pipelines.
+Pairing `SmarterCSV.generate` with `SmarterCSV.each` on the read side is the idiomatic replacement for Ruby's `CSV.filter`. See [Examples → Filtering and Transforming a CSV File](./examples.md#filtering-and-transforming-a-csv-file) for the full set of patterns, including streaming gzip → gzip pipelines.
 
 ## More Examples
 

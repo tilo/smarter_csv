@@ -20,4 +20,7 @@ end
 group :test do
   gem "rspec"
   gem "simplecov"
+  gem "parallel"      # used by spec/features/parallel_gem_slicing_spec.rb to demonstrate Parallel.each fan-out
+  gem "sidekiq"       # used by spec/features/sidekiq_slicing_spec.rb to demonstrate Sidekiq worker pattern (via Sidekiq::Testing.inline!)
+  gem "activesupport" # used by spec/features/sidekiq_slicing_spec.rb for Hash#deep_symbolize_keys (the canonical way to recover symbol keys after Sidekiq's JSON roundtrip)
 end
