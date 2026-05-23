@@ -1,7 +1,25 @@
 
 # SmarterCSV 1.x Change Log
 
-## 1.17.0 (NOT RELEASED)
+## 1.17.2 (2026-05-21)
+
+RSpec tests: **2,220→ 2,274** (+54 tests)
+
+### Bug Fixes
+
+  - fixed [Issue #334](https://github.com/tilo/smarter_csv/issues/334) with escaped double quote followed by comma. Thanks to [conorg](https://github.com/conorg)
+  - fixed bug when using `headers: { except: }`
+  - added more tests
+
+## 1.17.1 (2026-05-17)
+
+RSpec tests: **2,210→ 2,220** (+10 tests)
+
+### Bug Fix
+
+  - fixing issue with `remove_empty_hashes: false` not being honored in accelerated path (does not affect you when you use default settings)
+
+## 1.17.0 (2026-05-14)
 
 RSpec tests: **1,434 → 2,210** (+776 tests)
 
@@ -54,6 +72,23 @@ Measured against 1.16.4 (Apple M4, Ruby 3.4.7):
 * **Ruby fallback path (`acceleration: false`):** faster on nearly every file — typically **3–20% faster** than 1.16.4, with the biggest gains on wide and many-small-field CSVs.
 
 Per-file breakdown: [`docs/releases/1.17.0/performance_notes.md`](docs/releases/1.17.0/performance_notes.md).
+
+## 1.16.6 (2026-05-21)
+
+RSpec tests: **1,467 → 1,591** (+124 tests)
+
+### Bug Fixes
+
+  - fixed [Issue #334](https://github.com/tilo/smarter_csv/issues/334) with escaped double quote followed by comma. Thanks to [conorg](https://github.com/conorg)
+  - fixed bug when using `headers: { except: }`
+  - added more tests
+
+## 1.16.5 (2026-05-17)
+
+### Bug Fix
+
+  - fixing issue with `remove_empty_hashes: false` not being honored in accelerated path (does not affect you when you use default settings)
+
 
 ## 1.16.4 (2026-04-21) — Bug Fixes
 
@@ -206,6 +241,11 @@ Measured on 19 benchmark files, Apple M1, Ruby 3.4.7. See [benchmarks](docs/rele
  * **Writer temp file** no longer hardcoded to `/tmp` (fixes Windows); properly cleaned up with `Tempfile#close!`.
  * **Writer `StringIO`**: `finalize` no longer attempts to close a caller-owned `StringIO`.
 
+## 1.15.3 (2026-05-17)
+
+### Bug Fix
+
+  - fixing issue with `remove_empty_hashes: false` not being honored in accelerated path (does not affect you when you use default settings)
 
 ## 1.15.2 (2026-02-20)
 

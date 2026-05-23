@@ -57,7 +57,17 @@ describe "quote_boundary modes via SmarterCSV.process" do
           ['plain unquoted',          'hello,world,foo',                       %w[hello world foo]],
           ['plain quoted',            '"hello","world","foo"',                 %w[hello world foo]],
           ['UTF-8 multi-byte quoted', '"Tōkyō","São Paulo","Zürich"', ['Tōkyō', 'São Paulo', 'Zürich']],
-          ['doubled quotes inside',   '"a""b","c""d","x"',                     ['a"b', 'c"d', 'x']],
+          ['doubled quotes inside',   '"a""b","c""d","x"', ['a"b', 'c"d', 'x']],
+          ['issue #334: doubled quote immediately followed by comma inside quoted field',
+           'A4,"Width: 8.27"", Height: 11.69""",1',
+           ['A4', 'Width: 8.27", Height: 11.69"', '1']],
+          ['issue #334: embedded quoted phrase immediately followed by comma inside quoted field',
+           'A,"He said ""Hi"", then left",2',
+           ['A', 'He said "Hi", then left', '2']],
+          ['issue #334: doubled quote immediately before col_sep',     '"a""",b',     ['a"', 'b']],
+          ['issue #334: doubled quote as last field, before EOL',      'a,"hello"""', ['a', 'hello"']],
+          ['issue #334: consecutive doubled quotes inside field',      '"a""""b",z',  ['a""b', 'z']],
+          ['issue #334: doubled quote at field start',                 '"""x",z',     ['"x', 'z']],
           ['apostrophes (not quote_char)', "name,5'11,O'Brian",                ['name', "5'11", "O'Brian"]],
           ['empty quoted',            '"",a,""',                               ['', 'a', '']],
         ].each do |label, input, expected|
@@ -106,6 +116,15 @@ describe "quote_boundary modes via SmarterCSV.process" do
           expect(fields_via_process(line, quote_boundary: :standard, acceleration: accel))
             .to eq(['Indoor Chrome', '49.2" L x 49.2" W', 'Chrome'])
         end
+
+        # Issue #334 compatibility: a malformed terminal "" (doubled quote with no
+        # content after the pair) is treated leniently — the final quote closes the
+        # field rather than turning the row into an unclosed-quote error. This is the
+        # historical behavior the doubled-quote fix deliberately preserves.
+        it %(accepts a malformed terminal `""` leniently — `"b""` → `b"`) do
+          expect(fields_via_process('a,"b""', quote_boundary: :standard, acceleration: accel))
+            .to eq(['a', 'b"'])
+        end
       end
 
       # --------------------------------------------------------------------
@@ -129,6 +148,14 @@ describe "quote_boundary modes via SmarterCSV.process" do
           line = %q[Arnold Schwarzenegger,1947-07-30,6'2"]
           expect do
             fields_via_process(line, quote_boundary: :legacy, acceleration: accel)
+          end.to raise_error(SmarterCSV::MalformedCSV)
+        end
+
+        # Counterpart to the :standard leniency above: strict mode rejects the
+        # malformed terminal "" instead of recovering from it.
+        it %(rejects a malformed terminal `""` — `"b""`) do
+          expect do
+            fields_via_process('a,"b""', quote_boundary: :legacy, acceleration: accel)
           end.to raise_error(SmarterCSV::MalformedCSV)
         end
       end
@@ -179,6 +206,13 @@ describe "quote_boundary modes via SmarterCSV.process" do
       %q[name,5"4',note],
       %q[name,6'2",note],
       %q[Arnold Schwarzenegger,1947-07-30,6'2"],
+      'A4,"Width: 8.27"", Height: 11.69""",1',
+      'A,"He said ""Hi"", then left",2',
+      '"a""",b',
+      'a,"hello"""',
+      '"a""""b",z',
+      '"""x",z',
+      'a,"b""',
     ].freeze
 
     SHARED_INPUTS.each do |input|
