@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smarter_csv upgrade wizard</title>
+<style>
+:root {
+  --fg: #1a1a1a;
+  --muted: #666;
+  --bg: #fff;
+  --accent: #c5392b;
+  --accent-soft: #fff0ee;
+  --green: #2c7a2c;
+  --green-soft: #e8f5e9;
+  --border: #ddd;
+  --card-bg: #fafafa;
+}
+* { box-sizing: border-box; }
+body {
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  max-width: 740px;
+  margin: 2.5em auto;
+  padding: 0 1.25em;
+}
+h1 { font-size: 1.6em; margin: 0 0 0.5em; }
+h2 { font-size: 1.25em; margin: 0 0 0.75em; }
+p { margin: 0.5em 0; }
+code, pre {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.93em;
+}
+code { background: #f4f4f4; padding: 0.1em 0.35em; border-radius: 3px; }
+pre {
+  background: #f4f4f4;
+  padding: 0.85em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+button {
+  font: inherit;
+  padding: 0.45em 1.1em;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  margin: 0 0.25em 0.25em 0;
+}
+button:hover { background: #f4f4f4; }
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+button.primary:hover { background: #a82e22; }
+input[type="text"] {
+  font: inherit;
+  padding: 0.45em 0.6em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 12em;
+}
+.muted { color: var(--muted); }
+.progress {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 1em;
+}
+.hop {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25em 1.5em;
+  margin-bottom: 1em;
+}
+.dropin {
+  background: var(--green-soft);
+  border-color: #b6dab6;
+  color: var(--green);
+  font-weight: 600;
+}
+.check {
+  padding: 0.85em 0;
+  border-top: 1px solid var(--border);
+}
+.check:first-of-type { border-top: none; padding-top: 0; }
+.check .q { font-weight: 500; margin-bottom: 0.4em; }
+.then {
+  display: none;
+  margin-top: 0.6em;
+  padding: 0.6em 0.85em;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.check.yes .then { display: block; }
+.check.yes button.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
+.check.no button.no { background: var(--muted); color: #fff; border-color: var(--muted); }
+.nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.25em;
+}
+.done {
+  background: var(--green-soft);
+  border: 1px solid #b6dab6;
+  border-radius: 8px;
+  padding: 1.5em 1.75em;
+}
+.error { color: var(--accent); margin-top: 0.5em; }
+</style>
+</head>
+<body>
+
+<h1>smarter_csv upgrade wizard</h1>
+<p class="muted">Walks you from your current version to the latest, one hop at a time. Only the questions where you answer "Yes" will show migration steps.</p>
+
+<div id="app"></div>
+
+<script>
+// Data lives in upgrade_path.json (sibling file). The wizard fetches it on load
+// and the JSON is the single source of truth — to add a new release or migration
+// step, edit only that file. See upgrading-smarter_csv.md for the schema.
+
+let UPGRADE_PATH = {};   // populated by loadData()
+let LATEST       = null; // populated by loadData()
+let SERIES       = [];   // Object.keys(UPGRADE_PATH), populated by loadData()
+
+const app = document.getElementById("app");
+const params = new URLSearchParams(location.search);
+const prefilled = params.get("from") || "";
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+function seriesFromVersion(v) {
+  const parts = (v || "").trim().split(".");
+  if (parts.length < 2) return null;
+  const s = parts[0] + "." + parts[1];
+  return UPGRADE_PATH[s] ? s : null;
+}
+
+function renderStart(errorMsg) {
+  app.innerHTML = `
+    <div class="hop">
+      <h2>What version are you on?</h2>
+      <p>Run <code>bundle show smarter_csv</code> in your project to check, or look at your <code>Gemfile.lock</code>.</p>
+      <p>
+        <input type="text" id="ver" placeholder="e.g. 1.12.1" value="${escapeHTML(prefilled)}" autofocus>
+        <button class="primary" id="start">Start</button>
+      </p>
+      ${errorMsg ? `<p class="error">${escapeHTML(errorMsg)}</p>` : ""}
+      <p class="muted">Supported starting versions: 1.0.x through 1.16.x. If you're already on 1.17.x, you're at the latest.</p>
+    </div>
+  `;
+  document.getElementById("start").addEventListener("click", onStart);
+  document.getElementById("ver").addEventListener("keydown", e => { if (e.key === "Enter") onStart(); });
+}
+
+function onStart() {
+  const v = document.getElementById("ver").value;
+  if (v.startsWith("1.17")) { renderDone("1.17", v); return; }
+  const s = seriesFromVersion(v);
+  if (!s) {
+    renderStart("Please enter a version like 1.12.1 (must start with 1.0 through 1.16).");
+    return;
+  }
+  renderHop(s, v);
+}
+
+function renderHop(series, originalVersion) {
+  const hop = UPGRADE_PATH[series];
+  const idx = SERIES.indexOf(series);
+
+  let body;
+  if (hop.actions.length === 0) {
+    body = `<div class="hop dropin">
+      Drop-in hop: no code changes needed for ${series}.x &rarr; ${hop.to}.x. Just continue.
+    </div>`;
+  } else {
+    body = `<div class="hop">
+      ${hop.actions.map((a, i) => `
+        <div class="check" data-i="${i}">
+          <p class="q"><strong>If</strong> ${a["if"]}:</p>
+          <p>
+            <button class="yes">Yes, this applies to me</button>
+            <button class="no">No</button>
+          </p>
+          <div class="then"><strong>Then:</strong> ${a.then}</div>
+        </div>
+      `).join("")}
+    </div>`;
+  }
+
+  const nextLabel = hop.to === LATEST ? "Finish &rarr;" : `Continue to ${hop.to}.x &rarr;`;
+  app.innerHTML = `
+    <p class="progress">Hop ${idx + 1} of ${SERIES.length}: ${series}.x &rarr; ${hop.to}.x</p>
+    ${body}
+    <div class="nav">
+      <button id="back">&larr; Start over</button>
+      <button class="primary" id="next">${nextLabel}</button>
+    </div>
+  `;
+
+  document.querySelectorAll(".check").forEach(c => {
+    c.querySelector(".yes").addEventListener("click", () => { c.classList.remove("no"); c.classList.add("yes"); });
+    c.querySelector(".no" ).addEventListener("click", () => { c.classList.remove("yes"); c.classList.add("no"); });
+  });
+  document.getElementById("back").addEventListener("click", () => renderStart());
+  document.getElementById("next").addEventListener("click", () => {
+    if (hop.to === LATEST) {
+      renderDone(LATEST, originalVersion);
+    } else {
+      renderHop(hop.to, originalVersion);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+function renderDone(series, originalVersion) {
+  app.innerHTML = `
+    <div class="done">
+      <h2>You're done</h2>
+      <p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${series}.x.</p>
+      <p>Update your <code>Gemfile</code> to:</p>
+      <pre><code>gem 'smarter_csv', '~&gt; ${series}.0'</code></pre>
+      <p>Then run:</p>
+      <pre><code>bundle update smarter_csv</code></pre>
+      <p>After that, run your test suite. If anything behaves unexpectedly, click "Start over" and walk back through the hops to find the migration step you might have missed.</p>
+      <p class="muted">Questions? Open an issue at <a href="https://github.com/tilo/smarter_csv/issues">github.com/tilo/smarter_csv/issues</a>.</p>
+      <p><button id="restart">Start over</button></p>
+    </div>
+  `;
+  document.getElementById("restart").addEventListener("click", () => renderStart());
+}
+
+function renderLoading() {
+  app.innerHTML = `<div class="hop"><p class="muted">Loading upgrade path...</p></div>`;
+}
+
+function renderLoadError(err) {
+  app.innerHTML = `
+    <div class="hop">
+      <h2 class="error">Could not load upgrade data</h2>
+      <p>The wizard failed to fetch <code>upgrade_path.json</code>. ${escapeHTML(err && err.message ? err.message : String(err))}</p>
+      <p class="muted">If you're viewing this file locally via <code>file://</code>, browsers block <code>fetch</code> for security. Serve it over HTTP (the GitHub Pages URL works), or open an issue at <a href="https://github.com/tilo/smarter_csv/issues">github.com/tilo/smarter_csv/issues</a>.</p>
+    </div>
+  `;
+}
+
+function boot() {
+  if (prefilled) {
+    if (prefilled.startsWith(LATEST + ".") || prefilled === LATEST) {
+      renderDone(LATEST, prefilled);
+      return;
+    }
+    const s = seriesFromVersion(prefilled);
+    if (s) { renderHop(s, prefilled); return; }
+  }
+  renderStart();
+}
+
+async function loadData() {
+  renderLoading();
+  try {
+    const res = await fetch("upgrade_path.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data || typeof data !== "object" || !data.path || !data.latest) {
+      throw new Error("upgrade_path.json is missing 'latest' or 'path'");
+    }
+    UPGRADE_PATH = data.path;
+    LATEST       = data.latest;
+    SERIES       = Object.keys(UPGRADE_PATH);
+    boot();
+  } catch (err) {
+    renderLoadError(err);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
