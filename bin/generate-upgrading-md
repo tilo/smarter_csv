@@ -114,6 +114,14 @@ def compare_series(a, b)
   a.split('.').map(&:to_i) <=> b.split('.').map(&:to_i)
 end
 
+# Highest stable (non-pre-release) version in a series, derived directly from
+# the parsed CHANGELOG. Returns nil if the series has no stable releases (only
+# pre-releases, or no entries at all).
+def latest_stable_in(by_series, series)
+  versions = (by_series[series] || []).sort { |a, b| compare_versions(a[:version], b[:version]) }
+  versions.map { |v| v[:version] }.reject { |v| v.include?('.pre') }.last
+end
+
 # Strip the HTML formatting used in upgrade_path.json and convert to Markdown.
 def html_to_md(s)
   s.dup
@@ -129,7 +137,10 @@ end
 
 def generate(by_series, upgrade_path)
   latest         = upgrade_path['latest']
-  latest_release = upgrade_path['latest_release'] || latest
+  # Prefer the actual latest stable from the CHANGELOG over whatever the JSON
+  # was last hand-edited to say — the CHANGELOG is the source of truth and the
+  # JSON tends to drift behind release bumps.
+  latest_release = latest_stable_in(by_series, latest) || upgrade_path['latest_release'] || latest
   path           = upgrade_path['path']
 
   out = String.new
@@ -159,7 +170,8 @@ def generate(by_series, upgrade_path)
 
     if hop
       target_series  = hop['to']
-      target_release = (path[target_series] && path[target_series]['latest_release']) ||
+      target_release = latest_stable_in(by_series, target_series) ||
+                       (path[target_series] && path[target_series]['latest_release']) ||
                        (target_series == latest ? latest_release : target_series)
 
       out << "## Series #{series} → #{target_series}\n\n"
