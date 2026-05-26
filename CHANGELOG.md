@@ -825,7 +825,7 @@ That's the whole migration. Everything else in 1.3.0 is source-compatible with 1
  * bugfix (thanks to Joshua Smith for reporting)
 
 ## 1.2.0 (2018-01-20)
- * add default validation that a header can only appear once
+ * add default validation that a header can only appear once; raises `SmarterCSV::DuplicateHeaders` when it doesn't
  * add option `required_headers`
 
 ## 1.1.5 (2017-11-05)

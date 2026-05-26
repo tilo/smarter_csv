@@ -18,7 +18,7 @@
       "actions": [
         {
           "if": "your CSV files have duplicate header names",
-          "then": "rename the duplicates, or be ready to rescue the new validation error &mdash; 1.2.0 added default validation that each header appears only once."
+          "then": "rename the duplicates, or be ready to rescue <code>SmarterCSV::DuplicateHeaders</code> &mdash; 1.2.0 added default validation that each header appears only once and raises this exception when it doesn't."
         }
       ]
     },
@@ -68,7 +68,7 @@
       "actions": [
         {
           "if": "you accept CSV files from users or other external sources where the column separator might not be a comma (e.g. locale-specific exports using <code>;</code> or tab), or where a file might have only one column",
-          "then": "wrap your <code>SmarterCSV.process</code> calls in <code>rescue SmarterCSV::NoColSepDetected</code> &mdash; 1.8.0 made <code>col_sep: :auto</code> and <code>row_sep: :auto</code> the new defaults."
+          "then": "wrap your <code>SmarterCSV.process</code> calls in <code>rescue SmarterCSV::NoColSepDetected</code> &mdash; 1.8.0 made <code>col_sep: :auto</code> and <code>row_sep: :auto</code> the new defaults, but in rare cases it raises when separators could not be found."
         }
       ]
     },
@@ -82,7 +82,7 @@
         },
         {
           "if": "you use <code>key_mapping:</code> and want to allow some mapped headers to be missing",
-          "then": "pass <code>silence_missing_keys: true</code> &mdash; 1.9.0 now raises <code>MissingKeys</code> for unmapped headers (used to silently print)."
+          "then": "pass <code>silence_missing_keys: true</code> &mdash; 1.9.0 now raises <code>MissingKeys</code> for unmapped headers (this makes them optional)."
         }
       ]
     },
