@@ -195,8 +195,10 @@ module SmarterCSV
           return [nil, n] if all_blank
         end
 
-        # Batch-strip using C-level map! — faster than per-element strip inside the loop
-        fields.map!(&:strip) if strip
+        # In-place strip! — allocation-free when there's no surrounding whitespace
+        # (matches the sister site in parse_csv_line_ruby; completes the
+        # "strip -> strip!" sweep documented in the 1.17.0 commit notes).
+        fields.each(&:strip!) if strip
 
         remove_empty = options[:remove_empty_values]
         hash = {}

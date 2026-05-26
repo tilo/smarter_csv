@@ -1,6 +1,20 @@
 
 # SmarterCSV 1.x Change Log
 
+## 1.17.3 (2026-05-25)
+
+RSpec tests: **2,274→ 2,277** (+3 tests)
+
+* No functional changes
+* added 3 test cases
+
+### Improvements
+* DRY-up C-code
+* no performance changes on the C-path
+
+### Performance
+* minor performance improvement on the Ruby-path
+
 ## 1.17.2 (2026-05-21)
 
 RSpec tests: **2,220→ 2,274** (+54 tests)
