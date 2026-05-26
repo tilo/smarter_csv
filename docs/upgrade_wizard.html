@@ -98,13 +98,23 @@ input[type="text"] {
 .check.yes .then { display: block; }
 .check.yes button.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
 .check.no button.no { background: var(--muted); color: #fff; border-color: var(--muted); }
-.check.unanswered { background: var(--accent-soft); padding-left: 0.85em; border-left: 3px solid var(--accent); }
-.unanswered-msg { color: var(--accent); margin: 0.5em 0; font-size: 0.95em; font-weight: 500; }
 .nav {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-top: 1.25em;
+  gap: 0.75em;
 }
+.nav .nav-right { display: flex; align-items: center; gap: 0.75em; }
+button:disabled,
+button.primary:disabled {
+  background: #e6e6e6;
+  color: #999;
+  border-color: #d8d8d8;
+  cursor: not-allowed;
+}
+button.primary:disabled:hover { background: #e6e6e6; }
+.next-hint { color: var(--muted); font-size: 0.85em; }
 .done {
   background: var(--green-soft);
   border: 1px solid #b6dab6;
@@ -203,31 +213,44 @@ function renderHop(series, originalVersion) {
     ${body}
     <div class="nav">
       <button id="back">&larr; Start over</button>
-      <button class="primary" id="next">${nextLabel}</button>
+      <div class="nav-right">
+        <span id="next-hint" class="next-hint"></span>
+        <button class="primary" id="next">${nextLabel}</button>
+      </div>
     </div>
   `;
 
+  function updateNextState() {
+    const unanswered = document.querySelectorAll(".check:not(.yes):not(.no)");
+    const nextBtn = document.getElementById("next");
+    const hint = document.getElementById("next-hint");
+    if (unanswered.length === 0) {
+      nextBtn.disabled = false;
+      hint.textContent = "";
+    } else {
+      nextBtn.disabled = true;
+      hint.textContent = unanswered.length === 1
+        ? "Answer the question to continue."
+        : `Answer all ${unanswered.length} questions to continue.`;
+    }
+  }
+
   document.querySelectorAll(".check").forEach(c => {
     c.querySelector(".yes").addEventListener("click", () => {
-      c.classList.remove("no", "unanswered");
+      c.classList.remove("no");
       c.classList.add("yes");
-      clearUnansweredMsg();
+      updateNextState();
     });
     c.querySelector(".no").addEventListener("click", () => {
-      c.classList.remove("yes", "unanswered");
+      c.classList.remove("yes");
       c.classList.add("no");
-      clearUnansweredMsg();
+      updateNextState();
     });
   });
+
   document.getElementById("back").addEventListener("click", () => renderStart());
   document.getElementById("next").addEventListener("click", () => {
-    const unanswered = document.querySelectorAll(".check:not(.yes):not(.no)");
-    if (unanswered.length > 0) {
-      unanswered.forEach(c => c.classList.add("unanswered"));
-      showUnansweredMsg(unanswered.length);
-      unanswered[0].scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
+    if (document.getElementById("next").disabled) return;  // belt-and-braces
     if (hop.to === LATEST) {
       renderDone(LATEST, originalVersion);
     } else {
@@ -236,21 +259,7 @@ function renderHop(series, originalVersion) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  function showUnansweredMsg(count) {
-    clearUnansweredMsg();
-    const msg = document.createElement("p");
-    msg.className = "unanswered-msg";
-    msg.id = "unanswered-msg";
-    msg.textContent = count === 1
-      ? "Please answer the highlighted question before continuing."
-      : `Please answer all ${count} highlighted questions before continuing.`;
-    const nav = document.querySelector(".nav");
-    nav.parentNode.insertBefore(msg, nav);
-  }
-  function clearUnansweredMsg() {
-    const existing = document.getElementById("unanswered-msg");
-    if (existing) existing.remove();
-  }
+  updateNextState();   // initial state: disabled if there are any checks, enabled if drop-in hop
 }
 
 function renderDone(series, originalVersion) {
