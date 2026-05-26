@@ -1,4 +1,17 @@
 <!doctype html>
+<!--
+Wizard Behavior:
+
+  - On load, wizard fetches upgrade_path.json first (must succeed), then also fetches CHANGELOG.md from raw.githubusercontent.com. If the CHANGELOG fetch + parse succeed, the parsed {series → latest_patch} map overlays the latest_release fields in the data.
+  - Console message confirms which source won: "Latest patches loaded from CHANGELOG.md" (live) or "CHANGELOG.md fetch failed; using upgrade_path.json fallback values" (fallback).
+  - Graceful failure: if raw.githubusercontent.com is unreachable, parse fails, or returns nothing, the wizard silently uses the values already in upgrade_path.json — so the JSON's latest_release fields become a stale-but-safe fallback.
+
+Maintainer workflow now:
+
+  - Ship a new patch (e.g. 1.14.5): edit CHANGELOG.md only. Wizard picks it up live on next load.
+  - Ship a new minor with new migration steps (e.g. 1.18): edit upgrade_path.json (chain + actions) + CHANGELOG.md.
+  - The latest_release fields in JSON can drift — only consulted when the live fetch fails. Refresh them whenever you want, no urgency.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -121,6 +134,18 @@ button.primary:disabled:hover { background: #e6e6e6; }
   border-radius: 8px;
   padding: 1.5em 1.75em;
 }
+.summary {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1em 1.25em;
+  margin: 1em 0 1.25em;
+}
+.summary h3 { margin: 0 0 0.5em; font-size: 1.05em; }
+.summary-hop { margin: 0.85em 0; }
+.summary-hop-heading { margin: 0 0 0.35em; }
+.summary-hop ul { margin: 0.25em 0 0; padding-left: 1.3em; }
+.summary-hop li { margin: 0.5em 0; }
 .error { color: var(--accent); margin-top: 0.5em; }
 </style>
 </head>
@@ -136,9 +161,11 @@ button.primary:disabled:hover { background: #e6e6e6; }
 // and the JSON is the single source of truth — to add a new release or migration
 // step, edit only that file. See upgrading-smarter_csv.md for the schema.
 
-let UPGRADE_PATH = {};   // populated by loadData()
-let LATEST       = null; // populated by loadData()
-let SERIES       = [];   // Object.keys(UPGRADE_PATH), populated by loadData()
+let UPGRADE_PATH   = {};   // populated by loadData()
+let LATEST         = null; // series, e.g. "1.17", populated by loadData()
+let LATEST_RELEASE = null; // specific patch version for display, e.g. "1.17.2"
+let SERIES         = [];   // Object.keys(UPGRADE_PATH), populated by loadData()
+let decisions      = [];   // accumulated per-hop results across the user's walk
 
 const app = document.getElementById("app");
 const params = new URLSearchParams(location.search);
@@ -155,7 +182,16 @@ function seriesFromVersion(v) {
   return UPGRADE_PATH[s] ? s : null;
 }
 
+// Returns the latest patch release for a given MAJOR.MINOR series.
+// For the terminal series (LATEST) we read the top-level latest_release;
+// for every other series we read it from inside its UPGRADE_PATH entry.
+function latestReleaseFor(series) {
+  if (series === LATEST) return LATEST_RELEASE || series;
+  return (UPGRADE_PATH[series] && UPGRADE_PATH[series].latest_release) || series;
+}
+
 function renderStart(errorMsg) {
+  decisions = [];   // reset accumulated decisions whenever we restart
   app.innerHTML = `
     <div class="hop">
       <h2>What version are you on?</h2>
@@ -174,7 +210,7 @@ function renderStart(errorMsg) {
 
 function onStart() {
   const v = document.getElementById("ver").value;
-  if (v.startsWith("1.17")) { renderDone("1.17", v); return; }
+  if (v.startsWith(LATEST + ".") || v === LATEST) { renderDone(v); return; }
   const s = seriesFromVersion(v);
   if (!s) {
     renderStart("Please enter a version like 1.12.1 (must start with 1.0 through 1.16).");
@@ -186,11 +222,12 @@ function onStart() {
 function renderHop(series, originalVersion) {
   const hop = UPGRADE_PATH[series];
   const idx = SERIES.indexOf(series);
+  const targetRelease = latestReleaseFor(hop.to);
 
   let body;
   if (hop.actions.length === 0) {
     body = `<div class="hop dropin">
-      Drop-in hop: no code changes needed for ${series}.x &rarr; ${hop.to}.x. Just continue.
+      Drop-in hop: no code changes needed for ${series}.x &rarr; ${targetRelease}. Just continue.
     </div>`;
   } else {
     body = `<div class="hop">
@@ -207,9 +244,9 @@ function renderHop(series, originalVersion) {
     </div>`;
   }
 
-  const nextLabel = hop.to === LATEST ? "Finish &rarr;" : `Continue to ${hop.to}.x &rarr;`;
+  const nextLabel = hop.to === LATEST ? `Finish at ${targetRelease} &rarr;` : `Continue to ${targetRelease} &rarr;`;
   app.innerHTML = `
-    <p class="progress">Hop ${idx + 1} of ${SERIES.length}: ${series}.x &rarr; ${hop.to}.x</p>
+    <p class="progress">Hop ${idx + 1} of ${SERIES.length}: ${series}.x &rarr; ${targetRelease}</p>
     ${body}
     <div class="nav">
       <button id="back">&larr; Start over</button>
@@ -251,8 +288,22 @@ function renderHop(series, originalVersion) {
   document.getElementById("back").addEventListener("click", () => renderStart());
   document.getElementById("next").addEventListener("click", () => {
     if (document.getElementById("next").disabled) return;  // belt-and-braces
+
+    // Record this hop's decisions before navigating.
+    const matched = hop.actions.length === 0 ? [] :
+      Array.from(document.querySelectorAll(".check.yes")).map(c => {
+        const i = parseInt(c.dataset.i, 10);
+        return hop.actions[i];
+      });
+    decisions.push({
+      from:   series,
+      to:     hop.to,
+      dropIn: hop.actions.length === 0,
+      matched
+    });
+
     if (hop.to === LATEST) {
-      renderDone(LATEST, originalVersion);
+      renderDone(originalVersion);
     } else {
       renderHop(hop.to, originalVersion);
     }
@@ -262,13 +313,18 @@ function renderHop(series, originalVersion) {
   updateNextState();   // initial state: disabled if there are any checks, enabled if drop-in hop
 }
 
-function renderDone(series, originalVersion) {
+function renderDone(originalVersion) {
+  const fullVersion  = LATEST_RELEASE || LATEST;
+  const seriesOnly   = LATEST;
+  const summaryHTML  = renderSummary();
+
   app.innerHTML = `
     <div class="done">
       <h2>You're done</h2>
-      <p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${series}.x.</p>
+      <p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest patch in the ${seriesOnly}.x series).</p>
+      ${summaryHTML}
       <p>Update your <code>Gemfile</code> to:</p>
-      <pre><code>gem 'smarter_csv', '~&gt; ${series}.0'</code></pre>
+      <pre><code>gem 'smarter_csv', '~&gt; ${seriesOnly}.0'</code></pre>
       <p>Then run:</p>
       <pre><code>bundle update smarter_csv</code></pre>
       <p>After that, run your test suite. If anything behaves unexpectedly, click "Start over" and walk back through the hops to find the migration step you might have missed.</p>
@@ -277,6 +333,37 @@ function renderDone(series, originalVersion) {
     </div>
   `;
   document.getElementById("restart").addEventListener("click", () => renderStart());
+}
+
+function renderSummary() {
+  if (decisions.length === 0) return "";
+
+  const matchedCount = decisions.reduce((n, d) => n + d.matched.length, 0);
+  const dropInCount  = decisions.filter(d => d.dropIn).length;
+  const intro = matchedCount === 0
+    ? `<p>Good news: <strong>none of the per-hop conditions applied to your code</strong> across the ${decisions.length} hops you walked${dropInCount ? ` (${dropInCount} were drop-in hops)` : ""}. The upgrade should be a clean Gemfile bump.</p>`
+    : `<p>Across ${decisions.length} hops you walked, <strong>${matchedCount} migration step${matchedCount === 1 ? "" : "s"} apply</strong> to your code. Review and apply them before running <code>bundle update</code>:</p>`;
+
+  const list = decisions.map(d => {
+    const targetRelease = latestReleaseFor(d.to);
+    const heading = `<p class="summary-hop-heading"><strong>${d.from}.x &rarr; ${targetRelease}</strong></p>`;
+    if (d.dropIn) {
+      return `<div class="summary-hop">${heading}<p class="muted">Drop-in hop &mdash; no code changes needed.</p></div>`;
+    }
+    if (d.matched.length === 0) {
+      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions on this hop applied to your code.</p></div>`;
+    }
+    const items = d.matched.map(a => `<li><strong>If</strong> ${a["if"]}<br>&rarr; ${a.then}</li>`).join("");
+    return `<div class="summary-hop">${heading}<ul>${items}</ul></div>`;
+  }).join("");
+
+  return `
+    <div class="summary">
+      <h3>Summary of your upgrade path</h3>
+      ${intro}
+      ${list}
+    </div>
+  `;
 }
 
 function renderLoading() {
@@ -296,13 +383,54 @@ function renderLoadError(err) {
 function boot() {
   if (prefilled) {
     if (prefilled.startsWith(LATEST + ".") || prefilled === LATEST) {
-      renderDone(LATEST, prefilled);
+      renderDone(prefilled);
       return;
     }
     const s = seriesFromVersion(prefilled);
     if (s) { renderHop(s, prefilled); return; }
   }
   renderStart();
+}
+
+// Parses CHANGELOG.md headings like "## 1.17.2 (2026-05-21)" and returns
+// a {series: latestPatch} map. Skips pre-releases (1.0.0.pre1), yanked,
+// pulled, or replaced versions. Returns null on any failure.
+async function fetchChangelogLatestPatches() {
+  try {
+    const url = "https://raw.githubusercontent.com/tilo/smarter_csv/main/CHANGELOG.md";
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return parseLatestPatchesFromChangelog(text);
+  } catch (_) {
+    return null;
+  }
+}
+
+function parseLatestPatchesFromChangelog(text) {
+  const result = {};
+  const lineRe = /^##\s+(\S+)([^\n]*)/gm;
+  let m;
+  while ((m = lineRe.exec(text)) !== null) {
+    const version = m[1];
+    const rest = m[2] || "";
+    if (!/^\d+\.\d+\.\d+$/.test(version)) continue;                // strict: rejects "1.0.0.pre1" or any non-numeric heading
+    if (/\b(YANKED|PULLED|replaced)\b/i.test(rest)) continue;      // skip 1.2.9 / 1.4.1 / 1.9.1 / 1.11.1 / 1.7.0 etc.
+    const series = version.split(".").slice(0, 2).join(".");
+    if (!result[series] || cmpVersions(version, result[series]) > 0) {
+      result[series] = version;
+    }
+  }
+  return result;
+}
+
+function cmpVersions(a, b) {
+  const ap = a.split(".").map(Number);
+  const bp = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (ap[i] !== bp[i]) return ap[i] - bp[i];
+  }
+  return 0;
 }
 
 async function loadData() {
@@ -314,9 +442,25 @@ async function loadData() {
     if (!data || typeof data !== "object" || !data.path || !data.latest) {
       throw new Error("upgrade_path.json is missing 'latest' or 'path'");
     }
-    UPGRADE_PATH = data.path;
-    LATEST       = data.latest;
-    SERIES       = Object.keys(UPGRADE_PATH);
+
+    // Live overlay: read the highest non-yanked patch per series from CHANGELOG.md.
+    // If fetch/parse fails, we silently keep whatever's in upgrade_path.json — those
+    // values become a stale-but-safe fallback.
+    const livePatches = await fetchChangelogLatestPatches();
+    if (livePatches) {
+      for (const series of Object.keys(data.path)) {
+        if (livePatches[series]) data.path[series].latest_release = livePatches[series];
+      }
+      if (livePatches[data.latest]) data.latest_release = livePatches[data.latest];
+      console.log("[upgrade_wizard] Latest patches loaded from CHANGELOG.md:", livePatches);
+    } else {
+      console.log("[upgrade_wizard] CHANGELOG.md fetch failed; using upgrade_path.json fallback values.");
+    }
+
+    UPGRADE_PATH   = data.path;
+    LATEST         = data.latest;
+    LATEST_RELEASE = data.latest_release || data.latest;
+    SERIES         = Object.keys(UPGRADE_PATH);
     boot();
   } catch (err) {
     renderLoadError(err);

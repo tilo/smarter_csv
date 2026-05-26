@@ -1,8 +1,10 @@
 {
   "latest": "1.17",
+  "latest_release": "1.17.2",
   "path": {
     "1.0": {
       "to": "1.1",
+      "latest_release": "1.0.19",
       "actions": [
         {
           "if": "you set <code>headers_in_file: false</code>",
@@ -12,6 +14,7 @@
     },
     "1.1": {
       "to": "1.2",
+      "latest_release": "1.1.5",
       "actions": [
         {
           "if": "your CSV files have duplicate header names",
@@ -21,6 +24,7 @@
     },
     "1.2": {
       "to": "1.3",
+      "latest_release": "1.2.8",
       "actions": [
         {
           "if": "you use <code>key_mapping:</code>",
@@ -30,10 +34,12 @@
     },
     "1.3": {
       "to": "1.4",
+      "latest_release": "1.3.0",
       "actions": []
     },
     "1.4": {
       "to": "1.5",
+      "latest_release": "1.4.2",
       "actions": [
         {
           "if": "you relied on lines starting with <code>#</code> being treated as comments",
@@ -43,6 +49,7 @@
     },
     "1.5": {
       "to": "1.6",
+      "latest_release": "1.5.2",
       "actions": [
         {
           "if": "you rescue an exception when <code>key_mapping:</code> has an unused key",
@@ -52,10 +59,12 @@
     },
     "1.6": {
       "to": "1.7",
+      "latest_release": "1.6.1",
       "actions": []
     },
     "1.7": {
       "to": "1.8",
+      "latest_release": "1.7.4",
       "actions": [
         {
           "if": "you accept CSV files from users or other external sources where the column separator might not be a comma (e.g. locale-specific exports using <code>;</code> or tab), or where a file might have only one column",
@@ -65,6 +74,7 @@
     },
     "1.8": {
       "to": "1.9",
+      "latest_release": "1.8.5",
       "actions": [
         {
           "if": "you rescue <code>SmarterCSV::MissingHeaders</code>",
@@ -78,6 +88,7 @@
     },
     "1.9": {
       "to": "1.10",
+      "latest_release": "1.9.3",
       "actions": [
         {
           "if": "you use <code>user_provided_headers:</code>",
@@ -95,10 +106,12 @@
     },
     "1.10": {
       "to": "1.11",
+      "latest_release": "1.10.3",
       "actions": []
     },
     "1.11": {
       "to": "1.12",
+      "latest_release": "1.11.2",
       "actions": [
         {
           "if": "you call <code>SmarterCSV.raw_headers</code> or <code>SmarterCSV.headers</code>",
@@ -108,6 +121,7 @@
     },
     "1.12": {
       "to": "1.13",
+      "latest_release": "1.12.1",
       "actions": [
         {
           "if": "your CSV rows can have more columns than the header AND your code expects only header-listed keys",
@@ -125,10 +139,12 @@
     },
     "1.13": {
       "to": "1.14",
+      "latest_release": "1.13.1",
       "actions": []
     },
     "1.14": {
       "to": "1.15",
+      "latest_release": "1.14.4",
       "actions": [
         {
           "if": "your Ruby version is 2.5 or older",
@@ -138,6 +154,7 @@
     },
     "1.15": {
       "to": "1.16",
+      "latest_release": "1.15.3",
       "actions": [
         {
           "if": "your CSV files contain stray <code>\"</code> characters in the middle of unquoted fields",
@@ -147,6 +164,7 @@
     },
     "1.16": {
       "to": "1.17",
+      "latest_release": "1.16.6",
       "actions": []
     }
   }
