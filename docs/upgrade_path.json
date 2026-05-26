@@ -58,7 +58,7 @@
       "to": "1.8",
       "actions": [
         {
-          "if": "your CSV files may have unusual or non-standard formats",
+          "if": "you accept CSV files from users or other external sources where the column separator might not be a comma (e.g. locale-specific exports using <code>;</code> or tab), or where a file might have only one column",
           "then": "wrap your <code>SmarterCSV.process</code> calls in <code>rescue SmarterCSV::NoColSepDetected</code> &mdash; 1.8.0 made <code>col_sep: :auto</code> and <code>row_sep: :auto</code> the new defaults."
         }
       ]

@@ -98,6 +98,8 @@ input[type="text"] {
 .check.yes .then { display: block; }
 .check.yes button.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
 .check.no button.no { background: var(--muted); color: #fff; border-color: var(--muted); }
+.check.unanswered { background: var(--accent-soft); padding-left: 0.85em; border-left: 3px solid var(--accent); }
+.unanswered-msg { color: var(--accent); margin: 0.5em 0; font-size: 0.95em; font-weight: 500; }
 .nav {
   display: flex;
   justify-content: space-between;
@@ -206,11 +208,26 @@ function renderHop(series, originalVersion) {
   `;
 
   document.querySelectorAll(".check").forEach(c => {
-    c.querySelector(".yes").addEventListener("click", () => { c.classList.remove("no"); c.classList.add("yes"); });
-    c.querySelector(".no" ).addEventListener("click", () => { c.classList.remove("yes"); c.classList.add("no"); });
+    c.querySelector(".yes").addEventListener("click", () => {
+      c.classList.remove("no", "unanswered");
+      c.classList.add("yes");
+      clearUnansweredMsg();
+    });
+    c.querySelector(".no").addEventListener("click", () => {
+      c.classList.remove("yes", "unanswered");
+      c.classList.add("no");
+      clearUnansweredMsg();
+    });
   });
   document.getElementById("back").addEventListener("click", () => renderStart());
   document.getElementById("next").addEventListener("click", () => {
+    const unanswered = document.querySelectorAll(".check:not(.yes):not(.no)");
+    if (unanswered.length > 0) {
+      unanswered.forEach(c => c.classList.add("unanswered"));
+      showUnansweredMsg(unanswered.length);
+      unanswered[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     if (hop.to === LATEST) {
       renderDone(LATEST, originalVersion);
     } else {
@@ -218,6 +235,22 @@ function renderHop(series, originalVersion) {
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
+
+  function showUnansweredMsg(count) {
+    clearUnansweredMsg();
+    const msg = document.createElement("p");
+    msg.className = "unanswered-msg";
+    msg.id = "unanswered-msg";
+    msg.textContent = count === 1
+      ? "Please answer the highlighted question before continuing."
+      : `Please answer all ${count} highlighted questions before continuing.`;
+    const nav = document.querySelector(".nav");
+    nav.parentNode.insertBefore(msg, nav);
+  }
+  function clearUnansweredMsg() {
+    const existing = document.getElementById("unanswered-msg");
+    if (existing) existing.remove();
+  }
 }
 
 function renderDone(series, originalVersion) {
