@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+> [!TIP]
+> **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most hops are drop-in.
+
 ## 1.17.2 (2026-05-21)
 
 RSpec tests: **2,220→ 2,274** (+54 tests)
