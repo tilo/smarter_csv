@@ -1,0 +1,175 @@
+{
+  "latest": "1.17",
+  "latest_release": "1.17.2",
+  "path": {
+    "1.0": {
+      "to": "1.1",
+      "latest_release": "1.0.19",
+      "actions": [
+        {
+          "if": "you set <code>headers_in_file: false</code>",
+          "then": "also provide <code>user_provided_headers:</code> &mdash; 1.1.0 now raises an error if you set the former without the latter."
+        }
+      ]
+    },
+    "1.1": {
+      "to": "1.2",
+      "latest_release": "1.1.5",
+      "actions": [
+        {
+          "if": "your CSV files have duplicate header names",
+          "then": "rename the duplicates, or be ready to rescue <code>SmarterCSV::DuplicateHeaders</code> &mdash; 1.2.0 added default validation that each header appears only once and raises this exception when it doesn't."
+        }
+      ]
+    },
+    "1.2": {
+      "to": "1.3",
+      "latest_release": "1.2.8",
+      "actions": [
+        {
+          "if": "you use <code>key_mapping:</code>",
+          "then": "switch hash values to symbols (or update downstream reads to use string keys) &mdash; 1.3.0 stopped silently coercing values to symbols."
+        }
+      ]
+    },
+    "1.3": {
+      "to": "1.4",
+      "latest_release": "1.3.0",
+      "actions": []
+    },
+    "1.4": {
+      "to": "1.5",
+      "latest_release": "1.4.2",
+      "actions": [
+        {
+          "if": "you relied on lines starting with <code>#</code> being treated as comments",
+          "then": "pass <code>comment_regexp: /\\A#/</code> explicitly &mdash; 1.5.0 changed the default to <code>nil</code>."
+        }
+      ]
+    },
+    "1.5": {
+      "to": "1.6",
+      "latest_release": "1.5.2",
+      "actions": [
+        {
+          "if": "you rescue an exception when <code>key_mapping:</code> has an unused key",
+          "then": "remove that rescue clause &mdash; 1.6.1 changed this from an exception to a warning."
+        }
+      ]
+    },
+    "1.6": {
+      "to": "1.7",
+      "latest_release": "1.6.1",
+      "actions": []
+    },
+    "1.7": {
+      "to": "1.8",
+      "latest_release": "1.7.4",
+      "actions": [
+        {
+          "if": "you accept CSV files from users or other external sources where the column separator might not be a comma (e.g. locale-specific exports using <code>;</code> or tab), or where a file might have only one column",
+          "then": "wrap your <code>SmarterCSV.process</code> calls in <code>rescue SmarterCSV::NoColSepDetected</code> &mdash; 1.8.0 made <code>col_sep: :auto</code> and <code>row_sep: :auto</code> the new defaults, but in rare cases it raises when separators could not be found."
+        }
+      ]
+    },
+    "1.8": {
+      "to": "1.9",
+      "latest_release": "1.8.5",
+      "actions": [
+        {
+          "if": "you rescue <code>SmarterCSV::MissingHeaders</code>",
+          "then": "rename it to <code>SmarterCSV::MissingKeys</code> &mdash; 1.9.0 renamed the error."
+        },
+        {
+          "if": "you use <code>key_mapping:</code> and want to allow some mapped headers to be missing",
+          "then": "pass <code>silence_missing_keys: true</code> &mdash; 1.9.0 now raises <code>MissingKeys</code> for unmapped headers (this makes them optional)."
+        }
+      ]
+    },
+    "1.9": {
+      "to": "1.10",
+      "latest_release": "1.9.3",
+      "actions": [
+        {
+          "if": "you use <code>user_provided_headers:</code>",
+          "then": "write the list in the exact final form you want (all symbols <em>or</em> all strings) &mdash; 1.10.0 stopped applying additional transformations. <code>strings_as_keys:</code> is ignored alongside it."
+        },
+        {
+          "if": "your <code>user_provided_headers:</code> list contains duplicate entries",
+          "then": "remove the duplicates &mdash; 1.10.0 raises <code>SmarterCSV::DuplicateHeaders</code>."
+        },
+        {
+          "if": "you depended on duplicate-header detection failing fast",
+          "then": "pass <code>duplicate_header_suffix: nil</code> explicitly &mdash; 1.10.0 changed the default to <code>''</code> (it auto-disambiguates duplicates as <code>name</code>, <code>name2</code>, ...)."
+        }
+      ]
+    },
+    "1.10": {
+      "to": "1.11",
+      "latest_release": "1.10.3",
+      "actions": []
+    },
+    "1.11": {
+      "to": "1.12",
+      "latest_release": "1.11.2",
+      "actions": [
+        {
+          "if": "you call <code>SmarterCSV.process</code> and need to inspect headers / warnings / errors after parsing",
+          "then": "switch to using <code>reader = SmarterCSV::Reader.new(file, options); reader.process</code>.<br>Version 1.11 class-level accessors <code>SmarterCSV.headers</code> / <code>SmarterCSV.raw_header</code> are gone in 1.12.0 &mdash; if you used those, see the next question."
+        },
+        {
+          "if": "you call <code>SmarterCSV.raw_headers</code> or <code>SmarterCSV.headers</code>",
+          "then": "switch to instantiating <code>SmarterCSV::Reader</code> and reading <code>reader.raw_headers</code> / <code>reader.headers</code> &mdash; 1.12.0 moved these off the class-level API."
+        }
+      ]
+    },
+    "1.12": {
+      "to": "1.13",
+      "latest_release": "1.12.1",
+      "actions": [
+        {
+          "if": "your CSV rows can have more columns than the header AND your code expects only header-listed keys",
+          "then": "filter out the new auto-generated <code>:column_N</code> keys, or pass <code>strict: true</code> to raise on extras &mdash; 1.13.0 keeps extra columns instead of dropping them silently."
+        },
+        {
+          "if": "any of your input files might have unbalanced quotes",
+          "then": "wrap calls in <code>rescue SmarterCSV::MalformedCSV</code> &mdash; 1.13.0 now raises instead of producing garbled output."
+        },
+        {
+          "if": "you pass <code>user_provided_headers:</code> AND your file has a header line that should be skipped",
+          "then": "also pass <code>headers_in_file: true</code> explicitly &mdash; 1.13.0 made <code>user_provided_headers:</code> imply <code>headers_in_file: false</code> by default."
+        }
+      ]
+    },
+    "1.13": {
+      "to": "1.14",
+      "latest_release": "1.13.1",
+      "actions": []
+    },
+    "1.14": {
+      "to": "1.15",
+      "latest_release": "1.14.4",
+      "actions": [
+        {
+          "if": "your Ruby version is 2.5 or older",
+          "then": "upgrade Ruby to 2.6 or newer &mdash; 1.15.0 dropped support for Ruby 2.5.<br><br>The migration is small: Ruby 2.5 reached end-of-life in March 2021 (no more security fixes anywhere), and Ruby 2.5 &rarr; 2.6 is API-compatible for nearly all code. Update your <code>.ruby-version</code> or the <code>ruby</code> line in your <code>Gemfile</code>, run <code>bundle install</code>, and you're done. Most users jump straight to a current Ruby (3.x)."
+        }
+      ]
+    },
+    "1.15": {
+      "to": "1.16",
+      "latest_release": "1.15.3",
+      "actions": [
+        {
+          "if": "your CSV files contain stray <code>\"</code> characters in the middle of unquoted fields",
+          "then": "verify the output is now correct &mdash; 1.16.0 treats them as literal (RFC 4180). Output gets more correct for almost everyone; the temporary escape hatch <code>quote_boundary: :legacy</code> exists if your downstream code depended on the previously-corrupted output (not recommended for new code)."
+        }
+      ]
+    },
+    "1.16": {
+      "to": "1.17",
+      "latest_release": "1.16.6",
+      "actions": []
+    }
+  }
+}

@@ -30,11 +30,13 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/tilo/smarter_csv"
   spec.license       = 'MIT'
 
-  spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
-  spec.metadata["changelog_uri"] = "https://github.com/tilo/smarter_csv/blob/main/CHANGELOG.md"
-  spec.metadata["documentation_uri"] = "https://github.com/tilo/smarter_csv/tree/main/docs"
-  spec.metadata["bug_tracker_uri"] = "https://github.com/tilo/smarter_csv/issues"
+  spec.metadata["homepage_uri"]       = spec.homepage
+  spec.metadata["source_code_uri"]    = spec.homepage
+  spec.metadata["changelog_uri"]      = "https://github.com/tilo/smarter_csv/blob/main/CHANGELOG.md"
+  spec.metadata["documentation_uri"]  = "https://github.com/tilo/smarter_csv/tree/main/docs"
+  spec.metadata["bug_tracker_uri"]    = "https://github.com/tilo/smarter_csv/issues"
+  spec.metadata["upgrade_uri"]        = "https://github.com/tilo/smarter_csv/blob/main/UPGRADING.md"
+  spec.metadata["upgrade_wizard_uri"] = "https://tilo.github.io/smarter_csv/upgrade_wizard.html"
 
   spec.required_ruby_version = ">= 2.6.0"
 

@@ -1,6 +1,9 @@
 
 # SmarterCSV 1.x Change Log
 
+> [!TIP]
+> **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most hops do not require any changes.
+
 ## 1.17.3 (2026-05-25)
 
 RSpec tests: **2,274→ 2,277** (+3 tests)
@@ -188,23 +191,42 @@ RSpec tests: **1,247 → 1,410** (+163 tests)
 
 * Added 163 tests covering new features and corner cases
 
-## 1.16.0 (2026-03-12) — Minor Breaking Change
+## 1.16.0 (2026-03-12) — improved RFC 4180 quote handling, new APIs, large performance gains
 
 [Full details](docs/releases/1.16.0/changes.md) · [Benchmarks](docs/releases/1.16.0/benchmarks.md) · [Performance notes](docs/releases/1.16.0/performance_notes.md)
 
 RSpec tests: **714 → 1,247** (+533 tests)
 
-### Minor Breaking Change
+### (Bug Fix) `quote_boundary:` — new default for how mid-field quotes are handled
 
-New option **`quote_boundary:`**
-* defaults to `:standard`**: quotes are now only recognized as field delimiters at field boundaries;
-  mid-field quotes are treated as literal characters.
+**In short — most users will see incorrect output silently improve. If your CSV files don't contain stray `"` characters in the middle of unquoted fields, you are not affected. If they do, the new default produces correct output where the old default produced corrupted output.**
 
-  This aligns SmarterCSV with RFC 4180 and other CSV libraries. In practice, mid-field quotes
-  were already producing silently corrupt output in previous versions — so most users will see
-  correct behavior improve, not regress.
+A new option `quote_boundary:` controls when a `"` character marks the start or end of a quoted field versus when it's a literal character inside the field.
 
-* Use `quote_boundary: :legacy` only in exceptional cases to restore previous behavior. See [Parsing Strategy](../../parsing_strategy.md).
+* `quote_boundary: :standard` (the new default) — quotes are only recognized as field delimiters at field boundaries (start of a field, or immediately before `col_sep` / end of line). A `"` that appears in the middle of an unquoted field is treated as a literal character. This matches RFC 4180 and Ruby's standard `CSV` library.
+* `quote_boundary: :legacy` — **not recommended.** Restores the pre-1.16.0 behavior, where any `"` could open a quoted region. This is the behavior that produced silently corrupt output on files with stray mid-field quotes; it exists only as an escape hatch for code that built workarounds on top of the buggy output. New code should never use this.
+
+In practice, the old `:legacy` behavior was silently producing corrupt output whenever a CSV file contained a stray mid-field `"` — so for most users this change makes output **correct** where it was wrong before, not the other way around.
+
+#### You are NOT affected if:
+  - Your CSV files don't contain any `"` characters mid-field (the common case).
+  - Your CSV files quote fields cleanly per RFC 4180 (well-formed `"..."` around each quoted field, no stray quotes inside other fields).
+
+#### You are affected if:
+  - Your CSV files contain stray `"` characters in the middle of unquoted fields (e.g. `5'6"`, `Joe "the Hat" Smith` without surrounding quotes), **and** you had downstream code that compensated for the previously-corrupted parse output.
+
+#### How to migrate
+
+For almost everyone: do nothing. Upgrade and observe that the output is the same or more correct.
+
+The `quote_boundary: :legacy` option exists only as a short-term escape hatch — **we do not advise using it**, because it re-enables the buggy parse behavior that motivated this change. If your code built workarounds on top of the previously-corrupted output, the right fix is to remove those workarounds and rely on the new `:standard` behavior, not to opt back into the bug:
+
+```ruby
+# Only as a temporary escape hatch — not recommended for new code:
+SmarterCSV.process('file.csv', quote_boundary: :legacy)
+```
+
+See [Parsing Strategy](docs/parsing_strategy.md) for details on how each mode handles edge cases.
 
 ### Performance
 
@@ -423,44 +445,90 @@ _worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
 ## 1.13.1 (2024-12-12)
   * fix bug with SmarterCSV.generate with `force_quotes: true` ([issue 294](https://github.com/tilo/smarter_csv/issues/294))
 
-## 1.13.0 (2024-11-06) ⚡ POTENTIALLY BREAKING ⚡
-  
-  CHANGED DEFAULT BEHAVIOR
-  ========================
-  The changes are to improve robustness and to reduce the risk of data loss
+## 1.13.0 (2024-11-06) — Three default-behavior changes that prevent silent data loss
 
-  * implementing auto-detection of extra columns (thanks to James Fenley)
+This release flipped three defaults so that SmarterCSV no longer silently loses data in three specific edge cases. For most users this is a quiet improvement — files that used to lose rows or columns silently now parse correctly with no code changes. Each change below has a short "affected if / not affected if" so you can skip past it quickly.
 
-  * improved handling of unbalanced quote_char in input ([issue 288](https://github.com/tilo/smarter_csv/issues/288)) thanks to Simon Rentzke), and ([issue 283](https://github.com/tilo/smarter_csv/issues/283)) thanks to James Fenley, Randall B, Matthew Kennedy)
-    -> SmarterCSV will now raise `SmarterCSV::MalformedCSV` for unbalanced quote_char.
+The motivation for all three changes is the same: data loss should never be silent. Either parse it correctly, or raise loudly.
 
-  * bugfix / improved handling of extra columns in input data ([issue 284](https://github.com/tilo/smarter_csv/issues/284)) (thanks to James Fenley)
-   
-    * previous behavior:
-      when a CSV row had more columns than listed in the header, the additional columns were ignored
+### Change 1 (Bug Fix): extra columns in a row are auto-named instead of dropped
 
-    * new behavior:
-      * new default behavior is to auto-generate additional headers, e.g. :column_7, :column_8, etc
-      * you can set option `:strict` to true in order to get a `SmarterCSV::MalformedCSV` exception instead
+(Thanks to James Fenley, [issue #284](https://github.com/tilo/smarter_csv/issues/284).)
 
-  * setting `user_provided_headers` now implies `headers_in_file: false` ([issue 282](https://github.com/tilo/smarter_csv/issues/282))
-    
-    The option `user_provided_headers` can be used to specify headers when there are none in the input, OR to completely override headers that are in the input (file).
+If a CSV row had more columns than the header (e.g. header has 6 columns, a row has 8), the extras used to be **silently dropped**. As of 1.13.0 they survive as `:column_7`, `:column_8`, etc.
 
-    SmarterCSV is now using a safer default behavior.
+#### You are NOT affected if:
+  - Your CSV files have exactly as many columns per row as headers (the common case).
 
-    * previous behavior:
-      Setting `user_provided_headers` did not change the default `headers_in_file: true`
-      If the input had no headers, this would cause the first line to be erroneously treated as a header, and the user could lose the first row of data.
+#### You are affected if:
+  - Your CSV files have rows with extra columns past the header **and** your code expects only the header-listed keys.
 
-    * new behavior:
-      Setting `user_provided_headers` sets`headers_in_file: false`
-      a) Improved behavior if there was no header in the input data.
-      b) If there was a header in the input data, and `user_provided_headers` is used to override the headers in the file, then please explicitly specify `headers_in_file: true`, otherwise you will get an extra hash which includes the header data.
+#### How to migrate
 
-    IF you set `user_provided_headers` and the file has a header, then provide `headers_in_file: true` to avoid getting that extra record.
+If you want the old "ignore extras" behavior, drop the extra keys yourself. If you want loud failure instead, use the strict mode:
 
-   * improved documentation for handling of numeric columns with leading zeroes, e.g. ZIP codes. ([issue #151](https://github.com/tilo/smarter_csv/issues/151) thanks to David Moles). `convert_values_to_numeric: { except: [:zip] }` will  return a string for that column instead (since version 1.10.x)
+```ruby
+# Raise SmarterCSV::MalformedCSV on extra columns:
+SmarterCSV.process('file.csv', strict: true)
+```
+
+(In 1.16.0 this option was renamed to `missing_headers: :raise`, but `strict: true` still works.)
+
+### Change 2 (Bug Fix): unbalanced quotes raise `MalformedCSV` instead of producing garbage
+
+(Thanks to Simon Rentzke, James Fenley, Randall B, and Matthew Kennedy. Issues [#283](https://github.com/tilo/smarter_csv/issues/283), [#288](https://github.com/tilo/smarter_csv/issues/288).)
+
+Files with an unbalanced `quote_char` (an opening `"` with no matching close) used to parse to corrupted output. As of 1.13.0 they raise `SmarterCSV::MalformedCSV`.
+
+#### You are NOT affected if:
+  - Your CSV files have well-formed quotes (the common case).
+
+#### You are affected if:
+  - Some of your input files have unbalanced quotes and you used to silently live with the garbled output.
+
+#### How to migrate
+
+If you need to keep processing other files even when one is malformed, rescue the new exception:
+
+```ruby
+begin
+  SmarterCSV.process('file.csv')
+rescue SmarterCSV::MalformedCSV => e
+  warn "Skipping malformed file: #{e.message}"
+end
+```
+
+### Change 3 (Bug Fix): `user_provided_headers:` now implies `headers_in_file: false`
+
+([Issue #282](https://github.com/tilo/smarter_csv/issues/282).)
+
+This one fixes a quiet footgun: if you passed `user_provided_headers:` and the file had **no** header row, SmarterCSV used to treat the first data row as a header and silently drop it. As of 1.13.0, setting `user_provided_headers:` automatically sets `headers_in_file: false`, so the first row is treated as data — which is what you almost always wanted.
+
+#### You are NOT affected if:
+  - You don't use `user_provided_headers:`.
+  - You use `user_provided_headers:` with files that have no header line (the common case — that's what the option is for).
+
+#### You are affected if:
+  - You pass `user_provided_headers:` **and** your CSV file **does** have a header line that needs to be skipped.
+
+#### How to migrate
+
+If your file has a header line **and** you're overriding it with `user_provided_headers:`, add `headers_in_file: true` explicitly so the existing header line is skipped:
+
+```ruby
+# File has a header row that you want to override:
+SmarterCSV.process(
+  'file.csv',
+  user_provided_headers: [:id, :name, :email],
+  headers_in_file: true,    # skip the header row in the file
+)
+```
+
+Without `headers_in_file: true`, you will get an extra hash at the top of your results containing the file's original header strings as values — that's the symptom to look for.
+
+### Documentation
+
+* Improved documentation for handling numeric columns with leading zeroes (e.g. ZIP codes). Use `convert_values_to_numeric: { except: [:zip] }` to keep that column as a string. (Available since 1.10.x.) Thanks to David Moles, [issue #151](https://github.com/tilo/smarter_csv/issues/151).
 
 ## 1.12.1 (2024-07-10)
   * Improved column separator detection by ignoring quoted sections [#276](https://github.com/tilo/smarter_csv/pull/276) (thanks to Nicolas Castellanos)
@@ -514,23 +582,66 @@ _worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
 ## 1.10.1 (2024-01-07)
   * fix incorrect warning about UTF-8 (issue #268, thanks hirowatari)
 
-## 1.10.0 (2023-12-31) ⚡ BREAKING ⚡
+## 1.10.0 (2023-12-31) — Behavior changes for `user_provided_headers:` and duplicate headers
 
-  * BREAKING CHANGES:
-    
-    Changed behavior:
-     + when `user_provided_headers` are provided:
-       * if they are not unique, an exception will now be raised
-       * they are taken "as is", no header transformations can be applied
-       * when they are given as strings or as symbols, it is assumed that this is the desired format
-       * the value of the `strings_as_keys` options will be ignored
-         
-     + option `duplicate_header_suffix` now defaults to `''` instead of `nil`.
-       * this allows automatic disambiguation when processing of CSV files with duplicate headers, by appending a number
-       * explicitly set this option to `nil` to get the behavior from previous versions.
+Two small behavior changes plus performance and memory improvements. Most users are not affected. Read on for who needs to look closer.
 
-  * performance and memory improvements
-  * code refactor
+### Change 1 (Improvement): `user_provided_headers:` is now taken literally (no transformations, no duplicates)
+
+**In short — if you use `user_provided_headers:`, write the list in the exact form you want the result keys (all symbols *or* all strings), and make sure there are no duplicates. For most users this is already what you were doing.**
+
+Before 1.10.0, any list you passed as `user_provided_headers:` was run through the same header pipeline as in-file headers — `strings_as_keys` could flip strings to symbols, etc. Duplicates were silently accepted. As of 1.10.0, the list is used **literally**: no transformations are applied, and duplicates raise `SmarterCSV::DuplicateHeaders`.
+
+This is almost always what people actually wanted: if you're explicitly listing the headers, you want *those* headers, not a transformed version of them.
+
+#### You are NOT affected if:
+  - You don't use `user_provided_headers:`.
+  - Your `user_provided_headers:` list is already in the form you want (all symbols *or* all strings, no duplicates).
+  In these cases, you can just upgrade without any code changes.
+
+#### You are affected if either is true:
+  - You pass `user_provided_headers:` **and** relied on `strings_as_keys:` to flip between string/symbol keys.
+  - You pass `user_provided_headers:` **and** had accidental duplicates in the list that the library used to silently accept (this case would be very odd).
+
+#### How to migrate
+
+```ruby
+# If you want symbol keys, write symbols directly:
+SmarterCSV.process('file.csv', user_provided_headers: [:id, :name, :email])
+
+# If you want string keys, write strings directly:
+SmarterCSV.process('file.csv', user_provided_headers: ['id', 'name', 'email'])
+```
+
+Drop any `strings_as_keys:` option you used alongside `user_provided_headers:` — it's ignored in that case now.
+
+If you see `SmarterCSV::DuplicateHeaders` after upgrading, your list has a repeat in it — fix the duplicate and you're done.
+
+### Change 2 (Improvement): duplicate headers in the CSV file are now auto-disambiguated
+
+**In short — if your input CSV has duplicate column headers, they now Just Work instead of colliding. If your files don't have duplicate headers, you are not affected.**
+
+`duplicate_header_suffix:` used to default to `nil`. Now it defaults to `''` (empty string), which means a file with headers like `name,name,name` becomes keys `name`, `name2`, `name3` automatically — no more silently overwriting earlier columns.
+
+#### You are affected if:
+  - You depended on SmarterCSV raising or failing fast when a CSV has duplicate headers (e.g. as a data-quality check at the boundary of your pipeline).
+
+#### You are NOT affected if:
+  - Your CSVs don't have duplicate headers.
+  - You already explicitly set `duplicate_header_suffix:` in your code.
+
+#### How to migrate
+
+If you want the old strict behavior, set the option explicitly to `nil`:
+
+```ruby
+SmarterCSV.process('file.csv', duplicate_header_suffix: nil)
+```
+
+### Other
+
+* Performance and memory improvements
+* Internal code refactor
 
 ## 1.9.3 (2023-12-16)
   * raise SmarterCSV::IncorrectOption when `user_provided_headers` are empty
@@ -668,13 +779,40 @@ _worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
   * fixed buggy behavior when using `remove_empty_values: false` (issue #168)
   * fixed Ruby 3.0 deprecation
 
-## 1.3.0 (2022-02-06) Breaking code change if you used `--key_mappings`
- * fix bug for key_mappings (issue #181)   
-   The values of the `key_mappings` hash will now be used "as is", and no longer forced to be symbols
+## 1.3.0 (2022-02-06)
 
-   **Users with existing code with `--key_mappings` need to change their code** to 
-     * either use symbols in the `key_mapping` hash
-     * or change the expected keys from symbols to strings
+### (Bug Fix) Small change for users of the `key_mapping:` option (issue #181)
+
+**In short — if you use `key_mapping:`, this is a one-character fix per mapping. If you don't use `key_mapping:`, you are not affected.**
+
+Previously, the values in a `key_mapping:` hash were silently coerced to symbols, so `'new_name'` and `:new_name` produced the same result key. As of 1.3.0, the values are used as-is — strings stay strings, symbols stay symbols. This gives you direct control over whether the result hashes use string or symbol keys.
+
+#### You are NOT affected if any of these are true:
+  - You don't use `key_mapping:`.
+  - Your `key_mapping:` already uses symbol values (e.g. `:new_name`).
+  - Your downstream code already reads result hashes with string keys.
+  In these cases, you can just upgrade without any code changes.
+
+#### You are affected if all three are true:
+  - You pass `key_mapping:` to `SmarterCSV.process` (or `process_csv` in older code), **and**
+  - The values in that hash are strings (e.g. `'new_name'`, not `:new_name`), **and**
+  - Your downstream code reads the result hashes with symbol keys (e.g. `row[:new_name]`).
+  This needs a small code-change
+
+#### How to migrate
+
+Pick whichever is the smaller diff in your code:
+
+```ruby
+# Option A — keep symbol keys in the result (one extra colon per line):
+SmarterCSV.process('file.csv', key_mapping: { 'Old Header' => :new_name })
+#                                                             ^ add the colon
+
+# Option B — switch your reads to string keys:
+row['new_name']   # instead of row[:new_name]
+```
+
+That's the whole migration. Everything else in 1.3.0 is source-compatible with 1.2.x.
 
 ## 1.2.9 (2021-11-22) (PULLED)
  * fix bug for key_mappings (issue #181)
@@ -701,7 +839,7 @@ _worldcities.csv is [from here](https://simplemaps.com/data/world-cities)_
  * bugfix (thanks to Joshua Smith for reporting)
 
 ## 1.2.0 (2018-01-20)
- * add default validation that a header can only appear once
+ * add default validation that a header can only appear once; raises `SmarterCSV::DuplicateHeaders` when it doesn't
  * add option `required_headers`
 
 ## 1.1.5 (2017-11-05)

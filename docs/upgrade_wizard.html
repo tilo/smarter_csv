@@ -1,0 +1,498 @@
+<!doctype html>
+<!--
+Wizard Behavior:
+
+  - On load, wizard fetches upgrade_path.json first (must succeed), then also fetches CHANGELOG.md from raw.githubusercontent.com. If the CHANGELOG fetch + parse succeed, the parsed {series → latest_patch} map overlays the latest_release fields in the data.
+  - Console message confirms which source won: "Latest patches loaded from CHANGELOG.md" (live) or "CHANGELOG.md fetch failed; using upgrade_path.json fallback values" (fallback).
+  - Graceful failure: if raw.githubusercontent.com is unreachable, parse fails, or returns nothing, the wizard silently uses the values already in upgrade_path.json — so the JSON's latest_release fields become a stale-but-safe fallback.
+
+Maintainer workflow now:
+
+  - Ship a new patch (e.g. 1.14.5): edit CHANGELOG.md only. Wizard picks it up live on next load.
+  - Ship a new minor with new migration steps (e.g. 1.18): edit upgrade_path.json (chain + actions) + CHANGELOG.md.
+  - The latest_release fields in JSON can drift — only consulted when the live fetch fails. Refresh them whenever you want, no urgency.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smarter_csv upgrade wizard</title>
+<style>
+:root {
+  --fg: #1a1a1a;
+  --muted: #666;
+  --bg: #fff;
+  --accent: #c5392b;
+  --accent-soft: #fff0ee;
+  --green: #2c7a2c;
+  --green-soft: #e8f5e9;
+  --border: #ddd;
+  --card-bg: #fafafa;
+}
+* { box-sizing: border-box; }
+body {
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  max-width: 740px;
+  margin: 2.5em auto;
+  padding: 0 1.25em;
+}
+h1 { font-size: 1.6em; margin: 0 0 0.5em; }
+h2 { font-size: 1.25em; margin: 0 0 0.75em; }
+p { margin: 0.5em 0; }
+code, pre {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.93em;
+}
+code { background: #f4f4f4; padding: 0.1em 0.35em; border-radius: 3px; }
+pre {
+  background: #f4f4f4;
+  padding: 0.85em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+button {
+  font: inherit;
+  padding: 0.45em 1.1em;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  margin: 0 0.25em 0.25em 0;
+}
+button:hover { background: #f4f4f4; }
+button.primary {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+button.primary:hover { background: #235e23; }
+input[type="text"] {
+  font: inherit;
+  padding: 0.45em 0.6em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 12em;
+}
+.muted { color: var(--muted); }
+.progress {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 1em;
+}
+.hop {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25em 1.5em;
+  margin-bottom: 1em;
+}
+.dropin {
+  background: var(--green-soft);
+  border-color: #b6dab6;
+  color: var(--green);
+  font-weight: 600;
+}
+.check {
+  padding: 0.85em 0;
+  border-top: 1px solid var(--border);
+}
+.check:first-of-type { border-top: none; padding-top: 0; }
+.check .q { font-weight: 500; margin-bottom: 0.4em; }
+.then {
+  display: none;
+  margin-top: 0.6em;
+  padding: 0.6em 0.85em;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.check.yes .then { display: block; }
+.check.yes button.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
+.check.no button.no { background: var(--green); color: #fff; border-color: var(--green); }
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25em;
+  gap: 0.75em;
+}
+.nav .nav-right { display: flex; align-items: center; gap: 0.75em; }
+button:disabled,
+button.primary:disabled {
+  background: #e6e6e6;
+  color: #999;
+  border-color: #d8d8d8;
+  cursor: not-allowed;
+}
+button.primary:disabled:hover { background: #e6e6e6; }
+.next-hint { color: var(--muted); font-size: 0.85em; }
+.reminder { color: var(--muted); font-style: italic; font-weight: 600; font-size: 1.1em; margin: 0.75em 0 0.25em; }
+.done {
+  background: var(--green-soft);
+  border: 1px solid #b6dab6;
+  border-radius: 8px;
+  padding: 1.5em 1.75em;
+}
+.summary {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1em 1.25em;
+  margin: 1em 0 1.25em;
+}
+.summary h3 { margin: 0 0 0.5em; font-size: 1.05em; }
+.summary-hop { margin: 0.85em 0; }
+.summary-hop-heading { margin: 0 0 0.35em; }
+.summary-hop ul { margin: 0.25em 0 0; padding-left: 1.3em; }
+.summary-hop li { margin: 0.5em 0; }
+.error { color: var(--accent); margin-top: 0.5em; }
+</style>
+</head>
+<body>
+
+<h1>SmarterCSV Upgrade Wizard</h1>
+<p class="muted">This wizard walks you from your current version to the latest, one hop at a time.<br><br>Only the questions where you answer "Yes" will show migration steps.<br>Question answered with "No" represent risk-free upgrades.</p><br><br>
+
+<div id="app"></div>
+
+<script>
+// Data lives in upgrade_path.json (sibling file). The wizard fetches it on load
+// and the JSON is the single source of truth — to add a new release or migration
+// step, edit only that file. See upgrading-smarter_csv.md for the schema.
+
+let UPGRADE_PATH   = {};   // populated by loadData()
+let LATEST         = null; // series, e.g. "1.17", populated by loadData()
+let LATEST_RELEASE = null; // specific patch version for display, e.g. "1.17.2"
+let SERIES         = [];   // Object.keys(UPGRADE_PATH), populated by loadData()
+let decisions      = [];   // accumulated per-hop results across the user's walk
+
+const app = document.getElementById("app");
+const params = new URLSearchParams(location.search);
+const prefilled = params.get("from") || "";
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+function seriesFromVersion(v) {
+  const parts = (v || "").trim().split(".");
+  if (parts.length < 2) return null;
+  const s = parts[0] + "." + parts[1];
+  return UPGRADE_PATH[s] ? s : null;
+}
+
+// Returns the latest patch release for a given MAJOR.MINOR series.
+// For the terminal series (LATEST) we read the top-level latest_release;
+// for every other series we read it from inside its UPGRADE_PATH entry.
+function latestReleaseFor(series) {
+  if (series === LATEST) return LATEST_RELEASE || series;
+  return (UPGRADE_PATH[series] && UPGRADE_PATH[series].latest_release) || series;
+}
+
+function renderStart(errorMsg) {
+  decisions = [];   // reset accumulated decisions whenever we restart
+  app.innerHTML = `
+    <div class="hop">
+      <h2>What version are you on?</h2>
+      <p>Run <code>bundle show smarter_csv</code> in your project to check, or look at your <code>Gemfile.lock</code>.</p>
+      <p>
+        <input type="text" id="ver" placeholder="e.g. ${latestReleaseFor(SERIES[Math.floor(SERIES.length / 2)])}" value="${escapeHTML(prefilled)}" autofocus>
+        <button class="primary" id="start">Start</button>
+      </p>
+      ${errorMsg ? `<p class="error">${escapeHTML(errorMsg)}</p>` : ""}
+      <p class="muted">Supported starting versions: ${SERIES[0]}.x through ${SERIES[SERIES.length - 1]}.x. If you're already on ${LATEST}.x, you can update to the latest.</p>
+    </div>
+  `;
+  document.getElementById("start").addEventListener("click", onStart);
+  document.getElementById("ver").addEventListener("keydown", e => { if (e.key === "Enter") onStart(); });
+}
+
+function onStart() {
+  const v = document.getElementById("ver").value;
+  if (v.startsWith(LATEST + ".") || v === LATEST) { renderDone(v); return; }
+  const s = seriesFromVersion(v);
+  if (!s) {
+    renderStart(`Please enter a version like ${latestReleaseFor(SERIES[Math.floor(SERIES.length / 2)])} (must start with ${SERIES[0]} through ${SERIES[SERIES.length - 1]}).`);
+    return;
+  }
+  renderHop(s, v);
+}
+
+function renderHop(series, originalVersion) {
+  const hop = UPGRADE_PATH[series];
+  const idx = SERIES.indexOf(series);
+  const targetRelease = latestReleaseFor(hop.to);
+
+  let body;
+  if (hop.actions.length === 0) {
+    body = `<div class="hop dropin">
+      Drop-in hop: no code changes needed for ${series}.x &rarr; ${targetRelease}. Just continue.
+    </div>`;
+  } else {
+    body = `<div class="hop">
+      ${hop.actions.map((a, i) => `
+        <div class="check" data-i="${i}">
+          <p class="q"><strong>If</strong> ${a["if"]}:</p>
+          <p>
+            <button class="yes">Yes, this applies to me</button>
+            <button class="no">No</button>
+          </p>
+          <div class="then"><strong>Then:</strong> ${a.then}</div>
+        </div>
+      `).join("")}
+    </div>`;
+  }
+
+  const nextLabel = hop.to === LATEST ? `Finish at ${targetRelease} &rarr;` : `Continue to ${targetRelease} &rarr;`;
+  const reminder = hop.actions.length === 0 ?  `<p class="reminder">You can upgrade directly to the version showing on the "Continue" button. No changes needed.</p>` :
+    `<p class="reminder">If there are actions listed above, please ensure they are fixed before clicking "Continue".</p>`;
+  app.innerHTML = `
+    <p class="progress">Upgrading from ${series}.x &rarr; ${targetRelease}</p>
+    ${body}
+    ${reminder}
+    <div class="nav">
+      <button id="back">&larr; Start over</button>
+      <div class="nav-right">
+        <span id="next-hint" class="next-hint"></span>
+        <button class="primary" id="next">${nextLabel}</button>
+      </div>
+    </div>
+  `;
+
+  function updateNextState() {
+    const allChecks  = document.querySelectorAll(".check");
+    const unanswered = document.querySelectorAll(".check:not(.yes):not(.no)");
+    const yesAnswers = document.querySelectorAll(".check.yes");
+    const nextBtn    = document.getElementById("next");
+    const hint       = document.getElementById("next-hint");
+    const reminderEl = document.querySelector(".reminder");
+
+    if (unanswered.length === 0) {
+      nextBtn.disabled = false;
+      hint.textContent = "";
+    } else {
+      nextBtn.disabled = true;
+      hint.textContent = unanswered.length === 1
+        ? "Answer the question to continue."
+        : `Answer all ${unanswered.length} questions to continue.`;
+    }
+
+    // Swap reminder text based on the user's answers so far.
+    // Hidden while any question is unanswered.
+    if (reminderEl && allChecks.length > 0) {
+      if (unanswered.length > 0) {
+        // Some questions still unanswered — hide reminder entirely.
+        reminderEl.style.display = "none";
+      } else if (yesAnswers.length === 0) {
+        // All answered, all "No" — nothing applies, upgrade is direct.
+        reminderEl.style.display = "";
+        reminderEl.textContent = 'You can upgrade directly to the version showing on the "Continue" button. No changes needed.';
+      } else {
+        // All answered, at least one "Yes" — actions must be applied first.
+        reminderEl.style.display = "";
+        reminderEl.textContent = 'If there are actions listed above, please ensure they are fixed before clicking "Continue".';
+      }
+    }
+  }
+
+  document.querySelectorAll(".check").forEach(c => {
+    c.querySelector(".yes").addEventListener("click", () => {
+      c.classList.remove("no");
+      c.classList.add("yes");
+      updateNextState();
+    });
+    c.querySelector(".no").addEventListener("click", () => {
+      c.classList.remove("yes");
+      c.classList.add("no");
+      updateNextState();
+    });
+  });
+
+  document.getElementById("back").addEventListener("click", () => renderStart());
+  document.getElementById("next").addEventListener("click", () => {
+    if (document.getElementById("next").disabled) return;  // belt-and-braces
+
+    // Record this hop's decisions before navigating.
+    const matched = hop.actions.length === 0 ? [] :
+      Array.from(document.querySelectorAll(".check.yes")).map(c => {
+        const i = parseInt(c.dataset.i, 10);
+        return hop.actions[i];
+      });
+    decisions.push({
+      from:   series,
+      to:     hop.to,
+      dropIn: hop.actions.length === 0,
+      matched
+    });
+
+    if (hop.to === LATEST) {
+      renderDone(originalVersion);
+    } else {
+      renderHop(hop.to, originalVersion);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  updateNextState();   // initial state: disabled if there are any checks, enabled if drop-in hop
+}
+
+function renderDone(originalVersion) {
+  const fullVersion  = LATEST_RELEASE || LATEST;
+  const seriesOnly   = LATEST;
+  const summaryHTML  = renderSummary();
+
+  app.innerHTML = `
+    <div class="done">
+      <h2>You're done</h2>
+      <p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest patch in the ${seriesOnly}.x series).</p>
+      ${summaryHTML}
+      <p>Update your <code>Gemfile</code> to:</p>
+      <pre><code>gem 'smarter_csv', '~&gt; ${seriesOnly}.0'</code></pre>
+      <p>Then run:</p>
+      <pre><code>bundle update smarter_csv</code></pre>
+      <p>After that, run your test suite. If anything behaves unexpectedly, click "Start over" and walk back through the hops to find the migration step you might have missed.</p>
+      <p class="muted">Questions? Open an issue at <a href="https://github.com/tilo/smarter_csv/issues">github.com/tilo/smarter_csv/issues</a>.</p>
+      <p><button id="restart">Start over</button></p>
+    </div>
+  `;
+  document.getElementById("restart").addEventListener("click", () => renderStart());
+}
+
+function renderSummary() {
+  if (decisions.length === 0) return "";
+
+  const matchedCount = decisions.reduce((n, d) => n + d.matched.length, 0);
+  const dropInCount  = decisions.filter(d => d.dropIn).length;
+  const intro = matchedCount === 0
+    ? `<p>Good news: <strong>none of the per-hop conditions applied to your code</strong> across the ${decisions.length} hops you walked${dropInCount ? ` (${dropInCount} were drop-in hops)` : ""}. The upgrade should be a clean Gemfile bump.</p>`
+    : `<p>Across ${decisions.length} hops you walked, <strong>${matchedCount} migration step${matchedCount === 1 ? "" : "s"} apply</strong> to your code. Review and apply them before running <code>bundle update</code>:</p>`;
+
+  const list = decisions.map(d => {
+    const targetRelease = latestReleaseFor(d.to);
+    const heading = `<p class="summary-hop-heading"><strong>${d.from}.x &rarr; ${targetRelease}</strong></p>`;
+    if (d.dropIn) {
+      return `<div class="summary-hop">${heading}<p class="muted">Drop-in hop &mdash; no code changes needed.</p></div>`;
+    }
+    if (d.matched.length === 0) {
+      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions on this hop applied to your code.</p></div>`;
+    }
+    const items = d.matched.map(a => `<li><strong>If</strong> ${a["if"]}<br>&rarr; ${a.then}</li>`).join("");
+    return `<div class="summary-hop">${heading}<ul>${items}</ul></div>`;
+  }).join("");
+
+  return `
+    <div class="summary">
+      <h3>Summary of your upgrade path</h3>
+      ${intro}
+      ${list}
+    </div>
+  `;
+}
+
+function renderLoading() {
+  app.innerHTML = `<div class="hop"><p class="muted">Loading upgrade path...</p></div>`;
+}
+
+function renderLoadError(err) {
+  app.innerHTML = `
+    <div class="hop">
+      <h2 class="error">Could not load upgrade data</h2>
+      <p>The wizard failed to fetch <code>upgrade_path.json</code>. ${escapeHTML(err && err.message ? err.message : String(err))}</p>
+      <p class="muted">If you're viewing this file locally via <code>file://</code>, browsers block <code>fetch</code> for security. Serve it over HTTP (the GitHub Pages URL works), or open an issue at <a href="https://github.com/tilo/smarter_csv/issues">github.com/tilo/smarter_csv/issues</a>.</p>
+    </div>
+  `;
+}
+
+function boot() {
+  if (prefilled) {
+    if (prefilled.startsWith(LATEST + ".") || prefilled === LATEST) {
+      renderDone(prefilled);
+      return;
+    }
+    const s = seriesFromVersion(prefilled);
+    if (s) { renderHop(s, prefilled); return; }
+  }
+  renderStart();
+}
+
+// Parses CHANGELOG.md headings like "## 1.17.2 (2026-05-21)" and returns
+// a {series: latestPatch} map. Skips pre-releases (1.0.0.pre1), yanked,
+// pulled, or replaced versions. Returns null on any failure.
+async function fetchChangelogLatestPatches() {
+  try {
+    const url = "https://raw.githubusercontent.com/tilo/smarter_csv/main/CHANGELOG.md";
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return parseLatestPatchesFromChangelog(text);
+  } catch (_) {
+    return null;
+  }
+}
+
+function parseLatestPatchesFromChangelog(text) {
+  const result = {};
+  const lineRe = /^##\s+(\S+)([^\n]*)/gm;
+  let m;
+  while ((m = lineRe.exec(text)) !== null) {
+    const version = m[1];
+    const rest = m[2] || "";
+    if (!/^\d+\.\d+\.\d+$/.test(version)) continue;                // strict: rejects "1.0.0.pre1" or any non-numeric heading
+    if (/\b(YANKED|PULLED|replaced)\b/i.test(rest)) continue;      // skip 1.2.9 / 1.4.1 / 1.9.1 / 1.11.1 / 1.7.0 etc.
+    const series = version.split(".").slice(0, 2).join(".");
+    if (!result[series] || cmpVersions(version, result[series]) > 0) {
+      result[series] = version;
+    }
+  }
+  return result;
+}
+
+function cmpVersions(a, b) {
+  const ap = a.split(".").map(Number);
+  const bp = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (ap[i] !== bp[i]) return ap[i] - bp[i];
+  }
+  return 0;
+}
+
+async function loadData() {
+  renderLoading();
+  try {
+    const res = await fetch("upgrade_path.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data || typeof data !== "object" || !data.path || !data.latest) {
+      throw new Error("upgrade_path.json is missing 'latest' or 'path'");
+    }
+
+    // Live overlay: read the highest non-yanked patch per series from CHANGELOG.md.
+    // If fetch/parse fails, we silently keep whatever's in upgrade_path.json — those
+    // values become a stale-but-safe fallback.
+    const livePatches = await fetchChangelogLatestPatches();
+    if (livePatches) {
+      for (const series of Object.keys(data.path)) {
+        if (livePatches[series]) data.path[series].latest_release = livePatches[series];
+      }
+      if (livePatches[data.latest]) data.latest_release = livePatches[data.latest];
+      console.log("[upgrade_wizard] Latest patches loaded from CHANGELOG.md:", livePatches);
+    } else {
+      console.log("[upgrade_wizard] CHANGELOG.md fetch failed; using upgrade_path.json fallback values.");
+    }
+
+    UPGRADE_PATH   = data.path;
+    LATEST         = data.latest;
+    LATEST_RELEASE = data.latest_release || data.latest;
+    SERIES         = Object.keys(UPGRADE_PATH);
+    boot();
+  } catch (err) {
+    renderLoadError(err);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+#
+# Generates UPGRADING.md from CHANGELOG.md (version enumeration + in-series ⚠️
+# cautions) and docs/upgrade_path.json (per-series migration actions).
+#
+# Run this whenever CHANGELOG.md or docs/upgrade_path.json changes:
+#
+#   bin/gen-upgrading-md
+#
+# Output: UPGRADING.md at the repo root.
+
+require 'json'
+
+REPO_ROOT          = File.expand_path('..', __dir__)
+CHANGELOG_PATH     = File.join(REPO_ROOT, 'CHANGELOG.md')
+UPGRADE_PATH_JSON  = File.join(REPO_ROOT, 'docs', 'upgrade_path.json')
+OUTPUT_PATH        = File.join(REPO_ROOT, 'UPGRADING.md')
+
+WIZARD_URL         = 'https://tilo.github.io/smarter_csv/upgrade_wizard.html'
+
+# Parses CHANGELOG.md.
+# Returns { "1.16" => [ {version:, cautions: [...]}, ... ], ... }.
+# Skips yanked / pulled / replaced entries.
+def parse_changelog(text)
+  by_series = Hash.new { |h, k| h[k] = [] }
+
+  # Split on H2 headings. drop(1) discards the preamble before the first H2.
+  text.split(/^## /m).drop(1).each do |section|
+    lines       = section.split("\n")
+    header_line = lines.first.to_s
+    body        = lines[1..].to_a.join("\n")
+
+    # Header looks like:  "1.16.2 (2026-03-30) — Bug Fixes"  or  "1.7.0 (...) (replaced by 1.7.1)"
+    m = header_line.match(/\A(\S+)([^\n]*)/)
+    next unless m
+    version    = m[1]
+    rest       = m[2] || ''
+
+    # Skip yanked / pulled / replaced versions.
+    next if rest =~ /\b(YANKED|PULLED|replaced)\b/i
+
+    # Only accept versions matching X.Y.Z or X.Y.Z.preN (pre-releases included).
+    next unless version =~ /\A\d+\.\d+\.\d+(\.pre\d+)?\z/
+
+    series = version.split('.')[0..1].join('.')
+
+    # Collect any ⚠️ cautions from the body, gathering multi-line paragraphs.
+    cautions = extract_cautions(body.split("\n"))
+
+    by_series[series] << { version: version, cautions: cautions }
+  end
+
+  by_series
+end
+
+# Walks the body lines, gathering each ⚠️ marker into a full paragraph (handles
+# multi-line blockquote and bullet continuations).
+def extract_cautions(body_lines)
+  cautions = []
+  i = 0
+  while i < body_lines.length
+    line = body_lines[i]
+    if line.include?('⚠️')
+      is_blockquote = line.lstrip.start_with?('>')
+      paragraph     = [strip_caution_prefix(line)]
+      i += 1
+      while i < body_lines.length
+        nxt      = body_lines[i]
+        stripped = nxt.strip
+        if is_blockquote
+          # Continue while we're still inside the blockquote.
+          break unless nxt.lstrip.start_with?('>')
+          inside = nxt.sub(/\A\s*>\s*/, '').rstrip
+          break if inside.empty?      # paragraph break inside the blockquote
+          paragraph << inside
+        else
+          # Plain text continuation: stop at blank line, new bullet, or new heading.
+          break if stripped.empty?
+          break if stripped =~ /\A[\*\-]\s/
+          break if stripped.start_with?('#')
+          paragraph << stripped
+        end
+        i += 1
+      end
+      cautions << paragraph.join(' ').gsub(/\s+/, ' ').strip
+    else
+      i += 1
+    end
+  end
+  cautions
+end
+
+def strip_caution_prefix(line)
+  # Strip leading blockquote `>`, list bullets, whitespace, and the ⚠️ itself.
+  line.sub(/\A\s*>?\s*[\*\-]?\s*/, '').sub(/⚠️\s*/, '').strip
+end
+
+# 1.0.0.pre1 < 1.0.0 ; 1.0.0 < 1.0.19 ; 1.9.0 < 1.10.0
+def compare_versions(a, b)
+  numeric_a = a.sub(/\.pre\d+\z/, '').split('.').map(&:to_i)
+  numeric_b = b.sub(/\.pre\d+\z/, '').split('.').map(&:to_i)
+  cmp = numeric_a <=> numeric_b
+  return cmp unless cmp.zero?
+  # Equal numeric part: pre-release < final
+  a_is_pre = a.include?('.pre') ? 0 : 1
+  b_is_pre = b.include?('.pre') ? 0 : 1
+  return (a_is_pre <=> b_is_pre) unless a_is_pre == b_is_pre
+  # Both pre or both final — compare pre suffix numerically
+  a.split('.pre').last.to_i <=> b.split('.pre').last.to_i
+end
+
+def compare_series(a, b)
+  a.split('.').map(&:to_i) <=> b.split('.').map(&:to_i)
+end
+
+# Strip the HTML formatting used in upgrade_path.json and convert to Markdown.
+def html_to_md(s)
+  s.dup
+   .gsub(/<code>([^<]*)<\/code>/, '`\1`')
+   .gsub(/<em>([^<]*)<\/em>/, '*\1*')
+   .gsub('&mdash;', '—')
+   .gsub('&rarr;', '→')
+   .gsub('&amp;', '&')
+   .gsub('&quot;', '"')
+   .gsub(/<br><br>/, "\n\n")
+   .gsub(/<br>/, "\n\n")
+end
+
+def generate(by_series, upgrade_path)
+  latest         = upgrade_path['latest']
+  latest_release = upgrade_path['latest_release'] || latest
+  path           = upgrade_path['path']
+
+  out = String.new
+  out << "# Upgrading SmarterCSV\n\n"
+  out << "> [!TIP]\n"
+  out << "> Prefer the interactive [Upgrade Wizard](#{WIZARD_URL}) for a guided walk-through with Yes/No questions.  \n"
+  out << "> This document is auto-generated from `CHANGELOG.md` and `docs/upgrade_path.json` by `bin/gen-upgrading-md`.\n\n"
+
+  out << "## How to use this guide\n\n"
+  out << "1. Find your current version below. **Newest releases appear first; older ones further down.**\n"
+  out << "2. Read each series section between yours and the latest at the top. For each one, check whether any **If** conditions apply to your code.\n"
+  out << "3. If none apply, you can upgrade all the way through that series with no code changes.\n\n"
+  out << "Prefer an interactive walk-through? The [Upgrade Wizard](#{WIZARD_URL}) asks one question at a time and only shows the migration steps that apply to your code.\n\n"
+  out << "**Latest release:** `#{latest_release}` (in the `#{latest}.x` series).\n\n"
+  out << "---\n\n"
+
+  # All series we know about: from CHANGELOG, from the path, plus the terminal series.
+  # Sorted newest-first to match CHANGELOG.md ordering (industry convention).
+  all_series = (by_series.keys + path.keys + [latest]).uniq.sort { |a, b| compare_series(b, a) }
+
+  all_series.each do |series|
+    versions = (by_series[series] || []).sort { |a, b| compare_versions(a[:version], b[:version]) }
+    version_list = versions.map { |v| v[:version] }
+    all_cautions = versions.flat_map { |v| v[:cautions].map { |c| [v[:version], c] } }
+
+    hop = path[series]
+
+    if hop
+      target_series  = hop['to']
+      target_release = (path[target_series] && path[target_series]['latest_release']) ||
+                       (target_series == latest ? latest_release : target_series)
+
+      out << "## Series #{series} → #{target_series}\n\n"
+
+      if version_list.any?
+        out << "**Coming from any #{series} version:**  \n"
+        out << "[#{version_list.join(', ')}]\n\n"
+      end
+
+      unless all_cautions.empty?
+        out << "> ⚠️ **In-series notes** worth checking if you're upgrading through one of these:\n"
+        all_cautions.each do |ver, caution|
+          out << "> - **#{ver}:** #{caution}\n"
+        end
+        out << "\n"
+      end
+
+      if hop['actions'].empty?
+        out << "**Upgrading to #{target_series}.x** (latest: `#{target_release}`): you can upgrade all the way — no code changes needed.\n\n"
+      else
+        out << "**Upgrading to #{target_series}.x** (latest: `#{target_release}`):\n\n"
+        hop['actions'].each do |action|
+          condition = html_to_md(action['if'])
+          remedy    = html_to_md(action['then'])
+          out << "- **If** #{condition}:  \n"
+          out << "  → #{remedy.gsub("\n", "\n    ")}\n\n"
+        end
+      end
+
+      out << "---\n\n"
+    else
+      # Terminal series — no further hop.
+      out << "## #{series}.x — latest series\n\n"
+
+      if version_list.any?
+        out << "**Versions in this series:**  \n"
+        out << "[#{version_list.join(', ')}]\n\n"
+      end
+
+      unless all_cautions.empty?
+        out << "> ⚠️ **In-series notes** worth checking:\n"
+        all_cautions.each do |ver, caution|
+          out << "> - **#{ver}:** #{caution}\n"
+        end
+        out << "\n"
+      end
+
+      out << "**Latest release:** `#{latest_release}`\n\n"
+      out << "Update your Gemfile to:\n\n"
+      out << "```ruby\n"
+      out << "gem 'smarter_csv', '~> #{series}.0'\n"
+      out << "```\n\n"
+      out << "Then run `bundle update smarter_csv`.\n\n"
+    end
+  end
+
+  out << "---\n\n"
+  out << "Questions? Open an issue: <https://github.com/tilo/smarter_csv/issues>.\n"
+  out
+end
+
+# --- Main ---
+
+changelog_text = File.read(CHANGELOG_PATH)
+upgrade_path   = JSON.parse(File.read(UPGRADE_PATH_JSON))
+by_series      = parse_changelog(changelog_text)
+
+md = generate(by_series, upgrade_path)
+File.write(OUTPUT_PATH, md)
+
+puts "Generated #{OUTPUT_PATH}"
+puts
+puts "Series found in CHANGELOG (yanked/pulled/replaced excluded):"
+by_series.keys.sort { |a, b| compare_series(a, b) }.each do |s|
+  versions = by_series[s].sort { |a, b| compare_versions(a[:version], b[:version]) }
+  cautions = versions.flat_map { |v| v[:cautions] }
+  marker   = cautions.empty? ? '' : "  ⚠️ #{cautions.size} caution(s)"
+  puts "  #{s.ljust(5)}: #{versions.size} version(s) [#{versions.map { |v| v[:version] }.join(', ')}]#{marker}"
+end
