@@ -165,7 +165,7 @@ def generate(by_series, upgrade_path)
       out << "## Series #{series} → #{target_series}\n\n"
 
       if version_list.any?
-        out << "**Coming from any #{series} version:**  \n"
+        out << "**Upgrading from any #{series} version:**  \n"
         out << "[#{version_list.join(', ')}]\n\n"
       end
 

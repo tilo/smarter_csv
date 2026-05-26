@@ -33,7 +33,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.16 → 1.17
 
-**Coming from any 1.16 version:**  
+**Upgrading from any 1.16 version:**  
 [1.16.0, 1.16.1, 1.16.2, 1.16.3, 1.16.4, 1.16.5, 1.16.6]
 
 > ⚠️ **In-series notes** worth checking if you're crossing through one of these:
@@ -46,7 +46,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.15 → 1.16
 
-**Coming from any 1.15 version:**  
+**Upgrading from any 1.15 version:**  
 [1.15.0, 1.15.1, 1.15.2, 1.15.3]
 
 **Crossing to 1.16.x** (latest: `1.16.6`):
@@ -58,7 +58,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.14 → 1.15
 
-**Coming from any 1.14 version:**  
+**Upgrading from any 1.14 version:**  
 [1.14.0, 1.14.1, 1.14.2, 1.14.3, 1.14.4]
 
 **Crossing to 1.15.x** (latest: `1.15.3`):
@@ -72,7 +72,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.13 → 1.14
 
-**Coming from any 1.13 version:**  
+**Upgrading from any 1.13 version:**  
 [1.13.0, 1.13.1]
 
 **Crossing to 1.14.x** (latest: `1.14.4`): you can upgrade all the way — no code changes needed.
@@ -81,7 +81,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.12 → 1.13
 
-**Coming from any 1.12 version:**  
+**Upgrading from any 1.12 version:**  
 [1.12.0, 1.12.1]
 
 **Crossing to 1.13.x** (latest: `1.13.1`):
@@ -99,7 +99,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.11 → 1.12
 
-**Coming from any 1.11 version:**  
+**Upgrading from any 1.11 version:**  
 [1.11.0, 1.11.2]
 
 **Crossing to 1.12.x** (latest: `1.12.1`):
@@ -116,7 +116,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.10 → 1.11
 
-**Coming from any 1.10 version:**  
+**Upgrading from any 1.10 version:**  
 [1.10.0, 1.10.1, 1.10.2, 1.10.3]
 
 **Crossing to 1.11.x** (latest: `1.11.2`): you can upgrade all the way — no code changes needed.
@@ -125,7 +125,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.9 → 1.10
 
-**Coming from any 1.9 version:**  
+**Upgrading from any 1.9 version:**  
 [1.9.0, 1.9.2, 1.9.3]
 
 **Crossing to 1.10.x** (latest: `1.10.3`):
@@ -143,7 +143,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.8 → 1.9
 
-**Coming from any 1.8 version:**  
+**Upgrading from any 1.8 version:**  
 [1.8.0, 1.8.1, 1.8.2, 1.8.3, 1.8.4, 1.8.5]
 
 **Crossing to 1.9.x** (latest: `1.9.3`):
@@ -158,7 +158,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.7 → 1.8
 
-**Coming from any 1.7 version:**  
+**Upgrading from any 1.7 version:**  
 [1.7.0.pre1, 1.7.0.pre5, 1.7.1, 1.7.2, 1.7.3, 1.7.4]
 
 **Crossing to 1.8.x** (latest: `1.8.5`):
@@ -170,7 +170,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.6 → 1.7
 
-**Coming from any 1.6 version:**  
+**Upgrading from any 1.6 version:**  
 [1.6.0, 1.6.1]
 
 **Crossing to 1.7.x** (latest: `1.7.4`): you can upgrade all the way — no code changes needed.
@@ -179,7 +179,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.5 → 1.6
 
-**Coming from any 1.5 version:**  
+**Upgrading from any 1.5 version:**  
 [1.5.0, 1.5.1, 1.5.2]
 
 **Crossing to 1.6.x** (latest: `1.6.1`):
@@ -191,7 +191,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.4 → 1.5
 
-**Coming from any 1.4 version:**  
+**Upgrading from any 1.4 version:**  
 [1.4.0, 1.4.2]
 
 **Crossing to 1.5.x** (latest: `1.5.2`):
@@ -203,7 +203,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.3 → 1.4
 
-**Coming from any 1.3 version:**  
+**Upgrading from any 1.3 version:**  
 [1.3.0]
 
 **Crossing to 1.4.x** (latest: `1.4.2`): you can upgrade all the way — no code changes needed.
@@ -212,7 +212,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.2 → 1.3
 
-**Coming from any 1.2 version:**  
+**Upgrading from any 1.2 version:**  
 [1.2.0, 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.7, 1.2.8]
 
 **Crossing to 1.3.x** (latest: `1.3.0`):
@@ -224,7 +224,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.1 → 1.2
 
-**Coming from any 1.1 version:**  
+**Upgrading from any 1.1 version:**  
 [1.1.0, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5]
 
 **Crossing to 1.2.x** (latest: `1.2.8`):
@@ -236,7 +236,7 @@ Then run `bundle update smarter_csv`.
 
 ## Series 1.0 → 1.1
 
-**Coming from any 1.0 version:**  
+**Upgrading from any 1.0 version:**  
 [1.0.0.pre1, 1.0.0, 1.0.1, 1.0.2, 1.0.3, 1.0.4, 1.0.5, 1.0.6, 1.0.7, 1.0.8, 1.0.9, 1.0.10, 1.0.11, 1.0.12, 1.0.14, 1.0.15, 1.0.16, 1.0.17, 1.0.18, 1.0.19]
 
 **Crossing to 1.1.x** (latest: `1.1.5`):
