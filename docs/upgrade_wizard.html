@@ -63,11 +63,11 @@ button {
 }
 button:hover { background: #f4f4f4; }
 button.primary {
-  background: var(--accent);
+  background: var(--green);
   color: #fff;
-  border-color: var(--accent);
+  border-color: var(--green);
 }
-button.primary:hover { background: #a82e22; }
+button.primary:hover { background: #235e23; }
 input[type="text"] {
   font: inherit;
   padding: 0.45em 0.6em;
@@ -110,7 +110,7 @@ input[type="text"] {
 }
 .check.yes .then { display: block; }
 .check.yes button.yes { background: var(--accent); color: #fff; border-color: var(--accent); }
-.check.no button.no { background: var(--muted); color: #fff; border-color: var(--muted); }
+.check.no button.no { background: var(--green); color: #fff; border-color: var(--green); }
 .nav {
   display: flex;
   justify-content: space-between;
@@ -128,6 +128,7 @@ button.primary:disabled {
 }
 button.primary:disabled:hover { background: #e6e6e6; }
 .next-hint { color: var(--muted); font-size: 0.85em; }
+.reminder { color: var(--muted); font-style: italic; font-weight: 600; font-size: 1.1em; margin: 0.75em 0 0.25em; }
 .done {
   background: var(--green-soft);
   border: 1px solid #b6dab6;
@@ -151,8 +152,8 @@ button.primary:disabled:hover { background: #e6e6e6; }
 </head>
 <body>
 
-<h1>smarter_csv upgrade wizard</h1>
-<p class="muted">This wizard walks you from your current version to the latest, one hop at a time. Only the questions where you answer "Yes" will show migration steps.</p>
+<h1>SmarterCSV Upgrade Wizard</h1>
+<p class="muted">This wizard walks you from your current version to the latest, one hop at a time.<br><br>Only the questions where you answer "Yes" will show migration steps.<br>Question answered with "No" represent risk-free upgrades.</p><br><br>
 
 <div id="app"></div>
 
@@ -197,11 +198,11 @@ function renderStart(errorMsg) {
       <h2>What version are you on?</h2>
       <p>Run <code>bundle show smarter_csv</code> in your project to check, or look at your <code>Gemfile.lock</code>.</p>
       <p>
-        <input type="text" id="ver" placeholder="e.g. 1.12.1" value="${escapeHTML(prefilled)}" autofocus>
+        <input type="text" id="ver" placeholder="e.g. ${latestReleaseFor(SERIES[Math.floor(SERIES.length / 2)])}" value="${escapeHTML(prefilled)}" autofocus>
         <button class="primary" id="start">Start</button>
       </p>
       ${errorMsg ? `<p class="error">${escapeHTML(errorMsg)}</p>` : ""}
-      <p class="muted">Supported starting versions: 1.0.x through 1.16.x. If you're already on 1.17.x, you're at the latest.</p>
+      <p class="muted">Supported starting versions: ${SERIES[0]}.x through ${SERIES[SERIES.length - 1]}.x. If you're already on ${LATEST}.x, you can update to the latest.</p>
     </div>
   `;
   document.getElementById("start").addEventListener("click", onStart);
@@ -213,7 +214,7 @@ function onStart() {
   if (v.startsWith(LATEST + ".") || v === LATEST) { renderDone(v); return; }
   const s = seriesFromVersion(v);
   if (!s) {
-    renderStart("Please enter a version like 1.12.1 (must start with 1.0 through 1.16).");
+    renderStart(`Please enter a version like ${latestReleaseFor(SERIES[Math.floor(SERIES.length / 2)])} (must start with ${SERIES[0]} through ${SERIES[SERIES.length - 1]}).`);
     return;
   }
   renderHop(s, v);
@@ -245,9 +246,12 @@ function renderHop(series, originalVersion) {
   }
 
   const nextLabel = hop.to === LATEST ? `Finish at ${targetRelease} &rarr;` : `Continue to ${targetRelease} &rarr;`;
+  const reminder = hop.actions.length === 0 ?  `<p class="reminder">You can upgrade directly to the version showing on the "Continue" button. No changes needed.</p>` :
+    `<p class="reminder">If there are actions listed above, please ensure they are fixed before clicking "Continue".</p>`;
   app.innerHTML = `
-    <p class="progress">Hop ${idx + 1} of ${SERIES.length}: ${series}.x &rarr; ${targetRelease}</p>
+    <p class="progress">Upgrading from ${series}.x &rarr; ${targetRelease}</p>
     ${body}
+    ${reminder}
     <div class="nav">
       <button id="back">&larr; Start over</button>
       <div class="nav-right">
@@ -258,9 +262,13 @@ function renderHop(series, originalVersion) {
   `;
 
   function updateNextState() {
+    const allChecks  = document.querySelectorAll(".check");
     const unanswered = document.querySelectorAll(".check:not(.yes):not(.no)");
-    const nextBtn = document.getElementById("next");
-    const hint = document.getElementById("next-hint");
+    const yesAnswers = document.querySelectorAll(".check.yes");
+    const nextBtn    = document.getElementById("next");
+    const hint       = document.getElementById("next-hint");
+    const reminderEl = document.querySelector(".reminder");
+
     if (unanswered.length === 0) {
       nextBtn.disabled = false;
       hint.textContent = "";
@@ -269,6 +277,23 @@ function renderHop(series, originalVersion) {
       hint.textContent = unanswered.length === 1
         ? "Answer the question to continue."
         : `Answer all ${unanswered.length} questions to continue.`;
+    }
+
+    // Swap reminder text based on the user's answers so far.
+    // Hidden while any question is unanswered.
+    if (reminderEl && allChecks.length > 0) {
+      if (unanswered.length > 0) {
+        // Some questions still unanswered — hide reminder entirely.
+        reminderEl.style.display = "none";
+      } else if (yesAnswers.length === 0) {
+        // All answered, all "No" — nothing applies, upgrade is direct.
+        reminderEl.style.display = "";
+        reminderEl.textContent = 'You can upgrade directly to the version showing on the "Continue" button. No changes needed.';
+      } else {
+        // All answered, at least one "Yes" — actions must be applied first.
+        reminderEl.style.display = "";
+        reminderEl.textContent = 'If there are actions listed above, please ensure they are fixed before clicking "Continue".';
+      }
     }
   }
 
