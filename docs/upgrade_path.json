@@ -132,7 +132,7 @@
       "actions": [
         {
           "if": "your Ruby version is 2.5 or older",
-          "then": "upgrade Ruby to 2.6 or newer &mdash; 1.15.0 dropped support for Ruby 2.5."
+          "then": "upgrade Ruby to 2.6 or newer &mdash; 1.15.0 dropped support for Ruby 2.5.<br><br>The migration is small: Ruby 2.5 reached end-of-life in March 2021 (no more security fixes anywhere), and Ruby 2.5 &rarr; 2.6 is API-compatible for nearly all code. Update your <code>.ruby-version</code> or the <code>ruby</code> line in your <code>Gemfile</code>, run <code>bundle install</code>, and you're done. Most users jump straight to a current Ruby (3.x)."
         }
       ]
     },
