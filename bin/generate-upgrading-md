@@ -165,12 +165,12 @@ def generate(by_series, upgrade_path)
       out << "## Series #{series} → #{target_series}\n\n"
 
       if version_list.any?
-        out << "**Upgrading from any #{series} version:**  \n"
+        out << "**Coming from any #{series} version:**  \n"
         out << "[#{version_list.join(', ')}]\n\n"
       end
 
       unless all_cautions.empty?
-        out << "> ⚠️ **In-series notes** worth checking if you're crossing through one of these:\n"
+        out << "> ⚠️ **In-series notes** worth checking if you're upgrading through one of these:\n"
         all_cautions.each do |ver, caution|
           out << "> - **#{ver}:** #{caution}\n"
         end
@@ -178,9 +178,9 @@ def generate(by_series, upgrade_path)
       end
 
       if hop['actions'].empty?
-        out << "**Crossing to #{target_series}.x** (latest: `#{target_release}`): you can upgrade all the way — no code changes needed.\n\n"
+        out << "**Upgrading to #{target_series}.x** (latest: `#{target_release}`): you can upgrade all the way — no code changes needed.\n\n"
       else
-        out << "**Crossing to #{target_series}.x** (latest: `#{target_release}`):\n\n"
+        out << "**Upgrading to #{target_series}.x** (latest: `#{target_release}`):\n\n"
         hop['actions'].each do |action|
           condition = html_to_md(action['if'])
           remedy    = html_to_md(action['then'])
