@@ -78,7 +78,7 @@
       "actions": [
         {
           "if": "you rescue <code>SmarterCSV::MissingHeaders</code>",
-          "then": "rename it to <code>SmarterCSV::MissingKeys</code> &mdash; 1.9.0 renamed the class."
+          "then": "rename it to <code>SmarterCSV::MissingKeys</code> &mdash; 1.9.0 renamed the error."
         },
         {
           "if": "you use <code>key_mapping:</code> and want to allow some mapped headers to be missing",
@@ -92,7 +92,7 @@
       "actions": [
         {
           "if": "you use <code>user_provided_headers:</code>",
-          "then": "write the list in the exact final form you want (all symbols <em>or</em> all strings) &mdash; 1.10.0 stopped applying transformations. <code>strings_as_keys:</code> is ignored alongside it."
+          "then": "write the list in the exact final form you want (all symbols <em>or</em> all strings) &mdash; 1.10.0 stopped applying additional transformations. <code>strings_as_keys:</code> is ignored alongside it."
         },
         {
           "if": "your <code>user_provided_headers:</code> list contains duplicate entries",
@@ -100,7 +100,7 @@
         },
         {
           "if": "you depended on duplicate-header detection failing fast",
-          "then": "pass <code>duplicate_header_suffix: nil</code> explicitly &mdash; 1.10.0 changed the default to <code>''</code> (auto-disambiguate as <code>name</code>, <code>name2</code>, ...)."
+          "then": "pass <code>duplicate_header_suffix: nil</code> explicitly &mdash; 1.10.0 changed the default to <code>''</code> (it auto-disambiguates duplicates as <code>name</code>, <code>name2</code>, ...)."
         }
       ]
     },
@@ -114,8 +114,12 @@
       "latest_release": "1.11.2",
       "actions": [
         {
-          "if": "you call <code>SmarterCSV.raw_headers</code> or <code>SmarterCSV.headers</code>",
-          "then": "switch to instantiating <code>SmarterCSV::Reader</code> and reading <code>reader.raw_headers</code> / <code>reader.headers</code> &mdash; 1.12.0 moved these off the class-level API."
+          "if": "you call <code>SmarterCSV.process</code> and don't need to inspect headers / warnings / errors after parsing",
+          "then": "no code changes needed &mdash; <code>SmarterCSV.process</code> is backwards-compatible. (The 1.11 class-level accessors <code>SmarterCSV.headers</code> / <code>SmarterCSV.raw_header</code> are gone in 1.12.0 &mdash; if you used those, see the next question.)"
+        },
+        {
+          "if": "you want access to parsed headers / warnings / errors after processing, OR you process CSV files in threaded code (Puma workers, Sidekiq jobs, or any concurrent context)",
+          "then": "use the new Reader API: <code>reader = SmarterCSV::Reader.new(file, options); data = reader.process; headers = reader.headers; warnings = reader.warnings</code>. 1.12.0 introduced <code>SmarterCSV::Reader</code> with thread-safe per-instance state, replacing the class-level accessors that existed in 1.11."
         }
       ]
     },
