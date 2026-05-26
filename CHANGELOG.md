@@ -2,7 +2,7 @@
 # SmarterCSV 1.x Change Log
 
 > [!TIP]
-> **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most hops are drop-in.
+> **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most hops do not require any changes.
 
 ## 1.17.2 (2026-05-21)
 
