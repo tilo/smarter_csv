@@ -169,16 +169,107 @@ needs_unescape:
 /* Helper: build the 2-element [elements, data_size] tuple returned by rb_parse_csv_line.
  * Aligns this function's return shape with parse_csv_line_ruby and rb_parse_line_to_hash_ctx:
  * data_size = -1 signals "unclosed quoted field — needs more data". */
-static inline VALUE make_parse_result(VALUE elements, long data_size) {
+static inline __attribute__((always_inline))
+VALUE return_parser_result(VALUE elements, long data_size) {
   VALUE result = rb_ary_new_capa(2);
   rb_ary_push(result, elements);
   rb_ary_push(result, LONG2FIX(data_size));
   return result;
 }
 
+/* Helper: trim leading/trailing spaces and tabs from a field when strip_ws is set.
+ * Sets *out_start to the first kept byte and returns the trimmed length (0 when the
+ * field is empty or all whitespace). This is the trim performed at every field
+ * boundary in all three parsers; kept always_inline so each call site compiles to
+ * the same code as the hand-written loops it replaces (no performance cost). */
+static inline __attribute__((always_inline))
+long trim_field(char *field, long field_len, bool strip_ws, char **out_start) {
+  char *trim_start = field;
+  char *trim_end   = field + field_len - 1;
+  if (strip_ws) {
+    while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
+    while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+  }
+  *out_start = trim_start;
+  return (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+}
+
+/* A field after quote-stripping and trimming: where its content starts, how long it
+ * is, and whether it still contains quote characters that need unescaping. */
+typedef struct {
+  char *start;
+  long  len;
+  bool  has_quotes;
+} extracted_field;
+
+/* Helper: turn a raw field slice into the values every extraction site needs.
+ * Strips a surrounding pair of quote chars (if present), trims whitespace via
+ * trim_field, and reports whether the result still has embedded quotes (true for a
+ * quoted field, or any field containing the quote char). This is the common prefix
+ * before each field is pushed/inserted, in all three parsers' slow paths.
+ * always_inline + return-by-value so the struct is dissolved into registers and each
+ * call site compiles to the same code as the old inline block (no performance cost). */
+static inline __attribute__((always_inline))
+extracted_field extract_field(char *raw_field, long field_len, bool strip_ws, char quote_char_val) {
+  bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
+  if (quoted) {
+    raw_field++;       // Skip opening quote
+    field_len -= 2;    // Exclude both quotes from length
+  }
+  char *trim_start;
+  long trimmed_len = trim_field(raw_field, field_len, strip_ws, &trim_start);
+  extracted_field result = {
+    trim_start,
+    trimmed_len,
+    quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len))
+  };
+  return result;
+}
+
+/* Helper: is a closing quote at p actually a field close? Valid only when followed by
+ * the column separator, the row separator, or end of line. Pure read — touches none of
+ * the quote loop's state (in_quotes/field_started/etc). Mirrors the inline lookahead
+ * copied into all three parsers' quote machines; always_inline so it compiles to the
+ * same code as the hand-written block. */
+static inline __attribute__((always_inline))
+bool is_valid_close(const char *p, const char *endP,
+                    const char *col_sepP, long col_sep_len,
+                    const char *row_sepP, long row_sep_len) {
+  bool valid_close = (p + 1 >= endP);
+  if (!valid_close) {
+    valid_close = true;
+    for (long j = 0; j < col_sep_len; j++) {
+      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
+    }
+  }
+  if (!valid_close && row_sep_len > 0) {
+    valid_close = true;
+    for (long j = 0; j < row_sep_len; j++) {
+      if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
+    }
+  }
+  return valid_close;
+}
+
+/* Helper: strip a trailing row separator from the line (pointer adjustment, no string
+ * mutation). If the last row_sep_len bytes at endP match row_sepP, move endP back past
+ * them; otherwise leave endP untouched. The row_sep_len > 0 guard means callers can
+ * pass (NULL, 0) for "no separator known yet" without an outer if. Shared by
+ * rb_parse_line_to_hash and rb_parse_line_to_hash_ctx; always_inline keeps the chomp
+ * site as cheap as the hand-written check it replaces. */
+static inline __attribute__((always_inline))
+char *chomp_row_sep(char *endP, long line_len, const char *row_sepP, long row_sep_len) {
+  if (row_sep_len > 0
+      && line_len >= row_sep_len
+      && memcmp(endP - row_sep_len, row_sepP, (size_t)row_sep_len) == 0) {
+    endP -= row_sep_len;
+  }
+  return endP;
+}
+
 static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quote_char, VALUE max_size, VALUE has_quotes_val, VALUE strip_ws_val, VALUE allow_escaped_quotes_val, VALUE quote_boundary_standard_val, VALUE row_sep_val) {
   if (RB_TYPE_P(line, T_NIL) == 1) {
-    return make_parse_result(rb_ary_new(), 0);
+    return return_parser_result(rb_ary_new(), 0);
   }
 
   if (RB_TYPE_P(line, T_STRING) != 1) {
@@ -205,7 +296,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   if (max_size != Qnil) {
     max_fields = NUM2INT(max_size);
     if (max_fields < 0) {
-      return make_parse_result(rb_ary_new(), 0);
+      return return_parser_result(rb_ary_new(), 0);
     }
   }
 
@@ -229,15 +320,8 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
 
       long field_len = sep_pos - startP;
       char *raw_field = startP;
-      char *trim_start = raw_field;
-      char *trim_end = raw_field + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+      char *trim_start;
+      long trimmed_len = trim_field(raw_field, field_len, strip_ws, &trim_start);
 
       field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
       rb_ary_push(elements, field);
@@ -250,21 +334,14 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
     if ((max_fields < 0) || (element_count < max_fields)) {
       long field_len = endP - startP;
       char *raw_field = startP;
-      char *trim_start = raw_field;
-      char *trim_end = raw_field + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+      char *trim_start;
+      long trimmed_len = trim_field(raw_field, field_len, strip_ws, &trim_start);
 
       field = (trimmed_len > 0) ? rb_enc_str_new(trim_start, trimmed_len, encoding) : Qempty_string;
       rb_ary_push(elements, field);
     }
 
-    return make_parse_result(elements, RARRAY_LEN(elements));
+    return return_parser_result(elements, RARRAY_LEN(elements));
   }
 
   // === SLOW PATH: Quoted fields or multi-char separator ===
@@ -291,28 +368,14 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
       long field_len = p - startP;
       char *raw_field = startP;
 
-      bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-      if (quoted) {
-        raw_field++;
-        field_len -= 2;
-      }
+      extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
-      char *trim_start = raw_field;
-      char *trim_end = raw_field + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      if (trimmed_len == 0) {
+      if (f.len == 0) {
         field = Qempty_string;
-      } else if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
-        field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+      } else if (f.has_quotes) {
+        field = unescape_quotes(f.start, f.len, quote_char_val, encoding);
       } else {
-        field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+        field = rb_enc_str_new(f.start, f.len, encoding);
       }
 
       rb_ary_push(elements, field);
@@ -346,20 +409,7 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
                   p++;
                 } else {
                   // closing quote: only valid if followed by col_sep, row_sep, or end of line
-                  bool valid_close = (p + 1 >= endP);
-                  if (!valid_close) {
-                    valid_close = true;
-                    for (long j = 0; j < col_sep_len; j++) {
-                      if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
-                    }
-                  }
-                  if (!valid_close && row_sep_len > 0) {
-                    valid_close = true;
-                    for (long j = 0; j < row_sep_len; j++) {
-                      if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
-                    }
-                  }
-                  if (valid_close) {
+                  if (is_valid_close(p, endP, col_sepP, col_sep_len, row_sepP, row_sep_len)) {
                     in_quotes = false;
                     field_started = true;
                   }
@@ -398,41 +448,27 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
      * the signal: append the next physical line and re-parse, or raise MalformedCSV
      * at EOF if the field never closes. The parser does not decide "ultimately
      * malformed"; the caller does. */
-    return make_parse_result(rb_ary_new(), -1);
+    return return_parser_result(rb_ary_new(), -1);
   }
 
   if ((max_fields < 0) || (element_count < max_fields)) {
     long field_len = endP - startP;
     char *raw_field = startP;
 
-    bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-    if (quoted) {
-      raw_field++;
-      field_len -= 2;
-    }
+    extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
-    char *trim_start = raw_field;
-    char *trim_end = raw_field + field_len - 1;
-
-    if (strip_ws) {
-      while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-      while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-    }
-
-    long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-    if (trimmed_len == 0) {
+    if (f.len == 0) {
       field = Qempty_string;
-    } else if (quoted || memchr(trim_start, quote_char_val, trimmed_len)) {
-      field = unescape_quotes(trim_start, trimmed_len, quote_char_val, encoding);
+    } else if (f.has_quotes) {
+      field = unescape_quotes(f.start, f.len, quote_char_val, encoding);
     } else {
-      field = rb_enc_str_new(trim_start, trimmed_len, encoding);
+      field = rb_enc_str_new(f.start, f.len, encoding);
     }
 
     rb_ary_push(elements, field);
   }
 
-  return make_parse_result(elements, RARRAY_LEN(elements));
+  return return_parser_result(elements, RARRAY_LEN(elements));
 }
 
 // Efficiently combine two arrays into a hash (replaces headers.zip(values).to_h)
@@ -690,6 +726,32 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
   return true;
 }
 
+/* Helper: parse the convert_values_to_numeric option into a mode + key list.
+ * mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys.
+ * Writes through the out-params only when the option is set, so callers must
+ * pre-initialize *out_mode = 0 and *out_keys = Qnil. Shared by rb_parse_line_to_hash
+ * and rb_new_parse_context — identical logic, different storage (locals vs ctx fields).
+ * always_inline so each call site compiles to the same code as the old inline block. */
+static inline __attribute__((always_inline))
+void parse_numeric_option(VALUE options_hash, int *out_mode, VALUE *out_keys) {
+  VALUE convert_opt = rb_hash_aref(options_hash, ID2SYM(id_convert_values_to_numeric));
+  if (RTEST(convert_opt)) {
+    if (RB_TYPE_P(convert_opt, T_HASH)) {
+      VALUE only_keys = rb_hash_aref(convert_opt, ID2SYM(id_only));
+      VALUE except_keys = rb_hash_aref(convert_opt, ID2SYM(id_except));
+      if (RTEST(only_keys)) {
+        *out_mode = 2;
+        *out_keys = rb_Array(only_keys);   // wrap single value in array if needed
+      } else if (RTEST(except_keys)) {
+        *out_mode = 3;
+        *out_keys = rb_Array(except_keys); // wrap single value in array if needed
+      }
+    } else {
+      *out_mode = 1;  // convert all
+    }
+  }
+}
+
 /*
  * ================================================================================
  * rb_parse_line_to_hash - Parse CSV line directly into a Ruby Hash
@@ -738,10 +800,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    * SECTION 1: Handle nil/invalid input
    * ---------------------------------------- */
   if (NIL_P(line)) {
-    VALUE result = rb_ary_new_capa(2);
-    rb_ary_push(result, Qnil);
-    rb_ary_push(result, INT2FIX(0));
-    return result;
+    return return_parser_result(Qnil, 0);
   }
 
   if (RB_TYPE_P(line, T_STRING) != 1) {
@@ -766,22 +825,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
   int numeric_mode = 0;
   VALUE numeric_keys = Qnil;
-  VALUE convert_opt = rb_hash_aref(options_hash, ID2SYM(id_convert_values_to_numeric));
-  if (RTEST(convert_opt)) {
-    if (RB_TYPE_P(convert_opt, T_HASH)) {
-      VALUE only_keys = rb_hash_aref(convert_opt, ID2SYM(id_only));
-      VALUE except_keys = rb_hash_aref(convert_opt, ID2SYM(id_except));
-      if (RTEST(only_keys)) {
-        numeric_mode = 2;
-        numeric_keys = rb_Array(only_keys);   // wrap single value in array if needed
-      } else if (RTEST(except_keys)) {
-        numeric_mode = 3;
-        numeric_keys = rb_Array(except_keys); // wrap single value in array if needed
-      }
-    } else {
-      numeric_mode = 1;  // convert all
-    }
-  }
+  parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
 
   // quote_escaping and quote_boundary are only needed in Section 5 (quoted/slow path).
   // They are declared here as forward declarations so Section 5 can set them lazily.
@@ -798,11 +842,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   // row_sep is also reused in Section 5 for the closing-quote boundary check.
   VALUE row_sep = rb_hash_aref(options_hash, ID2SYM(id_row_sep));
   if (!NIL_P(row_sep) && RB_TYPE_P(row_sep, T_STRING)) {
-    char *row_sepP = RSTRING_PTR(row_sep);
-    long row_sep_len = RSTRING_LEN(row_sep);
-    if (line_len >= row_sep_len && memcmp(endP - row_sep_len, row_sepP, row_sep_len) == 0) {
-      endP -= row_sep_len;
-    }
+    endP = chomp_row_sep(endP, line_len, RSTRING_PTR(row_sep), RSTRING_LEN(row_sep));
   }
 
   char *col_sepP = RSTRING_PTR(col_sep);
@@ -975,13 +1015,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       /* --- (a) Common path: no column filter, no early exit --- */
       while ((sep_pos = memchr(p, sep, endP - p))) {
         long field_len   = sep_pos - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
         element_count++;
@@ -990,13 +1025,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       /* Process last field */
       {
         long field_len   = endP - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
         element_count++;
@@ -1005,13 +1035,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       /* --- (b) Filter path: column bitmap and/or early exit active --- */
       while ((sep_pos = memchr(p, sep, endP - p))) {
         long field_len   = sep_pos - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
@@ -1026,13 +1051,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       /* Process last field — skip on early exit */
       if (!did_early_exit) {
         long field_len   = endP - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
@@ -1107,28 +1127,10 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
         long field_len = p - startP;
         char *raw_field = startP;
 
-        // Check if field is wrapped in quotes: "value"
-        bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-        if (quoted) {
-          raw_field++;       // Skip opening quote
-          field_len -= 2;    // Exclude both quotes from length
-        }
-
-        char *trim_start = raw_field;
-        char *trim_end = raw_field + field_len - 1;
-
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-        // Determine if field contains embedded quotes (need unescape)
-        bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
+        extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
         if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
-          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+          if (insert_field_into_hash(&xform, f.start, f.len, element_count, f.has_quotes, quote_char_val, encoding))
             all_blank = false;
         }
         element_count++;
@@ -1182,20 +1184,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
                     p++;
                   } else {
                     // closing quote: only valid if followed by col_sep, row_sep, or end of line
-                    bool valid_close = (p + 1 >= endP);
-                    if (!valid_close) {
-                      valid_close = true;
-                      for (long j = 0; j < col_sep_len; j++) {
-                        if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
-                      }
-                    }
-                    if (!valid_close && row_sep_len2 > 0) {
-                      valid_close = true;
-                      for (long j = 0; j < row_sep_len2; j++) {
-                        if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
-                      }
-                    }
-                    if (valid_close) {
+                    if (is_valid_close(p, endP, col_sepP, col_sep_len, row_sepP2, row_sep_len2)) {
                       in_quotes = false;
                       field_started = true;
                     }
@@ -1233,10 +1222,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
      * We return [nil, -1] rather than raising so the read loop can handle multiline fields
      * without a separate pre-scan pass (detect_multiline). */
     if (!did_early_exit && in_quotes) {
-      VALUE result = rb_ary_new_capa(2);
-      rb_ary_push(result, Qnil);
-      rb_ary_push(result, LONG2FIX(-1));
-      return result;
+      return return_parser_result(Qnil, -1);
     }
 
     /* Process the last field (same logic as above) — skip on early exit */
@@ -1244,26 +1230,10 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       long field_len = endP - startP;
       char *raw_field = startP;
 
-      bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-      if (quoted) {
-        raw_field++;
-        field_len -= 2;
-      }
-
-      char *trim_start = raw_field;
-      char *trim_end = raw_field + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
+      extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
       if (!keep_bitmap || (element_count < headers_len ? keep_bitmap[element_count] : keep_extra_columns)) {
-        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+        if (insert_field_into_hash(&xform, f.start, f.len, element_count, f.has_quotes, quote_char_val, encoding))
           all_blank = false;
       }
       element_count++;
@@ -1284,10 +1254,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    */
   if (all_blank) {
     if (remove_empty) {
-      VALUE result = rb_ary_new_capa(2);
-      rb_ary_push(result, Qnil);
-      rb_ary_push(result, LONG2FIX(element_count));
-      return result;
+      return return_parser_result(Qnil, element_count);
     }
 
     ensure_hash_allocated(&xform);
@@ -1315,10 +1282,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    * Return [hash, element_count] so caller can detect extra columns
    * (when element_count > headers_len) and extend headers if needed.
    */
-  VALUE result = rb_ary_new_capa(2);
-  rb_ary_push(result, xform.hash);
-  rb_ary_push(result, LONG2FIX(element_count));
-  return result;
+  return return_parser_result(xform.hash, element_count);
 }
 
 /* ================================================================================
@@ -1389,22 +1353,7 @@ __attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE header
   ctx->remove_zero_values  = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
 
   /* Numeric conversion */
-  VALUE convert_opt = rb_hash_aref(options_hash, ID2SYM(id_convert_values_to_numeric));
-  if (RTEST(convert_opt)) {
-    if (RB_TYPE_P(convert_opt, T_HASH)) {
-      VALUE only_keys  = rb_hash_aref(convert_opt, ID2SYM(id_only));
-      VALUE except_keys = rb_hash_aref(convert_opt, ID2SYM(id_except));
-      if (RTEST(only_keys)) {
-        ctx->numeric_mode = 2;
-        ctx->numeric_keys = rb_Array(only_keys);
-      } else if (RTEST(except_keys)) {
-        ctx->numeric_mode = 3;
-        ctx->numeric_keys = rb_Array(except_keys);
-      }
-    } else {
-      ctx->numeric_mode = 1;
-    }
-  }
+  parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
 
   /* quote_escaping → allow_escaped_quotes */
   VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
@@ -1503,10 +1452,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
    * SECTION 1: Handle nil/invalid input
    * ---------------------------------------- */
   if (NIL_P(line)) {
-    VALUE result = rb_ary_new_capa(2);
-    rb_ary_push(result, Qnil);
-    rb_ary_push(result, INT2FIX(0));
-    return result;
+    return return_parser_result(Qnil, 0);
   }
 
   if (RB_TYPE_P(line, T_STRING) != 1) {
@@ -1552,12 +1498,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
   char *p       = startP;
 
   /* Chomp: strip trailing row separator (pointer adjustment, no string mutation) */
-  if (ctx->row_sep_len > 0) {
-    long rsl = (long)ctx->row_sep_len;
-    if (line_len >= rsl && memcmp(endP - rsl, ctx->row_sep_buf, (size_t)rsl) == 0) {
-      endP -= rsl;
-    }
-  }
+  endP = chomp_row_sep(endP, line_len, ctx->row_sep_buf, (long)ctx->row_sep_len);
 
   /* Re-read headers_len each call to handle extra-column growth */
   long headers_len = NIL_P(ctx->headers) ? 0 : RARRAY_LEN(ctx->headers);
@@ -1602,13 +1543,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
       /* --- (a) Common path: no column filter, no early exit --- */
       while ((sep_pos = memchr(p, sep, endP - p))) {
         long  field_len  = sep_pos - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
         element_count++;
@@ -1617,13 +1553,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
       /* Process last field */
       {
         long  field_len  = endP - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
           all_blank = false;
         element_count++;
@@ -1632,13 +1563,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
       /* --- (b) Filter path: column bitmap and/or early exit active --- */
       while ((sep_pos = memchr(p, sep, endP - p))) {
         long  field_len  = sep_pos - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
@@ -1653,13 +1579,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
       /* Process last field — skip on early exit */
       if (!did_early_exit) {
         long  field_len  = endP - startP;
-        char *trim_start = startP;
-        char *trim_end   = startP + field_len - 1;
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
+        char *trim_start;
+        long trimmed_len = trim_field(startP, field_len, strip_ws, &trim_start);
         if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
           if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, false, quote_char_val, encoding))
             all_blank = false;
@@ -1705,26 +1626,10 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
         long  field_len  = p - startP;
         char *raw_field  = startP;
 
-        bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-        if (quoted) {
-          raw_field++;
-          field_len -= 2;
-        }
-
-        char *trim_start = raw_field;
-        char *trim_end   = raw_field + field_len - 1;
-
-        if (strip_ws) {
-          while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-          while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-        }
-
-        long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-        bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
+        extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
         if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
-          if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+          if (insert_field_into_hash(&xform, f.start, f.len, element_count, f.has_quotes, quote_char_val, encoding))
             all_blank = false;
         }
         element_count++;
@@ -1772,20 +1677,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
                     p++;
                   } else {
                     /* closing quote: only valid if followed by col_sep, row_sep, or end */
-                    bool valid_close = (p + 1 >= endP);
-                    if (!valid_close) {
-                      valid_close = true;
-                      for (long j = 0; j < col_sep_len; j++) {
-                        if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
-                      }
-                    }
-                    if (!valid_close && row_sep_len2 > 0) {
-                      valid_close = true;
-                      for (long j = 0; j < row_sep_len2; j++) {
-                        if (*(p + 1 + j) != *(row_sepP2 + j)) { valid_close = false; break; }
-                      }
-                    }
-                    if (valid_close) {
+                    if (is_valid_close(p, endP, col_sepP, col_sep_len, row_sepP2, row_sep_len2)) {
                       in_quotes     = false;
                       field_started = true;
                     }
@@ -1820,10 +1712,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     section5_done_ctx:;
     /* Unclosed quote at end of line — signal multiline continuation */
     if (!did_early_exit && in_quotes) {
-      VALUE result = rb_ary_new_capa(2);
-      rb_ary_push(result, Qnil);
-      rb_ary_push(result, LONG2FIX(-1));
-      return result;
+      return return_parser_result(Qnil, -1);
     }
 
     /* Process the last field — skip on early exit */
@@ -1831,26 +1720,10 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
       long  field_len  = endP - startP;
       char *raw_field  = startP;
 
-      bool quoted = (field_len >= 2 && raw_field[0] == quote_char_val && raw_field[field_len - 1] == quote_char_val);
-      if (quoted) {
-        raw_field++;
-        field_len -= 2;
-      }
-
-      char *trim_start = raw_field;
-      char *trim_end   = raw_field + field_len - 1;
-
-      if (strip_ws) {
-        while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-        while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
-      }
-
-      long trimmed_len = (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
-
-      bool has_embedded_quotes = quoted || (trimmed_len > 0 && memchr(trim_start, quote_char_val, trimmed_len));
+      extracted_field f = extract_field(raw_field, field_len, strip_ws, quote_char_val);
 
       if (!keep_bitmap || (element_count < keep_bitmap_len ? keep_bitmap[element_count] : keep_extra_columns)) {
-        if (insert_field_into_hash(&xform, trim_start, trimmed_len, element_count, has_embedded_quotes, quote_char_val, encoding))
+        if (insert_field_into_hash(&xform, f.start, f.len, element_count, f.has_quotes, quote_char_val, encoding))
           all_blank = false;
       }
       element_count++;
@@ -1862,10 +1735,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
    * ---------------------------------------- */
   if (all_blank) {
     if (remove_empty) {
-      VALUE result = rb_ary_new_capa(2);
-      rb_ary_push(result, Qnil);
-      rb_ary_push(result, LONG2FIX(element_count));
-      return result;
+      return return_parser_result(Qnil, element_count);
     }
 
     ensure_hash_allocated(&xform);
@@ -1886,10 +1756,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
   /* ----------------------------------------
    * SECTION 8: Return result
    * ---------------------------------------- */
-  VALUE result = rb_ary_new_capa(2);
-  rb_ary_push(result, xform.hash);
-  rb_ary_push(result, LONG2FIX(element_count));
-  return result;
+  return return_parser_result(xform.hash, element_count);
 }
 
 // Count quote characters in a line, optionally respecting backslash escapes.
