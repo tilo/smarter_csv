@@ -4,7 +4,7 @@
 ![Gem Version](https://img.shields.io/gem/v/smarter_csv) [![codecov](https://codecov.io/gh/tilo/smarter_csv/branch/main/graph/badge.svg?token=1L7OD80182)](https://codecov.io/gh/tilo/smarter_csv) [![Downloads](https://img.shields.io/gem/dt/smarter_csv)](https://rubygems.org/gems/smarter_csv) [![RubyGems](https://img.shields.io/badge/RubyGems-smarter__csv-brightgreen?logo=rubygems&logoColor=white)](https://rubygems.org/gems/smarter_csv) [![Ruby Toolbox](https://img.shields.io/badge/Ruby%20Toolbox-smarter__csv-brightgreen)](https://www.ruby-toolbox.com/projects/smarter_csv) [![Upgrade Wizard](https://img.shields.io/badge/Upgrade%20Wizard-Try%20it-2c7a2c?style=flat)](https://tilo.github.io/smarter_csv/upgrade_wizard.html)
 
 > [!TIP]
-> **Upgrading from an older version?** Use the [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) to walk through what (if anything) you need to change for your specific version. Most hops are drop-in.
+> **Upgrading from an older version?** Use the [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) to walk through what (if anything) you need to change for your specific version. Most hops do not require any changes.
         
   SmarterCSV is a high-performance CSV ingestion and generation for Ruby, focused on fast end-to-end CSV ingestion of real-world data — no silent failures, no surprises, not just tokenization.
 
