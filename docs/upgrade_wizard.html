@@ -228,7 +228,7 @@ function renderHop(series, originalVersion) {
   let body;
   if (hop.actions.length === 0) {
     body = `<div class="hop dropin">
-      Drop-in hop: no code changes needed for ${series}.x &rarr; ${targetRelease}. Just continue.
+      You can upgrade directly to version ${targetRelease}. No changes needed.
     </div>`;
   } else {
     body = `<div class="hop">
@@ -246,7 +246,7 @@ function renderHop(series, originalVersion) {
   }
 
   const nextLabel = hop.to === LATEST ? `Finish at ${targetRelease} &rarr;` : `Continue to ${targetRelease} &rarr;`;
-  const reminder = hop.actions.length === 0 ?  `<p class="reminder">You can upgrade directly to the version showing on the "Continue" button. No changes needed.</p>` :
+  const reminder = hop.actions.length === 0 ?  `<p class="reminder">You can upgrade directly to version ${targetRelease}. No changes needed.</p>` :
     `<p class="reminder">If there are actions listed above, please ensure they are fixed before clicking "Continue".</p>`;
   app.innerHTML = `
     <p class="progress">Upgrading from ${series}.x &rarr; ${targetRelease}</p>
@@ -288,7 +288,7 @@ function renderHop(series, originalVersion) {
       } else if (yesAnswers.length === 0) {
         // All answered, all "No" — nothing applies, upgrade is direct.
         reminderEl.style.display = "";
-        reminderEl.textContent = 'You can upgrade directly to the version showing on the "Continue" button. No changes needed.';
+        reminderEl.textContent = `You can upgrade directly to version ${targetRelease}. No changes needed.`;
       } else {
         // All answered, at least one "Yes" — actions must be applied first.
         reminderEl.style.display = "";
@@ -342,11 +342,15 @@ function renderDone(originalVersion) {
   const fullVersion  = LATEST_RELEASE || LATEST;
   const seriesOnly   = LATEST;
   const summaryHTML  = renderSummary();
+  const introHTML    = decisions.length === 0
+    ? `<p><strong>You can upgrade directly to version ${fullVersion}. No changes needed.</strong></p>
+       <p>You're already in the ${seriesOnly}.x series, so the upgrade is just a Gemfile bump.</p>`
+    : `<p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest version in the ${seriesOnly}.x series).</p>`;
 
   app.innerHTML = `
     <div class="done">
       <h2>You're done</h2>
-      <p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest patch in the ${seriesOnly}.x series).</p>
+      ${introHTML}
       ${summaryHTML}
       <p>Update your <code>Gemfile</code> to:</p>
       <pre><code>gem 'smarter_csv', '~&gt; ${seriesOnly}.0'</code></pre>
