@@ -12,16 +12,16 @@
 
 Prefer an interactive walk-through? The [Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) asks one question at a time and only shows the migration steps that apply to your code.
 
-**Latest release:** `1.17.2` (in the `1.17.x` series).
+**Latest release:** `1.17.3` (in the `1.17.x` series).
 
 ---
 
 ## 1.17.x — latest series
 
 **Versions in this series:**  
-[1.17.0, 1.17.1, 1.17.2]
+[1.17.0, 1.17.1, 1.17.2, 1.17.3]
 
-**Latest release:** `1.17.2`
+**Latest release:** `1.17.3`
 
 Update your Gemfile to:
 
@@ -40,7 +40,7 @@ Then run `bundle update smarter_csv`.
 > - **1.16.1:** **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared across all fibers running in the same thread**. If you process CSV files concurrently in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors` may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are scoped to the reader instance and are always correct regardless of fiber context.
 > - **1.16.2:** If your code references auto-generated keys for blank headers, update those to use the absolute column position.
 
-**Upgrading to 1.17.x** (latest: `1.17.2`): you can upgrade all the way — no code changes needed.
+**Upgrading to 1.17.x** (latest: `1.17.3`): you can upgrade all the way — no code changes needed.
 
 ---
 
