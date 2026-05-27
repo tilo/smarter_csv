@@ -18,25 +18,17 @@ RSpec tests: **2,274→ 2,277** (+3 tests)
 ### Performance
 * performance improvement on the Ruby-path
 
-  ┌───────────────────────────────────┬──────────────┐
-  │               File                │   RB-path    │
-  ├───────────────────────────────────┼──────────────┤
-  │ PEOPLE_IMPORT_B / PEOPLE_IMPORT_C │ 13.5% faster │
-  ├───────────────────────────────────┼──────────────┤
-  │ tab_separated_60k                 │ 13.2% faster │
-  ├───────────────────────────────────┼──────────────┤
-  │ sample_100k                       │ 10.3% faster │
-  ├───────────────────────────────────┼──────────────┤
-  │ multi_char_separator              │ 9.0% faster  │
-  ├───────────────────────────────────┼──────────────┤
-  │ utf8_multibyte                    │ 7.1% faster  │
-  ├───────────────────────────────────┼──────────────┤
-  │ many_empty_fields                 │ 6.7% faster  │
-  ├───────────────────────────────────┼──────────────┤
-  │ PEOPLE_IMPORT_NC                  │ 5.2% faster  │
-  ├───────────────────────────────────┼──────────────┤
-  │ sensor_data                       │ 4.5% faster  │
-  └───────────────────────────────────┴──────────────┘
+  | File                              | RB-path      |
+  |-----------------------------------|--------------|
+  | PEOPLE_IMPORT_B / PEOPLE_IMPORT_C | 13.5% faster |
+  | tab_separated_60k                 | 13.2% faster |
+  | sample_100k                       | 10.3% faster |
+  | multi_char_separator              | 9.0% faster  |
+  | utf8_multibyte                    | 7.1% faster  |
+  | many_empty_fields                 | 6.7% faster  |
+  | PEOPLE_IMPORT_NC                  | 5.2% faster  |
+  | sensor_data                       | 4.5% faster  |
+
 
 ## 1.17.2 (2026-05-21)
 
