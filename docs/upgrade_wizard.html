@@ -153,7 +153,7 @@ button.primary:disabled:hover { background: #e6e6e6; }
 <body>
 
 <h1>SmarterCSV Upgrade Wizard</h1>
-<p class="muted">This wizard walks you from your current version to the latest, one hop at a time.<br><br>Only the questions where you answer "Yes" will show migration steps.<br>Question answered with "No" represent risk-free upgrades.</p><br><br>
+<p class="muted">This wizard walks you from your current version to the latest, one step at a time.<br><br>Only the questions where you answer "Yes" will show migration steps.<br>Question answered with "No" represent risk-free upgrades.</p><br><br>
 
 <div id="app"></div>
 
@@ -345,7 +345,7 @@ function renderDone(originalVersion) {
   const introHTML    = decisions.length === 0
     ? `<p><strong>You can upgrade directly to version ${fullVersion}. No changes needed.</strong></p>
        <p>You're already in the ${seriesOnly}.x series, so the upgrade is just a Gemfile bump.</p>`
-    : `<p>You've walked all hops from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest version in the ${seriesOnly}.x series).</p>`;
+    : `<p>You've completed all the upgrade steps from ${escapeHTML(originalVersion || "your current version")} to ${fullVersion} (the latest version in the ${seriesOnly}.x series).</p>`;
 
   app.innerHTML = `
     <div class="done">
@@ -356,7 +356,7 @@ function renderDone(originalVersion) {
       <pre><code>gem 'smarter_csv', '~&gt; ${seriesOnly}.0'</code></pre>
       <p>Then run:</p>
       <pre><code>bundle update smarter_csv</code></pre>
-      <p>After that, run your test suite. If anything behaves unexpectedly, click "Start over" and walk back through the hops to find the migration step you might have missed.</p>
+      <p>After that, run your test suite. If anything behaves unexpectedly, click "Start over" and walk back through the steps to find the migration item you might have missed.</p>
       <p class="muted">Questions? Open an issue at <a href="https://github.com/tilo/smarter_csv/issues">github.com/tilo/smarter_csv/issues</a>.</p>
       <p><button id="restart">Start over</button></p>
     </div>
@@ -370,17 +370,17 @@ function renderSummary() {
   const matchedCount = decisions.reduce((n, d) => n + d.matched.length, 0);
   const dropInCount  = decisions.filter(d => d.dropIn).length;
   const intro = matchedCount === 0
-    ? `<p>Good news: <strong>none of the per-hop conditions applied to your code</strong> across the ${decisions.length} hops you walked${dropInCount ? ` (${dropInCount} were drop-in hops)` : ""}. The upgrade should be a clean Gemfile bump.</p>`
-    : `<p>Across ${decisions.length} hops you walked, <strong>${matchedCount} migration step${matchedCount === 1 ? "" : "s"} apply</strong> to your code. Review and apply them before running <code>bundle update</code>:</p>`;
+    ? `<p>Good news &mdash; <strong>none of the conditions applied to your code</strong>. The upgrade is just a Gemfile bump.</p>`
+    : `<p>Apply the following <strong>${matchedCount} change${matchedCount === 1 ? "" : "s"}</strong> to your code, then run <code>bundle update</code>:</p>`;
 
   const list = decisions.map(d => {
     const targetRelease = latestReleaseFor(d.to);
     const heading = `<p class="summary-hop-heading"><strong>${d.from}.x &rarr; ${targetRelease}</strong></p>`;
     if (d.dropIn) {
-      return `<div class="summary-hop">${heading}<p class="muted">Drop-in hop &mdash; no code changes needed.</p></div>`;
+      return `<div class="summary-hop">${heading}<p class="muted">No code changes needed for this step.</p></div>`;
     }
     if (d.matched.length === 0) {
-      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions on this hop applied to your code.</p></div>`;
+      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions in this step applied to your code.</p></div>`;
     }
     const items = d.matched.map(a => `<li><strong>If</strong> ${a["if"]}<br>&rarr; ${a.then}</li>`).join("");
     return `<div class="summary-hop">${heading}<ul>${items}</ul></div>`;
