@@ -4,7 +4,7 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most hops do not require any changes.
 
-## 1.17.3 (2026-05-25)
+## 1.17.3 (2026-05-26)
 
 RSpec tests: **2,274→ 2,277** (+3 tests)
 
