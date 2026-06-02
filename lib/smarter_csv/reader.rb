@@ -32,7 +32,7 @@ module SmarterCSV
     # rubocop:disable Naming/MethodName
     def headerA
       record_warning(type: :deprecation, code: :header_a_method) do
-        "Deprecarion Warning: 'headerA' will be removed in future versions. Use 'headders'"
+        "Deprecation Warning: 'headerA' will be removed in future versions. Use 'headers'"
       end
       @headerA
     end
