@@ -4,6 +4,14 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.17.4 (2026-06-03)
+
+### Bug Fix
+
+  - fixed [Issue #337](https://github.com/tilo/smarter_csv/issues/337): `Pathname` input no longer worked (regression since 1.17.0); passing a `Pathname` raised `NoMethodError: private method 'gets' called`. `SmarterCSV` now opens any path-like input (`String` or `Pathname`) and reads directly from any already-open IO. Thanks to [Alex Shenia](https://github.com/alexshenia)
+
+
+
 ## 1.17.3 (2026-05-26)
 
 RSpec tests: **2,274→ 2,277** (+3 tests)

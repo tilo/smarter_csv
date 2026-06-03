@@ -38,7 +38,8 @@ module SmarterCSV
     end
     # rubocop:enable Naming/MethodName
 
-    # first parameter: filename or input object which responds to readline method
+    # first parameter: a path (String or Pathname) to open, or an already-open readable IO
+    # (anything responding to #gets — File, StringIO, Tempfile, Zlib::GzipReader, pipes, ...)
     def initialize(input, given_options = {})
       @input = input
       @has_rails = !!defined?(Rails)
@@ -123,7 +124,14 @@ module SmarterCSV
       @verbose = options[:verbose]
 
       begin
-        fh = input.is_a?(String) ? File.open(input, "r:#{options[:file_encoding]}") : input
+        # Decide whether `input` is an already-open, readable stream or a path we must open.
+        # The reader reads lines via #gets (see file_io.rb and PeekableIO), so a public #gets
+        # is exactly what we need: real IOs (File, StringIO, Tempfile, Zlib::GzipReader, pipes,
+        # custom non-seekable streams) expose it, while path-like inputs (String, Pathname) do
+        # not — their only #gets is the private Kernel#gets. 1.17.0 narrowed this to
+        # input.is_a?(String), which sent Pathname down the IO branch and then called its
+        # private Kernel#gets, raising "private method 'gets' called" (issue #337).
+        fh = input.respond_to?(:gets) ? input : File.open(input, "r:#{options[:file_encoding]}")
 
         # Rewindable inputs (File, Tempfile, StringIO, Zlib::GzipReader, ...) use
         # native rewind for auto-detection — no wrapper overhead in the hot loop.
@@ -272,10 +280,14 @@ module SmarterCSV
         start_time  = Process.clock_gettime(Process::CLOCK_MONOTONIC) if on_start || on_complete
 
         if on_start
-          input_meta = if @input.is_a?(String)
-                         { input: @input, file_size: (File.size(@input) rescue nil) }
-                       else
+          # Same path-vs-IO distinction as the File.open above: an already-open IO responds
+          # to #gets and we can't know its on-disk size, so we report its class name. A
+          # path-like input (String, or a Pathname via #to_path) gets its path and file size.
+          input_meta = if @input.respond_to?(:gets)
                          { input: @input.class.name, file_size: nil }
+                       else
+                         path = @input.respond_to?(:to_path) ? @input.to_path : @input
+                         { input: path, file_size: (File.size(path) rescue nil) }
                        end
           on_start.call(input_meta.merge(col_sep: options[:col_sep], row_sep: options[:row_sep]))
         end
