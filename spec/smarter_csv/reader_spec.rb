@@ -37,6 +37,58 @@ RSpec.describe SmarterCSV::Reader do
     end
   end
 
+  describe "input handling" do
+    require 'pathname'
+    require 'tempfile'
+
+    let(:filename) { "#{fixture_path}/basic.csv" }
+
+    # Concrete baseline: a plain String path parses into the rows we expect. Every other
+    # input form below is then asserted to produce this exact same result.
+    it "parses a String file path into the expected rows" do
+      reader = SmarterCSV::Reader.new(filename)
+      result = reader.process
+      expect(result).not_to be_empty
+      expect(reader.headers).to eq %i[first_name last_name dogs cats birds fish]
+    end
+
+    # The path-vs-IO decision at reader.rb is parser-independent, but run every input form
+    # end-to-end through both the C and the Ruby parser so the fix is proven on both paths.
+    [true, false].each do |acceleration|
+      context "with acceleration: #{acceleration}" do
+        let(:expected) { SmarterCSV::Reader.new(filename, acceleration: acceleration).process }
+
+        it "opens a Pathname path and yields the same rows as the String path (issue #337)" do
+          expect(SmarterCSV::Reader.new(Pathname.new(filename), acceleration: acceleration).process).to eq expected
+        end
+
+        it "reads directly from an already-open File handle" do
+          File.open(filename) do |io|
+            expect(SmarterCSV::Reader.new(io, acceleration: acceleration).process).to eq expected
+          end
+        end
+
+        it "reads directly from a StringIO" do
+          expect(SmarterCSV::Reader.new(StringIO.new(File.read(filename)), acceleration: acceleration).process).to eq expected
+        end
+
+        it "reads directly from a Tempfile" do
+          Tempfile.create(['input', '.csv']) do |tf|
+            tf.write(File.read(filename))
+            tf.rewind
+            expect(SmarterCSV::Reader.new(tf, acceleration: acceleration).process).to eq expected
+          end
+        end
+      end
+    end
+
+    it "raises the same file-not-found error for a missing path, whether String or Pathname" do
+      missing = "#{fixture_path}/no_such_file_337.csv"
+      expect { SmarterCSV::Reader.new(missing).process }.to raise_error(Errno::ENOENT)
+      expect { SmarterCSV::Reader.new(Pathname.new(missing)).process }.to raise_error(Errno::ENOENT)
+    end
+  end
+
   describe "#headerA (deprecated)" do
     let(:filename) { "#{fixture_path}/basic.csv" }
     let(:reader) { SmarterCSV::Reader.new(filename) }

@@ -44,6 +44,14 @@ describe 'Instrumentation hooks (on_start, on_chunk, on_complete)' do
       expect(received[:file_size]).to be > 0
     end
 
+    it 'receives file path and size when input is a Pathname' do
+      require 'pathname'
+      received = nil
+      SmarterCSV.process(Pathname.new(basic_csv), on_start: ->(info) { received = info })
+      expect(received[:input]).to eq basic_csv
+      expect(received[:file_size]).to eq File.size(basic_csv)
+    end
+
     it 'receives IO class name when input is an IO object' do
       received = nil
       File.open(basic_csv) do |f|
@@ -62,10 +70,11 @@ describe 'Instrumentation hooks (on_start, on_chunk, on_complete)' do
 
     it 'fires before rows are yielded' do
       order = []
-      SmarterCSV.process(basic_csv,
+      SmarterCSV.process(
+        basic_csv,
         on_start: ->(_) { order << :start },
         chunk_size: 1,
-        on_chunk: ->(_) { order << :chunk },
+        on_chunk: ->(_) { order << :chunk }
       )
       expect(order.first).to eq :start
     end
@@ -88,15 +97,16 @@ describe 'Instrumentation hooks (on_start, on_chunk, on_complete)' do
       expect(received[:total_rows]).to be > 0
       expect(received[:duration]).to be_a(Float)
       expect(received[:duration]).to be >= 0
-      expect(received[:total_chunks]).to eq 0   # non-chunked mode
+      expect(received[:total_chunks]).to eq 0 # non-chunked mode
       expect(received[:bad_rows]).to eq 0
     end
 
     it 'fires after on_start' do
       order = []
-      SmarterCSV.process(basic_csv,
-        on_start:    ->(_) { order << :start },
-        on_complete: ->(_) { order << :complete },
+      SmarterCSV.process(
+        basic_csv,
+        on_start: ->(_) { order << :start },
+        on_complete: ->(_) { order << :complete }
       )
       expect(order).to eq %i[start complete]
     end
@@ -139,8 +149,10 @@ describe 'Instrumentation hooks (on_start, on_chunk, on_complete)' do
 
     it 'fires before the block receives the chunk' do
       order = []
-      SmarterCSV.process(basic_csv, chunk_size: 2,
-        on_chunk: ->(_) { order << :hook },
+      SmarterCSV.process(
+        basic_csv,
+        chunk_size: 2,
+        on_chunk: ->(_) { order << :hook }
       ) { |_chunk| order << :block }
       # hook always precedes its corresponding block call
       order.each_slice(2) { |pair| expect(pair).to eq %i[hook block] }
@@ -161,9 +173,11 @@ describe 'Instrumentation hooks (on_start, on_chunk, on_complete)' do
     it 'total_chunks equals the number of on_chunk calls' do
       chunk_calls = 0
       complete_info = nil
-      SmarterCSV.process(basic_csv, chunk_size: 2,
-        on_chunk:    ->(_) { chunk_calls += 1 },
-        on_complete: ->(s) { complete_info = s },
+      SmarterCSV.process(
+        basic_csv,
+        chunk_size: 2,
+        on_chunk: ->(_) { chunk_calls += 1 },
+        on_complete: ->(s) { complete_info = s }
       )
       expect(complete_info[:total_chunks]).to eq chunk_calls
     end

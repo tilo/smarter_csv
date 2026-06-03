@@ -203,14 +203,38 @@ RSpec.describe SmarterCSV do
             @ext = Encoding.find(ext)
             @int = Encoding.find(int)
           end
-          def read(n = nil)             ; @io.read(n)                                   ; end
-          def gets(sep = $/, limit = nil); limit ? @io.gets(sep, limit) : @io.gets(sep); end
-          def readline(sep = $/)        ; @io.readline(sep)                             ; end
-          def each_char(&block)         ; @io.each_char(&block)                         ; end
-          def eof?                      ; @io.eof?                                      ; end
-          def close                     ; nil                                           ; end
-          def external_encoding         ; @ext                                          ; end
-          def internal_encoding         ; @int                                          ; end
+
+          def read(n = nil)
+            @io.read(n)
+          end
+
+          def gets(sep = $/, limit = nil)
+            limit ? @io.gets(sep, limit) : @io.gets(sep)
+          end
+
+          def readline(sep = $/)
+            @io.readline(sep)
+          end
+
+          def each_char(&block)
+            @io.each_char(&block)
+          end
+
+          def eof?
+            @io.eof?
+          end
+
+          def close
+            nil
+          end
+
+          def external_encoding
+            @ext
+          end
+
+          def internal_encoding
+            @int
+          end
         end
       end
 
@@ -235,6 +259,25 @@ RSpec.describe SmarterCSV do
           f.write(csv_w1252_bytes)
           f.close
           result = SmarterCSV.process(f.path, file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet)
+          expect(result.first[:price]).to eq('€100')
+          expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+        end
+      end
+    end
+
+    context 'windows-1252:UTF-8 (via a Pathname path — file_encoding must apply when opening a Pathname)' do
+      # \x80 = € in Windows-1252. SmarterCSV opens the Pathname itself with the requested
+      # file_encoding (reader.rb: File.open(input, "r:#{file_encoding}")), so the euro sign
+      # must transcode the same as when a String path is given.
+      let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
+
+      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+        require 'pathname'
+        Tempfile.open(['w1252', '.csv']) do |f|
+          f.binmode
+          f.write(csv_w1252_bytes)
+          f.close
+          result = SmarterCSV.process(Pathname.new(f.path), file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet)
           expect(result.first[:price]).to eq('€100')
           expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
         end
