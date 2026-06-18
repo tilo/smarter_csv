@@ -17,6 +17,7 @@ module SmarterCSV
         collect_raw_lines: true,
         comment_regexp: nil, # was: /\A#/,
         convert_values_to_numeric: true,
+        decimal_precision: :auto, # :auto (Float, but BigDecimal above 16 significant digits), :float, or :bigdecimal
         downcase_header: true,
         duplicate_header_suffix: '', # was: nil,
         field_size_limit: nil, # Integer (bytes) or nil for no limit. Raises FieldSizeLimitExceeded if any
@@ -62,7 +63,7 @@ module SmarterCSV
       # (e.g. "backslash" from options round-tripped through JSON or YAML) is coerced to
       # the matching symbol. Non-string values (a callable for on_bad_row, true/false for
       # legacy verbose) pass through untouched.
-      SYMBOL_VALUE_OPTIONS = %i[quote_escaping quote_boundary missing_headers on_bad_row verbose].freeze
+      SYMBOL_VALUE_OPTIONS = %i[quote_escaping quote_boundary missing_headers on_bad_row verbose decimal_precision].freeze
 
       # NOTE: this is not called when "parse" methods are tested by themselves
       def process_options(given_options = {})
@@ -203,6 +204,9 @@ module SmarterCSV
         end
         unless %i[legacy standard].include?(options[:quote_boundary])
           errors << "invalid quote_boundary: must be :legacy or :standard"
+        end
+        unless %i[auto float bigdecimal].include?(options[:decimal_precision])
+          errors << "invalid decimal_precision: must be :auto, :float, or :bigdecimal"
         end
         arc = options[:auto_row_sep_chars]
         min_arc = SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS

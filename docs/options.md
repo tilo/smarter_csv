@@ -121,7 +121,8 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:strip_whitespace` | `true` | Remove whitespace before/after values and headers. |
-| `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats to the appropriate numeric type. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
+| `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats (including scientific notation like `1.5e3`) to the appropriate numeric type. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
+| `:decimal_precision` | `:auto` | How decimals are converted: `:auto` returns `Float` but `BigDecimal` above 16 significant digits (no precision loss); `:float` always returns `Float`; `:bigdecimal` always returns `BigDecimal`. Integers are unaffected. |
 | `:value_converters` | `nil` | Hash of `:header => converter`; converter can be a lambda/Proc or a class implementing `self.convert(value)`. See [Value Converters](./value_converters.md). |
 | `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil`, empty, or whitespace-only — any Unicode whitespace, same as Ruby's `String#blank?`. |
 | `:remove_zero_values` | `false` | Remove key/value pairs whose value is zero — numeric `0` / `0.0`, or any textual form of zero (`"0"`, `"0.0"`, `"00.00"`, `"+0"`, `"-0.0"`, …). |

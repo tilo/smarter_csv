@@ -13,6 +13,8 @@
   #include <immintrin.h>
 #endif
 
+#include "vendor/eisel_lemire.h" /* Eisel-Lemire decimal->double, correctly rounded (fast_float) */
+
 #ifndef bool
   #define bool int
   #define false ((bool)0)
@@ -47,6 +49,8 @@ static ID id_only, id_except, id_quote_boundary;
 static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
 static ID id_keep_bitmap, id_keep_extra_cols, id_early_exit_after_sym;
 static ID id_backslash, id_standard;
+static ID id_decimal_precision, id_float, id_bigdecimal;
+static ID id_BigDecimal; /* the Kernel#BigDecimal() method (require 'bigdecimal' done in Ruby) */
 
 /* ================================================================================
  * ParseContext — wraps all per-file parse options as a GC-managed TypedData object.
@@ -75,6 +79,9 @@ typedef struct {
 
   /* Numeric conversion: 0=off, 1=all, 2=only listed keys, 3=except listed keys */
   int  numeric_mode;
+
+  /* Decimal handling: 0=float, 1=auto (BigDecimal above 16 sig digits), 2=bigdecimal */
+  int  decimal_precision;
 
   /* Column filter bitmap (xmalloc'd; NULL when no filtering active) */
   bool *keep_bitmap;
@@ -590,47 +597,100 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
  * Handles overflow: if strtol overflows (ERANGE), falls back to rb_cstr_to_inum
  * which produces a Ruby Bignum.
  */
-static inline VALUE try_numeric_conversion(char *trim_start, long trimmed_len) {
-  // Quick pre-check: first char must be digit, +, -, or .
-  char first = trim_start[0];
-  if (!((first >= '0' && first <= '9') || first == '+' || first == '-' || first == '.')) {
+static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precision) {
+  // Quick pre-check: first char must be a digit or a sign.
+  char first = s[0];
+  if (!((first >= '0' && first <= '9') || first == '+' || first == '-')) {
     return Qundef;
   }
 
-  // Need null-terminated string for strtol/strtod; use stack buffer for typical fields
-  if (trimmed_len >= 63) return Qundef;  // very long fields are unlikely to be simple numbers
+  /* Single pass: validate the token against the same grammar as the Ruby path's
+   * NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\z/ and, in the same pass,
+   * extract everything the fast paths need:
+   *   - mantissa value m10 (exact for <= 18 digits; `overflow` flags beyond)
+   *   - significant-digit count `sig` (leading zeros excluded; matches the Ruby
+   *     significant_digits helper / Oj dec_cnt) — drives the :auto Float/BigDecimal split
+   *   - base-10 exponent e10 (from the fraction length and any explicit exponent)
+   * Anything the grammar rejects returns Qundef (stays a String), keeping the C and
+   * Ruby paths byte-identical on what does and does not convert. */
+  long i = 0;
+  int neg = 0;
+  if (s[i] == '+' || s[i] == '-') { neg = (s[i] == '-'); i++; }
 
-  char num_buf[64];
-  memcpy(num_buf, trim_start, trimmed_len);
-  num_buf[trimmed_len] = '\0';
+  uint64_t m10 = 0;
+  int  m10digits = 0;       /* mantissa digits accumulated into m10 (capped at 19) */
+  long sig = 0;             /* significant digits (leading zeros excluded) */
+  int  sig_started = 0;
+  bool overflow = false;
+  long int_digits = 0, frac_digits = 0;
+  bool seen_dot = false, seen_exp = false, any_digit = false, exp_any = false;
+  int64_t exp_val = 0; int exp_neg = 0;
 
-  char *endptr;
-
-  // Try integer first (most common numeric type in CSV)
-  // Don't try integer if field starts with '.' (e.g., ".5")
-  if (first != '.') {
-    errno = 0;
-    long int_val = strtol(num_buf, &endptr, 10);
-    if (endptr == num_buf + trimmed_len) {
-      // Entire string was consumed → valid integer
-      if (errno == ERANGE) {
-        // Overflow: fall back to Ruby Bignum
-        return rb_cstr_to_inum(num_buf, 10, false);
+  for (; i < n; i++) {
+    char c = s[i];
+    if (c >= '0' && c <= '9') {
+      any_digit = true;
+      if (!seen_exp) {
+        if (seen_dot) frac_digits++; else int_digits++;
+        if (sig_started) sig++;
+        else if (c != '0') { sig_started = 1; sig = 1; }
+        if (m10digits < 19) { m10 = m10 * 10 + (uint64_t)(c - '0'); m10digits++; }
+        else overflow = true;
+      } else {
+        exp_any = true;
+        exp_val = exp_val * 10 + (c - '0');
+        if (exp_val > 1000000) overflow = true; /* extreme exponent → strtod fallback */
       }
-      return LONG2NUM(int_val);
+    } else if (c == '.' && !seen_dot && !seen_exp) {
+      seen_dot = true;
+    } else if ((c == 'e' || c == 'E') && !seen_exp && any_digit) {
+      seen_exp = true;
+      if (i + 1 < n && (s[i + 1] == '+' || s[i + 1] == '-')) { exp_neg = (s[i + 1] == '-'); i++; }
+    } else {
+      return Qundef; /* invalid char for a number → not numeric */
     }
   }
 
-  // Try float (only if contains '.')
-  if (memchr(num_buf, '.', trimmed_len)) {
+  /* Enforce NUMERIC_REGEX exactly: an integer part is required; a dot requires a
+   * fraction digit; an exponent requires an exponent digit. */
+  if (int_digits == 0) return Qundef;
+  if (seen_dot && frac_digits == 0) return Qundef;
+  if (seen_exp && !exp_any) return Qundef;
+
+  bool is_decimal = seen_dot || seen_exp;
+
+  if (!is_decimal) {
+    /* Integer. Fast path when it fits in a long; otherwise a Ruby Integer/Bignum. */
+    if (!overflow && m10digits <= 18) {
+      long v = (long)m10;
+      return LONG2NUM(neg ? -v : v);
+    }
+    VALUE str = rb_str_new(s, n);
+    return rb_cstr_to_inum(RSTRING_PTR(str), 10, false);
+  }
+
+  /* Decimal (has a '.' or an exponent) — honor decimal_precision. 0=float, 1=auto, 2=bigdecimal */
+  if (decimal_precision == 2 || (decimal_precision == 1 && sig > 16)) {
+    VALUE str = rb_str_new(s, n);
+    return rb_funcall(rb_cObject, id_BigDecimal, 1, str);
+  }
+
+  /* Float. base-10 exponent = explicit exponent minus the fraction length. */
+  int64_t e10 = (exp_neg ? -exp_val : exp_val) - (int64_t)frac_digits;
+  double d;
+  if (!overflow && m10digits >= 1 && m10digits <= 19 && ((long)m10digits + e10) >= -307) {
+    /* Eisel-Lemire is correctly-rounded for any nonzero mantissa that fits exactly in a
+     * uint64 — i.e. up to 19 significant digits (the max 19-digit value ~1.0e19 is below
+     * UINT64_MAX ~1.8e19). Verified bit-for-bit vs the stdlib over 1..19-digit ties. */
+    d = (m10 == 0) ? (neg ? -0.0 : 0.0) : fj_eisel_lemire_s2d(e10, m10, neg);
+  } else {
+    /* >19 digits / extreme or subnormal exponent → strtod (RSTRING_PTR is null-terminated). */
+    VALUE str = rb_str_new(s, n);
+    char *endptr;
     errno = 0;
-    double float_val = strtod(num_buf, &endptr);
-    if (endptr == num_buf + trimmed_len && errno != ERANGE) {
-      return DBL2NUM(float_val);
-    }
+    d = strtod(RSTRING_PTR(str), &endptr);
   }
-
-  return Qundef;  // not numeric
+  return DBL2NUM(d);
 }
 
 /*
@@ -679,6 +739,7 @@ typedef struct {
   long headers_len;
   long hash_capa;           // Pre-computed capacity for lazy hash allocation
   int numeric_mode;         // 0=off, 1=all, 2=only, 3=except
+  int decimal_precision;    // 0=float, 1=auto (BigDecimal above 16 sig digits), 2=bigdecimal
   bool remove_empty_values;
   bool remove_zero_values;
 } field_transform_opts;
@@ -770,7 +831,7 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
                       (opts->numeric_mode == 2 && rb_ary_includes(opts->numeric_keys, key) == Qtrue) ||
                       (opts->numeric_mode == 3 && rb_ary_includes(opts->numeric_keys, key) != Qtrue);
     if (do_convert) {
-      VALUE numeric = try_numeric_conversion(trim_start, trimmed_len);
+      VALUE numeric = try_numeric_conversion(trim_start, trimmed_len, opts->decimal_precision);
       if (numeric != Qundef) {
         ensure_hash_allocated(opts);
         rb_hash_aset(opts->hash, key, numeric);
@@ -815,6 +876,18 @@ void parse_numeric_option(VALUE options_hash, int *out_mode, VALUE *out_keys) {
       *out_mode = 1;  // convert all
     }
   }
+}
+
+/* Read decimal_precision into 0=float, 1=auto, 2=bigdecimal. Default :auto (1).
+ * The option is validated and coerced to a symbol on the Ruby side before we get here. */
+static inline int parse_decimal_precision(VALUE options_hash) {
+  VALUE v = rb_hash_aref(options_hash, ID2SYM(id_decimal_precision));
+  if (RB_TYPE_P(v, T_SYMBOL)) {
+    ID s = SYM2ID(v);
+    if (s == id_float) return 0;
+    if (s == id_bigdecimal) return 2;
+  }
+  return 1; // :auto (also the default when unset)
 }
 
 /*
@@ -891,6 +964,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   int numeric_mode = 0;
   VALUE numeric_keys = Qnil;
   parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
+  int decimal_precision = parse_decimal_precision(options_hash);
 
   // quote_escaping and quote_boundary are only needed in Section 5 (quoted/slow path).
   // They are declared here as forward declarations so Section 5 can set them lazily.
@@ -1055,6 +1129,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
     .headers_len = headers_len,
     .hash_capa = hash_size,
     .numeric_mode = numeric_mode,
+    .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
     .remove_zero_values = remove_zero_values,
   };
@@ -1433,6 +1508,7 @@ __attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE header
 
   /* Numeric conversion */
   parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
+  ctx->decimal_precision = parse_decimal_precision(options_hash);
 
   /* quote_escaping → allow_escaped_quotes */
   VALUE quote_escaping_val = rb_hash_aref(options_hash, ID2SYM(id_quote_escaping));
@@ -1553,6 +1629,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
   bool remove_empty_values = ctx->remove_empty_values;
   bool remove_zero_values  = ctx->remove_zero_values;
   int  numeric_mode        = ctx->numeric_mode;
+  int  decimal_precision   = ctx->decimal_precision;
   VALUE numeric_keys       = ctx->numeric_keys;
   bool *keep_bitmap         = ctx->keep_bitmap;
   /* keep_bitmap is cached in the context (xmalloc'd once at construction, sized to the header count
@@ -1604,6 +1681,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     .headers_len       = headers_len,
     .hash_capa         = hash_size,
     .numeric_mode      = numeric_mode,
+    .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
     .remove_zero_values  = remove_zero_values,
   };
@@ -1967,6 +2045,10 @@ void Init_smarter_csv(void) {
   id_strict             = rb_intern("strict");
   id_backslash      = rb_intern("backslash");
   id_standard       = rb_intern("standard");
+  id_decimal_precision = rb_intern("decimal_precision");
+  id_float          = rb_intern("float");
+  id_bigdecimal     = rb_intern("bigdecimal");
+  id_BigDecimal     = rb_intern("BigDecimal"); /* Kernel#BigDecimal(); 'bigdecimal' is required in lib/smarter_csv.rb */
 
   rb_define_module_function(Parser, "parse_csv_line_c", rb_parse_csv_line, 9);
   rb_define_module_function(Parser, "count_quote_chars_c", rb_count_quote_chars, 4);

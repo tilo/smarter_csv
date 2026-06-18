@@ -4,10 +4,22 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
-## 1.17.5 (2026-06-17)
+## 1.18.0 (2026-06-17)
+
+### New Features
+
+  - **`decimal_precision` option** (`:auto` default, or `:float` / `:bigdecimal`) — controls how decimal values are converted. `:auto` returns a `Float` unless the value carries more than 16 significant digits, in which case it returns a `BigDecimal` so no precision is lost; `:float` always returns `Float`; `:bigdecimal` always returns `BigDecimal`. Integers are unaffected (always `Integer`). Works identically on the C and Ruby paths. (Ruby's standard-library CSV has no high-precision option — its `:numeric`/`:float` converters use `Float()` and lose precision.)
+  - Decimal parsing on the C path now uses the **Eisel-Lemire** algorithm (fast_float, vendored), correctly rounded and bit-for-bit identical to `String#to_f`, with a `strtod` fallback for the rare cases it doesn't cover.
+
+### Behavior Changes
+
+  - **Scientific notation now converts to a number** (e.g. `"1e3"`, `"1.5e-5"`, `"6.022e23"`). Previously the Ruby path left these as Strings and the C path was inconsistent.
+  - **The C and Ruby numeric-conversion paths are now aligned.** Bare-dot forms like `".5"` and `"3."` stay Strings on **both** paths (the shared grammar requires an integer part and, when a dot is present, a fraction digit). Previously the C path converted these and the Ruby path did not.
+  - With the default `decimal_precision: :auto`, decimal values carrying more than 16 significant digits are now returned as `BigDecimal` instead of `Float`. Pass `decimal_precision: :float` to keep the previous always-`Float` behavior.
+  - `bigdecimal` is now a runtime dependency (it is no longer a default gem on Ruby 3.4+).
 
 ### Performance
-
+  - Eisel-Lemire, Mushtak-Lemire algorithm for C-accelerated path to convert numbers to big_decimal or float
   - SIMD scanner for backslash-escaped quoted fields (C-path), using NEON (arm64) and SSE2 (x86-64) with a scalar fallback. Speeds up `quote_escaping: :backslash` parsing of long quoted fields.
 
   | File                       | C-path                           |

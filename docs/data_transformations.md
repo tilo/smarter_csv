@@ -156,6 +156,39 @@ data = SmarterCSV.process(file,
   convert_values_to_numeric: { only: [:quantity, :price] })
 ```
 
+Scientific notation (e.g. `"1.5e3"`, `"6.022e23"`) is recognized and converted too. Bare-dot forms like `".5"` and `"3."` are left as Strings (they are not valid numbers here). Integers and floats convert identically on the C-accelerated and pure-Ruby paths.
+
+---
+
+## `decimal_precision`
+
+**Default: `:auto`**
+
+Controls how decimal values (those with a `.` or an exponent) are converted. Integers are unaffected — they are always returned as `Integer`.
+
+| Value         | Result                                                                                  |
+|---------------|-----------------------------------------------------------------------------------------|
+| `:auto`       | `Float`, unless the value carries more than 16 significant digits — then `BigDecimal`.   |
+| `:float`      | Always `Float` (correctly rounded; matches `String#to_f`).                               |
+| `:bigdecimal` | Always `BigDecimal` (full precision).                                                    |
+
+```ruby
+# :auto (default) — keeps full precision only when needed
+SmarterCSV.process(file)
+# "3.14"                 => 3.14                              (Float)
+# "1234567890.123456789" => 0.1234567890123456789e10          (BigDecimal — >16 sig digits)
+
+# :float — always Float (faster, may lose precision on long decimals)
+SmarterCSV.process(file, decimal_precision: :float)
+# "1234567890.123456789" => 1234567890.1234567               (Float)
+
+# :bigdecimal — always BigDecimal
+SmarterCSV.process(file, decimal_precision: :bigdecimal)
+# "3.14" => 0.314e1 (BigDecimal)
+```
+
+Unlike Ruby's standard-library CSV — whose `:numeric`/`:float` converters use `Float()` and silently lose precision — `:auto` preserves high-precision decimals as `BigDecimal`. Decimal values are decoded on the C path with the Eisel-Lemire algorithm (correctly rounded, identical to `String#to_f`).
+
 ---
 
 ## `remove_empty_hashes`

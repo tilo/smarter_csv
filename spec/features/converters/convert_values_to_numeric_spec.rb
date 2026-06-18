@@ -46,12 +46,11 @@ describe 'numeric conversion of values' do
       end
     end
 
-    # Characterization of CURRENT numeric-conversion behavior on edge inputs.
-    # Most of these are the intended contract — base-10 conversion (so leading zeros do NOT mean
-    # octal), and radix prefixes / underscores / scientific notation are NOT converted. A few
-    # bare-dot and scientific-with-dot forms differ between the C and Ruby paths today; those are
-    # pinned here per path. See TO_DO.md ("Numeric conversion: align the Ruby fallback path with
-    # the C path") — when that lands, the Ruby-path expectations in the second block below change.
+    # Characterization of numeric-conversion behavior on edge inputs.
+    # Base-10 conversion (leading zeros do NOT mean octal); radix prefixes and underscores are
+    # NOT converted. As of 1.18.0 the C and Ruby paths are aligned: scientific notation (with or
+    # without a dot) converts on both paths, and bare-dot forms (".5", "3.") stay String on both
+    # (the shared grammar requires an integer part and, if a dot is present, a fraction digit).
     describe 'numeric conversion — edge-input characterization' do
       require 'stringio'
 
@@ -85,8 +84,8 @@ describe 'numeric conversion of values' do
         ['0xFF',   '0xFF'],
         ['0b101',  '0b101'],
         ['0o17',   '0o17'],
-        ['1e3',    '1e3'],         # scientific notation without a '.' — not converted
-        ['1E3',    '1E3'],
+        ['1e3',    1000.0],        # scientific notation (no dot) now converts → Float
+        ['1E3',    1000.0],
         ['1_000',  '1_000'],       # underscores — not converted
         ['1.2.3',  '1.2.3'],       # not a number
         ['-',      '-'],           # lone sign — not a number
@@ -97,24 +96,17 @@ describe 'numeric conversion of values' do
         end
       end
 
-      # DIVERGING BEHAVIOR BETWEEN C-path and Ruby-path
-      # ===============================================
-      # The C path (strtod) accepts bare-dot and scientific-with-dot forms
-      # The Ruby fallback's \A[+-]?\d+(?:\.\d+)?\z regex does not — so these diverge today.
+      # CONVERGED in 1.18.0 (these used to differ between the C and Ruby paths).
+      # The shared grammar requires an integer part, and a fraction digit when a dot is present,
+      # so bare-dot forms stay String on BOTH paths; scientific-with-dot converts on BOTH.
       [
-        ['.5',     0.5,              '.5'],
-        ['3.',     3.0,              '3.'],
-        ['1.5e3',  1500.0,           '1.5e3'],
-        ['1.0e10', 10_000_000_000.0, '1.0e10'],
-      ].each do |value, c_expected, rb_expected|
-        if acceleration && RUBY_ENGINE == 'ruby' # only MRI runs the C-extension
-          it "converts #{value.inspect} to #{c_expected.inspect} on the C-path" do
-            expect(converted(value, acceleration)).to eql c_expected
-          end
-        else
-          it "converts #{value.inspect} to #{rb_expected.inspect} on the Ruby-path or non-MRI Ruby" do
-            expect(converted(value, acceleration)).to eql rb_expected
-          end
+        ['.5',     '.5'],            # no integer part → not a number
+        ['3.',     '3.'],            # dot with no fraction digit → not a number
+        ['1.5e3',  1500.0],          # scientific with a dot → Float (both paths)
+        ['1.0e10', 10_000_000_000.0],
+      ].each do |value, expected|
+        it "converts #{value.inspect} to #{expected.inspect} (acceleration: #{acceleration})" do
+          expect(converted(value, acceleration)).to eql expected
         end
       end
     end
