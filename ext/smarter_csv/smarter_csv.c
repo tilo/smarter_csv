@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#ifdef __ARM_NEON
+  #include <arm_neon.h>
+#endif
+
 #ifndef bool
   #define bool int
   #define false ((bool)0)
@@ -132,6 +136,39 @@ static const rb_data_type_t parse_context_type = {
   0, 0,
   RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED
 };
+
+/* Scan [p, end) for the first `quote` char or backslash; returns a pointer to it,
+ * or `end` if neither occurs. NEON processes 16 bytes per iteration on arm64, with a
+ * scalar fallback elsewhere. Ported from smarter_json's fj_scan_str.
+ *
+ * Used by the quoted-field slow path in :backslash escaping mode, where the only bytes
+ * that can change parser state inside a quoted field are the quote char (closing /
+ * doubled) and the backslash (escape). Bulk-skipping the plain content between them
+ * keeps the byte-by-byte state machine's behavior but avoids stepping every byte.
+ * In RFC mode the slow path uses a plain memchr-to-quote instead (only one byte class
+ * matters there), so this two-class scan is reserved for backslash mode. */
+static inline const char *scan_quote_or_backslash(const char *p, const char *end, char quote) {
+#ifdef __ARM_NEON
+  const uint8x16_t vq  = vdupq_n_u8((uint8_t)quote);
+  const uint8x16_t vbs = vdupq_n_u8((uint8_t)'\\');
+  while (p + 16 <= end) {
+    uint8x16_t chunk = vld1q_u8((const uint8_t *)p);
+    uint8x16_t m     = vorrq_u8(vceqq_u8(chunk, vq), vceqq_u8(chunk, vbs));
+    /* movemask emulation (Oj's technique): pack to 4 bits/byte, then ctz/4. */
+    uint8x8_t  res   = vshrn_n_u16(vreinterpretq_u16_u8(m), 4);
+    uint64_t   mask  = vget_lane_u64(vreinterpret_u64_u8(res), 0);
+    if (__builtin_expect(mask != 0, 0)) {  /* most 16-byte chunks contain neither */
+      mask &= 0x8888888888888888ull;
+      return p + (__builtin_ctzll(mask) >> 2);
+    }
+    p += 16;
+  }
+#endif
+  for (; p < end; p++) {
+    if (*p == quote || *p == '\\') return p;
+  }
+  return end;
+}
 
 static VALUE unescape_quotes(char *str, long len, char quote_char, rb_encoding *encoding) {
   // Fast path: scan for any doubled quote pair. If none present, the field has
@@ -386,6 +423,20 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
       backslash_count = 0;
       field_started = false;  // reset for next field
     } else {
+      /* Backslash mode: NEON scan-ahead to the next quote OR backslash (Opt #7).
+       * Inside a quoted field the only state-changing bytes are the quote char and the
+       * backslash; bulk-skip the plain content between them. Skipped bytes are plain
+       * content, which the byte-by-byte loop resets backslash_count to 0 on, so reset
+       * it here whenever we actually move p. */
+      if (allow_escaped_quotes && in_quotes) {
+        const char *hit = scan_quote_or_backslash(p, endP, quote_char_val);
+        if (hit != p) {
+          backslash_count = 0;
+          p = (char *)hit;
+          if (p == endP) continue;  /* no quote/backslash before end → unclosed */
+        }
+      }
+
       if (allow_escaped_quotes && *p == '\\') {
         backslash_count++;
         if (__builtin_expect(quote_boundary_standard, 1) && !in_quotes) field_started = true;
@@ -1160,6 +1211,20 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
           p = next_quote;  /* jump to quote char; fall through to quote-handling code */
         }
 
+        /* Backslash mode: NEON scan-ahead to the next quote OR backslash (Opt #7).
+         * The RFC memchr skip above only matters for one byte class; with escaping on
+         * a backslash also changes state, so scan for both. Skipped bytes are plain
+         * content (the byte-by-byte loop resets backslash_count to 0 on them), so reset
+         * it here whenever we actually move p. */
+        if (allow_escaped_quotes && in_quotes) {
+          const char *hit = scan_quote_or_backslash(p, endP, quote_char_val);
+          if (hit != p) {
+            backslash_count = 0;
+            p = (char *)hit;
+            if (p == endP) continue;  /* no quote/backslash before end → unclosed */
+          }
+        }
+
         if (allow_escaped_quotes && *p == '\\') {
           // Count consecutive backslashes for escape sequence detection
           backslash_count++;
@@ -1652,6 +1717,16 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
           char *next_quote = (char *)memchr(p, quote_char_val, endP - p);
           if (!next_quote) { p = endP; continue; }
           p = next_quote;  /* fall through to quote-handling code */
+        }
+
+        /* Backslash mode: NEON scan-ahead to the next quote OR backslash (Opt #7). */
+        if (allow_escaped_quotes && in_quotes) {
+          const char *hit = scan_quote_or_backslash(p, endP, quote_char_val);
+          if (hit != p) {
+            backslash_count = 0;
+            p = (char *)hit;
+            if (p == endP) continue;  /* no quote/backslash before end → unclosed */
+          }
         }
 
         if (allow_escaped_quotes && *p == '\\') {

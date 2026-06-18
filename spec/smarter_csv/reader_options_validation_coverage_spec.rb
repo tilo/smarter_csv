@@ -60,10 +60,70 @@ describe 'options validation coverage' do
       end.to raise_error(SmarterCSV::ValidationError, /invalid quote_escaping/)
     end
 
-    it 'raises ValidationError for string quote_escaping' do
+    it 'accepts and coerces a string quote_escaping to a symbol' do
+      opts = nil
       expect do
-        instance.process_options(quote_escaping: 'double_quotes')
+        opts = instance.process_options(quote_escaping: 'double_quotes')
+      end.not_to raise_error
+      expect(opts[:quote_escaping]).to eq(:double_quotes)
+    end
+
+    it 'accepts and coerces the string "backslash" to :backslash' do
+      opts = nil
+      expect do
+        opts = instance.process_options(quote_escaping: 'backslash')
+      end.not_to raise_error
+      expect(opts[:quote_escaping]).to eq(:backslash)
+    end
+
+    it 'still raises ValidationError for an invalid string quote_escaping' do
+      expect do
+        instance.process_options(quote_escaping: 'nonsense')
       end.to raise_error(SmarterCSV::ValidationError, /invalid quote_escaping/)
+    end
+  end
+
+  describe 'quote_boundary validation' do
+    it 'accepts :standard' do
+      expect { instance.process_options(quote_boundary: :standard) }.not_to raise_error
+    end
+
+    it 'accepts and coerces a string quote_boundary to a symbol' do
+      opts = nil
+      expect do
+        opts = instance.process_options(quote_boundary: 'legacy')
+      end.not_to raise_error
+      expect(opts[:quote_boundary]).to eq(:legacy)
+    end
+
+    it 'still raises ValidationError for an invalid string quote_boundary' do
+      expect do
+        instance.process_options(quote_boundary: 'nonsense')
+      end.to raise_error(SmarterCSV::ValidationError, /invalid quote_boundary/)
+    end
+  end
+
+  describe 'symbol/string option interchangeability' do
+    # symbol-valued enum options accept the string equivalent (string -> symbol)
+    it 'coerces a string missing_headers to a symbol' do
+      expect(instance.process_options(missing_headers: 'raise')[:missing_headers]).to eq(:raise)
+    end
+
+    it 'keeps :strict synchronized when missing_headers is given as a string' do
+      expect(instance.process_options(missing_headers: 'raise')[:strict]).to be(true)
+    end
+
+    it 'coerces a string on_bad_row to a symbol' do
+      expect(instance.process_options(on_bad_row: 'skip')[:on_bad_row]).to eq(:skip)
+    end
+
+    it 'leaves a callable on_bad_row untouched' do
+      cb = ->(_) {}
+      expect(instance.process_options(on_bad_row: cb)[:on_bad_row]).to be(cb)
+    end
+
+    it 'coerces a string verbose to a symbol' do
+      expect(instance.process_options(verbose: 'quiet')[:verbose]).to eq(:quiet)
     end
   end
 
