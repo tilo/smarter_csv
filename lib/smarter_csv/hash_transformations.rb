@@ -138,7 +138,15 @@ module SmarterCSV
       when :bigdecimal
         BigDecimal(str)
       else # :auto
-        significant_digits(str) > 16 ? BigDecimal(str) : str.to_f
+        # A float token always has a '.' or 'e', so a token of <= 17 bytes holds at most
+        # 16 digits and therefore <= 16 significant digits — skip the per-char scan and go
+        # straight to Float (the common case: coordinates, sensor readings, prices). Only
+        # longer tokens can reach the BigDecimal threshold, so pay for the scan only then.
+        if str.bytesize > 17 && significant_digits(str) > 16
+          BigDecimal(str)
+        else
+          str.to_f
+        end
       end
     end
 
