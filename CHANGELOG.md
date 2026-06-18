@@ -6,10 +6,12 @@
 
 ## 1.18.0 (2026-06-17)
 
+This release is focused on both performance and the introduction of automatic conversion of decimals to big_decimal or float, preserving the precision, and also supporting scientific notation. This is particularly interesting if you have geolocation or scientific data.
+
 ### New Features
 
   - **`decimal_precision` option** (`:auto` default, or `:float` / `:bigdecimal`) — controls how decimal values are converted. `:auto` returns a `Float` unless the value carries more than 16 significant digits, in which case it returns a `BigDecimal` so no precision is lost; `:float` always returns `Float`; `:bigdecimal` always returns `BigDecimal`. Integers are unaffected (always `Integer`). Works identically on the C and Ruby paths. (Ruby's standard-library CSV has no high-precision option — its `:numeric`/`:float` converters use `Float()` and lose precision.)
-  - Decimal parsing on the C path now uses the **Eisel-Lemire** algorithm (fast_float, vendored), correctly rounded and bit-for-bit identical to `String#to_f`, with a `strtod` fallback for the rare cases it doesn't cover.
+  - **Float** conversion on the C path now uses the fast **Eisel-Lemire** algorithm (fast_float, vendored) for mantissas up to 19 significant digits — correctly rounded, bit-for-bit identical to `String#to_f` — with a `strtod` fallback beyond that (more than 19 digits / extreme exponents). High-precision values that become `BigDecimal` under `:auto`/`:bigdecimal` are parsed by Ruby's `BigDecimal`.
 
 ### Behavior Changes
 
@@ -19,12 +21,16 @@
   - `bigdecimal` is now a runtime dependency (it is no longer a default gem on Ruby 3.4+).
 
 ### Performance
-  - Eisel-Lemire, Mushtak-Lemire algorithm for C-accelerated path to convert numbers to big_decimal or float
+
+  The C-accelerated path is faster across the board, **up to ~1.5× on the right shapes** — numeric-heavy data and backslash-escaped quoted fields — and ~1.04–1.08× on typical files.
+
+  - Eisel-Lemire (Mushtak-Lemire) algorithm on the C path to convert decimals to `Float` or `BigDecimal`. Numeric-heavy data (many float/decimal columns) parses significantly faster.
   - SIMD scanner for backslash-escaped quoted fields (C-path), using NEON (arm64) and SSE2 (x86-64) with a scalar fallback. Speeds up `quote_escaping: :backslash` parsing of long quoted fields.
 
-  | File                       | C-path                           |
-  |----------------------------|----------------------------------|
-  | backslash_long_fields_60k  | 1.45× faster (0.1825s → 0.1256s) |
+  | File                            | C-path                           | driver                |
+  |---------------------------------|----------------------------------|-----------------------|
+  | backslash_long_fields_60k       | 1.48× faster (0.1880s → 0.1273s) | SIMD quote/backslash scanner |
+  | sensor_data_50krows_50cols      | 1.40× faster (0.2763s → 0.1975s) | Eisel-Lemire numeric conversion |
 
 ### Improvements
 
