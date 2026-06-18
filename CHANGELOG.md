@@ -4,6 +4,27 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.17.5 (2026-06-17)
+
+### Performance
+
+  - NEON SIMD scanner for backslash-escaped quoted fields (C-path). When `quote_escaping: :backslash` is in effect and a quoted field contains backslashes.
+
+  | File                       | C-path                           |
+  |----------------------------|----------------------------------|
+  | backslash_long_fields_60k  | 1.45× faster (0.1825s → 0.1256s) |
+
+### Improvements
+
+  - Improved robustness of symbol-valued enum option processing.
+
+### Tests
+
+  - added parity tests for long quoted-field scanning across 16-byte boundaries, running on both the C and Ruby paths.
+  - added tests for string-to-symbol coercion of the enum options.
+
+
+
 ## 1.17.4 (2026-06-03)
 
 ### Bug Fix
