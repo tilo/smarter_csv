@@ -15,6 +15,9 @@
 
   > See [**Ruby CSV Pitfalls**](docs/ruby_csv_pitfalls.md) for 10 ways `CSV.read` silently corrupts or loses data, and how SmarterCSV handles them.
 
+  > [!TIP]
+  > **No silent precision loss (new in 1.18.0).** For scientific data, GPS/geo coordinates, and financial figures — which routinely carry 16+ significant digits — Ruby's standard CSV converts with `Float()`, so a value like `1234567890.123456789` is silently rounded to `1234567890.1234567`. SmarterCSV's default `decimal_precision: :auto` returns a `BigDecimal` for values beyond 16 significant digits (and `Float` otherwise) — full precision, no data loss. Floats are decoded with the Eisel-Lemire algorithm: correctly rounded, bit-for-bit identical to `String#to_f`.
+
   Beyond raw speed, SmarterCSV is designed to provide a significantly more convenient and developer-friendly interface than traditional CSV libraries. Instead of returning raw arrays that require substantial post-processing, SmarterCSV produces Rails-ready hashes for each row, making the data immediately usable with ActiveRecord, Sidekiq pipelines, parallel processing, and JSON-based workflows such as S3.
 
   In a Rails app, warnings auto-route through `Rails.logger` and instrumentation hooks compose with `ActiveSupport::Notifications` — no setup required. Outside Rails, warnings fall back to `$stderr` and the same APIs work without any framework dependency.
@@ -88,6 +91,8 @@ rows = SmarterCSV.process('data.csv')
 ```ruby
 data = SmarterCSV.parse(csv_string)
 ```
+
+Numeric conversion is also more accurate: where Ruby's `:numeric`/`:float` converters round high-precision decimals through `Float()`, SmarterCSV's default `decimal_precision: :auto` returns a `BigDecimal` past 16 significant digits, so no precision is lost (pass `decimal_precision: :float` for like-for-like `Float` output).
 
 * See [**Migrating from Ruby CSV**](docs/migrating_from_csv.md) for a full comparison of options, behavior differences, and a quick-reference table.
 

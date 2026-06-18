@@ -223,6 +223,24 @@ rows = SmarterCSV.process('sample.csv',
   convert_values_to_numeric: { except: [:zip_code, :phone, :account_number] })
 ```
 
+**High-precision decimals — scientific data and geo coordinates.** GPS/geo coordinates, scientific measurements, and financial figures routinely carry 16+ significant digits, where Ruby's `Float()`-based conversion (`converters: :numeric` / `:float`) silently rounds the value. SmarterCSV's default `decimal_precision: :auto` returns a `BigDecimal` once a value exceeds 16 significant digits (and a `Float` otherwise), so the full value is preserved; scientific notation (`6.022e23`, `1.6e-19`) is recognized as numeric too.
+
+**With Ruby CSV (precision lost):**
+```ruby
+CSV.read('locations.csv', headers: true, converters: :float).first['lat']
+# => -122.42200352825247   ← Float() dropped the last digits of -122.422003528252475
+```
+
+**With SmarterCSV (full precision kept):**
+```ruby
+SmarterCSV.process('locations.csv').first[:lat]
+# => -0.122422003528252475e3   (BigDecimal — all 18 significant digits preserved)
+
+# Force Float everywhere, like-for-like with Ruby CSV:
+SmarterCSV.process('locations.csv', decimal_precision: :float).first[:lat]
+# => -122.42200352825247   (Float)
+```
+
 ### 3. Empty values are removed by default
 
 SmarterCSV drops key/value pairs where the value is `nil` or blank
