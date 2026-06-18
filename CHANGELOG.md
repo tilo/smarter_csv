@@ -8,7 +8,7 @@
 
 ### Performance
 
-  - NEON SIMD scanner for backslash-escaped quoted fields (C-path). When `quote_escaping: :backslash` is in effect and a quoted field contains backslashes.
+  - SIMD scanner for backslash-escaped quoted fields (C-path), using NEON (arm64) and SSE2 (x86-64) with a scalar fallback. Speeds up `quote_escaping: :backslash` parsing of long quoted fields.
 
   | File                       | C-path                           |
   |----------------------------|----------------------------------|

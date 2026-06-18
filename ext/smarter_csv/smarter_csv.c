@@ -9,6 +9,8 @@
 
 #ifdef __ARM_NEON
   #include <arm_neon.h>
+#elif defined(__SSE2__)
+  #include <immintrin.h>
 #endif
 
 #ifndef bool
@@ -138,8 +140,8 @@ static const rb_data_type_t parse_context_type = {
 };
 
 /* Scan [p, end) for the first `quote` char or backslash; returns a pointer to it,
- * or `end` if neither occurs. NEON processes 16 bytes per iteration on arm64, with a
- * scalar fallback elsewhere. Ported from smarter_json's fj_scan_str.
+ * or `end` if neither occurs. NEON (arm64) or SSE2 (x86-64) processes 16 bytes per
+ * iteration; scalar fallback elsewhere. Ported from smarter_json's fj_scan_str.
  *
  * Used by the quoted-field slow path in :backslash escaping mode, where the only bytes
  * that can change parser state inside a quoted field are the quote char (closing /
@@ -160,6 +162,18 @@ static inline const char *scan_quote_or_backslash(const char *p, const char *end
     if (__builtin_expect(mask != 0, 0)) {  /* most 16-byte chunks contain neither */
       mask &= 0x8888888888888888ull;
       return p + (__builtin_ctzll(mask) >> 2);
+    }
+    p += 16;
+  }
+#elif defined(__SSE2__)
+  const __m128i vq  = _mm_set1_epi8(quote);
+  const __m128i vbs = _mm_set1_epi8('\\');
+  while (p + 16 <= end) {
+    __m128i chunk = _mm_loadu_si128((const __m128i *)p);
+    __m128i m     = _mm_or_si128(_mm_cmpeq_epi8(chunk, vq), _mm_cmpeq_epi8(chunk, vbs));
+    int     mask  = _mm_movemask_epi8(m);  /* one bit per byte that matched */
+    if (__builtin_expect(mask != 0, 0)) {  /* most 16-byte chunks contain neither */
+      return p + __builtin_ctz(mask);
     }
     p += 16;
   }
