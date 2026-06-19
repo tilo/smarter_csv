@@ -17,6 +17,7 @@ module SmarterCSV
         collect_raw_lines: true,
         comment_regexp: nil, # was: /\A#/,
         convert_values_to_numeric: true,
+        decimal_precision: :auto, # :auto (Float, but BigDecimal above 16 significant digits), :float, or :bigdecimal
         downcase_header: true,
         duplicate_header_suffix: '', # was: nil,
         field_size_limit: nil, # Integer (bytes) or nil for no limit. Raises FieldSizeLimitExceeded if any
@@ -58,6 +59,12 @@ module SmarterCSV
         with_line_numbers: false,
       }.freeze
 
+      # Options whose canonical value is one of a fixed set of symbols. A string form
+      # (e.g. "backslash" from options round-tripped through JSON or YAML) is coerced to
+      # the matching symbol. Non-string values (a callable for on_bad_row, true/false for
+      # legacy verbose) pass through untouched.
+      SYMBOL_VALUE_OPTIONS = %i[quote_escaping quote_boundary missing_headers on_bad_row verbose decimal_precision].freeze
+
       # NOTE: this is not called when "parse" methods are tested by themselves
       def process_options(given_options = {})
         # Debug output before merge — check raw verbose value (true or :debug)
@@ -76,6 +83,10 @@ module SmarterCSV
         end
 
         @options = DEFAULT_OPTIONS.dup.merge!(given_options)
+
+        # Symbol/string interchangeability: accept either form for every option whose
+        # value is a symbol or a string. Done once here, before any value is read below.
+        normalize_option_value_types!(@options)
 
         # Normalize verbose to a symbol — done once here, stored back into @options.
         # All subsequent checks are free symbol comparisons; no re-evaluation needed.
@@ -194,6 +205,9 @@ module SmarterCSV
         unless %i[legacy standard].include?(options[:quote_boundary])
           errors << "invalid quote_boundary: must be :legacy or :standard"
         end
+        unless %i[auto float bigdecimal].include?(options[:decimal_precision])
+          errors << "invalid decimal_precision: must be :auto, :float, or :bigdecimal"
+        end
         arc = options[:auto_row_sep_chars]
         min_arc = SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS
         max_arc = SmarterCSV::AutoDetection::MAX_AUTO_ROW_SEP_CHARS
@@ -266,6 +280,16 @@ module SmarterCSV
           errors << "cannot use both 'headers: { only: }' and 'headers: { except: }' at the same time"
         end
         raise SmarterCSV::ValidationError, errors.inspect if errors.any?
+      end
+
+      # Accept either a symbol or a string for every option whose value is one or the
+      # other, so callers limited to strings (JSON/YAML) behave the same as those passing
+      # symbols, and vice versa. Validation of the resulting value happens later.
+      def normalize_option_value_types!(options)
+        SYMBOL_VALUE_OPTIONS.each do |key|
+          v = options[key]
+          options[key] = v.to_sym if v.is_a?(String)
+        end
       end
 
       def option_valid?(str)

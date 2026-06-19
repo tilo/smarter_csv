@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'stringio'
+require 'bigdecimal' # for decimal_precision: :auto / :bigdecimal
 require "smarter_csv/version"
 require "smarter_csv/errors"
 

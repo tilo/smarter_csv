@@ -4,6 +4,47 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.18.0 (2026-06-17)
+
+This release is focused on both performance and the introduction of automatic conversion of decimals to big_decimal or float, preserving the precision, and also supporting scientific notation.
+
+⚠️ This version is particularly interesting if you have geolocation, scientific, or high-precision data.
+
+### New Features
+
+  - **`decimal_precision` option** (`:auto` default, or `:float` / `:bigdecimal`) — controls how decimal values are converted. `:auto` returns a `Float` unless the value carries more than 16 significant digits, in which case it returns a `BigDecimal` so no precision is lost; `:float` always returns `Float`; `:bigdecimal` always returns `BigDecimal`. Integers are unaffected (always `Integer`). Works identically on the C and Ruby paths. (Ruby's standard-library CSV has no high-precision option — its `:numeric`/`:float` converters use `Float()` and lose precision.)
+  - **Float** conversion on the C path now uses the fast **Eisel-Lemire** algorithm (fast_float, vendored) for mantissas up to 19 significant digits — correctly rounded, bit-for-bit identical to `String#to_f` — with a `strtod` fallback beyond that (more than 19 digits / extreme exponents). High-precision values that become `BigDecimal` under `:auto`/`:bigdecimal` are parsed by Ruby's `BigDecimal`.
+
+### Behavior Changes
+
+  - **Scientific notation now converts to a number** (e.g. `"1e3"`, `"1.5e-5"`, `"6.022e23"`). Previously the Ruby path left these as Strings and the C path was inconsistent.
+  - **The C and Ruby numeric-conversion paths are now aligned.** Bare-dot forms like `".5"` and `"3."` stay Strings on **both** paths (the shared grammar requires an integer part and, when a dot is present, a fraction digit). Previously the C path converted these and the Ruby path did not.
+  - With the default `decimal_precision: :auto`, decimal values carrying more than 16 significant digits are now returned as `BigDecimal` instead of `Float`. Pass `decimal_precision: :float` to keep the previous always-`Float` behavior.
+  - `bigdecimal` is now a runtime dependency (it is no longer a default gem on Ruby 3.4+).
+
+### Performance
+
+  The C-accelerated path is faster across the board, **up to ~1.5× on the right shapes** — numeric-heavy data and backslash-escaped quoted fields — and ~1.04–1.08× on typical files.
+
+  - Eisel-Lemire (Mushtak-Lemire) algorithm on the C path to convert decimals to `Float` or `BigDecimal`. Numeric-heavy data (many float/decimal columns) parses significantly faster.
+  - SIMD scanner for backslash-escaped quoted fields (C-path), using NEON (arm64) and SSE2 (x86-64) with a scalar fallback. Speeds up `quote_escaping: :backslash` parsing of long quoted fields.
+
+  | File                            | C-path                           | driver                |
+  |---------------------------------|----------------------------------|-----------------------|
+  | backslash_long_fields_60k       | 1.48× faster (0.1880s → 0.1273s) | SIMD quote/backslash scanner |
+  | sensor_data_50krows_50cols      | 1.40× faster (0.2763s → 0.1975s) | Eisel-Lemire numeric conversion |
+
+### Improvements
+
+  - Improved robustness of symbol-valued enum option processing.
+
+### Tests
+
+  - added parity tests for long quoted-field scanning across 16-byte boundaries, running on both the C and Ruby paths.
+  - added tests for string-to-symbol coercion of the enum options.
+
+
+
 ## 1.17.4 (2026-06-03)
 
 ### Bug Fix
