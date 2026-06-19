@@ -684,11 +684,12 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
      * UINT64_MAX ~1.8e19). Verified bit-for-bit vs the stdlib over 1..19-digit ties. */
     d = (m10 == 0) ? (neg ? -0.0 : 0.0) : fj_eisel_lemire_s2d(e10, m10, neg);
   } else {
-    /* >19 digits / extreme or subnormal exponent → strtod (RSTRING_PTR is null-terminated). */
+    /* >19 digits / extreme or subnormal exponent: fall back to Ruby's own correctly-rounded
+     * strtod (rb_cstr_to_dbl) — the exact conversion String#to_f uses — so the C path and the
+     * Ruby path produce the identical double on every platform, not just where the system
+     * strtod happens to be correctly rounded. The token is pre-validated, so badcheck=0. */
     VALUE str = rb_str_new(s, n);
-    char *endptr;
-    errno = 0;
-    d = strtod(RSTRING_PTR(str), &endptr);
+    d = rb_cstr_to_dbl(RSTRING_PTR(str), 0);
   }
   return DBL2NUM(d);
 }
