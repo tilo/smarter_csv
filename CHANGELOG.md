@@ -6,7 +6,9 @@
 
 ## 1.18.0 (2026-06-17)
 
-This release is focused on both performance and the introduction of automatic conversion of decimals to big_decimal or float, preserving the precision, and also supporting scientific notation. This is particularly interesting if you have geolocation or scientific data.
+This release is focused on both performance and the introduction of automatic conversion of decimals to big_decimal or float, preserving the precision, and also supporting scientific notation.
+
+⚠️ This version is particularly interesting if you have geolocation, scientific, or high-precision data.
 
 ### New Features
 
