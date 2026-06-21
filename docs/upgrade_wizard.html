@@ -94,6 +94,15 @@ input[type="text"] {
   color: var(--green);
   font-weight: 600;
 }
+.benefit {
+  background: var(--green-soft);
+  border: 1px solid #b6dab6;
+  border-radius: 8px;
+  padding: 1em 1.25em;
+  margin-bottom: 1em;
+  color: var(--fg);
+}
+.benefit strong { color: var(--green); }
 .check {
   padding: 0.85em 0;
   border-top: 1px solid var(--border);
@@ -229,7 +238,7 @@ function renderHop(series, originalVersion) {
   if (hop.actions.length === 0) {
     body = `<div class="hop dropin">
       You can upgrade directly to version ${targetRelease}. No changes needed.
-    </div>`;
+    </div>${hop.note ? `<div class="benefit">${hop.note}</div>` : ""}`;
   } else {
     body = `<div class="hop">
       ${hop.actions.map((a, i) => `
@@ -324,6 +333,7 @@ function renderHop(series, originalVersion) {
       from:   series,
       to:     hop.to,
       dropIn: hop.actions.length === 0,
+      note:   hop.note || null,
       matched
     });
 
@@ -377,7 +387,8 @@ function renderSummary() {
     const targetRelease = latestReleaseFor(d.to);
     const heading = `<p class="summary-hop-heading"><strong>${d.from}.x &rarr; ${targetRelease}</strong></p>`;
     if (d.dropIn) {
-      return `<div class="summary-hop">${heading}<p class="muted">No code changes needed for this step.</p></div>`;
+      const noteHTML = d.note ? `<p>${d.note}</p>` : "";
+      return `<div class="summary-hop">${heading}<p class="muted">No code changes needed for this step.</p>${noteHTML}</div>`;
     }
     if (d.matched.length === 0) {
       return `<div class="summary-hop">${heading}<p class="muted">None of the conditions in this step applied to your code.</p></div>`;

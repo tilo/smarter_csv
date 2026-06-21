@@ -1,6 +1,6 @@
 {
-  "latest": "1.17",
-  "latest_release": "1.17.2",
+  "latest": "1.18",
+  "latest_release": "1.18.0",
   "path": {
     "1.0": {
       "to": "1.1",
@@ -170,6 +170,12 @@
       "to": "1.17",
       "latest_release": "1.16.6",
       "actions": []
+    },
+    "1.17": {
+      "to": "1.18",
+      "latest_release": "1.17.4",
+      "actions": [],
+      "note": "<strong>Bonus:</strong> 1.18 automatically converts scientific notation (e.g. <code>1e3</code>, <code>6.022e23</code>) to numbers, and preserves full precision on long decimals by returning a <code>BigDecimal</code> when a value carries more than 16 significant digits (<code>decimal_precision: :auto</code>, the default). Nothing to change &mdash; this just works."
     }
   }
 }
