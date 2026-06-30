@@ -6,7 +6,7 @@
 #
 # Run this whenever CHANGELOG.md or docs/upgrade_path.json changes:
 #
-#   bin/gen-upgrading-md
+#   bin/generate-upgrading-md
 #
 # Output: UPGRADING.md at the repo root.
 
@@ -147,7 +147,7 @@ def generate(by_series, upgrade_path)
   out << "# Upgrading SmarterCSV\n\n"
   out << "> [!TIP]\n"
   out << "> Prefer the interactive [Upgrade Wizard](#{WIZARD_URL}) for a guided walk-through with Yes/No questions.  \n"
-  out << "> This document is auto-generated from `CHANGELOG.md` and `docs/upgrade_path.json` by `bin/gen-upgrading-md`.\n\n"
+  out << "> This document is auto-generated from `CHANGELOG.md` and `docs/upgrade_path.json` by `bin/generate-upgrading-md`.\n\n"
 
   out << "## How to use this guide\n\n"
   out << "1. Find your current version below. **Newest releases appear first; older ones further down.**\n"

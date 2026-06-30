@@ -2,7 +2,7 @@
 
 > [!TIP]
 > Prefer the interactive [Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) for a guided walk-through with Yes/No questions.  
-> This document is auto-generated from `CHANGELOG.md` and `docs/upgrade_path.json` by `bin/gen-upgrading-md`.
+> This document is auto-generated from `CHANGELOG.md` and `docs/upgrade_path.json` by `bin/generate-upgrading-md`.
 
 ## How to use this guide
 
