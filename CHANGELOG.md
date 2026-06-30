@@ -4,6 +4,29 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.18.1 (2026-06-30)
+
+### Bug Fixes
+
+  - **Portable builds by default — fixes the "Illegal instruction" crash on heterogeneous CPUs ([#343](https://github.com/tilo/smarter_csv/issues/343)).**
+
+  Since 1.14.3 the C extension was compiled with `-march=native` on every platform except Apple Silicon, baking-in the build host's CPU instructions (e.g. AVX-512).
+  A binary built on one machine then could encounter `Illegal instruction` when run on a CPU lacking those instructions — common when the build host differs from the run host (CI/build servers, Docker images, mixed-hardware fleets).
+
+  The C extension is now built **portable** by default (no host-specific instructions). Thanks to [@paholg](https://github.com/paholg) for the report.
+
+### New Features
+
+  - **`SMARTER_CSV_PERFORMANCE` build option** (`portable` default, `tuned`, or `max`)
+
+  | Level                | Flags added                               | Portable?                        | Use when                              |
+  |----------------------|-------------------------------------------|----------------------------------|---------------------------------------|
+  | `portable` (default) | none                                      | Yes, any CPU of the arch         | Build host may differ from run host   |
+  | `tuned`              | `-mtune=native`                           | Yes, instruction scheduling only | Build and run hosts share a microarch |
+  | `max`                | `-march=native`, or `-mcpu=native` on ARM | No, host instruction optimization| Build host and run host are the same  |
+
+  See the [Introduction](docs/_introduction.md#build-time-performance-tuning-smarter_csv_performance) for details.
+
 ## 1.18.0 (2026-06-17)
 
 This release is focused on both performance and the introduction of automatic conversion of decimals to big_decimal or float, preserving the precision, and also supporting scientific notation.

@@ -174,7 +174,12 @@
     "1.17": {
       "to": "1.18",
       "latest_release": "1.17.4",
-      "actions": [],
+      "actions": [
+        {
+          "if": "you build and run the gem on the same machine (or a fleet of identical CPUs) and want the previous native-optimized build for maximum speed",
+          "then": "set <code>SMARTER_CSV_PERFORMANCE=max</code> (or <code>tuned</code>) at install time &mdash; 1.18.1 builds <strong>portable</strong> by default (no host-specific CPU instructions) to fix an <code>Illegal instruction</code> crash when a binary built on one CPU is run on another (<a href=\"https://github.com/tilo/smarter_csv/issues/343\">#343</a>). The default is safe everywhere; the env var opts back into host optimization."
+        }
+      ],
       "note": "<strong>Bonus:</strong> 1.18 automatically converts scientific notation (e.g. <code>1e3</code>, <code>6.022e23</code>) to numbers, and preserves full precision on long decimals by returning a <code>BigDecimal</code> when a value carries more than 16 significant digits (<code>decimal_precision: :auto</code>, the default). Nothing to change &mdash; this just works."
     }
   }

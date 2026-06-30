@@ -12,24 +12,39 @@
 
 Prefer an interactive walk-through? The [Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) asks one question at a time and only shows the migration steps that apply to your code.
 
-**Latest release:** `1.17.3` (in the `1.17.x` series).
+**Latest release:** `1.18.1` (in the `1.18.x` series).
 
 ---
 
-## 1.17.x — latest series
+## 1.18.x — latest series
 
 **Versions in this series:**  
-[1.17.0, 1.17.1, 1.17.2, 1.17.3]
+[1.18.0, 1.18.1]
 
-**Latest release:** `1.17.3`
+> ⚠️ **In-series notes** worth checking:
+> - **1.18.0:** This version is particularly interesting if you have geolocation, scientific, or high-precision data.
+
+**Latest release:** `1.18.1`
 
 Update your Gemfile to:
 
 ```ruby
-gem 'smarter_csv', '~> 1.17.0'
+gem 'smarter_csv', '~> 1.18.0'
 ```
 
 Then run `bundle update smarter_csv`.
+
+## Series 1.17 → 1.18
+
+**Coming from any 1.17 version:**
+[1.17.0, 1.17.1, 1.17.2, 1.17.3, 1.17.4]
+
+**Upgrading to 1.18.x** (latest: `1.18.1`):
+
+- **If** you build and run the gem on the same machine (or a fleet of identical CPUs) and want the previous native-optimized build for maximum speed:
+  → set `SMARTER_CSV_PERFORMANCE=max` (or `tuned`) at install time — 1.18.1 builds <strong>portable</strong> by default (no host-specific CPU instructions) to fix an `Illegal instruction` crash when a binary built on one CPU is run on another (<a href="https://github.com/tilo/smarter_csv/issues/343">#343</a>). The default is safe everywhere; the env var opts back into host optimization.
+
+---
 
 ## Series 1.16 → 1.17
 
@@ -40,7 +55,7 @@ Then run `bundle update smarter_csv`.
 > - **1.16.1:** **Fibers:** `SmarterCSV.errors` uses `Thread.current` for storage, which is **shared across all fibers running in the same thread**. If you process CSV files concurrently in fibers (e.g. with `Async`, `Falcon`, or manual `Fiber` scheduling), `SmarterCSV.errors` may return stale or wrong results. **Use `SmarterCSV::Reader` directly** — errors are scoped to the reader instance and are always correct regardless of fiber context.
 > - **1.16.2:** If your code references auto-generated keys for blank headers, update those to use the absolute column position.
 
-**Upgrading to 1.17.x** (latest: `1.17.3`): you can upgrade all the way — no code changes needed.
+**Upgrading to 1.17.x** (latest: `1.17.4`): you can upgrade all the way — no code changes needed.
 
 ---
 
