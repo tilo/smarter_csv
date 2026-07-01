@@ -75,6 +75,28 @@ SmarterCSV was created to solve exactly these problems: nightly imports of large
 * **CSV writing:**
   `SmarterCSV.generate` writes arrays of hashes to CSV, with support for header renaming and value converters on output. See [The Basic Write API](./basic_write_api.md).
 
+## Build-Time Performance Tuning (`SMARTER_CSV_PERFORMANCE`)
+
+The C extension is compiled when the gem is installed. By default it is built **portable**: it uses no CPU-specific instructions, so a binary compiled on one machine runs on any other CPU of the same architecture. This matters whenever the machine that builds the gem differs from the machine that runs it — a CI or build server, a Docker image moved between hosts, or a mixed-hardware fleet. A build that bakes in instructions the run host lacks (such as AVX-512) would otherwise crash with `Illegal instruction`.
+
+Set `SMARTER_CSV_PERFORMANCE` at install time to trade portability for speed:
+
+| Level                | Flags added                               | Portable?                        | Use when                              |
+|----------------------|-------------------------------------------|----------------------------------|---------------------------------------|
+| `portable` (default) | none                                      | Yes, any CPU of the arch         | Build host may differ from run host   |
+| `tuned`              | `-mtune=native`                           | Yes, instruction scheduling only | Build and run hosts share a microarch |
+| `max`                | `-march=native`, or `-mcpu=native` on ARM | No, host instruction optimization| Build host and run host are the same  |
+
+`tuned` only changes instruction scheduling, never the instruction set, so it stays portable — and it pays off when the build and run hosts share a microarchitecture (the same chip, or a fleet of identical instances). `max` enables host-specific instructions and is the fastest, but a binary built with it can crash on a different CPU. Every flag is probed against your compiler at build time and skipped if unsupported, so an unavailable flag never breaks the build.
+
+```bash
+SMARTER_CSV_PERFORMANCE=tuned gem install smarter_csv   # portable, tuned for this machine's microarchitecture
+SMARTER_CSV_PERFORMANCE=max   gem install smarter_csv   # fastest, NOT portable — only when you build on the machine you run on
+SMARTER_CSV_PERFORMANCE=tuned bundle install            # same, under Bundler
+```
+
+For a fixed baseline instead of `native` (e.g. a portable-but-newer instruction set), pass flags directly via `CFLAGS`, which the build also honors: `CFLAGS="-march=x86-64-v2" gem install smarter_csv`.
+
 ---------------
 
 NEXT: [Migrating from Ruby CSV](./migrating_from_csv.md) | UP: [README](../README.md)
