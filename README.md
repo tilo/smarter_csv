@@ -297,6 +297,8 @@ Or install it yourself as:
     $ gem install smarter_csv
 ```
 
+The C extension is built on install and used automatically. On platforms where it can't build, the pure-Ruby implementation runs instead and produces identical results.
+
 ### CPU Optimization (`SMARTER_CSV_PERFORMANCE`)
 
 The C extension is compiled when the gem is installed. By default it is built **portable**: it uses no CPU-specific instructions, so a binary built on one machine runs on any other CPU of the same architecture. Set `SMARTER_CSV_PERFORMANCE` at install time to trade portability for speed:
