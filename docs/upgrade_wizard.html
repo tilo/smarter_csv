@@ -238,7 +238,7 @@ function renderHop(series, originalVersion) {
   if (hop.actions.length === 0) {
     body = `<div class="hop dropin">
       You can upgrade directly to version ${targetRelease}. No changes needed.
-    </div>${hop.note ? `<div class="benefit">${hop.note}</div>` : ""}`;
+    </div>`;
   } else {
     body = `<div class="hop">
       ${hop.actions.map((a, i) => `
@@ -253,6 +253,8 @@ function renderHop(series, originalVersion) {
       `).join("")}
     </div>`;
   }
+  // The bonus note renders below the actions (or below the drop-in box) regardless of whether this hop has actions.
+  if (hop.note) body += `<div class="benefit">${hop.note}</div>`;
 
   const nextLabel = hop.to === LATEST ? `Finish at ${targetRelease} &rarr;` : `Continue to ${targetRelease} &rarr;`;
   const reminder = hop.actions.length === 0 ?  `<p class="reminder">You can upgrade directly to version ${targetRelease}. No changes needed.</p>` :
@@ -386,15 +388,15 @@ function renderSummary() {
   const list = decisions.map(d => {
     const targetRelease = latestReleaseFor(d.to);
     const heading = `<p class="summary-hop-heading"><strong>${d.from}.x &rarr; ${targetRelease}</strong></p>`;
+    const noteHTML = d.note ? `<p>${d.note}</p>` : "";
     if (d.dropIn) {
-      const noteHTML = d.note ? `<p>${d.note}</p>` : "";
       return `<div class="summary-hop">${heading}<p class="muted">No code changes needed for this step.</p>${noteHTML}</div>`;
     }
     if (d.matched.length === 0) {
-      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions in this step applied to your code.</p></div>`;
+      return `<div class="summary-hop">${heading}<p class="muted">None of the conditions in this step applied to your code.</p>${noteHTML}</div>`;
     }
     const items = d.matched.map(a => `<li><strong>If</strong> ${a["if"]}<br>&rarr; ${a.then}</li>`).join("");
-    return `<div class="summary-hop">${heading}<ul>${items}</ul></div>`;
+    return `<div class="summary-hop">${heading}<ul>${items}</ul>${noteHTML}</div>`;
   }).join("");
 
   return `
