@@ -4,6 +4,22 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.19.0 (2026-07-22)
+
+### Behavior Changes
+
+  - **Exponent forms are no longer auto-converted to numbers ([#345](https://github.com/tilo/smarter_csv/issues/345)).**
+
+  Version 1.18.0 started converting scientific notation (`"1e3"`, `"12E5"`, `"1.5e3"`) to Floats. In real-world CSV data, digits-E-digits values are far more often identifiers (short codes, hex IDs) than scientific notation, and the auto-conversion corrupted them irreversibly — an ID like `"0047583311587E590003"` came back as `Infinity`.
+
+  As of 1.19.0, exponent forms always stay Strings, identically on the C-accelerated and pure-Ruby paths — as they did in every version before 1.18.0. Plain integers and decimals (`"42"`, `"3.14"`) convert as before, and `decimal_precision` (`:auto` / `:float` / `:bigdecimal`) is unaffected. If a column really does contain scientific notation, convert it per-column with `value_converters`:
+
+  ```ruby
+  SmarterCSV.process(file, value_converters: { measurement: ->(v) { v.to_f } })
+  ```
+
+  Thanks to [@sonicdes](https://github.com/sonicdes) for the report.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

@@ -48,8 +48,8 @@ describe 'numeric conversion of values' do
 
     # Characterization of numeric-conversion behavior on edge inputs.
     # Base-10 conversion (leading zeros do NOT mean octal); radix prefixes and underscores are
-    # NOT converted. As of 1.18.0 the C and Ruby paths are aligned: scientific notation (with or
-    # without a dot) converts on both paths, and bare-dot forms (".5", "3.") stay String on both
+    # NOT converted. As of 1.19.0 exponent forms never convert on either path (issue #345);
+    # bare-dot forms (".5", "3.") stay String on both paths
     # (the shared grammar requires an integer part and, if a dot is present, a fraction digit).
     describe 'numeric conversion — edge-input characterization' do
       require 'stringio'
@@ -84,8 +84,8 @@ describe 'numeric conversion of values' do
         ['0xFF',   '0xFF'],
         ['0b101',  '0b101'],
         ['0o17',   '0o17'],
-        ['1e3',    1000.0],        # scientific notation (no dot) now converts → Float
-        ['1E3',    1000.0],
+        ['1e3',    '1e3'],         # exponent forms are not numbers (1.19.0, issue #345)
+        ['1E3',    '1E3'],
         ['1_000',  '1_000'],       # underscores — not converted
         ['1.2.3',  '1.2.3'],       # not a number
         ['-',      '-'],           # lone sign — not a number
@@ -96,17 +96,37 @@ describe 'numeric conversion of values' do
         end
       end
 
-      # CONVERGED in 1.18.0 (these used to differ between the C and Ruby paths).
       # The shared grammar requires an integer part, and a fraction digit when a dot is present,
-      # so bare-dot forms stay String on BOTH paths; scientific-with-dot converts on BOTH.
+      # so bare-dot forms stay String on BOTH paths. Exponent forms (with or without a dot)
+      # converted only in 1.18.x; as of 1.19.0 they stay String on BOTH paths (issue #345).
       [
         ['.5',     '.5'],            # no integer part → not a number
         ['3.',     '3.'],            # dot with no fraction digit → not a number
-        ['1.5e3',  1500.0],          # scientific with a dot → Float (both paths)
-        ['1.0e10', 10_000_000_000.0],
+        ['1.5e3',  '1.5e3'],         # scientific with a dot → not a number (1.19.0)
+        ['1.0e10', '1.0e10'],
       ].each do |value, expected|
         it "converts #{value.inspect} to #{expected.inspect} (acceleration: #{acceleration})" do
           expect(converted(value, acceleration)).to eql expected
+        end
+      end
+
+      # Contract as of 1.19.0 (issue #345): exponent-shaped values are NOT numbers.
+      # In real-world CSV data, digits-E-digits values are far more often identifiers than
+      # scientific notation, and auto-converting them corrupts data irreversibly
+      # ("0047583311587E590003" became Infinity in 1.18.x). Exponent conversion only ever
+      # shipped in 1.18.x; no earlier version converted these on the Ruby path. Users whose
+      # data really contains scientific notation can convert per-column via value_converters.
+      [
+        '0047583311587DD90005', # issue #345 — was already a String (no valid exponent shape)
+        '0047583311587E590003', # issue #345 — became Infinity in 1.18.x
+        '12E5',                 # issue #345 — became 1200000.0 in 1.18.x
+        '1e+16',                # signed exponent, no dot
+        '1e-05',
+        '6.022e23',             # scientific with a dot
+        '1e400',                # out-of-range exponent — became Infinity in 1.18.x
+      ].each do |value|
+        it "keeps exponent-shaped #{value.inspect} as a String (acceleration: #{acceleration})" do
+          expect(converted(value, acceleration)).to eql value
         end
       end
     end

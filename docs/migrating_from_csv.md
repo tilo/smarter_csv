@@ -223,7 +223,7 @@ rows = SmarterCSV.process('sample.csv',
   convert_values_to_numeric: { except: [:zip_code, :phone, :account_number] })
 ```
 
-**High-precision decimals — scientific data and geo coordinates.** GPS/geo coordinates, scientific measurements, and financial figures routinely carry 16+ significant digits, where Ruby's `Float()`-based conversion (`converters: :numeric` / `:float`) silently rounds the value. SmarterCSV's default `decimal_precision: :auto` returns a `BigDecimal` once a value exceeds 16 significant digits (and a `Float` otherwise), so the full value is preserved; scientific notation (`6.022e23`, `1.6e-19`) is recognized as numeric too.
+**High-precision decimals — scientific data and geo coordinates.** GPS/geo coordinates, scientific measurements, and financial figures routinely carry 16+ significant digits, where Ruby's `Float()`-based conversion (`converters: :numeric` / `:float`) silently rounds the value. SmarterCSV's default `decimal_precision: :auto` returns a `BigDecimal` once a value exceeds 16 significant digits (and a `Float` otherwise), so the full value is preserved. (Exponent forms like `6.022e23` are not auto-converted — in CSV data they are usually identifiers, not numbers; use `value_converters` for columns that really contain scientific notation.)
 
 **With Ruby CSV (precision lost):**
 ```ruby

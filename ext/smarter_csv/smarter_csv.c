@@ -605,12 +605,14 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
   }
 
   /* Single pass: validate the token against the same grammar as the Ruby path's
-   * NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\z/ and, in the same pass,
-   * extract everything the fast paths need:
+   * NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?\z/ and, in the same pass, extract everything
+   * the fast paths need:
    *   - mantissa value m10 (exact for <= 18 digits; `overflow` flags beyond)
    *   - significant-digit count `sig` (leading zeros excluded; matches the Ruby
-   *     significant_digits helper / Oj dec_cnt) — drives the :auto Float/BigDecimal split
-   *   - base-10 exponent e10 (from the fraction length and any explicit exponent)
+   *     significant_digits helper) — drives the :auto Float/BigDecimal split
+   *   - base-10 exponent e10 (from the fraction length)
+   * Exponent forms ("1e3", "12E5") are deliberately NOT numbers: in real-world CSV data
+   * they are far more often identifiers than scientific notation (issue #345).
    * Anything the grammar rejects returns Qundef (stays a String), keeping the C and
    * Ruby paths byte-identical on what does and does not convert. */
   long i = 0;
@@ -623,41 +625,29 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
   int  sig_started = 0;
   bool overflow = false;
   long int_digits = 0, frac_digits = 0;
-  bool seen_dot = false, seen_exp = false, any_digit = false, exp_any = false;
-  int64_t exp_val = 0; int exp_neg = 0;
+  bool seen_dot = false;
 
   for (; i < n; i++) {
     char c = s[i];
     if (c >= '0' && c <= '9') {
-      any_digit = true;
-      if (!seen_exp) {
-        if (seen_dot) frac_digits++; else int_digits++;
-        if (sig_started) sig++;
-        else if (c != '0') { sig_started = 1; sig = 1; }
-        if (m10digits < 19) { m10 = m10 * 10 + (uint64_t)(c - '0'); m10digits++; }
-        else overflow = true;
-      } else {
-        exp_any = true;
-        exp_val = exp_val * 10 + (c - '0');
-        if (exp_val > 1000000) overflow = true; /* extreme exponent → strtod fallback */
-      }
-    } else if (c == '.' && !seen_dot && !seen_exp) {
+      if (seen_dot) frac_digits++; else int_digits++;
+      if (sig_started) sig++;
+      else if (c != '0') { sig_started = 1; sig = 1; }
+      if (m10digits < 19) { m10 = m10 * 10 + (uint64_t)(c - '0'); m10digits++; }
+      else overflow = true;
+    } else if (c == '.' && !seen_dot) {
       seen_dot = true;
-    } else if ((c == 'e' || c == 'E') && !seen_exp && any_digit) {
-      seen_exp = true;
-      if (i + 1 < n && (s[i + 1] == '+' || s[i + 1] == '-')) { exp_neg = (s[i + 1] == '-'); i++; }
     } else {
       return Qundef; /* invalid char for a number → not numeric */
     }
   }
 
   /* Enforce NUMERIC_REGEX exactly: an integer part is required; a dot requires a
-   * fraction digit; an exponent requires an exponent digit. */
+   * fraction digit. */
   if (int_digits == 0) return Qundef;
   if (seen_dot && frac_digits == 0) return Qundef;
-  if (seen_exp && !exp_any) return Qundef;
 
-  bool is_decimal = seen_dot || seen_exp;
+  bool is_decimal = seen_dot;
 
   if (!is_decimal) {
     /* Integer. Fast path when it fits in a long; otherwise a Ruby Integer/Bignum. */
@@ -669,14 +659,14 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
     return rb_cstr_to_inum(RSTRING_PTR(str), 10, false);
   }
 
-  /* Decimal (has a '.' or an exponent) — honor decimal_precision. 0=float, 1=auto, 2=bigdecimal */
+  /* Decimal (has a '.') — honor decimal_precision. 0=float, 1=auto, 2=bigdecimal */
   if (decimal_precision == 2 || (decimal_precision == 1 && sig > 16)) {
     VALUE str = rb_str_new(s, n);
     return rb_funcall(rb_cObject, id_BigDecimal, 1, str);
   }
 
-  /* Float. base-10 exponent = explicit exponent minus the fraction length. */
-  int64_t e10 = (exp_neg ? -exp_val : exp_val) - (int64_t)frac_digits;
+  /* Float. base-10 exponent = minus the fraction length. */
+  int64_t e10 = -(int64_t)frac_digits;
   double d;
   if (!overflow && m10digits >= 1 && m10digits <= 19 && ((long)m10digits + e10) >= -307) {
     /* Eisel-Lemire is correctly-rounded for any nonzero mantissa that fits exactly in a
@@ -684,7 +674,7 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
      * UINT64_MAX ~1.8e19). Verified bit-for-bit vs the stdlib over 1..19-digit ties. */
     d = (m10 == 0) ? (neg ? -0.0 : 0.0) : fj_eisel_lemire_s2d(e10, m10, neg);
   } else {
-    /* >19 digits / extreme or subnormal exponent: fall back to Ruby's own correctly-rounded
+    /* >19 digits / subnormal magnitude (very long fraction): fall back to Ruby's own correctly-rounded
      * strtod (rb_cstr_to_dbl) — the exact conversion String#to_f uses — so the C path and the
      * Ruby path produce the identical double on every platform, not just where the system
      * strtod happens to be correctly rounded. The token is pre-validated, so badcheck=0. */

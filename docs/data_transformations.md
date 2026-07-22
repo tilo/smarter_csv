@@ -156,7 +156,7 @@ data = SmarterCSV.process(file,
   convert_values_to_numeric: { only: [:quantity, :price] })
 ```
 
-Scientific notation (e.g. `"1.5e3"`, `"6.022e23"`) is recognized and converted too. Bare-dot forms like `".5"` and `"3."` are left as Strings (they are not valid numbers here). Integers and floats convert identically on the C-accelerated and pure-Ruby paths.
+Exponent forms (e.g. `"1e3"`, `"12E5"`, `"1.5e3"`) are NOT converted — they stay Strings *(changed in 1.19.0; only 1.18.x converted them)*. In real-world CSV data such values are far more often identifiers (short codes, hex IDs) than scientific notation, and auto-converting them corrupts data — e.g. an ID like `"0047583311587E590003"` became `Infinity`. If a column really does contain scientific notation, convert it per-column with [`value_converters`](./value_converters.md). Bare-dot forms like `".5"` and `"3."` are left as Strings (they are not valid numbers here). Integers and floats convert identically on the C-accelerated and pure-Ruby paths.
 
 ---
 
@@ -164,7 +164,7 @@ Scientific notation (e.g. `"1.5e3"`, `"6.022e23"`) is recognized and converted t
 
 **Default: `:auto`**
 
-Controls how decimal values (those with a `.` or an exponent) are converted. Integers are unaffected — they are always returned as `Integer`.
+Controls how decimal values (those with a `.`) are converted. Integers are unaffected — they are always returned as `Integer`.
 
 | Value         | Result                                                                                  |
 |---------------|-----------------------------------------------------------------------------------------|

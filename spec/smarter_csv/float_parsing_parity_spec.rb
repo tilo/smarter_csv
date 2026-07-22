@@ -13,18 +13,19 @@ require 'bigdecimal'
 #                  then BigDecimal (no precision loss)
 #
 # Integers stay Integer in every mode. Values that are not numbers (a bare ".5" or "5.",
-# which the shared grammar rejects) stay String. Every case runs on both paths via
+# or any exponent form like "1e10" — the shared grammar rejects exponents as of 1.19.0,
+# issue #345) stay String. Every case runs on both paths via
 # [true, false] so the C and Ruby results are proven identical.
 
 # Decimals with <= 16 significant digits: Float in :auto and :float.
-LOW_PRECISION_DECIMALS = %w[3.14 0.1 100.0 1399999.99 -2.5 1.5e10 1.5e-5 6.022e23 1e10].freeze
+LOW_PRECISION_DECIMALS = %w[3.14 0.1 100.0 1399999.99 -2.5 15000000000.0 0.000015 602200000000.0 10000000000.0].freeze
 
 # Decimals with > 16 significant digits: BigDecimal in :auto, Float in :float.
 HIGH_PRECISION_DECIMALS = %w[
   0.123456789012345678
   3.14159265358979312
   1234567890123456789.5
-  1.7976931348623157e10
+  17976931348623.157
 ].freeze
 
 [true, false].each do |acceleration|
@@ -85,7 +86,7 @@ HIGH_PRECISION_DECIMALS = %w[
     end
 
     describe 'non-numbers stay String (shared grammar rejects them)' do
-      ['.5', '5.', '1e10x', 'abc', '1_000'].each do |str|
+      ['.5', '5.', '1e10', '1.5e3', '12E5', '1e10x', 'abc', '1_000'].each do |str|
         it "keeps #{str.inspect} as a String" do
           expect(parse(str, acceleration: acceleration)).to eq(str)
         end
@@ -109,7 +110,7 @@ EISEL_LEMIRE_18_19_DIGIT = %w[
   1.500000000000000005
   2.234567890123456785
   9.234567890123456785
-  1234567890123456789e-5
+  12345678901234.56789
 ].freeze
 
 describe 'Eisel-Lemire fast path: 18-19 significant digits, decimal_precision: :float' do
@@ -128,7 +129,7 @@ end
 # Explicit C-vs-Ruby parity sweep across all modes — any divergence trips here.
 describe 'numeric conversion: C and Ruby paths agree' do
   samples = LOW_PRECISION_DECIMALS + HIGH_PRECISION_DECIMALS +
-            %w[42 -7 0 .5 5. 1_000 abc]
+            %w[42 -7 0 .5 5. 1e10 1.5e3 12E5 1_000 abc]
   %i[float auto bigdecimal].each do |mode|
     samples.each do |str|
       it "#{str.inspect} parses identically under #{mode}" do

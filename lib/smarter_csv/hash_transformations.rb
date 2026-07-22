@@ -3,11 +3,12 @@
 module SmarterCSV
   module HashTransformations
     # Frozen regex constants for performance (avoid recompilation on every value)
-    NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\z/.freeze
+    # Exponent forms ("1e3", "12E5") are deliberately NOT numbers: in real-world CSV data
+    # they are far more often identifiers than scientific notation (issue #345).
+    NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?\z/.freeze
     # FLOAT_REGEX = /\A[+-]?\d+\.\d+\z/.freeze
     # INTEGER_REGEX = /\A[+-]?\d+\z/.freeze
     ZERO_REGEX = /\A[+-]?0+(?:\.0+)?\z/.freeze # could be +0.0
-    EXPONENT_CHARS = %w[e E].freeze # mantissa scan stops here in significant_digits
 
     # First-byte values that can begin a numeric literal — used to skip the numeric
     # regexes for values that obviously aren't numbers (e.g. city names).
@@ -71,9 +72,8 @@ module SmarterCSV
           first_byte = v.getbyte(0)
           if first_byte && ((first_byte >= ZERO_BYTE && first_byte <= NINE_BYTE) || first_byte == MINUS_BYTE || first_byte == PLUS_BYTE)
             if NUMERIC_REGEX.match?(v)
-              # A value with a '.' or an exponent is a decimal → honor decimal_precision;
-              # otherwise it's an integer.
-              hash[k] = if v.include?('.') || v.include?('e') || v.include?('E')
+              # A value with a '.' is a decimal → honor decimal_precision; otherwise it's an integer.
+              hash[k] = if v.include?('.')
                           convert_decimal(v, options[:decimal_precision])
                         else
                           v.to_i
@@ -128,7 +128,7 @@ module SmarterCSV
 
     protected
 
-    # Convert a decimal string (has a '.' or an exponent) to a numeric, honoring
+    # Convert a decimal string (has a '.') to a numeric, honoring
     # decimal_precision: :float -> Float, :bigdecimal -> BigDecimal, :auto -> Float unless
     # the value carries more than 16 significant digits (then BigDecimal, no precision loss).
     def convert_decimal(str, decimal_precision)
@@ -138,7 +138,7 @@ module SmarterCSV
       when :bigdecimal
         BigDecimal(str)
       else # :auto
-        # A float token always has a '.' or 'e', so a token of <= 17 bytes holds at most
+        # A float token always has a '.', so a token of <= 17 bytes holds at most
         # 16 digits and therefore <= 16 significant digits — skip the per-char scan and go
         # straight to Float (the common case: coordinates, sensor readings, prices). Only
         # longer tokens can reach the BigDecimal threshold, so pay for the scan only then.
@@ -150,14 +150,13 @@ module SmarterCSV
       end
     end
 
-    # Count significant mantissa digits (leading zeros excluded, trailing and fraction
-    # digits included, exponent excluded). Matches the C path's fj_sig_digits / Oj's dec_cnt
-    # so :auto picks Float vs BigDecimal identically on both paths.
+    # Count significant digits (leading zeros excluded, trailing and fraction
+    # digits included). Matches the C path's count so :auto picks Float vs BigDecimal
+    # identically on both paths.
     def significant_digits(str)
       cnt = 0
       started = false
       str.each_char do |c|
-        break if EXPONENT_CHARS.include?(c)
         next unless c >= '0' && c <= '9'
 
         if started
