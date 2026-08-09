@@ -32,6 +32,14 @@ describe 'option validations' do
       .to raise_error(SmarterCSV::ValidationError, /invalid quote_char.*single byte/)
   end
 
+  it 'raises ValidationError for quote_char: :auto (there is no auto-detection for quote_char)' do
+    # :auto is valid for row_sep and col_sep only; accepting it for quote_char
+    # crashed later with NoMethodError from `@quote_char * 2`.
+    expect do
+      SmarterCSV::Reader.new(StringIO.new("a,b\n1,2\n"), quote_char: :auto)
+    end.to raise_error(SmarterCSV::ValidationError)
+  end
+
   [:row_sep, :col_sep, :quote_char].each do |opt|
     [nil, '', :symbol, 1].each do |val|
       context "with #{opt} set to #{val}" do

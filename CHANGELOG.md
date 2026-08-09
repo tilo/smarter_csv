@@ -30,6 +30,8 @@
 
   - **`nil_values_matching` now matches the raw string value on the C path too (C/Ruby parity).** The pattern is written against what's in the file, but the C-accelerated path converted values to numbers first — so a pattern like `/\A007\z/` never matched (the matcher only ever saw `7`). When `nil_values_matching` is set, the C parser now defers numeric conversion and zero-removal to the Ruby hash transformations, which apply the pattern to the raw string first — the same order as the pure-Ruby path.
 
+  - **`quote_char: :auto` now raises a `ValidationError`.** There is no auto-detection for `quote_char` (only for `row_sep` and `col_sep`), but validation accepted `:auto` and the Reader then crashed with a `NoMethodError`.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes
