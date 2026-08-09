@@ -195,4 +195,21 @@ describe 'duplicate headers' do
       end
     end
   end
+
+  # Disambiguation must not steal the name of a real column. With headers name,name,name2 the
+  # second "name" would be renamed to "name2" (default suffix '' + counter), colliding with the
+  # real third column — and check_duplicate_headers then raised DuplicateHeaders, defeating the
+  # disambiguation feature. (Exact naming of the disambiguated duplicate is open — this test
+  # only pins uniqueness and that original column names keep their values.)
+  describe 'disambiguated name colliding with an existing header' do
+    it 'produces unique headers without raising, and real column names keep their own values' do
+      result = SmarterCSV.process(StringIO.new("name,name,name2\n1,2,3\n"))
+      row = result.first
+      expect(row.keys.size).to eq 3
+      expect(row.keys.uniq.size).to eq 3
+      expect(row[:name]).to eq 1
+      expect(row[:name2]).to eq 3
+      expect(row.values).to contain_exactly(1, 2, 3)
+    end
+  end
 end

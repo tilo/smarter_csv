@@ -32,6 +32,8 @@
 
   - **`quote_char: :auto` now raises a `ValidationError`.** There is no auto-detection for `quote_char` (only for `row_sep` and `col_sep`), but validation accepted `:auto` and the Reader then crashed with a `NoMethodError`.
 
+  - **Duplicate-header disambiguation no longer collides with a real column name.** With headers `name,name,name2`, the second `name` was renamed to `name2` (default suffix + counter), colliding with the real third column — and the reader then raised `DuplicateHeaders`, defeating the disambiguation feature. The counter is now bumped past taken names (the second `name` becomes `name3`).
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes
