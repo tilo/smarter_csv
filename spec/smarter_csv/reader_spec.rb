@@ -116,6 +116,25 @@ RSpec.describe SmarterCSV::Reader do
     end
   end
 
+  # Calling #each without a block returns an Enumerator and must not change the reader's
+  # configuration: the chunk_size restore in #each must not run on the early enum_for return,
+  # where the original value was never captured.
+  describe '#each called without a block (Enumerator form)' do
+    it 'does not change the configured chunk_size option' do
+      reader = SmarterCSV::Reader.new(StringIO.new("a,b\n1,2\n"), chunk_size: 500)
+      reader.each # Enumerator form, no block
+      expect(reader.options[:chunk_size]).to eq 500
+    end
+
+    it 'each_chunk still honors the configured chunk_size afterwards' do
+      reader = SmarterCSV::Reader.new(StringIO.new("a,b\n1,1\n2,2\n3,3\n4,4\n5,5\n"), chunk_size: 2)
+      reader.each # Enumerator form, discarded
+      sizes = []
+      reader.each_chunk { |chunk, _index| sizes << chunk.size }
+      expect(sizes).to eq [2, 2, 1]
+    end
+  end
+
   # -----------------------------------------------------------------------
   # Tests targeting previously uncovered private methods in reader.rb:
   #   detect_multiline        (lines 435–449)

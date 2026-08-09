@@ -75,12 +75,16 @@ module SmarterCSV
     def each
       return enum_for(:each) unless block_given?
 
-      # Force row-by-row mode regardless of chunk_size setting
+      # Force row-by-row mode regardless of chunk_size setting.
+      # The explicit begin/ensure keeps the restore off the enum_for path above,
+      # where original_chunk_size was never captured (it would restore nil).
       original_chunk_size = @options[:chunk_size]
       @options[:chunk_size] = nil
-      process { |row_array, _| yield row_array.first }
-    ensure
-      @options[:chunk_size] = original_chunk_size
+      begin
+        process { |row_array, _| yield row_array.first }
+      ensure
+        @options[:chunk_size] = original_chunk_size
+      end
     end
 
     # Yields each chunk as Array<Hash> plus its 0-based chunk index.
