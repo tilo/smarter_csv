@@ -129,20 +129,23 @@ module SmarterCSV
           warn "DEPRECATION WARNING: 'except_headers:' is deprecated. Use 'headers: { except: [...] }' instead." unless @options[:verbose] == :quiet
         end
 
-        # Normalize only_headers/except_headers to arrays of symbols (internal names, read by C extension)
+        # Normalize only_headers/except_headers to arrays of the row-key type (internal names,
+        # read by the C extension too): with strings_as_keys / keep_original_headers the row
+        # keys are Strings, otherwise Symbols — the selectors must match to select anything.
+        string_keys = @options[:strings_as_keys] || @options[:keep_original_headers]
         if @options[:only_headers]
           values = Array(@options[:only_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { only: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
 
-          @options[:only_headers] = values.map(&:to_sym)
+          @options[:only_headers] = string_keys ? values.map(&:to_s) : values.map(&:to_sym)
         end
         if @options[:except_headers]
           values = Array(@options[:except_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { except: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
 
-          @options[:except_headers] = values.map(&:to_sym)
+          @options[:except_headers] = string_keys ? values.map(&:to_s) : values.map(&:to_sym)
         end
 
         # Deprecation: remove_values_matching → nil_values_matching

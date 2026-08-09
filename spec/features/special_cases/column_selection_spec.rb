@@ -312,5 +312,25 @@ fixture_path = 'spec/fixtures'
         data.each { |row| expect(row.keys).not_to include(:dogs) }
       end.to output(/DEPRECATION WARNING.*except_headers/).to_stderr
     end
+
+    # Column selection must work together with strings_as_keys: the selector values are
+    # normalized to the row-key type (Strings in that mode), otherwise nothing matches
+    # and every row comes back empty — silent total data loss.
+    context "headers: { only: } / { except: } combined with strings_as_keys" do
+      it 'selects the requested column using string keys' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { only: ['name'] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+
+      it 'selects the requested column when given as a Symbol' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { only: [:name] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+
+      it 'excludes the requested column using string keys' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { except: ['age'] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+    end
   end
 end

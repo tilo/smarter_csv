@@ -36,6 +36,8 @@
 
   - **The `user_provided_headers` array is no longer mutated.** When rows contained more columns than headers, the reader appended `column_N` entries directly into the caller's array (and into `options[:user_provided_headers]`, so a reused options hash silently changed behavior on the next file). The reader now works on its own copy.
 
+  - **`headers: { only: }` / `{ except: }` now works together with `strings_as_keys` / `keep_original_headers`.** The selector values were always normalized to Symbols, but in those modes the row keys are Strings — so nothing matched, and with `headers: { only: }` every row came back empty (then was dropped by `remove_empty_hashes`): silent total data loss. The selectors are now normalized to the row-key type.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes
