@@ -28,6 +28,8 @@
 
   - **C path now strips a stray trailing `\r` from values (C/Ruby parity).** With `strip_whitespace: true` (the default), the C-accelerated path only stripped spaces and tabs, so a `\r` survived at the end of the last field on CRLF lines in mixed LF/CRLF files (and in CRLF files read with an explicit `row_sep: "\n"`). The C path now strips exactly Ruby's `String#strip` character set (space, `\t`, `\n`, `\v`, `\f`, `\r`, `\0`), matching the pure-Ruby path.
 
+  - **`nil_values_matching` now matches the raw string value on the C path too (C/Ruby parity).** The pattern is written against what's in the file, but the C-accelerated path converted values to numbers first — so a pattern like `/\A007\z/` never matched (the matcher only ever saw `7`). When `nil_values_matching` is set, the C parser now defers numeric conversion and zero-removal to the Ruby hash transformations, which apply the pattern to the raw string first — the same order as the pure-Ruby path.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

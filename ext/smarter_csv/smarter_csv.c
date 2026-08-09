@@ -45,6 +45,7 @@ VALUE Qempty_string = Qnil;
 static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
+static ID id_nil_values_matching;
 static ID id_only, id_except, id_quote_boundary;
 static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
 static ID id_keep_bitmap, id_keep_extra_cols, id_early_exit_after_sym;
@@ -852,6 +853,15 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
   return true;
 }
 
+/* nil_values_matching must be matched against the RAW string value of a field, before
+ * numeric conversion or zero-removal (the Ruby hash-transformation order). When the option
+ * is set, the C parser therefore defers those two value transformations to the Ruby side:
+ * numeric_mode stays 0 and remove_zero_values is forced off, so fields reach
+ * hash_transformations as raw Strings. */
+static inline bool defer_value_transforms_to_ruby(VALUE options_hash) {
+  return RTEST(rb_hash_aref(options_hash, ID2SYM(id_nil_values_matching)));
+}
+
 /* Helper: parse the convert_values_to_numeric option into a mode + key list.
  * mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys.
  * Writes through the out-params only when the option is set, so callers must
@@ -963,7 +973,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
   int numeric_mode = 0;
   VALUE numeric_keys = Qnil;
-  parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
+  if (defer_value_transforms_to_ruby(options_hash)) {
+    remove_zero_values = false; /* Ruby applies nil_values_matching first, then these */
+  } else {
+    parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
+  }
   int decimal_precision = parse_decimal_precision(options_hash);
 
   // quote_escaping and quote_boundary are only needed in Section 5 (quoted/slow path).
@@ -1507,7 +1521,11 @@ __attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE header
   ctx->remove_zero_values  = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
 
   /* Numeric conversion */
-  parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
+  if (defer_value_transforms_to_ruby(options_hash)) {
+    ctx->remove_zero_values = false; /* Ruby applies nil_values_matching first, then these */
+  } else {
+    parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
+  }
   ctx->decimal_precision = parse_decimal_precision(options_hash);
 
   /* quote_escaping → allow_escaped_quotes */
@@ -2033,6 +2051,7 @@ void Init_smarter_csv(void) {
   id_quote_escaping = rb_intern("quote_escaping");
   id_convert_values_to_numeric = rb_intern("convert_values_to_numeric");
   id_remove_zero_values = rb_intern("remove_zero_values");
+  id_nil_values_matching = rb_intern("nil_values_matching");
   id_only = rb_intern("only");
   id_except = rb_intern("except");
   id_quote_boundary = rb_intern("quote_boundary");

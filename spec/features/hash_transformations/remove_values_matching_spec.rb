@@ -88,4 +88,19 @@ fixture_path = 'spec/fixtures'
       expect(new_data).to eq(old_data)
     end
   end
+
+  # The pattern is written against what's in the file, so it must be matched against the RAW
+  # string value of the field — before numeric conversion — on both paths. "007" must be
+  # matched as "007", not as the converted 7.
+  describe ":nil_values_matching applies to the raw string value with#{bool ? ' C-' : 'out '}acceleration" do
+    it 'removes the key when the raw string matches (remove_empty_values: true, default)' do
+      result = SmarterCSV.process(StringIO.new("a,b\n007,x\n"), nil_values_matching: /\A007\z/, acceleration: bool)
+      expect(result).to eq [{ b: 'x' }]
+    end
+
+    it 'sets the value to nil and keeps the key (remove_empty_values: false)' do
+      result = SmarterCSV.process(StringIO.new("a,b\n007,x\n"), nil_values_matching: /\A007\z/, remove_empty_values: false, acceleration: bool)
+      expect(result).to eq [{ a: nil, b: 'x' }]
+    end
+  end
 end
