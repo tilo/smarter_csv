@@ -235,18 +235,27 @@ VALUE return_parser_result(VALUE elements, long data_size) {
   return result;
 }
 
-/* Helper: trim leading/trailing spaces and tabs from a field when strip_ws is set.
- * Sets *out_start to the first kept byte and returns the trimmed length (0 when the
- * field is empty or all whitespace). This is the trim performed at every field
- * boundary in all three parsers; kept always_inline so each call site compiles to
- * the same code as the hand-written loops it replaces (no performance cost). */
+/* Byte set stripped by Ruby's String#strip: space, \t, \n, \v, \f, \r, and \0.
+ * trim_field must match it exactly so the C path strips the same characters as the
+ * Ruby path's fields.each(&:strip!) — e.g. the stray trailing \r a mixed LF/CRLF
+ * file leaves at the end of a field. */
+static inline __attribute__((always_inline))
+bool ruby_strip_byte(char c) {
+  return c == ' ' || (c >= '\t' && c <= '\r') || c == '\0';
+}
+
+/* Helper: trim leading/trailing whitespace (Ruby String#strip semantics) from a field
+ * when strip_ws is set. Sets *out_start to the first kept byte and returns the trimmed
+ * length (0 when the field is empty or all whitespace). This is the trim performed at
+ * every field boundary in all three parsers; kept always_inline so each call site
+ * compiles to the same code as the hand-written loops it replaces (no performance cost). */
 static inline __attribute__((always_inline))
 long trim_field(char *field, long field_len, bool strip_ws, char **out_start) {
   char *trim_start = field;
   char *trim_end   = field + field_len - 1;
   if (strip_ws) {
-    while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-    while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+    while (trim_start <= trim_end && ruby_strip_byte(*trim_start)) trim_start++;
+    while (trim_end >= trim_start && ruby_strip_byte(*trim_end)) trim_end--;
   }
   *out_start = trim_start;
   return (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;

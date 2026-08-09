@@ -26,6 +26,8 @@
 
   - **`Reader#each` without a block no longer clears the configured `chunk_size`.** Calling `each` in its Enumerator form (no block) overwrote `options[:chunk_size]` with `nil`, so a later `each_chunk` on the same Reader ignored the configured chunk size.
 
+  - **C path now strips a stray trailing `\r` from values (C/Ruby parity).** With `strip_whitespace: true` (the default), the C-accelerated path only stripped spaces and tabs, so a `\r` survived at the end of the last field on CRLF lines in mixed LF/CRLF files (and in CRLF files read with an explicit `row_sep: "\n"`). The C path now strips exactly Ruby's `String#strip` character set (space, `\t`, `\n`, `\v`, `\f`, `\r`, `\0`), matching the pure-Ruby path.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

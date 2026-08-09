@@ -191,4 +191,27 @@ describe 'process files with line endings explicitly pre-specified' do
       let(:sep) { "\r\n" }
     end
   end
+
+  # strip_whitespace: true (default) must strip a trailing "\r" from values on both paths,
+  # like Ruby's String#strip does. This hits any file with mixed LF / CRLF line endings,
+  # and CRLF files read with an explicit row_sep: "\n".
+  describe 'stray \r stripping (strip_whitespace: true, both paths)' do
+    require 'stringio'
+
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'strips the stray \r on a CRLF line in a mostly-LF file (row_sep: :auto)' do
+          data = "a,b\n1,x\n2,y\r\n3,z\n"
+          result = SmarterCSV.process(StringIO.new(data), acceleration: acceleration)
+          expect(result).to eq [{ a: 1, b: 'x' }, { a: 2, b: 'y' }, { a: 3, b: 'z' }]
+        end
+
+        it 'strips the stray \r when a CRLF file is read with explicit row_sep: "\n"' do
+          data = "name,city\r\njohn,boston\r\n"
+          result = SmarterCSV.process(StringIO.new(data), row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq [{ name: 'john', city: 'boston' }]
+        end
+      end
+    end
+  end
 end
