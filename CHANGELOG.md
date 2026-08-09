@@ -20,6 +20,10 @@
 
   Thanks to [@sonicdes](https://github.com/sonicdes) for the report.
 
+### Bug Fixes
+
+  - **Writer: fields are now wrapped in the configured `quote_char`, not a hard-coded double quote.** Output written with a custom `quote_char` (e.g. `"'"`) could not be read back: the custom quote_char was doubled correctly inside the field, but the field itself was wrapped in `"`.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

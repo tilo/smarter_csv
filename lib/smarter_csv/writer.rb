@@ -204,12 +204,12 @@ module SmarterCSV
       str = field.to_s
       return str if @disable_auto_quoting && !force_quotes
 
-      # double-quote fields if we force that, or if the field contains the comma, new-line, or quote character
+      # quote fields if we force that, or if the field contains the col_sep, row_sep, or quote_char
       contains_special_char = str.match(@quote_regex)
       if force_quotes || contains_special_char
-        str = str.gsub(@quote_char, @escaped_quote_char) if contains_special_char # escape double-quote
+        str = str.gsub(@quote_char, @escaped_quote_char) if contains_special_char # escape the quote_char
 
-        "\"#{str}\""
+        "#{@quote_char}#{str}#{@quote_char}"
       else
         str
       end
