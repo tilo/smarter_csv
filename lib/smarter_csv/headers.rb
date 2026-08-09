@@ -42,7 +42,9 @@ module SmarterCSV
           end
         end
 
-        header_array = user_header_array
+        # dup: the array belongs to the caller. The reader appends column_N entries for
+        # extra data columns — those must go to our own copy, not the caller's array.
+        header_array = user_header_array.dup
       else
         header_array = file_header_array
       end

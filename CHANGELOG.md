@@ -34,6 +34,8 @@
 
   - **Duplicate-header disambiguation no longer collides with a real column name.** With headers `name,name,name2`, the second `name` was renamed to `name2` (default suffix + counter), colliding with the real third column — and the reader then raised `DuplicateHeaders`, defeating the disambiguation feature. The counter is now bumped past taken names (the second `name` becomes `name3`).
 
+  - **The `user_provided_headers` array is no longer mutated.** When rows contained more columns than headers, the reader appended `column_N` entries directly into the caller's array (and into `options[:user_provided_headers]`, so a reused options hash silently changed behavior on the next file). The reader now works on its own copy.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

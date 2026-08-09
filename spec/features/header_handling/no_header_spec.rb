@@ -54,4 +54,17 @@ describe 'no header in file' do
       expect(data[4]).to eq({a: "Hernán", b: "Curaçon", c: 3, d: 0, e: 0})
     end
   end
+
+  # The user_provided_headers array belongs to the caller. When rows contain more columns
+  # than headers, the reader extends its internal header list with column_N entries — it
+  # must not append them into the caller's array (or into options[:user_provided_headers],
+  # where a reused options hash would silently change behavior on the next file).
+  context 'when rows have more columns than user_provided_headers' do
+    it 'does not mutate the array passed in by the caller' do
+      my_headers = [:a, :b]
+      result = SmarterCSV.process(StringIO.new("1,2,3,4\n"), user_provided_headers: my_headers, headers_in_file: false)
+      expect(result).to eq [{ a: 1, b: 2, column_3: 3, column_4: 4 }]
+      expect(my_headers).to eq [:a, :b]
+    end
+  end
 end
