@@ -2072,7 +2072,12 @@ void Init_smarter_csv(void) {
   SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
   Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
+  /* One shared empty string for all empty field values (avoids a String allocation per
+   * empty field). It MUST be frozen — shared and mutable would mean mutating one empty
+   * value silently changes every other one — and UTF-8, like Ruby's empty strings. */
   Qempty_string = rb_str_new_literal("");
+  rb_enc_associate(Qempty_string, rb_utf8_encoding());
+  rb_obj_freeze(Qempty_string);
   rb_gc_register_address(&Qempty_string);
 
   // Cache symbol IDs for fast options hash lookups
