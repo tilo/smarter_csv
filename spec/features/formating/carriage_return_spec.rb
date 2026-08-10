@@ -214,4 +214,41 @@ describe 'process files with line endings explicitly pre-specified' do
       end
     end
   end
+
+  # A trailing "\r" before an LF row separator is part of the LINE TERMINATOR, not data —
+  # exactly Ruby's String#chomp("\n") semantics (removes "\r\n", "\r", or "\n"). This holds
+  # regardless of strip_whitespace, on both paths. It matters where value-trimming can't
+  # repair it: a CRLF line whose LAST field is quoted (the close-quote validity check runs
+  # before trimming), and strip_whitespace: false.
+  describe 'trailing \r is part of the line terminator when row_sep is "\n" (both paths)' do
+    require 'stringio'
+
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses a CRLF line whose last field is quoted' do
+          data = "h1,h2\n\"x\"\r\ny,z\r\n"
+          result = SmarterCSV.process(StringIO.new(data), row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq [{ h1: 'x' }, { h1: 'y', h2: 'z' }]
+        end
+
+        it 'drops the terminator \r even with strip_whitespace: false' do
+          data = "h1,h2\nx\r\ny\r\n"
+          result = SmarterCSV.process(StringIO.new(data), row_sep: "\n", strip_whitespace: false, acceleration: acceleration)
+          expect(result).to eq [{ h1: 'x' }, { h1: 'y' }]
+        end
+
+        it 'converts a numeric value on a CRLF line with strip_whitespace: false' do
+          data = "h1,h2\n1\r\n"
+          result = SmarterCSV.process(StringIO.new(data), row_sep: "\n", strip_whitespace: false, acceleration: acceleration)
+          expect(result).to eq [{ h1: 1 }]
+        end
+
+        it 'treats a lone trailing \r on the last line as a terminator' do
+          data = "h1,h2\nx\r"
+          result = SmarterCSV.process(StringIO.new(data), row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq [{ h1: 'x' }]
+        end
+      end
+    end
+  end
 end

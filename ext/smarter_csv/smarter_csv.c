@@ -327,6 +327,18 @@ bool is_valid_close(const char *p, const char *endP,
  * site as cheap as the hand-written check it replaces. */
 static inline __attribute__((always_inline))
 char *chomp_row_sep(char *endP, long line_len, const char *row_sepP, long row_sep_len) {
+  /* When the row separator is a lone LF, mirror Ruby's String#chomp("\n") exactly:
+   * remove a trailing "\r\n", "\n", or "\r" — the trailing \r is part of the LINE
+   * TERMINATOR, not data (CRLF lines read with row_sep "\n"). The Ruby path chomps
+   * with String#chomp (parser.rb), so the C path must match or the surviving \r
+   * corrupts values (strip_whitespace: false) and invalidates a close-quote on the
+   * last field of a CRLF line. */
+  if (row_sep_len == 1 && row_sepP[0] == '\n') {
+    char *startP = endP - line_len;
+    if (endP > startP && endP[-1] == '\n') endP--;
+    if (endP > startP && endP[-1] == '\r') endP--;
+    return endP;
+  }
   if (row_sep_len > 0
       && line_len >= row_sep_len
       && memcmp(endP - row_sep_len, row_sepP, (size_t)row_sep_len) == 0) {
