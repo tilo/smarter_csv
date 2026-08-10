@@ -124,6 +124,8 @@ describe 'numeric conversion of values' do
         '1e-05',
         '6.022e23',             # scientific with a dot
         '1e400',                # out-of-range exponent — became Infinity in 1.18.x
+        '-1e400',               # out-of-range negative — became -Infinity in 1.18.x
+        '1e-400',               # underflow exponent — became 0.0 in 1.18.x
       ].each do |value|
         it "keeps exponent-shaped #{value.inspect} as a String (acceleration: #{acceleration})" do
           expect(converted(value, acceleration)).to eql value
