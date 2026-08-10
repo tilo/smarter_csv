@@ -30,7 +30,7 @@
 
   - **Non-ASCII `missing_header_prefix` (e.g. `"spalte_ä_"`) no longer raises `EncodingError` on the C path.** Generated extra-column keys are now interned as UTF-8 symbols.
 
-  - **The C path's shared empty-string object is now frozen and UTF-8.** All empty field values on the accelerated path are one shared object by design (no allocation per empty field) — but it was mutable, so appending to one empty value silently changed every other empty value in the result. Mutation now raises `FrozenError`, and the object carries the UTF-8 encoding like Ruby's empty strings.
+  - **All empty field values are now ONE shared, frozen, UTF-8 empty-string object — on both paths.** This was the C path's design (no per-empty-field object retained in the results), but the shared object was mutable — appending to one empty value silently changed every other empty value in the result — and the Ruby path allocated a fresh string per empty field. Mutating an empty value now raises `FrozenError` on both paths. Relevant with `remove_empty_values: false`; with the default `true`, empty values are removed anyway.
 
   - **Exotic option sizes fall back to the pure-Ruby parser instead of silently truncating.** The C parse context stores `col_sep` (7 bytes), `row_sep` (15), and `missing_header_prefix` (63) in fixed-size buffers; longer values produced wrong results on the accelerated path. The reader now automatically uses the pure-Ruby parser for these, which handles any length.
 

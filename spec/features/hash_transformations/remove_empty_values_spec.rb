@@ -53,20 +53,29 @@ fixture_path = 'spec/fixtures'
   end
 end
 
-# Design decision: the C path returns ONE shared empty-string object for all empty values
-# (avoids a String allocation per empty field). That shared object must be FROZEN — an
-# unfrozen shared object meant mutating one empty value silently changed every other empty
-# value in the result — and UTF-8, like Ruby's empty strings.
-# (C path only for now: whether the Ruby path should substitute the shared object for the
-# fresh strings String#split produces is a pending design decision.)
-describe 'shared empty string on the C path' do
-  it 'is one frozen UTF-8 object for all empty values' do
-    io = StringIO.new("a,b,c\n,,x\n,,y\n")
-    data = SmarterCSV.process(io, remove_empty_values: false, acceleration: true)
-    empties = data.flat_map { |h| h.values.select { |v| v == '' } }
-    expect(empties.size).to eq 4
-    expect(empties).to all(be_frozen)
-    expect(empties.map(&:object_id).uniq.size).to eq 1
-    expect(empties.first.encoding).to eq Encoding::UTF_8
+# Design decision: all empty field values are ONE shared, frozen, UTF-8 empty-string
+# object per path (no per-empty-field object retained in the results; mutating an empty
+# value raises FrozenError instead of silently changing the other empty values).
+# Relevant with remove_empty_values: false — with the default true, empties are dropped.
+describe 'shared frozen empty string for empty values' do
+  [true, false].each do |acceleration|
+    it "is one frozen UTF-8 object for all empty values (acceleration: #{acceleration})" do
+      io = StringIO.new("a,b,c\n,,x\n,,y\n")
+      data = SmarterCSV.process(io, remove_empty_values: false, acceleration: acceleration)
+      empties = data.flat_map { |h| h.values.select { |v| v == '' } }
+      expect(empties.size).to eq 4
+      expect(empties).to all(be_frozen)
+      expect(empties.map(&:object_id).uniq.size).to eq 1
+      expect(empties.first.encoding).to eq Encoding::UTF_8
+    end
+
+    it "also shares the object for quoted and whitespace-only fields (acceleration: #{acceleration})" do
+      io = StringIO.new(%{a,b,c\n"", ,x\n})
+      data = SmarterCSV.process(io, remove_empty_values: false, acceleration: acceleration)
+      empties = data.first.values.select { |v| v == '' }
+      expect(empties.size).to eq 2
+      expect(empties).to all(be_frozen)
+      expect(empties.map(&:object_id).uniq.size).to eq 1
+    end
   end
 end

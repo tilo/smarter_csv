@@ -182,7 +182,8 @@ module SmarterCSV
           binary_options[opt] = options[opt].dup.force_encoding(Encoding::BINARY) if options[opt].is_a?(String)
         end
         hash, data_size = parse_line_to_hash_ruby(line.dup.force_encoding(Encoding::BINARY), headers, binary_options, has_quotes)
-        hash&.transform_values! { |v| v.is_a?(String) ? v.force_encoding(original_encoding) : v }
+        # skip empty strings: relabeling "" is a no-op, and the shared EMPTY_STRING is frozen
+        hash&.transform_values! { |v| v.is_a?(String) && !v.empty? ? v.force_encoding(original_encoding) : v }
         return [hash, data_size]
       end
 
@@ -222,7 +223,10 @@ module SmarterCSV
         fields.each_with_index do |v, i| # C-level iteration, faster than Ruby while counter loop
           next if remove_empty && v.empty?
 
-          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
+          # Empty values become the ONE shared frozen empty string (same design as the
+          # C path): the fresh "" from split dies in the next minor GC instead of being
+          # retained per empty field in the results.
+          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v.empty? ? EMPTY_STRING : v
         end
 
         unless remove_empty
@@ -253,7 +257,10 @@ module SmarterCSV
       hash = {}
       i = 0
       while i < n
-        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = elements[i]
+        v = elements[i]
+        # Empty values become the ONE shared frozen empty string (same design as the C path)
+        v = EMPTY_STRING if v.is_a?(String) && v.empty?
+        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
         i += 1
       end
 
