@@ -256,7 +256,6 @@ describe 'can handle col_sep' do
   describe 'multi-char col_sep combined with other options' do
     [true, false].each do |acceleration|
       context "acceleration: #{acceleration}" do
-
         # Gap 4: multi-char col_sep + quote_escaping: :backslash
         context 'quote_escaping: :backslash' do
           it 'treats backslash-quote as escaped, keeping the quoted field open' do
@@ -342,7 +341,6 @@ describe 'can handle col_sep' do
             expect(data[0][:notes]).to eq ''
           end
         end
-
       end
 
       # Multi-char col_sep + multiline fields (quoted field spanning rows)
@@ -366,7 +364,6 @@ describe 'can handle col_sep' do
           expect(data[1][:b]).to eq 'Y'
         end
       end
-
     end
   end
 

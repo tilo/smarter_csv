@@ -26,7 +26,7 @@ module SmarterCSV
           raise SmarterCSV::MalformedCSV, "Unclosed quoted field detected in the header" if next_line.nil?
 
           @file_line_count += 1
-          @raw_header = @raw_header + next_line
+          @raw_header += next_line
           header_line = preprocess_header_line(@raw_header, options)
           file_header_array, file_header_size = parse(header_line, options)
         end
