@@ -40,6 +40,8 @@
 
   - **A quoted header containing an embedded newline is now stitched across physical lines, like data rows.** Previously the first header fragment was silently lost and the second fragment was parsed as a data row — silent corruption. The embedded newline becomes `_` via the standard header transformations (`"first\nname"` → `:first_name`); an unclosed quote that reaches end-of-file raises `MalformedCSV`.
 
+  - **An empty-string header key is now dropped on the C path too (C/Ruby parity).** With `strings_as_keys: true` and `duplicate_header_suffix: nil` (which disables the `column_N` auto-naming), an empty header produced a `''` String key that the Ruby path dropped but the C path kept (its cleanup only deleted the `:""` Symbol form).
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

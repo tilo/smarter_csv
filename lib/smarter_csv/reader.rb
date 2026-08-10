@@ -259,7 +259,8 @@ module SmarterCSV
         # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
         # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
         @delete_nil_keys   = !!options[:key_mapping]
-        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
+        # Empty header keys are :"" with symbol keys, '' with strings_as_keys / keep_original_headers
+        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"") || @headers.include?('')
 
         # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
         @field_size_limit = options[:field_size_limit]
@@ -410,7 +411,10 @@ module SmarterCSV
                 hash.delete(nil)
                 hash.delete('')
               end
-              hash.delete(:"") if @delete_empty_keys
+              if @delete_empty_keys
+                hash.delete(:"")
+                hash.delete('')
+              end
 
               if (matcher = options[:nil_values_matching])
                 if options[:remove_empty_values]
@@ -849,7 +853,10 @@ module SmarterCSV
           hash.delete(nil)
           hash.delete('')
         end
-        hash.delete(:"") if @delete_empty_keys
+        if @delete_empty_keys
+          hash.delete(:"")
+          hash.delete('')
+        end
 
         # Only these Ruby-only post-filters remain (user-provided Ruby objects):
         if (matcher = options[:nil_values_matching])
