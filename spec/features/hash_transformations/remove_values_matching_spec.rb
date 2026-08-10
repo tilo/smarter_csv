@@ -88,4 +88,41 @@ fixture_path = 'spec/fixtures'
       expect(new_data).to eq(old_data)
     end
   end
+
+  # The pattern is written against what's in the file, so it must be matched against the RAW
+  # string value of the field — before numeric conversion — on both paths. "007" must be
+  # matched as "007", not as the converted 7.
+  describe ":nil_values_matching applies to the raw string value with#{bool ? ' C-' : 'out '}acceleration" do
+    it 'removes the key when the raw string matches (remove_empty_values: true, default)' do
+      result = SmarterCSV.process(StringIO.new("a,b\n007,x\n"), nil_values_matching: /\A007\z/, acceleration: bool)
+      expect(result).to eq [{ b: 'x' }]
+    end
+
+    it 'sets the value to nil and keeps the key (remove_empty_values: false)' do
+      result = SmarterCSV.process(StringIO.new("a,b\n007,x\n"), nil_values_matching: /\A007\z/, remove_empty_values: false, acceleration: bool)
+      expect(result).to eq [{ a: nil, b: 'x' }]
+    end
+  end
+
+  # Setting nil_values_matching must NOT switch off the other value transformations:
+  # non-matching values still get numeric conversion, zero-removal, and value_converters
+  # (which see the CONVERTED value) — in the same order as without the option.
+  describe ":nil_values_matching composes with the other transforms with#{bool ? ' C-' : 'out '}acceleration" do
+    it 'still converts non-matching values to numeric' do
+      result = SmarterCSV.process(StringIO.new("a,b\n42,3.5\n"), nil_values_matching: /\ANULL\z/, acceleration: bool)
+      expect(result).to eq [{ a: 42, b: 3.5 }]
+      expect(result.first[:a]).to be_an(Integer)
+      expect(result.first[:b]).to be_a(Float)
+    end
+
+    it 'still removes zero values (remove_zero_values: true)' do
+      result = SmarterCSV.process(StringIO.new("a,b\n0,x\n"), nil_values_matching: /\ANULL\z/, remove_zero_values: true, acceleration: bool)
+      expect(result).to eq [{ b: 'x' }]
+    end
+
+    it 'value_converters receive the numerically converted value' do
+      result = SmarterCSV.process(StringIO.new("a,b\n7,x\n"), nil_values_matching: /\Azzz\z/, value_converters: { a: ->(v) { v.class.to_s } }, acceleration: bool)
+      expect(result).to eq [{ a: 'Integer', b: 'x' }]
+    end
+  end
 end

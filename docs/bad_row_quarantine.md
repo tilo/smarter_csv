@@ -266,7 +266,9 @@ until it either finds the closing quote or reaches end-of-file, potentially cons
 of megabytes.
 
 `field_size_limit` sets a hard cap (in bytes) on the size of any individual extracted field.
-The default is `nil` (no limit). When a field exceeds the limit a
+The default is `nil` (no limit); the minimum allowed value is `4096` — this option is overrun
+protection against runaway or crafted fields, not a per-field validation tool, so small values
+are rejected with a `ValidationError`. When a field exceeds the limit a
 `SmarterCSV::FieldSizeLimitExceeded` exception is raised — and because it inherits from
 `SmarterCSV::Error`, the `on_bad_row` option handles it exactly like any other parse error.
 

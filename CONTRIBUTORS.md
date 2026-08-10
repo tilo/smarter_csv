@@ -1,4 +1,4 @@
-# A Big Thank You to all 65 Contributors!!
+# A Big Thank You to all 66 Contributors!!
 
 
 A Big Thank you to everyone who filed issues, sent comments, and who contributed with pull requests:
@@ -68,3 +68,4 @@ A Big Thank you to everyone who filed issues, sent comments, and who contributed
  * [Jonas Staškevičius](https://github.com/pirminis)
  * [conorg](https://github.com/conorg)
  * [Alex Shenia](https://github.com/alexshenia)
+ * [Denis Sadomowski](https://github.com/sonicdes)

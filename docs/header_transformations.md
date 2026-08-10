@@ -56,7 +56,9 @@ comment_regexp ──► strip_chars_from_headers ──► split on col_sep
 | 9 | `strings_as_keys` | `false` | Converts headers to symbols (skipped if `true` or `keep_original_headers`) |
 | 10 | `key_mapping` | `nil` | Renames or drops headers; use post-transformation key names as input |
 
-> `user_provided_headers` bypasses all file header reading and transformation entirely — your array is used as-is. Versions >1.13 automatically set `headers_in_file: false` when `user_provided_headers` is given; if the file has a header row you want to skip, set `headers_in_file: true` explicitly.
+> `user_provided_headers` bypasses all file header reading and transformation entirely — your array is used as-is; a `nil` entry drops that column. Versions >1.13 automatically set `headers_in_file: false` when `user_provided_headers` is given; if the file has a header row you want to skip, set `headers_in_file: true` explicitly.
+
+A quoted header containing an embedded newline is stitched across physical lines like a data row *(1.19.0+)* — the newline becomes `_` via the standard transformations (`"first\nname"` → `:first_name`).
 
 See [Configuration Options](./options.md) for full option reference.
 

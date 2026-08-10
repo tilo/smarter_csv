@@ -172,114 +172,118 @@ RSpec.describe SmarterCSV do
     let(:fixture) { 'spec/fixtures/problematic.csv' }
     let(:accented_keys) { %w[date_opération libellé référence] }
 
-    context 'iso-8859-1:UTF-8' do
-      let(:opts) { { file_encoding: 'iso-8859-1:UTF-8', col_sep: ';', verbose: :quiet } }
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        context 'iso-8859-1:UTF-8' do
+          let(:opts) { { file_encoding: 'iso-8859-1:UTF-8', col_sep: ';', verbose: :quiet, acceleration: acceleration } }
 
-      it 'transcodes ISO-8859-1 headers to correctly spelled UTF-8 keys' do
-        result = SmarterCSV.process(fixture, **opts, strings_as_keys: true)
-        expect(result.first.keys).to include(*accented_keys)
-      end
-
-      it 'returns UTF-8 strings' do
-        result = SmarterCSV.process(fixture, **opts, strings_as_keys: true)
-        result.first.each_key do |k|
-          expect(k.encoding).to eq(Encoding::UTF_8)
-          expect(k.valid_encoding?).to be true
-        end
-      end
-
-      it 'parses all data rows' do
-        expect(SmarterCSV.process(fixture, **opts).length).to eq(7)
-      end
-    end
-
-    context 'windows-1252:UTF-8' do
-      # Build an in-memory Windows-1252 CSV with the euro sign (\x80).
-      # Use a TranscodedIO so PeekableIO sees the correct ext/int encoding pair.
-      let(:transcoded_io_class) do
-        Class.new do
-          def initialize(raw_bytes, ext, int)
-            @io  = StringIO.new(raw_bytes.b)
-            @ext = Encoding.find(ext)
-            @int = Encoding.find(int)
+          it 'transcodes ISO-8859-1 headers to correctly spelled UTF-8 keys' do
+            result = SmarterCSV.process(fixture, **opts, strings_as_keys: true)
+            expect(result.first.keys).to include(*accented_keys)
           end
 
-          def read(n = nil)
-            @io.read(n)
+          it 'returns UTF-8 strings' do
+            result = SmarterCSV.process(fixture, **opts, strings_as_keys: true)
+            result.first.each_key do |k|
+              expect(k.encoding).to eq(Encoding::UTF_8)
+              expect(k.valid_encoding?).to be true
+            end
           end
 
-          def gets(sep = $/, limit = nil)
-            limit ? @io.gets(sep, limit) : @io.gets(sep)
-          end
-
-          def readline(sep = $/)
-            @io.readline(sep)
-          end
-
-          def each_char(&block)
-            @io.each_char(&block)
-          end
-
-          def eof?
-            @io.eof?
-          end
-
-          def close
-            nil
-          end
-
-          def external_encoding
-            @ext
-          end
-
-          def internal_encoding
-            @int
+          it 'parses all data rows' do
+            expect(SmarterCSV.process(fixture, **opts).length).to eq(7)
           end
         end
-      end
 
-      # \x80 = € in Windows-1252
-      let(:csv_w1252) { "product,price\nWidget,\x80100\n".b }
+        context 'windows-1252:UTF-8' do
+          # Build an in-memory Windows-1252 CSV with the euro sign (\x80).
+          # Use a TranscodedIO so PeekableIO sees the correct ext/int encoding pair.
+          let(:transcoded_io_class) do
+            Class.new do
+              def initialize(raw_bytes, ext, int)
+                @io  = StringIO.new(raw_bytes.b)
+                @ext = Encoding.find(ext)
+                @int = Encoding.find(int)
+              end
 
-      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
-        io = transcoded_io_class.new(csv_w1252, 'Windows-1252', 'UTF-8')
-        result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet)
-        expect(result.first[:price]).to eq('€100')
-        expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
-      end
-    end
+              def read(n = nil)
+                @io.read(n)
+              end
 
-    context 'windows-1252:UTF-8 (via Tempfile — same path as the iso-8859-1 test above)' do
-      # \x80 = € in Windows-1252
-      let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
+              def gets(sep = $/, limit = nil)
+                limit ? @io.gets(sep, limit) : @io.gets(sep)
+              end
 
-      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
-        Tempfile.open(['w1252', '.csv']) do |f|
-          f.binmode
-          f.write(csv_w1252_bytes)
-          f.close
-          result = SmarterCSV.process(f.path, file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet)
-          expect(result.first[:price]).to eq('€100')
-          expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+              def readline(sep = $/)
+                @io.readline(sep)
+              end
+
+              def each_char(&block)
+                @io.each_char(&block)
+              end
+
+              def eof?
+                @io.eof?
+              end
+
+              def close
+                nil
+              end
+
+              def external_encoding
+                @ext
+              end
+
+              def internal_encoding
+                @int
+              end
+            end
+          end
+
+          # \x80 = € in Windows-1252
+          let(:csv_w1252) { "product,price\nWidget,\x80100\n".b }
+
+          it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+            io = transcoded_io_class.new(csv_w1252, 'Windows-1252', 'UTF-8')
+            result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet, acceleration: acceleration)
+            expect(result.first[:price]).to eq('€100')
+            expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+          end
         end
-      end
-    end
 
-    context 'windows-1252:UTF-8 (via a Pathname path — file_encoding must apply when opening a Pathname)' do
-      # \x80 = € in Windows-1252. SmarterCSV opens the Pathname itself with the requested
-      # file_encoding (reader.rb: File.open(input, "r:#{file_encoding}")), so the euro sign
-      # must transcode the same as when a String path is given.
-      let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
+        context 'windows-1252:UTF-8 (via Tempfile — same path as the iso-8859-1 test above)' do
+          # \x80 = € in Windows-1252
+          let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
 
-      it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
-        require 'pathname'
-        Tempfile.open(['w1252', '.csv']) do |f|
-          f.binmode
-          f.write(csv_w1252_bytes)
-          f.close
-          result = SmarterCSV.process(Pathname.new(f.path), file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet)
-          expect(result.first[:price]).to eq('€100')
-          expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+          it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+            Tempfile.open(['w1252', '.csv']) do |f|
+              f.binmode
+              f.write(csv_w1252_bytes)
+              f.close
+              result = SmarterCSV.process(f.path, file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet, acceleration: acceleration)
+              expect(result.first[:price]).to eq('€100')
+              expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+            end
+          end
+        end
+
+        context 'windows-1252:UTF-8 (via a Pathname path — file_encoding must apply when opening a Pathname)' do
+          # \x80 = € in Windows-1252. SmarterCSV opens the Pathname itself with the requested
+          # file_encoding (reader.rb: File.open(input, "r:#{file_encoding}")), so the euro sign
+          # must transcode the same as when a String path is given.
+          let(:csv_w1252_bytes) { "product,price\nWidget,\x80100\n".b }
+
+          it 'transcodes Windows-1252 bytes (including euro sign) to UTF-8' do
+            require 'pathname'
+            Tempfile.open(['w1252', '.csv']) do |f|
+              f.binmode
+              f.write(csv_w1252_bytes)
+              f.close
+              result = SmarterCSV.process(Pathname.new(f.path), file_encoding: 'windows-1252:UTF-8', col_sep: :auto, row_sep: :auto, verbose: :quiet, acceleration: acceleration)
+              expect(result.first[:price]).to eq('€100')
+              expect(result.first[:price].encoding).to eq(Encoding::UTF_8)
+            end
+          end
         end
       end
     end
@@ -294,51 +298,95 @@ RSpec.describe SmarterCSV do
       allow(File).to receive(:open).with(file_path, anything).and_return(file_double)
     end
 
-    context 'with force_utf8 option and non-UTF-8 file encoding' do
-      let(:options) { { force_utf8: true } }
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        context 'with force_utf8 option and non-UTF-8 file encoding' do
+          let(:options) { { force_utf8: true, acceleration: acceleration } }
 
-      before do
-        allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
-      end
+          before do
+            allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
+          end
 
-      it 'prints a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+          it 'prints a warning about UTF-8 processing' do
+            expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+          end
+        end
+
+        context 'with utf-8 file_encoding option and non-UTF-8 file encoding' do
+          let(:options) { { file_encoding: 'utf-8', acceleration: acceleration } }
+
+          before do
+            allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
+          end
+
+          it 'prints a warning about UTF-8 processing' do
+            expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+          end
+        end
+
+        context 'with non-matching file_encoding option and non-UTF-8 file encoding' do
+          let(:options) { { file_encoding: 'other-encoding', acceleration: acceleration } }
+
+          before do
+            allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
+          end
+
+          it 'does not print a warning about UTF-8 processing' do
+            expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+          end
+        end
+
+        context 'with force_utf8 option and UTF-8 file encoding' do
+          let(:options) { { force_utf8: true, acceleration: acceleration } }
+
+          before do
+            allow(file_double).to receive(:external_encoding).and_return(Encoding.find('UTF-8'))
+          end
+
+          it 'does not print a warning about UTF-8 processing' do
+            expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+          end
+        end
       end
     end
+  end
 
-    context 'with utf-8 file_encoding option and non-UTF-8 file encoding' do
-      let(:options) { { file_encoding: 'utf-8' } }
+  # Invalid bytes for the input's encoding (typically Latin-1 data mislabeled as UTF-8) must
+  # not crash the parse — on either path. The contract is lenient: preserve the field's raw
+  # bytes exactly, so the user can recover the data (e.g. force_encoding('ISO-8859-1')).
+  # Cleanup stays opt-in via force_utf8 / invalid_byte_sequence.
+  describe 'invalid UTF-8 bytes without force_utf8 (both paths)' do
+    require 'stringio'
 
-      before do
-        allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
-      end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses leniently and preserves the raw bytes of the affected field' do
+          data = "name,val\nfoo,ab\xFFcd\nbar,ok\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), acceleration: acceleration)
+          expect(result.length).to eq 2
+          expect(result.first[:name]).to eq 'foo'
+          expect(result.first[:val].bytes).to eq [97, 98, 0xFF, 99, 100]
+          expect(result.first[:val].encoding).to eq Encoding::UTF_8
+          expect(result.last).to eq({ name: 'bar', val: 'ok' })
+        end
 
-      it 'prints a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
-      end
-    end
+        it 'keeps an invalid-byte value starting with a digit as a String (numeric regex must not raise)' do
+          data = "a,b\n1\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x31, 0xFF]
+        end
 
-    context 'with non-matching file_encoding option and non-UTF-8 file encoding' do
-      let(:options) { { file_encoding: 'other-encoding' } }
+        it 'keeps an invalid-byte value starting with 0 when remove_zero_values is set (zero regex must not raise)' do
+          data = "a,b\n0\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), remove_zero_values: true, acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x30, 0xFF]
+        end
 
-      before do
-        allow(file_double).to receive(:external_encoding).and_return(Encoding.find('ISO-8859-1'))
-      end
-
-      it 'does not print a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
-      end
-    end
-
-    context 'with force_utf8 option and UTF-8 file encoding' do
-      let(:options) { { force_utf8: true } }
-
-      before do
-        allow(file_double).to receive(:external_encoding).and_return(Encoding.find('UTF-8'))
-      end
-
-      it 'does not print a warning about UTF-8 processing' do
-        expect { described_class.process(file_path, options) }.not_to output(/WARNING: you are trying to process UTF-8 input/).to_stderr
+        it 'does not raise from nil_values_matching on an invalid-byte value' do
+          data = "a,b\n1\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), nil_values_matching: /\ANULL\z/, acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x31, 0xFF]
+        end
       end
     end
   end

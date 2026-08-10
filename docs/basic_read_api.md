@@ -223,7 +223,7 @@ comment_regexp → strip_chars_from_headers → split on col_sep → strip quote
     → disambiguate_headers → symbolize → key_mapping
 ```
 
-`user_provided_headers` bypasses the file header and all transformation steps — your array is used as-is.
+`user_provided_headers` bypasses the file header and all transformation steps — your array is used as-is; a `nil` entry drops that column.
 
 See [Header Transformations](./header_transformations.md) for the full step-by-step table and options.
 

@@ -52,3 +52,30 @@ fixture_path = 'spec/fixtures'
     end
   end
 end
+
+# Design decision: all empty field values are ONE shared, frozen, UTF-8 empty-string
+# object per path (no per-empty-field object retained in the results; mutating an empty
+# value raises FrozenError instead of silently changing the other empty values).
+# Relevant with remove_empty_values: false — with the default true, empties are dropped.
+describe 'shared frozen empty string for empty values' do
+  [true, false].each do |acceleration|
+    it "is one frozen UTF-8 object for all empty values (acceleration: #{acceleration})" do
+      io = StringIO.new("a,b,c\n,,x\n,,y\n")
+      data = SmarterCSV.process(io, remove_empty_values: false, acceleration: acceleration)
+      empties = data.flat_map { |h| h.values.select { |v| v == '' } }
+      expect(empties.size).to eq 4
+      expect(empties).to all(be_frozen)
+      expect(empties.map(&:object_id).uniq.size).to eq 1
+      expect(empties.first.encoding).to eq Encoding::UTF_8
+    end
+
+    it "also shares the object for quoted and whitespace-only fields (acceleration: #{acceleration})" do
+      io = StringIO.new(%{a,b,c\n"", ,x\n})
+      data = SmarterCSV.process(io, remove_empty_values: false, acceleration: acceleration)
+      empties = data.first.values.select { |v| v == '' }
+      expect(empties.size).to eq 2
+      expect(empties).to all(be_frozen)
+      expect(empties.map(&:object_id).uniq.size).to eq 1
+    end
+  end
+end

@@ -46,7 +46,20 @@ module SmarterCSV
           candidate
         else
           counts[header] += 1
-          counts[header] > 1 ? "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}" : header
+          if counts[header] == 1
+            header
+          else
+            # The disambiguated name must not steal the name of a real column (or of a
+            # previously assigned name) — e.g. headers name,name,name2: "name2" is taken,
+            # so bump the counter until a free name is found.
+            candidate = "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}"
+            while used.include?(candidate)
+              counts[header] += 1
+              candidate = "#{header}#{options[:duplicate_header_suffix]}#{counts[header]}"
+            end
+            used << candidate
+            candidate
+          end
         end
       end
     end

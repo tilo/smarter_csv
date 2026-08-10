@@ -173,4 +173,24 @@ describe 'CSV file with more columns that shown in header' do
       end
     end
   end
+
+  # Generated extra-column names must be correct for ANY missing_header_prefix — including
+  # non-ASCII prefixes and prefixes longer than the C extension's internal buffers — and
+  # identical on both paths.
+  describe 'missing_header_prefix corner cases (both paths)' do
+    require 'stringio'
+
+    [true, false].each do |acceleration|
+      it "handles a non-ASCII prefix (acceleration: #{acceleration})" do
+        data = SmarterCSV.process(StringIO.new("a,b\n1,2,3\n"), missing_header_prefix: 'spalte_ä_', acceleration: acceleration)
+        expect(data).to eq [{ a: 1, b: 2, spalte_ä_3: 3 }]
+      end
+
+      it "handles a prefix longer than 63 bytes (acceleration: #{acceleration})" do
+        prefix = 'p' * 70
+        data = SmarterCSV.process(StringIO.new("a,b\n1,2,3\n4,5,6\n"), missing_header_prefix: prefix, acceleration: acceleration)
+        expect(data).to eq [{ a: 1, b: 2, "#{prefix}3": 3 }, { a: 4, b: 5, "#{prefix}3": 6 }]
+      end
+    end
+  end
 end

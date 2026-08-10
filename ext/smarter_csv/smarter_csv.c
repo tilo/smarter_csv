@@ -45,6 +45,8 @@ VALUE Qempty_string = Qnil;
 static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
+static ID id_nil_values_matching, id_field_size_limit;
+static VALUE eFieldSizeLimitExceeded = Qnil;
 static ID id_only, id_except, id_quote_boundary;
 static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
 static ID id_keep_bitmap, id_keep_extra_cols, id_early_exit_after_sym;
@@ -76,6 +78,7 @@ typedef struct {
   bool remove_zero_values;
   bool allow_escaped_quotes;   /* quote_escaping == :backslash */
   bool quote_boundary_standard;
+  long field_size_limit;       /* 0 = no limit (see field_transform_opts) */
 
   /* Numeric conversion: 0=off, 1=all, 2=only listed keys, 3=except listed keys */
   int  numeric_mode;
@@ -235,18 +238,27 @@ VALUE return_parser_result(VALUE elements, long data_size) {
   return result;
 }
 
-/* Helper: trim leading/trailing spaces and tabs from a field when strip_ws is set.
- * Sets *out_start to the first kept byte and returns the trimmed length (0 when the
- * field is empty or all whitespace). This is the trim performed at every field
- * boundary in all three parsers; kept always_inline so each call site compiles to
- * the same code as the hand-written loops it replaces (no performance cost). */
+/* Byte set stripped by Ruby's String#strip: space, \t, \n, \v, \f, \r, and \0.
+ * trim_field must match it exactly so the C path strips the same characters as the
+ * Ruby path's fields.each(&:strip!) — e.g. the stray trailing \r a mixed LF/CRLF
+ * file leaves at the end of a field. */
+static inline __attribute__((always_inline))
+bool ruby_strip_byte(char c) {
+  return c == ' ' || (c >= '\t' && c <= '\r') || c == '\0';
+}
+
+/* Helper: trim leading/trailing whitespace (Ruby String#strip semantics) from a field
+ * when strip_ws is set. Sets *out_start to the first kept byte and returns the trimmed
+ * length (0 when the field is empty or all whitespace). This is the trim performed at
+ * every field boundary in all three parsers; kept always_inline so each call site
+ * compiles to the same code as the hand-written loops it replaces (no performance cost). */
 static inline __attribute__((always_inline))
 long trim_field(char *field, long field_len, bool strip_ws, char **out_start) {
   char *trim_start = field;
   char *trim_end   = field + field_len - 1;
   if (strip_ws) {
-    while (trim_start <= trim_end && (*trim_start == ' ' || *trim_start == '\t')) trim_start++;
-    while (trim_end >= trim_start && (*trim_end == ' ' || *trim_end == '\t')) trim_end--;
+    while (trim_start <= trim_end && ruby_strip_byte(*trim_start)) trim_start++;
+    while (trim_end >= trim_start && ruby_strip_byte(*trim_end)) trim_end--;
   }
   *out_start = trim_start;
   return (trim_end >= trim_start) ? (trim_end - trim_start + 1) : 0;
@@ -293,14 +305,16 @@ static inline __attribute__((always_inline))
 bool is_valid_close(const char *p, const char *endP,
                     const char *col_sepP, long col_sep_len,
                     const char *row_sepP, long row_sep_len) {
+  /* Each separator comparison is bounded by endP: a separator truncated by
+   * end-of-line is not a separator (and reading past endP would be out of bounds). */
   bool valid_close = (p + 1 >= endP);
-  if (!valid_close) {
+  if (!valid_close && p + 1 + col_sep_len <= endP) {
     valid_close = true;
     for (long j = 0; j < col_sep_len; j++) {
       if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
     }
   }
-  if (!valid_close && row_sep_len > 0) {
+  if (!valid_close && row_sep_len > 0 && p + 1 + row_sep_len <= endP) {
     valid_close = true;
     for (long j = 0; j < row_sep_len; j++) {
       if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
@@ -317,6 +331,18 @@ bool is_valid_close(const char *p, const char *endP,
  * site as cheap as the hand-written check it replaces. */
 static inline __attribute__((always_inline))
 char *chomp_row_sep(char *endP, long line_len, const char *row_sepP, long row_sep_len) {
+  /* When the row separator is a lone LF, mirror Ruby's String#chomp("\n") exactly:
+   * remove a trailing "\r\n", "\n", or "\r" — the trailing \r is part of the LINE
+   * TERMINATOR, not data (CRLF lines read with row_sep "\n"). The Ruby path chomps
+   * with String#chomp (parser.rb), so the C path must match or the surviving \r
+   * corrupts values (strip_whitespace: false) and invalidates a close-quote on the
+   * last field of a CRLF line. */
+  if (row_sep_len == 1 && row_sepP[0] == '\n') {
+    char *startP = endP - line_len;
+    if (endP > startP && endP[-1] == '\n') endP--;
+    if (endP > startP && endP[-1] == '\r') endP--;
+    return endP;
+  }
   if (row_sep_len > 0
       && line_len >= row_sep_len
       && memcmp(endP - row_sep_len, row_sepP, (size_t)row_sep_len) == 0) {
@@ -410,11 +436,15 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   bool field_started = false;  // for quote_boundary_standard: true once field has non-boundary content
 
   while (p < endP) {
-    col_sep_found = true;
-    for (i = 0; (i < col_sep_len) && (p + i < endP); i++) {
-      if (*(p + i) != *(col_sepP + i)) {
-        col_sep_found = false;
-        break;
+    /* A separator only matches when it fits completely before endP — a partial
+     * separator truncated by end-of-line is field content, not a separator. */
+    col_sep_found = (p + col_sep_len <= endP);
+    if (col_sep_found) {
+      for (i = 0; i < col_sep_len; i++) {
+        if (*(p + i) != *(col_sepP + i)) {
+          col_sep_found = false;
+          break;
+        }
       }
     }
 
@@ -576,10 +606,13 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
     // Use existing header from the headers array
     return rb_ary_entry(headers, index);
   } else {
-    // Generate a new key for extra columns: "column_7" -> :column_7
-    char key_buf[64];
-    snprintf(key_buf, sizeof(key_buf), "%s%ld", prefix_str, index + 1);
-    return ID2SYM(rb_intern(key_buf));
+    // Generate a new key for extra columns: "column_7" -> :column_7.
+    // Built as a UTF-8 Ruby string and interned via rb_str_intern: rb_intern on a
+    // char* interns US-ASCII only and raises EncodingError for non-ASCII prefixes
+    // (e.g. missing_header_prefix: "spalte_ä_"). Extra columns are rare, so the
+    // extra allocation is not on the hot path.
+    VALUE key_str = rb_enc_sprintf(rb_utf8_encoding(), "%s%ld", prefix_str, index + 1);
+    return rb_str_intern(key_str);
   }
 }
 
@@ -605,12 +638,14 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
   }
 
   /* Single pass: validate the token against the same grammar as the Ruby path's
-   * NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\z/ and, in the same pass,
-   * extract everything the fast paths need:
+   * NUMERIC_REGEX = /\A[+-]?\d+(?:\.\d+)?\z/ and, in the same pass, extract everything
+   * the fast paths need:
    *   - mantissa value m10 (exact for <= 18 digits; `overflow` flags beyond)
    *   - significant-digit count `sig` (leading zeros excluded; matches the Ruby
-   *     significant_digits helper / Oj dec_cnt) — drives the :auto Float/BigDecimal split
-   *   - base-10 exponent e10 (from the fraction length and any explicit exponent)
+   *     significant_digits helper) — drives the :auto Float/BigDecimal split
+   *   - base-10 exponent e10 (from the fraction length)
+   * Exponent forms ("1e3", "12E5") are deliberately NOT numbers: in real-world CSV data
+   * they are far more often identifiers than scientific notation (issue #345).
    * Anything the grammar rejects returns Qundef (stays a String), keeping the C and
    * Ruby paths byte-identical on what does and does not convert. */
   long i = 0;
@@ -623,41 +658,29 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
   int  sig_started = 0;
   bool overflow = false;
   long int_digits = 0, frac_digits = 0;
-  bool seen_dot = false, seen_exp = false, any_digit = false, exp_any = false;
-  int64_t exp_val = 0; int exp_neg = 0;
+  bool seen_dot = false;
 
   for (; i < n; i++) {
     char c = s[i];
     if (c >= '0' && c <= '9') {
-      any_digit = true;
-      if (!seen_exp) {
-        if (seen_dot) frac_digits++; else int_digits++;
-        if (sig_started) sig++;
-        else if (c != '0') { sig_started = 1; sig = 1; }
-        if (m10digits < 19) { m10 = m10 * 10 + (uint64_t)(c - '0'); m10digits++; }
-        else overflow = true;
-      } else {
-        exp_any = true;
-        exp_val = exp_val * 10 + (c - '0');
-        if (exp_val > 1000000) overflow = true; /* extreme exponent → strtod fallback */
-      }
-    } else if (c == '.' && !seen_dot && !seen_exp) {
+      if (seen_dot) frac_digits++; else int_digits++;
+      if (sig_started) sig++;
+      else if (c != '0') { sig_started = 1; sig = 1; }
+      if (m10digits < 19) { m10 = m10 * 10 + (uint64_t)(c - '0'); m10digits++; }
+      else overflow = true;
+    } else if (c == '.' && !seen_dot) {
       seen_dot = true;
-    } else if ((c == 'e' || c == 'E') && !seen_exp && any_digit) {
-      seen_exp = true;
-      if (i + 1 < n && (s[i + 1] == '+' || s[i + 1] == '-')) { exp_neg = (s[i + 1] == '-'); i++; }
     } else {
       return Qundef; /* invalid char for a number → not numeric */
     }
   }
 
   /* Enforce NUMERIC_REGEX exactly: an integer part is required; a dot requires a
-   * fraction digit; an exponent requires an exponent digit. */
+   * fraction digit. */
   if (int_digits == 0) return Qundef;
   if (seen_dot && frac_digits == 0) return Qundef;
-  if (seen_exp && !exp_any) return Qundef;
 
-  bool is_decimal = seen_dot || seen_exp;
+  bool is_decimal = seen_dot;
 
   if (!is_decimal) {
     /* Integer. Fast path when it fits in a long; otherwise a Ruby Integer/Bignum. */
@@ -669,14 +692,14 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
     return rb_cstr_to_inum(RSTRING_PTR(str), 10, false);
   }
 
-  /* Decimal (has a '.' or an exponent) — honor decimal_precision. 0=float, 1=auto, 2=bigdecimal */
+  /* Decimal (has a '.') — honor decimal_precision. 0=float, 1=auto, 2=bigdecimal */
   if (decimal_precision == 2 || (decimal_precision == 1 && sig > 16)) {
     VALUE str = rb_str_new(s, n);
     return rb_funcall(rb_cObject, id_BigDecimal, 1, str);
   }
 
-  /* Float. base-10 exponent = explicit exponent minus the fraction length. */
-  int64_t e10 = (exp_neg ? -exp_val : exp_val) - (int64_t)frac_digits;
+  /* Float. base-10 exponent = minus the fraction length. */
+  int64_t e10 = -(int64_t)frac_digits;
   double d;
   if (!overflow && m10digits >= 1 && m10digits <= 19 && ((long)m10digits + e10) >= -307) {
     /* Eisel-Lemire is correctly-rounded for any nonzero mantissa that fits exactly in a
@@ -684,7 +707,7 @@ static inline VALUE try_numeric_conversion(char *s, long n, int decimal_precisio
      * UINT64_MAX ~1.8e19). Verified bit-for-bit vs the stdlib over 1..19-digit ties. */
     d = (m10 == 0) ? (neg ? -0.0 : 0.0) : fj_eisel_lemire_s2d(e10, m10, neg);
   } else {
-    /* >19 digits / extreme or subnormal exponent: fall back to Ruby's own correctly-rounded
+    /* >19 digits / subnormal magnitude (very long fraction): fall back to Ruby's own correctly-rounded
      * strtod (rb_cstr_to_dbl) — the exact conversion String#to_f uses — so the C path and the
      * Ruby path produce the identical double on every platform, not just where the system
      * strtod happens to be correctly rounded. The token is pre-validated, so badcheck=0. */
@@ -739,6 +762,7 @@ typedef struct {
   const char *prefix_str;
   long headers_len;
   long hash_capa;           // Pre-computed capacity for lazy hash allocation
+  long field_size_limit;    // 0 = no limit; raw field bytes above this raise FieldSizeLimitExceeded
   int numeric_mode;         // 0=off, 1=all, 2=only, 3=except
   int decimal_precision;    // 0=float, 1=auto (BigDecimal above 16 sig digits), 2=bigdecimal
   bool remove_empty_values;
@@ -768,8 +792,10 @@ static inline void ensure_hash_allocated(field_transform_opts *opts) {
  *   3. Try numeric conversion (strtol/strtod) — avoids Ruby String allocation
  *   4. Insert the final value into the hash as String
  *
- * For quoted fields, pass is_quoted=true — numeric conversion is skipped since
- * the raw C string may differ from the unescaped content.
+ * For quoted fields, pass is_quoted=true — it routes the value through quote
+ * unescaping. Numeric conversion runs the same as for unquoted fields: quoting
+ * does NOT suppress conversion ("42" in quotes becomes 42), matching the Ruby
+ * path, where hash_transformations sees the already-unquoted value.
  *
  * Returns: true if a non-blank value was inserted, false otherwise.
  *          (Used to track all_blank for remove_empty_hashes.)
@@ -780,6 +806,17 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     long element_count, bool is_quoted,
     char quote_char_val, rb_encoding *encoding
 ) {
+  // 0. Overrun protection: check the RAW field size BEFORE any conversion, so an
+  // oversized digit-only field raises here instead of being converted to a huge
+  // Integer (Bignum conversion cost grows with the square of the digit count —
+  // the exact overrun field_size_limit exists to prevent). Same error and message
+  // as the Ruby path's post-parse check; on_bad_row can quarantine it as usual.
+  if (opts->field_size_limit > 0 && trimmed_len > opts->field_size_limit) {
+    rb_raise(eFieldSizeLimitExceeded,
+             "Field exceeds field_size_limit of %ld bytes (got %ld bytes)",
+             opts->field_size_limit, trimmed_len);
+  }
+
   VALUE key = get_key_for_index(element_count, opts->headers, opts->headers_len, opts->prefix_str);
 
   // 1. Empty/blank field handling
@@ -850,7 +887,29 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     : rb_enc_str_new(trim_start, trimmed_len, encoding);
   ensure_hash_allocated(opts);
   rb_hash_aset(opts->hash, key, field);
+
+  /* Blank-ROW semantics: the Ruby path's row test is `value.strip.empty?`, and
+   * String#strip also removes NUL bytes — so a field of only strip-set bytes
+   * (space, \t, \n, \v, \f, \r, \0) is inserted as data but must NOT mark the
+   * row non-blank. The first-byte check keeps this off the hot path: real
+   * values almost never start with a strip-set byte here (strip_whitespace
+   * already trimmed them when it is on). */
+  if (ruby_strip_byte(trim_start[0])) {
+    for (long j = 1; j < trimmed_len; j++) {
+      if (!ruby_strip_byte(trim_start[j])) return true;
+    }
+    return false; /* only strip-set bytes → row-blank */
+  }
   return true;
+}
+
+/* nil_values_matching must be matched against the RAW string value of a field, before
+ * numeric conversion or zero-removal (the Ruby hash-transformation order). When the option
+ * is set, the C parser therefore defers those two value transformations to the Ruby side:
+ * numeric_mode stays 0 and remove_zero_values is forced off, so fields reach
+ * hash_transformations as raw Strings. */
+static inline bool defer_value_transforms_to_ruby(VALUE options_hash) {
+  return RTEST(rb_hash_aref(options_hash, ID2SYM(id_nil_values_matching)));
 }
 
 /* Helper: parse the convert_values_to_numeric option into a mode + key list.
@@ -959,12 +1018,18 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
   bool remove_zero_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
+  VALUE fsl_val = rb_hash_aref(options_hash, ID2SYM(id_field_size_limit));
+  long field_size_limit = NIL_P(fsl_val) ? 0 : NUM2LONG(fsl_val);
 
   // Numeric conversion: supports true (all), {only: [...]}, {except: [...]}
   // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
   int numeric_mode = 0;
   VALUE numeric_keys = Qnil;
-  parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
+  if (defer_value_transforms_to_ruby(options_hash)) {
+    remove_zero_values = false; /* Ruby applies nil_values_matching first, then these */
+  } else {
+    parse_numeric_option(options_hash, &numeric_mode, &numeric_keys);
+  }
   int decimal_precision = parse_decimal_precision(options_hash);
 
   // quote_escaping and quote_boundary are only needed in Section 5 (quoted/slow path).
@@ -1132,6 +1197,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
     .numeric_mode = numeric_mode,
     .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
+    .field_size_limit = field_size_limit,
     .remove_zero_values = remove_zero_values,
   };
 
@@ -1143,7 +1209,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    *
    * __builtin_expect hints to the compiler that this branch is likely taken.
    */
-  if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
+  if (endP == startP) {
+    /* Empty line (after chomp) → zero fields, matching Ruby's "".split(col_sep, -1) == [].
+     * Sections 6/7 then handle blank-row removal / nil-padding for ALL headers —
+     * no column gets an empty string. */
+  } else if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
     char sep = *col_sepP;
     char *sep_pos = NULL;
 
@@ -1254,9 +1324,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       // so skip the comparison entirely.
       // For single-char separator: direct byte compare.
       // For multi-char separator: pre-filter on first byte, then check the rest.
-      if (!in_quotes && *p == sep_char_slow) {
+      if (!in_quotes && *p == sep_char_slow && p + col_sep_len <= endP) {
+        /* The full separator must fit before endP — a partial separator truncated
+         * by end-of-line is field content, not a separator. */
         col_sep_found = true;
-        for (i = 1; (i < col_sep_len) && (p + i < endP); i++) {
+        for (i = 1; i < col_sep_len; i++) {
           if (*(p + i) != *(col_sepP + i)) { col_sep_found = false; break; }
         }
       } else {
@@ -1506,9 +1578,17 @@ __attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE header
   ctx->remove_empty        = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   ctx->remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
   ctx->remove_zero_values  = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
+  {
+    VALUE fsl_val = rb_hash_aref(options_hash, ID2SYM(id_field_size_limit));
+    ctx->field_size_limit = NIL_P(fsl_val) ? 0 : NUM2LONG(fsl_val);
+  }
 
   /* Numeric conversion */
-  parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
+  if (defer_value_transforms_to_ruby(options_hash)) {
+    ctx->remove_zero_values = false; /* Ruby applies nil_values_matching first, then these */
+  } else {
+    parse_numeric_option(options_hash, &ctx->numeric_mode, &ctx->numeric_keys);
+  }
   ctx->decimal_precision = parse_decimal_precision(options_hash);
 
   /* quote_escaping → allow_escaped_quotes */
@@ -1684,6 +1764,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     .numeric_mode      = numeric_mode,
     .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
+    .field_size_limit    = ctx->field_size_limit,
     .remove_zero_values  = remove_zero_values,
   };
 
@@ -1693,7 +1774,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
    *   (a) no filter + no early exit → pure memchr loop, zero extra branches
    *   (b) filter active             → bitmap/early-exit checks per field
    * ======================================== */
-  if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
+  if (endP == startP) {
+    /* Empty line (after chomp) → zero fields, matching Ruby's "".split(col_sep, -1) == [].
+     * Sections 6/7 then handle blank-row removal / nil-padding for ALL headers —
+     * no column gets an empty string. */
+  } else if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
     char sep      = *col_sepP;
     char *sep_pos = NULL;
 
@@ -1771,9 +1856,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     char sep_char_slow = *col_sepP;
 
     while (p < endP) {
-      if (!in_quotes && *p == sep_char_slow) {
+      if (!in_quotes && *p == sep_char_slow && p + col_sep_len <= endP) {
+        /* The full separator must fit before endP — a partial separator truncated
+         * by end-of-line is field content, not a separator. */
         col_sep_found = true;
-        for (i = 1; (i < col_sep_len) && (p + i < endP); i++) {
+        for (i = 1; i < col_sep_len; i++) {
           if (*(p + i) != *(col_sepP + i)) { col_sep_found = false; break; }
         }
       } else {
@@ -2018,9 +2105,16 @@ static VALUE rb_count_quote_chars_auto(VALUE self, VALUE line, VALUE quote_char,
 
 void Init_smarter_csv(void) {
   SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
+  eFieldSizeLimitExceeded = rb_const_get(SmarterCSV, rb_intern("FieldSizeLimitExceeded"));
+  rb_gc_register_address(&eFieldSizeLimitExceeded);
   Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
+  /* One shared empty string for all empty field values (avoids a String allocation per
+   * empty field). It MUST be frozen — shared and mutable would mean mutating one empty
+   * value silently changes every other one — and UTF-8, like Ruby's empty strings. */
   Qempty_string = rb_str_new_literal("");
+  rb_enc_associate(Qempty_string, rb_utf8_encoding());
+  rb_obj_freeze(Qempty_string);
   rb_gc_register_address(&Qempty_string);
 
   // Cache symbol IDs for fast options hash lookups
@@ -2034,6 +2128,8 @@ void Init_smarter_csv(void) {
   id_quote_escaping = rb_intern("quote_escaping");
   id_convert_values_to_numeric = rb_intern("convert_values_to_numeric");
   id_remove_zero_values = rb_intern("remove_zero_values");
+  id_nil_values_matching = rb_intern("nil_values_matching");
+  id_field_size_limit = rb_intern("field_size_limit");
   id_only = rb_intern("only");
   id_except = rb_intern("except");
   id_quote_boundary = rb_intern("quote_boundary");

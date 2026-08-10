@@ -88,6 +88,16 @@ end
         expect(array).to eq ["", "", "A", "B", "C", "", ""]
         expect(array_size).to eq 7
       end
+
+      it 'closes a quote followed by an embedded row separator (multi-char col_sep, :standard boundary)' do
+        # A closing quote is valid when followed by col_sep, ROW_SEP, or end of line —
+        # the row_sep case needs the row separator embedded inside the parsed string.
+        line = "\"x\"\ny||z"
+        options.merge!({col_sep: '||', row_sep: "\n", quote_boundary: :standard, strip_whitespace: true})
+        array, array_size = instance.send(:parse, line, options)
+        expect(array).to eq ["\"x\"\ny", 'z']
+        expect(array_size).to eq 2
+      end
     end
   end
 end

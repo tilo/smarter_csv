@@ -312,5 +312,51 @@ fixture_path = 'spec/fixtures'
         data.each { |row| expect(row.keys).not_to include(:dogs) }
       end.to output(/DEPRECATION WARNING.*except_headers/).to_stderr
     end
+
+    # The whole point of headers: { only: } is the SHORT-CUT: stop parsing each row right
+    # after the last wanted column and ignore everything behind it — including extra
+    # columns (no :column_N discovery, reader.headers does not grow) and even quote
+    # structure in unwanted trailing columns. Both paths must short-cut identically.
+    context "headers: { only: } short-cut (stops parsing after the last wanted column)" do
+      it 'does not discover extra columns behind the last wanted column' do
+        reader = SmarterCSV::Reader.new(StringIO.new("a,b\n1,2,3\n"), base_options.merge(headers: { only: [:a] }))
+        rows = reader.process
+        expect(rows).to eq [{ a: 1 }]
+        expect(reader.headers).to eq [:a, :b]
+      end
+
+      it 'ignores an unclosed quote in an unwanted trailing column' do
+        data = "a,b\n1,2,\"unclosed\n3,4\n"
+        rows = SmarterCSV.process(StringIO.new(data), base_options.merge(headers: { only: [:a] }))
+        expect(rows).to eq [{ a: 1 }, { a: 3 }]
+      end
+
+      it 'still parses a quoted wanted column correctly' do
+        reader = SmarterCSV::Reader.new(StringIO.new("a,b\n\"x,y\",2,3\n"), base_options.merge(headers: { only: [:a] }))
+        rows = reader.process
+        expect(rows).to eq [{ a: 'x,y' }]
+        expect(reader.headers).to eq [:a, :b]
+      end
+    end
+
+    # Column selection must work together with strings_as_keys: the selector values are
+    # normalized to the row-key type (Strings in that mode), otherwise nothing matches
+    # and every row comes back empty — silent total data loss.
+    context "headers: { only: } / { except: } combined with strings_as_keys" do
+      it 'selects the requested column using string keys' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { only: ['name'] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+
+      it 'selects the requested column when given as a Symbol' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { only: [:name] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+
+      it 'excludes the requested column using string keys' do
+        result = SmarterCSV.process(StringIO.new("name,age\njohn,33\n"), base_options.merge(headers: { except: ['age'] }, strings_as_keys: true))
+        expect(result).to eq [{ 'name' => 'john' }]
+      end
+    end
   end
 end

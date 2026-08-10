@@ -169,12 +169,38 @@ module SmarterCSV
     def parse_line_to_hash_ruby(line, headers, options, has_quotes = false)
       return [nil, 0] if line.nil?
 
+      # A line with invalid bytes for its encoding (typically Latin-1 data mislabeled as
+      # UTF-8) would make the encoding-aware operations below (split, strip!, ...) raise
+      # ArgumentError. Like the C path, we parse leniently and preserve the field's raw
+      # bytes: process the line as BINARY, then re-tag each field with the original
+      # encoding. Only relabels — never transcodes. Every byte sequence is valid BINARY,
+      # so the recursive call cannot take this branch again.
+      unless line.valid_encoding?
+        original_encoding = line.encoding
+        binary_options = options.dup
+        %i[col_sep quote_char row_sep].each do |opt|
+          binary_options[opt] = options[opt].dup.force_encoding(Encoding::BINARY) if options[opt].is_a?(String)
+        end
+        hash, data_size = parse_line_to_hash_ruby(line.dup.force_encoding(Encoding::BINARY), headers, binary_options, has_quotes)
+        # skip empty strings: relabeling "" is a no-op, and the shared EMPTY_STRING is frozen
+        hash&.transform_values! { |v| v.is_a?(String) && !v.empty? ? v.force_encoding(original_encoding) : v }
+        return [hash, data_size]
+      end
+
       # Chomp trailing row separator
       line = line.chomp(options[:row_sep]) if options[:row_sep]
 
       col_sep = options[:col_sep]
       strip   = options[:strip_whitespace]
       prefix  = options[:missing_header_prefix]
+
+      # headers: { only: } SHORT-CUT (mirrors the C path's early exit): stop parsing right
+      # after the last wanted column and ignore everything behind it — extra columns are
+      # not discovered (no :column_N growth) and even an unclosed quote in an unwanted
+      # trailing column is ignored. _early_exit_after is the 0-based index of the last
+      # wanted column (set by the reader for only: without missing_headers: :raise).
+      early_exit = options[:_early_exit_after]
+      max_fields = early_exit && early_exit >= 0 ? early_exit + 1 : nil
 
       # Optimization #11: for unquoted lines, build the hash in one pass directly
       # from String#split — no intermediate array returned from parse_csv_line_ruby
@@ -187,7 +213,14 @@ module SmarterCSV
       # (default), v.empty? after strip catches both empty and whitespace-only
       # fields without a regex. Most impactful on sparse files (many empty fields).
       unless has_quotes || col_sep == ' '
-        fields = line.split(col_sep, -1)
+        if max_fields
+          # limited split: at most max_fields + 1 elements, the last being the unparsed
+          # remainder of the line — drop it, it is behind the last wanted column
+          fields = line.split(col_sep, max_fields + 1)
+          fields.pop if fields.size == max_fields + 1
+        else
+          fields = line.split(col_sep, -1)
+        end
         n = fields.size
 
         if options[:remove_empty_hashes]
@@ -205,7 +238,10 @@ module SmarterCSV
         fields.each_with_index do |v, i| # C-level iteration, faster than Ruby while counter loop
           next if remove_empty && v.empty?
 
-          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
+          # Empty values become the ONE shared frozen empty string (same design as the
+          # C path): the fresh "" from split dies in the next minor GC instead of being
+          # retained per empty field in the results.
+          hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v.empty? ? EMPTY_STRING : v
         end
 
         unless remove_empty
@@ -216,7 +252,9 @@ module SmarterCSV
       end
 
       # Quoted/complex path: parse into elements array, then build hash.
-      elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
+      # max_fields makes parse_csv_line_ruby stop scanning after the last wanted column
+      # (same short-cut as the C path's early exit).
+      elements, data_size = parse_csv_line_ruby(line, options, max_fields, has_quotes)
       return [nil, -1] if data_size == -1 # unclosed quote at EOL → caller stitches next line
 
       # Optimization #6: elements are always String or nil from parse_csv_line_ruby,
@@ -236,7 +274,10 @@ module SmarterCSV
       hash = {}
       i = 0
       while i < n
-        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = elements[i]
+        v = elements[i]
+        # Empty values become the ONE shared frozen empty string (same design as the C path)
+        v = EMPTY_STRING if v.is_a?(String) && v.empty?
+        hash[i < headers.size ? headers[i] : :"#{prefix}#{i + 1}"] = v
         i += 1
       end
 
@@ -320,12 +361,15 @@ module SmarterCSV
       row_sep = options[:row_sep]
       row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
 
-      # Optimization #1: for the common single-char separator, use direct
-      # character comparison instead of allocating a substring via line[i...i+n].
-      if col_sep_size == 1
-        # Optimization #13: byte-level indexing for single-char separator.
-        # col_sep and quote_char are both validated to be single-byte at option
-        # parsing time. UTF-8 multi-byte continuation bytes (0x80–0xBF) never
+      # Optimization #1: for the common single-BYTE separator, use direct
+      # byte comparison instead of allocating a substring via line[i...i+n].
+      # The gate must be on bytesize, not size: a one-character multi-byte separator
+      # (e.g. 'é') would be scanned by its first byte only, which also occurs as the
+      # lead byte of other characters — the character-level path below handles it.
+      if col_sep.bytesize == 1
+        # Optimization #13: byte-level indexing for single-byte separator.
+        # quote_char is validated to be single-byte at option parsing time.
+        # UTF-8 multi-byte continuation bytes (0x80–0xBF) never
         # alias ASCII delimiter bytes (0x00–0x7F), so byte scanning is safe for
         # UTF-8 strings with ASCII delimiters — no String allocation per character.
         col_sep_byte     = col_sep.getbyte(0)
@@ -356,8 +400,12 @@ module SmarterCSV
           # unquoted (field_started && !in_quotes), remaining quotes are literal and
           # cannot affect parser state — jump directly to the next col_sep.
           # Mirrors Opt #10 for the unquoted side of the same trade-off.
+          # byteindex requires the byte offset to be on a character boundary — after
+          # stepping over the first byte of a multi-byte character, i is mid-character
+          # (a UTF-8 continuation byte, 0b10xxxxxx), so fall back to the byte loop there.
+          # (The Opt #10 quote jump can't be mid-character: i is always at quote_byte + 1.)
           elsif quote_boundary_standard && field_started && !in_quotes
-            next_sep = if BYTEINDEX_AVAILABLE
+            next_sep = if BYTEINDEX_AVAILABLE && (line.getbyte(i) & 0xC0) != 0x80
                          line.byteindex(col_sep, i)
                        else
                          j = i

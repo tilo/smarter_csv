@@ -75,12 +75,16 @@ module SmarterCSV
     def each
       return enum_for(:each) unless block_given?
 
-      # Force row-by-row mode regardless of chunk_size setting
+      # Force row-by-row mode regardless of chunk_size setting.
+      # The explicit begin/ensure keeps the restore off the enum_for path above,
+      # where original_chunk_size was never captured (it would restore nil).
       original_chunk_size = @options[:chunk_size]
       @options[:chunk_size] = nil
-      process { |row_array, _| yield row_array.first }
-    ensure
-      @options[:chunk_size] = original_chunk_size
+      begin
+        process { |row_array, _| yield row_array.first }
+      ensure
+        @options[:chunk_size] = original_chunk_size
+      end
     end
 
     # Yields each chunk as Array<Hash> plus its 0-based chunk index.
@@ -236,6 +240,15 @@ module SmarterCSV
 
         @quote_escaping_auto = options[:quote_escaping] == :auto
         @use_acceleration    = options[:acceleration] && has_acceleration
+        # The C ParseContext stores separators and the extra-column prefix in fixed-size
+        # buffers (col_sep 7 bytes, row_sep 15, missing_header_prefix 63) and would
+        # silently truncate anything longer — fall back to the pure-Ruby parser for such
+        # exotic options; it handles any length.
+        if @use_acceleration
+          @use_acceleration = false if options[:col_sep].is_a?(String) && options[:col_sep].bytesize > 7
+          @use_acceleration = false if options[:row_sep].is_a?(String) && options[:row_sep].bytesize > 15
+          @use_acceleration = false if options[:missing_header_prefix].is_a?(String) && options[:missing_header_prefix].bytesize > 63
+        end
 
         # The single options hash used on the hot path — for :auto we always try backslash
         # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
@@ -254,8 +267,10 @@ module SmarterCSV
         # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
         # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
         # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
-        @delete_nil_keys   = !!options[:key_mapping]
-        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"")
+        # A nil header (key_mapping to nil, or nil in user_provided_headers) drops the column
+        @delete_nil_keys   = !!options[:key_mapping] || @headers.include?(nil)
+        # Empty header keys are :"" with symbol keys, '' with strings_as_keys / keep_original_headers
+        @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"") || @headers.include?('')
 
         # Cache field_size_limit as an ivar (nil when unset → one nil-check per row, no method calls).
         @field_size_limit = options[:field_size_limit]
@@ -406,24 +421,18 @@ module SmarterCSV
                 hash.delete(nil)
                 hash.delete('')
               end
-              hash.delete(:"") if @delete_empty_keys
-
-              if (matcher = options[:nil_values_matching])
-                if options[:remove_empty_values]
-                  hash.delete_if do |_k, v|
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    str_val && matcher.match?(str_val)
-                  end
-                else
-                  hash.each_key do |k|
-                    v = hash[k]
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    hash[k] = nil if str_val && matcher.match?(str_val)
-                  end
-                end
+              if @delete_empty_keys
+                hash.delete(:"")
+                hash.delete('')
               end
 
-              if options[:value_converters]
+              if options[:nil_values_matching]
+                # The C parser deferred numeric conversion and zero-removal (see
+                # defer_value_transforms_to_ruby in the extension), so run the full Ruby
+                # pipeline: nil-matching on the raw strings first, then zero-removal,
+                # numeric conversion, and value_converters — the pure-Ruby-path order.
+                hash = hash_transformations(hash, options)
+              elsif options[:value_converters]
                 options[:value_converters].each do |key, converter|
                   hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
                 end
@@ -632,7 +641,22 @@ module SmarterCSV
       return false unless line.include?(options[:quote_char])
 
       if options[:quote_boundary] == :standard
-        detect_multiline_strict(line, options)
+        case options[:quote_escaping]
+        when :backslash
+          detect_multiline_strict(line, options, true)
+        when :auto
+          if line.include?('\\')
+            # :auto parses with backslash semantics first and retries with RFC semantics
+            # (see @hot_path_options / @quote_escaping_double) — the row is only still
+            # open if BOTH interpretations leave the quote open, mirroring the dual
+            # counting in the non-strict branch below.
+            detect_multiline_strict(line, options, true) && detect_multiline_strict(line, options, false)
+          else
+            detect_multiline_strict(line, options, false)
+          end
+        else
+          detect_multiline_strict(line, options, false)
+        end
       elsif options[:quote_escaping] == :auto
         escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
         # If backslash-aware count is even → line is self-contained either way
@@ -657,7 +681,7 @@ module SmarterCSV
     #   - inside an unquoted field: jump directly to next col_sep via C-level byteindex
     # This makes detect_multiline_strict competitive with parse_csv_line_ruby on the same
     # content, enabling it to serve as a cheap gate in the stitch loop (Opt #18).
-    def detect_multiline_strict(line, options)
+    def detect_multiline_strict(line, options, allow_escaped_quotes = options[:quote_escaping] == :backslash)
       col_sep = options[:col_sep]
       quote   = options[:quote_char]
       strip   = options[:strip_whitespace]
@@ -667,9 +691,26 @@ module SmarterCSV
       row_sep_size  = row_sep.is_a?(String) ? row_sep.size : 0
       in_quotes     = false
       field_started = false
+      # The gate must agree with the parser, or the stitch loop keeps accumulating a row
+      # the parser would have closed and fabricates "Unclosed quoted field" at EOF. Two
+      # parser behaviors must therefore be modeled here exactly:
+      #   - a doubled quote inside a quoted field ("" → ") takes precedence over the
+      #     closing-quote check when another byte follows the pair (parser.rb, issue #334);
+      #   - with allow_escaped_quotes, a quote preceded by an odd number of backslashes is
+      #     escaped → literal, never a closing quote (detect_multiline passes the flag per
+      #     quote_escaping mode; :auto runs both interpretations).
 
-      if col_sep_size == 1
-        # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17)
+      # Walk the same string the parser parses: parse_line_to_hash_ruby chomps the trailing
+      # row separator (String#chomp — for "\n" that also removes a trailing "\r\n" or "\r")
+      # before parsing. Without this, a terminal doubled quote or a CRLF line ending flips
+      # the pair-precedence / close-quote decisions at end-of-line.
+      line = line.chomp(row_sep) if row_sep.is_a?(String)
+
+      if col_sep.bytesize == 1
+        # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17).
+        # Gated on bytesize, not size: a one-character multi-byte separator (e.g. 'é')
+        # must take the character-level path below — byte scanning would match its
+        # first byte inside other characters sharing that lead byte.
         col_sep_byte     = col_sep.getbyte(0)
         quote_byte       = quote.getbyte(0)
         row_sep_bytesize = row_sep.is_a?(String) ? row_sep.bytesize : 0
@@ -697,7 +738,10 @@ module SmarterCSV
             # Opt #12 mirror: unquoted field in progress — jump to next col_sep using C-level
             # byteindex (MRI Ruby ≥ 3.2). Fallback for older Ruby / JRuby: manual getbyte loop —
             # kept inline for the same reason as the Opt #10 mirror above.
-            next_sep = if byteindex_available
+            # byteindex requires a character-boundary offset — after stepping over the first
+            # byte of a multi-byte character, i is mid-character (a UTF-8 continuation byte),
+            # so use the byte loop there.
+            next_sep = if byteindex_available && (line.getbyte(i) & 0xC0) != 0x80
                          line.byteindex(col_sep, i)
                        else
                          j = i
@@ -716,15 +760,28 @@ module SmarterCSV
             field_started = false
           elsif b == quote_byte
             if in_quotes
-              # closing quote: only valid if followed by col_sep, row_sep, or end of line
-              next_i = i + 1
-              if next_i >= bytesize ||
-                 line.getbyte(next_i) == col_sep_byte ||
-                 (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
-                in_quotes     = false
-                field_started = true
+              escaped = false
+              if allow_escaped_quotes
+                k = i - 1
+                k -= 1 while k >= 0 && line.getbyte(k) == 0x5C # '\\'
+                escaped = (i - 1 - k).odd?
               end
-              # else: quote inside quoted field → literal (handles "" doubling)
+              unless escaped # escaped quote → literal, stays inside the quoted field
+                next_i = i + 1
+                if next_i + 1 < bytesize && line.getbyte(next_i) == quote_byte
+                  # doubled quote ("" → ") with another byte following: consume the pair,
+                  # stay inside the quoted field (precedence over the closing-quote check;
+                  # terminal "" keeps the parser's lenient close — see parse_csv_line_ruby)
+                  i = next_i
+                # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                elsif next_i >= bytesize ||
+                      line.getbyte(next_i) == col_sep_byte ||
+                      (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
+                  in_quotes     = false
+                  field_started = true
+                end
+                # else: quote inside quoted field → literal
+              end
             elsif !field_started # at field boundary: open quoted field
               in_quotes     = true
               field_started = true
@@ -754,15 +811,27 @@ module SmarterCSV
 
           if line[i] == quote
             if in_quotes
-              # closing quote: only valid if followed by col_sep, row_sep, or end of line
-              next_i = i + 1
-              if next_i >= line_size ||
-                 line[next_i...next_i + col_sep_size] == col_sep ||
-                 (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
-                in_quotes     = false
-                field_started = true
+              escaped = false
+              if allow_escaped_quotes
+                k = i - 1
+                k -= 1 while k >= 0 && line[k] == '\\'
+                escaped = (i - 1 - k).odd?
               end
-              # else: quote inside quoted field → literal (handles "" doubling)
+              unless escaped # escaped quote → literal, stays inside the quoted field
+                next_i = i + 1
+                if next_i + 1 < line_size && line[next_i] == quote
+                  # doubled quote ("" → ") with another character following: consume the
+                  # pair, stay inside the quoted field (see byte path above)
+                  i = next_i
+                # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                elsif next_i >= line_size ||
+                      line[next_i...next_i + col_sep_size] == col_sep ||
+                      (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                  in_quotes     = false
+                  field_started = true
+                end
+                # else: quote inside quoted field → literal
+              end
             elsif !field_started # at field boundary: open quoted field
               in_quotes     = true
               field_started = true
@@ -793,7 +862,9 @@ module SmarterCSV
     def blank?(value)
       case value
       when String
-        value.empty? || BLANK_RE.match?(value)
+        # A string with invalid bytes for its encoding would make the regex raise —
+        # and it necessarily contains non-blank bytes, so it is not blank.
+        value.empty? || (value.valid_encoding? && BLANK_RE.match?(value))
       when NilClass
         true
       when Array
@@ -845,25 +916,18 @@ module SmarterCSV
           hash.delete(nil)
           hash.delete('')
         end
-        hash.delete(:"") if @delete_empty_keys
-
-        # Only these Ruby-only post-filters remain (user-provided Ruby objects):
-        if (matcher = options[:nil_values_matching])
-          if options[:remove_empty_values]
-            hash.delete_if do |_k, v|
-              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-              str_val && matcher.match?(str_val)
-            end
-          else
-            hash.each_key do |k|
-              v = hash[k]
-              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-              hash[k] = nil if str_val && matcher.match?(str_val)
-            end
-          end
+        if @delete_empty_keys
+          hash.delete(:"")
+          hash.delete('')
         end
 
-        if options[:value_converters]
+        if options[:nil_values_matching]
+          # The C parser deferred numeric conversion and zero-removal (see
+          # defer_value_transforms_to_ruby in the extension), so run the full Ruby
+          # pipeline: nil-matching on the raw strings first, then zero-removal,
+          # numeric conversion, and value_converters — the pure-Ruby-path order.
+          hash = hash_transformations(hash, options)
+        elsif options[:value_converters]
           options[:value_converters].each do |key, converter|
             hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
           end

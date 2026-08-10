@@ -148,3 +148,38 @@ fixture_path = 'spec/fixtures'
     end
   end
 end
+
+# The multiline stitch gate (detect_multiline) must agree with the parser about doubled
+# quotes and backslash-escaped quotes — otherwise the Ruby path keeps stitching a row the
+# parser would have closed, and fabricates "MalformedCSV: Unclosed quoted field" at EOF.
+describe 'multiline stitching with doubled / escaped quotes (both paths)' do
+  require 'stringio'
+
+  [true, false].each do |acceleration|
+    it "closes a stitched field whose continuation starts with a doubled quote (acceleration: #{acceleration})" do
+      data = "h1,h2\n\"\n\"\",\"\n"
+      result = SmarterCSV.process(StringIO.new(data), acceleration: acceleration)
+      expect(result).to eq [{ h1: "\"," }]
+    end
+
+    it "closes a stitched field containing a backslash-escaped quote (quote_escaping: :backslash, acceleration: #{acceleration})" do
+      data = "h1,h2\n\"a\\\"\nb\",x\n"
+      result = SmarterCSV.process(StringIO.new(data), quote_escaping: :backslash, acceleration: acceleration)
+      expect(result).to eq [{ h1: "a\\\"\nb", h2: 'x' }]
+    end
+
+    # Same two gate behaviors on the multi-char col_sep sub-path of the detector
+    # (a separate character-level walk from the single-byte fast path above).
+    it "closes a stitched field with a doubled quote, multi-char col_sep (acceleration: #{acceleration})" do
+      data = "h1||h2\n\"\n\"\"||\"\n"
+      result = SmarterCSV.process(StringIO.new(data), col_sep: '||', acceleration: acceleration)
+      expect(result).to eq [{ h1: "\"||" }]
+    end
+
+    it "closes a stitched field with a backslash-escaped quote, multi-char col_sep (acceleration: #{acceleration})" do
+      data = "h1||h2\n\"a\\\"\nb\"||x\n"
+      result = SmarterCSV.process(StringIO.new(data), col_sep: '||', quote_escaping: :backslash, acceleration: acceleration)
+      expect(result).to eq [{ h1: "a\\\"\nb", h2: 'x' }]
+    end
+  end
+end

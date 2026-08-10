@@ -4,6 +4,68 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
+## 1.19.0 (2026-08-10)
+
+RSpec tests: **2,595 → 3,164** (+569 tests)
+
+
+### Reverted Behavior Changes
+
+  - **Exponent forms are no longer auto-converted to numbers ([#345](https://github.com/tilo/smarter_csv/issues/345)).**
+
+  Version 1.18.0 started converting scientific notation (`"1e3"`, `"12E5"`, `"1.5e3"`) to Floats. In real-world CSV data, digits-E-digits values are far more often identifiers (short codes, hex IDs) than scientific notation, and the auto-conversion corrupted them irreversibly — an ID like `"0047583311587E590003"` came back as `Infinity`.
+
+  As of 1.19.0, exponent forms always stay Strings — as they did in every version before 1.18.0. If a column really does contain scientific notation, convert it per-column with `value_converters`:
+
+  ```ruby
+  SmarterCSV.process(file, value_converters: { measurement: ->(v) { v.to_f } })
+  ```
+
+  Thanks to [Denis Sadomowski](https://github.com/sonicdes) for the report.
+
+### Behavior Changes
+
+  - **`field_size_limit` values below `4096` now raise a `ValidationError`** — the option is overrun protection (a hard upper bound against runaway fields), not per-field validation.
+
+  - **The Hash form of `convert_values_to_numeric` is now validated and normalized.** It requires exactly one of `only:`/`except:` with field name(s) (String/Symbol or an Array of them); an empty hash, unknown keys, both keys together, empty lists, or `nil`/boolean values raise a `ValidationError` (the two parser paths previously disagreed on these shapes). The listed names are normalized to the row-key type, so `only:`/`except:` now also works with `strings_as_keys` / `keep_original_headers`.
+
+  - **All empty field values are ONE shared, frozen, UTF-8 empty-string object — on both paths** (no String allocation per empty field). Mutating an empty value now raises `FrozenError` instead of silently changing every other empty value in the result. Relevant with `remove_empty_values: false`; the default `true` removes empties anyway.
+
+### Bug Fixes
+
+  - **Writer**: fields needing quoting are wrapped in the configured `quote_char`, not a hard-coded `"` — output with a custom `quote_char` round-trips again.
+  - **`Reader#each` without a block** no longer clears the configured `chunk_size` for a later `each_chunk` on the same Reader.
+  - **Duplicate-header disambiguation** no longer steals a real column's name — `name,name,name2` no longer raises `DuplicateHeaders` (the second `name` becomes `name3`).
+  - **The caller's `user_provided_headers` array** (and a reused options hash) is no longer mutated when rows have more columns than headers.
+  - **`headers: { only: }` / `{ except: }`** now works with `strings_as_keys` / `keep_original_headers` — selectors are normalized to the row-key type (with `only:`, nothing matched and every row came back empty: silent total data loss).
+  - **A quoted header containing an embedded newline** is stitched across physical lines like data rows (`"first\nname"` → `:first_name`); previously the first fragment was silently lost. An unclosed header quote at end-of-file raises `MalformedCSV`.
+  - **`quote_char: :auto`** raises a `ValidationError` instead of crashing with `NoMethodError` — quote_char has no auto-detection.
+
+### Bug Fixes — C/Ruby parity
+
+  The C-accelerated and pure-Ruby parsers now behave identically in all of the following cases (same input, same output — verified by differential fuzzing and by running every parsing spec on both paths):
+
+  - a partial multi-char separator at end-of-line is field content, not a separator — with `col_sep: '||'` the C path silently dropped the lone `|` from `"y|"` (also fixes an out-of-bounds read near end-of-line)
+  - a trailing `\r` before an LF row separator is part of the line terminator — a CRLF line with a quoted last field raised `MalformedCSV` on the C path, and `strip_whitespace: false` kept `"x\r"` / `"1\r"` as values
+  - with `strip_whitespace: true`, values are stripped of Ruby's full `String#strip` character set on the C path too (a stray `\r` from mixed LF/CRLF files survived before)
+  - an empty line yields `nil` for ALL columns with `remove_empty_values: false` (the C path gave the first column `""`)
+  - a row consisting only of NUL bytes counts as blank on the C path too (`String#strip` semantics; the NUL byte itself remains data with `remove_empty_hashes: false`)
+  - a `nil` entry in `user_provided_headers` drops that column on the C path too
+  - an empty-string header key (`strings_as_keys` + `duplicate_header_suffix: nil`) is dropped on the C path too
+  - non-ASCII `missing_header_prefix` (e.g. `"spalte_ä_"`) no longer raises `EncodingError` on the C path — extra-column keys are interned as UTF-8 symbols
+  - `col_sep` / `row_sep` / `missing_header_prefix` values longer than the C parser's internal buffers fall back to the pure-Ruby parser instead of being silently truncated
+  - `nil_values_matching` matches the RAW string value on the C path (a pattern like `/\A007\z/` only ever saw the converted `7`) — and no longer switches off numeric conversion and zero-removal for the non-matching values
+  - `field_size_limit` is checked against the raw field size BEFORE numeric conversion, so an oversized digit-only field raises on the C path too instead of being converted to a huge Integer (the exact overrun the option exists to prevent)
+  - `headers: { only: }` short-cuts on the pure-Ruby path too — parsing stops right after the last wanted column, matching the C path (no `:column_N` discovery behind it, and faster)
+  - a one-character multi-byte `col_sep` (e.g. `'é'`) no longer crashes the pure-Ruby parser
+  - a multi-byte character directly before a literal quote (`é"x`) no longer crashes the pure-Ruby parser (`IndexError` from a mid-character byte offset)
+  - invalid bytes in the input (typically Latin-1 data mislabeled as UTF-8) no longer crash the pure-Ruby parser — fields keep their raw bytes and encoding tag exactly (never transcoded, so the data stays recoverable via `force_encoding`); cleanup remains opt-in via `force_utf8` / `invalid_byte_sequence`
+  - the multiline stitch gate models the parser's rules exactly (doubled-quote precedence, backslash escapes, end-of-line chomp) — no more fabricated `MalformedCSV` on the pure-Ruby path for rows the parser can close
+
+### Tests
+
+  - **Every parsing spec now runs on BOTH the C-accelerated and the pure-Ruby path** via `[true, false]` acceleration loops (~420 additional examples), a seeded differential parity-fuzz spec (2,000 randomized inputs per run, including combined option sets) guards C/Ruby parity permanently, and line coverage is at **100%**.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

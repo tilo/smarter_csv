@@ -51,6 +51,7 @@ Real-world files come from dozens of different systems, each with their own defa
 | Windows-1252 / Latin-1 | 🔘 | Specify `file_encoding: 'windows-1252'`. Common in European financial exports, older SAP systems, QuickBooks. |
 | UTF-16 LE with BOM | 🔘 | Specify `file_encoding: 'utf-16le'`. Some Microsoft SQL Server and Access exports default to this. |
 | Shift-JIS / EUC-JP | 🔘 | Specify `file_encoding: 'shift_jis'` or `'euc-jp'`. Japanese ERP and POS systems. |
+| Invalid bytes / mislabeled encoding | ✅ | Never crashes — the affected field keeps its raw bytes exactly, recoverable via `force_encoding`. Opt into cleanup with `force_utf8` / `invalid_byte_sequence`. |
 
 ---
 

@@ -33,7 +33,7 @@
 |--------|---------|-------------|
 | `:row_sep` | `$/` | Separates rows. Defaults to your OS row separator: `\n` on UNIX, `\r\n` on Windows. |
 | `:col_sep` | `","` | Separates each value in a row. |
-| `:quote_char` | `'"'` | Character used to quote CSV fields. |
+| `:quote_char` | `'"'` | Character used to quote CSV fields. Must be a single byte. |
 | `:force_quotes` | `false` | Forces each individual value to be quoted. |
 | `:headers` | `[]` | List of keys from the input to use as headers in the CSV file. ⚠️ Disables automatic header detection! |
 | `:map_headers` | `{}` | Like `:headers`, but also maps each key to a user-specified header value. ⚠️ Disables automatic header detection! |
@@ -121,7 +121,7 @@ See [Parsing Strategy](./parsing_strategy.md) for full details on quote handling
 | Option | Default | Explanation |
 |--------|---------|-------------|
 | `:strip_whitespace` | `true` | Remove whitespace before/after values and headers. |
-| `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats (including scientific notation like `1.5e3`) to the appropriate numeric type. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
+| `:convert_values_to_numeric` | `true` | Convert strings containing integers or floats to the appropriate numeric type. Exponent forms like `1.5e3` or `12E5` stay Strings (1.19.0+) — they are usually identifiers, not numbers. Accepts `{except: [:key1, :key2]}` or `{only: :key3}` to limit which columns. |
 | `:decimal_precision` | `:auto` | How decimals are converted: `:auto` returns `Float` but `BigDecimal` above 16 significant digits (no precision loss); `:float` always returns `Float`; `:bigdecimal` always returns `BigDecimal`. Integers are unaffected. |
 | `:value_converters` | `nil` | Hash of `:header => converter`; converter can be a lambda/Proc or a class implementing `self.convert(value)`. See [Value Converters](./value_converters.md). |
 | `:remove_empty_values` | `true` | Remove key/value pairs where the value is `nil`, empty, or whitespace-only — any Unicode whitespace, same as Ruby's `String#blank?`. |
@@ -138,7 +138,7 @@ See [Bad Row Quarantine](./bad_row_quarantine.md) for full details.
 | `:on_bad_row` | `:raise` | Behavior when a row raises a parse error. `:raise` (default): re-raise, stopping processing. `:skip`: skip the bad row and continue. `:collect`: skip and append an error record to `reader.errors[:bad_rows]`. callable: called with the error record per bad row; processing continues. |
 | `:collect_raw_lines` | `true` | When collecting bad rows, include the raw stitched line in the error record. |
 | `:bad_row_limit` | `nil` | If set, raises `SmarterCSV::TooManyBadRows` after this many bad rows. |
-| `:field_size_limit` | `nil` | Maximum size of any extracted field in bytes. `nil` means no limit. Raises `SmarterCSV::FieldSizeLimitExceeded` (handled by `on_bad_row`) if a field or accumulating multiline buffer exceeds this size. Prevents DoS from runaway quoted fields or huge inline payloads. See [Bad Row Quarantine](./bad_row_quarantine.md#limiting-field-size-field_size_limit). |
+| `:field_size_limit` | `nil` | Maximum size of any extracted field in bytes. `nil` means no limit; the minimum allowed value is `4096` (it is overrun protection, not per-field validation). Raises `SmarterCSV::FieldSizeLimitExceeded` (handled by `on_bad_row`) if a field or accumulating multiline buffer exceeds this size. Prevents DoS from runaway quoted fields or huge inline payloads. See [Bad Row Quarantine](./bad_row_quarantine.md#limiting-field-size-field_size_limit). |
 
 ### Output & Diagnostics
 

@@ -280,6 +280,26 @@ RSpec.describe SmarterCSV::Writer do
           expect(output).to match(/John,30,"New York, New York"/)
         end
       end
+
+      # Fields that need quoting must be wrapped in the configured quote_char, not a
+      # hard-coded double quote — otherwise output written with a custom quote_char
+      # cannot be read back.
+      describe 'when a custom quote_char is configured' do
+        it 'wraps fields that need quoting in the configured quote_char' do
+          output = SmarterCSV.generate(quote_char: "'") do |csv|
+            csv << { name: 'Jane, Doe', note: "it's fine" }
+          end
+          expect(output).to eq "name,note\n'Jane, Doe','it''s fine'\n"
+        end
+
+        it 'round-trips data through Writer and Reader with the same custom quote_char' do
+          output = SmarterCSV.generate(quote_char: "'") do |csv|
+            csv << { name: 'Jane, Doe', note: "it's fine" }
+          end
+          result = SmarterCSV.process(StringIO.new(output), quote_char: "'")
+          expect(result).to eq [{ name: 'Jane, Doe', note: "it's fine" }]
+        end
+      end
     end
   end
 

@@ -129,20 +129,53 @@ module SmarterCSV
           warn "DEPRECATION WARNING: 'except_headers:' is deprecated. Use 'headers: { except: [...] }' instead." unless @options[:verbose] == :quiet
         end
 
-        # Normalize only_headers/except_headers to arrays of symbols (internal names, read by C extension)
+        # Normalize only_headers/except_headers to arrays of the row-key type (internal names,
+        # read by the C extension too): with strings_as_keys / keep_original_headers the row
+        # keys are Strings, otherwise Symbols — the selectors must match to select anything.
+        string_keys = @options[:strings_as_keys] || @options[:keep_original_headers]
         if @options[:only_headers]
           values = Array(@options[:only_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { only: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
 
-          @options[:only_headers] = values.map(&:to_sym)
+          @options[:only_headers] = string_keys ? values.map(&:to_s) : values.map(&:to_sym)
         end
         if @options[:except_headers]
           values = Array(@options[:except_headers])
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           raise SmarterCSV::ValidationError, "headers: { except: } elements must be String or Symbol, got: #{bad.map(&:class).uniq.inspect}" if bad.any?
 
-          @options[:except_headers] = values.map(&:to_sym)
+          @options[:except_headers] = string_keys ? values.map(&:to_s) : values.map(&:to_sym)
+        end
+
+        # The Hash form of convert_values_to_numeric accepts EXACTLY ONE of only:/except:,
+        # with field name(s) (String/Symbol or an Array of them) as the value. Anything else
+        # is an invalid declaration → ValidationError, instead of silently picking a behavior
+        # (the C and Ruby paths used to disagree on these shapes). Values are normalized to
+        # the row-key type, like headers: { only: } above.
+        if (cvn = @options[:convert_values_to_numeric]).is_a?(Hash)
+          unless (cvn.keys - %i[only except]).empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: only the keys only:/except: are accepted, got: #{cvn.keys.inspect}"
+          end
+          if cvn.key?(:only) && cvn.key?(:except)
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: cannot use only: and except: at the same time"
+          end
+          unless cvn.key?(:only) || cvn.key?(:except)
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: the Hash form requires only: or except: with field name(s)"
+          end
+
+          list_key = cvn.key?(:only) ? :only : :except
+          values = cvn[list_key].is_a?(Array) ? cvn[list_key] : [cvn[list_key]]
+          if values.empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: #{list_key}: must not be empty — expects field name(s)"
+          end
+
+          bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
+          unless bad.empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: #{list_key}: expects field name(s) (String or Symbol), got: #{bad.map(&:class).uniq.inspect}"
+          end
+
+          @options[:convert_values_to_numeric] = { list_key => string_keys ? values.map(&:to_s) : values.map(&:to_sym) }
         end
 
         # Deprecation: remove_values_matching → nil_values_matching
@@ -195,7 +228,10 @@ module SmarterCSV
         errors = []
         errors << "invalid row_sep" if keys.include?(:row_sep) && !option_valid?(options[:row_sep])
         errors << "invalid col_sep" if keys.include?(:col_sep) && !option_valid?(options[:col_sep])
-        errors << "invalid quote_char" if keys.include?(:quote_char) && !option_valid?(options[:quote_char])
+        # quote_char has no auto-detection — :auto is only valid for row_sep and col_sep
+        if keys.include?(:quote_char) && !(options[:quote_char].is_a?(String) && !options[:quote_char].empty?)
+          errors << "invalid quote_char"
+        end
         if keys.include?(:quote_char) && options[:quote_char].is_a?(String) && options[:quote_char].bytesize > 1
           errors << "invalid quote_char: must be a single byte (got #{options[:quote_char].inspect})"
         end
@@ -261,9 +297,11 @@ module SmarterCSV
           warn "WARNING: buffer_size (#{options[:buffer_size]}) < auto_row_sep_chars (#{arc}); bumping buffer_size to #{bumped}" unless quiet
           options[:buffer_size] = bumped
         end
+        # field_size_limit is overrun protection (a hard upper bound against runaway fields),
+        # not per-field validation — small values make no sense and are rejected.
         fsl = options[:field_size_limit]
-        unless fsl.nil? || (fsl.is_a?(Integer) && fsl > 0)
-          errors << "invalid field_size_limit: must be nil or a positive Integer (got #{fsl.inspect})"
+        unless fsl.nil? || (fsl.is_a?(Integer) && fsl >= 4096)
+          errors << "invalid field_size_limit: must be nil or an Integer >= 4096 (got #{fsl.inspect})"
         end
         obr = options[:on_bad_row]
         unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)

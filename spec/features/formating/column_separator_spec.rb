@@ -5,199 +5,211 @@ require 'stringio'
 fixture_path = 'spec/fixtures'
 
 describe 'can handle col_sep' do
-  it 'has default of comma as col_sep' do
-    data = SmarterCSV.process("#{fixture_path}/separator_comma.csv") # no options
-    expect(data.first.keys.size).to eq 5
-    expect(data.size).to eq 3
-  end
-
-  describe 'with explicitly given col_sep' do
-    it 'loads file with comma separator' do
-      options = {col_sep: ','}
-      data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
-      expect(data.first.keys.size).to eq 5
-      expect(data.size).to eq 3
-    end
-
-    it 'loads file with tab separator' do
-      options = {col_sep: "\t"}
-      data = SmarterCSV.process("#{fixture_path}/separator_tab.csv", options)
-      expect(data.first.keys.size).to eq 5
-      expect(data.size).to eq 3
-    end
-
-    it 'loads file with semi-colon separator' do
-      options = {col_sep: ';'}
-      data = SmarterCSV.process("#{fixture_path}/separator_semi.csv", options)
-      expect(data.first.keys.size).to eq 5
-      expect(data.size).to eq 3
-    end
-
-    it 'loads file with colon separator' do
-      options = {col_sep: ':'}
-      data = SmarterCSV.process("#{fixture_path}/separator_colon.csv", options)
-      expect(data.first.keys.size).to eq 5
-      expect(data.size).to eq 3
-    end
-
-    it 'loads file with pipe separator' do
-      options = {col_sep: '|'}
-      data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
-      expect(data.first.keys.size).to eq 5
-      expect(data.size).to eq 3
-    end
-  end
-
-  describe 'auto-detection of separator' do
-    context 'when file has headers' do
-      let(:options) { { col_sep: :auto, headers_in_file: true } }
-
-      it 'auto-detects comma separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
+  [true, false].each do |acceleration|
+    context "acceleration: #{acceleration}" do
+      it 'has default of comma as col_sep' do
+        data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", acceleration: acceleration) # no col_sep option
         expect(data.first.keys.size).to eq 5
         expect(data.size).to eq 3
       end
 
-      it 'auto-detects tab separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_tab.csv", options)
-        expect(data.first.keys.size).to eq 5
-        expect(data.size).to eq 3
-      end
-
-      it 'auto-detects semi-colon separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_semi.csv", options)
-        expect(data.first.keys.size).to eq 5
-        expect(data.size).to eq 3
-      end
-
-      it 'auto-detects colon separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_colon.csv", options)
-        expect(data.first.keys.size).to eq 5
-        expect(data.size).to eq 3
-      end
-
-      it 'auto-detects pipe separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
-
-        expect(data.first.keys.size).to eq 5
-        expect(data.size).to eq 3
-      end
-
-      it 'does not auto-detect other separators' do
-        expect do
-          SmarterCSV.process("#{fixture_path}/binary.csv", options)
-        end.to raise_exception SmarterCSV::NoColSepDetected
-      end
-
-      it 'does not detect separators that are between quotes' do
-        data = SmarterCSV.process("#{fixture_path}/separator_chars_between_quotes.csv", options)
-
-        expect(data.first.keys.size).to eq 5
-        expect(data.first[:"first,_last"]).to eq "John, Doe"
-        expect(data.size).to eq 3
-      end
-
-      context 'when auto is given as a string' do
-        let(:options) do
-          {
-            col_sep: 'auto',
-            headers_in_file: true
-          }
+      describe 'with explicitly given col_sep' do
+        it 'loads file with comma separator' do
+          options = {col_sep: ',', acceleration: acceleration}
+          data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
+          expect(data.first.keys.size).to eq 5
+          expect(data.size).to eq 3
         end
 
-        it 'also works' do
+        it 'loads file with tab separator' do
+          options = {col_sep: "\t", acceleration: acceleration}
+          data = SmarterCSV.process("#{fixture_path}/separator_tab.csv", options)
+          expect(data.first.keys.size).to eq 5
+          expect(data.size).to eq 3
+        end
+
+        it 'loads file with semi-colon separator' do
+          options = {col_sep: ';', acceleration: acceleration}
+          data = SmarterCSV.process("#{fixture_path}/separator_semi.csv", options)
+          expect(data.first.keys.size).to eq 5
+          expect(data.size).to eq 3
+        end
+
+        it 'loads file with colon separator' do
+          options = {col_sep: ':', acceleration: acceleration}
+          data = SmarterCSV.process("#{fixture_path}/separator_colon.csv", options)
+          expect(data.first.keys.size).to eq 5
+          expect(data.size).to eq 3
+        end
+
+        it 'loads file with pipe separator' do
+          options = {col_sep: '|', acceleration: acceleration}
           data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
           expect(data.first.keys.size).to eq 5
           expect(data.size).to eq 3
         end
       end
     end
+  end
 
-    context 'when file has not headers' do
-      let(:options) do
-        {
-          col_sep: :auto,
-          headers_in_file: false,
-          user_provided_headers: %w[Year Make Model Length]
-        }
-      end
+  describe 'auto-detection of separator' do
+    [true, false].each do |acceleration|
+      context "acceleration: #{acceleration}" do
+        context 'when file has headers' do
+          let(:options) { { col_sep: :auto, headers_in_file: true, acceleration: acceleration } }
 
-      it 'auto-detects comma separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_comma_no_headers.csv", options)
-        expect(data.first.keys.size).to eq 4
-        expect(data.size).to eq 3
-      end
+          it 'auto-detects comma separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_comma.csv", options)
+            expect(data.first.keys.size).to eq 5
+            expect(data.size).to eq 3
+          end
 
-      it 'auto-detects tab separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_tab_no_headers.csv", options)
-        expect(data.first.keys.size).to eq 4
-        expect(data.size).to eq 3
-      end
+          it 'auto-detects tab separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_tab.csv", options)
+            expect(data.first.keys.size).to eq 5
+            expect(data.size).to eq 3
+          end
 
-      it 'auto-detects semi-colon separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_semi_no_headers.csv", options)
-        expect(data.first.keys.size).to eq 4
-        expect(data.size).to eq 3
-      end
+          it 'auto-detects semi-colon separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_semi.csv", options)
+            expect(data.first.keys.size).to eq 5
+            expect(data.size).to eq 3
+          end
 
-      it 'auto-detects colon separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_colon_no_headers.csv", options)
-        expect(data.first.keys.size).to eq 4
-        expect(data.size).to eq 3
-      end
+          it 'auto-detects colon separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_colon.csv", options)
+            expect(data.first.keys.size).to eq 5
+            expect(data.size).to eq 3
+          end
 
-      it 'auto-detects pipe separator and loads data' do
-        data = SmarterCSV.process("#{fixture_path}/separator_pipe_no_headers.csv", options)
-        expect(data.first.keys.size).to eq 4
-        expect(data.size).to eq 3
-      end
+          it 'auto-detects pipe separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
 
-      it 'does not auto-detect other separators' do
-        expect do
-          SmarterCSV.process("#{fixture_path}/binary_no_headers.csv", options)
-        end.to raise_exception SmarterCSV::NoColSepDetected
-      end
+            expect(data.first.keys.size).to eq 5
+            expect(data.size).to eq 3
+          end
 
-      it 'does not detect separators that are between quotes' do
-        data = SmarterCSV.process(
-          "#{fixture_path}/separator_chars_between_quotes_no_headers.csv",
-          options.merge(headers_in_file: false, user_provided_headers: %w[Name Age Job Department Project])
-        )
+          it 'does not auto-detect other separators' do
+            expect do
+              SmarterCSV.process("#{fixture_path}/binary.csv", options)
+            end.to raise_exception SmarterCSV::NoColSepDetected
+          end
 
-        expect(data.first.keys.size).to eq 5
-        expect(data.first["Name"]).to eq "John, Doe"
-        expect(data.size).to eq 3
-      end
+          it 'does not detect separators that are between quotes' do
+            data = SmarterCSV.process("#{fixture_path}/separator_chars_between_quotes.csv", options)
 
-      context 'when auto is given as a string' do
-        let(:options) do
-          {
-            col_sep: 'auto',
-            headers_in_file: false,
-            user_provided_headers: %w[Year Make Model Length]
-          }
+            expect(data.first.keys.size).to eq 5
+            expect(data.first[:"first,_last"]).to eq "John, Doe"
+            expect(data.size).to eq 3
+          end
+
+          context 'when auto is given as a string' do
+            let(:options) do
+              {
+                col_sep: 'auto',
+                headers_in_file: true,
+                acceleration: acceleration
+              }
+            end
+
+            it 'also works' do
+              data = SmarterCSV.process("#{fixture_path}/separator_pipe.csv", options)
+              expect(data.first.keys.size).to eq 5
+              expect(data.size).to eq 3
+            end
+          end
         end
 
-        it 'also works' do
-          data = SmarterCSV.process("#{fixture_path}/separator_pipe_no_headers.csv", options)
-          expect(data.first.keys.size).to eq 4
-          expect(data.size).to eq 3
-        end
-      end
+        context 'when file has not headers' do
+          let(:options) do
+            {
+              col_sep: :auto,
+              headers_in_file: false,
+              user_provided_headers: %w[Year Make Model Length],
+              acceleration: acceleration
+            }
+          end
 
-      context 'when contents include a delimiter character with a count major than the number of columns' do
-        let(:options) do
-          {
-            col_sep: :auto,
-            headers_in_file: false,
-            user_provided_headers: %w[Date1 Date2], # user provides strings
-          }
-        end
+          it 'auto-detects comma separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_comma_no_headers.csv", options)
+            expect(data.first.keys.size).to eq 4
+            expect(data.size).to eq 3
+          end
 
-        it 'will fail to guess the separator' do
-          data = SmarterCSV.process("#{fixture_path}/separator_comma_no_headers_will_fail.csv", options)
-          expect(data.first['Date1']).to eq '2022-10-04 16' # Instead of 2022-10-04 16:00:47 UTC
-          expect(data.first['Date2']).to eq 0 # Instead of 2022-10-04 16:00:47 UTC
+          it 'auto-detects tab separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_tab_no_headers.csv", options)
+            expect(data.first.keys.size).to eq 4
+            expect(data.size).to eq 3
+          end
+
+          it 'auto-detects semi-colon separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_semi_no_headers.csv", options)
+            expect(data.first.keys.size).to eq 4
+            expect(data.size).to eq 3
+          end
+
+          it 'auto-detects colon separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_colon_no_headers.csv", options)
+            expect(data.first.keys.size).to eq 4
+            expect(data.size).to eq 3
+          end
+
+          it 'auto-detects pipe separator and loads data' do
+            data = SmarterCSV.process("#{fixture_path}/separator_pipe_no_headers.csv", options)
+            expect(data.first.keys.size).to eq 4
+            expect(data.size).to eq 3
+          end
+
+          it 'does not auto-detect other separators' do
+            expect do
+              SmarterCSV.process("#{fixture_path}/binary_no_headers.csv", options)
+            end.to raise_exception SmarterCSV::NoColSepDetected
+          end
+
+          it 'does not detect separators that are between quotes' do
+            data = SmarterCSV.process(
+              "#{fixture_path}/separator_chars_between_quotes_no_headers.csv",
+              options.merge(headers_in_file: false, user_provided_headers: %w[Name Age Job Department Project])
+            )
+
+            expect(data.first.keys.size).to eq 5
+            expect(data.first["Name"]).to eq "John, Doe"
+            expect(data.size).to eq 3
+          end
+
+          context 'when auto is given as a string' do
+            let(:options) do
+              {
+                col_sep: 'auto',
+                headers_in_file: false,
+                user_provided_headers: %w[Year Make Model Length],
+                acceleration: acceleration
+              }
+            end
+
+            it 'also works' do
+              data = SmarterCSV.process("#{fixture_path}/separator_pipe_no_headers.csv", options)
+              expect(data.first.keys.size).to eq 4
+              expect(data.size).to eq 3
+            end
+          end
+
+          context 'when contents include a delimiter character with a count major than the number of columns' do
+            let(:options) do
+              {
+                col_sep: :auto,
+                headers_in_file: false,
+                user_provided_headers: %w[Date1 Date2], # user provides strings
+                acceleration: acceleration,
+              }
+            end
+
+            it 'will fail to guess the separator' do
+              data = SmarterCSV.process("#{fixture_path}/separator_comma_no_headers_will_fail.csv", options)
+              expect(data.first['Date1']).to eq '2022-10-04 16' # Instead of 2022-10-04 16:00:47 UTC
+              expect(data.first['Date2']).to eq 0 # Instead of 2022-10-04 16:00:47 UTC
+            end
+          end
         end
       end
     end
@@ -222,6 +234,28 @@ describe 'can handle col_sep' do
           expect(data[0][:city]).to eq 'NYC'
           expect(data[1][:name]).to eq 'Bob'
           expect(data[1][:city]).to eq 'LA'
+        end
+
+        it 'keeps a partial separator at end-of-line as field content (data row)' do
+          # 'y|' ends with the FIRST byte of the separator only — that is content, not a separator
+          data = SmarterCSV.process(StringIO.new("a||b\nx||y|\n"), col_sep: '||', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', b: 'y|' }]
+        end
+
+        it 'keeps a partial separator at end-of-line as header content' do
+          data = SmarterCSV.process(StringIO.new("a||b|\nx||y\n"), col_sep: '||', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', "b|": 'y' }]
+        end
+
+        it 'keeps a partial three-char separator at end-of-line as field content' do
+          data = SmarterCSV.process(StringIO.new("a<=>b\nx<=>y<=\n"), col_sep: '<=>', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', b: 'y<=' }]
+        end
+
+        it 'parses correctly with a col_sep longer than 7 bytes' do
+          sep = '<' * 8
+          data = SmarterCSV.process(StringIO.new("a#{sep}b\n1#{sep}2\n"), col_sep: sep, acceleration: acceleration)
+          expect(data).to eq [{ a: 1, b: 2 }]
         end
 
         it 'handles a quoted field containing the multi-char separator' do
@@ -256,7 +290,6 @@ describe 'can handle col_sep' do
   describe 'multi-char col_sep combined with other options' do
     [true, false].each do |acceleration|
       context "acceleration: #{acceleration}" do
-
         # Gap 4: multi-char col_sep + quote_escaping: :backslash
         context 'quote_escaping: :backslash' do
           it 'treats backslash-quote as escaped, keeping the quoted field open' do
@@ -342,7 +375,6 @@ describe 'can handle col_sep' do
             expect(data[0][:notes]).to eq ''
           end
         end
-
       end
 
       # Multi-char col_sep + multiline fields (quoted field spanning rows)
@@ -366,7 +398,19 @@ describe 'can handle col_sep' do
           expect(data[1][:b]).to eq 'Y'
         end
       end
+    end
+  end
 
+  # A col_sep that is one character but multiple bytes (e.g. 'é') must parse identically on
+  # both paths — including quoted lines, and content containing other characters that share
+  # the separator's lead byte (here 'è').
+  describe 'single-character multi-byte col_sep (both paths)' do
+    [true, false].each do |acceleration|
+      it "parses quoted lines correctly with col_sep 'é' (acceleration: #{acceleration})" do
+        data = "aébéc\n\"x\"éèéz\n"
+        result = SmarterCSV.process(StringIO.new(data), col_sep: 'é', acceleration: acceleration)
+        expect(result).to eq [{ a: 'x', b: 'è', c: 'z' }]
+      end
     end
   end
 end
