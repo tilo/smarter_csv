@@ -114,6 +114,8 @@ data = SmarterCSV.process(file, remove_empty_values: false)
 # => [{name: "Alice", score: 42, notes: nil}, {name: nil, score: nil, notes: "great player"}]
 ```
 
+With `remove_empty_values: false`, all kept empty-string values are ONE shared frozen String (an allocation optimization) — `dup` before mutating one in place *(1.19.0+)*.
+
 ---
 
 ## `remove_zero_values`
@@ -155,6 +157,8 @@ data = SmarterCSV.process(file,
 data = SmarterCSV.process(file,
   convert_values_to_numeric: { only: [:quantity, :price] })
 ```
+
+The Hash form requires exactly one of `only:`/`except:` with field name(s) — anything else (empty hash, unknown keys, both keys, empty lists, `nil`/boolean values) raises a `ValidationError` *(1.19.0+)*.
 
 Exponent forms (e.g. `"1e3"`, `"12E5"`, `"1.5e3"`) are NOT converted — they stay Strings *(changed in 1.19.0; only 1.18.x converted them)*. In real-world CSV data such values are far more often identifiers (short codes, hex IDs) than scientific notation, and auto-converting them corrupts data — e.g. an ID like `"0047583311587E590003"` became `Infinity`. If a column really does contain scientific notation, convert it per-column with [`value_converters`](./value_converters.md). Bare-dot forms like `".5"` and `"3."` are left as Strings (they are not valid numbers here). Integers and floats convert identically on the C-accelerated and pure-Ruby paths.
 

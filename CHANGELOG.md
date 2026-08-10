@@ -21,7 +21,7 @@ RSpec tests: **2,595 → 3,164** (+569 tests)
   SmarterCSV.process(file, value_converters: { measurement: ->(v) { v.to_f } })
   ```
 
-  Thanks to [@sonicdes](https://github.com/sonicdes) for the report.
+  Thanks to [Denis Sadomowski](https://github.com/sonicdes) for the report.
 
 ### Behavior Changes
 
