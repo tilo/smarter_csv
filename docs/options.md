@@ -33,7 +33,7 @@
 |--------|---------|-------------|
 | `:row_sep` | `$/` | Separates rows. Defaults to your OS row separator: `\n` on UNIX, `\r\n` on Windows. |
 | `:col_sep` | `","` | Separates each value in a row. |
-| `:quote_char` | `'"'` | Character used to quote CSV fields. |
+| `:quote_char` | `'"'` | Character used to quote CSV fields. Must be a single byte. |
 | `:force_quotes` | `false` | Forces each individual value to be quoted. |
 | `:headers` | `[]` | List of keys from the input to use as headers in the CSV file. ⚠️ Disables automatic header detection! |
 | `:map_headers` | `{}` | Like `:headers`, but also maps each key to a user-specified header value. ⚠️ Disables automatic header detection! |

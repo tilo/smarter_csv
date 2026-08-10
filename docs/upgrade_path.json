@@ -1,6 +1,6 @@
 {
-  "latest": "1.18",
-  "latest_release": "1.18.0",
+  "latest": "1.19",
+  "latest_release": "1.19.0",
   "path": {
     "1.0": {
       "to": "1.1",
@@ -181,6 +181,28 @@
         }
       ],
       "note": "<strong>Bonus:</strong> 1.18 automatically converts scientific notation (e.g. <code>1e3</code>, <code>6.022e23</code>) to numbers, and preserves full precision on long decimals by returning a <code>BigDecimal</code> when a value carries more than 16 significant digits (<code>decimal_precision: :auto</code>, the default). Nothing to change &mdash; this just works."
+    },
+    "1.18": {
+      "to": "1.19",
+      "latest_release": "1.18.1",
+      "actions": [
+        {
+          "if": "you relied on 1.18.x auto-converting scientific notation (<code>\"1e3\"</code>, <code>\"1.5e3\"</code>) to numbers",
+          "then": "convert those columns explicitly with <code>value_converters: { column: ->(v) { v.to_f } }</code> &mdash; 1.19.0 keeps all exponent forms as Strings again (as every version before 1.18.0 did), because in real-world data they are usually identifiers, and IDs like <code>\"0047583311587E590003\"</code> were corrupted to <code>Infinity</code> (<a href=\"https://github.com/tilo/smarter_csv/issues/345\">#345</a>)."
+        },
+        {
+          "if": "you set <code>field_size_limit:</code> to a value below 4096",
+          "then": "raise it to at least <code>4096</code> &mdash; the option is overrun protection (a hard upper bound against runaway fields), not per-field validation, and 1.19.0 rejects smaller values with a <code>ValidationError</code>."
+        },
+        {
+          "if": "you pass <code>convert_values_to_numeric:</code> as a Hash with anything other than exactly one of <code>only:</code>/<code>except:</code> and field name(s)",
+          "then": "fix the option &mdash; an empty hash, unknown keys, both keys together, empty lists, or <code>nil</code>/boolean values now raise a <code>ValidationError</code> (the two parser paths previously disagreed silently on these shapes)."
+        },
+        {
+          "if": "you mutate empty-string values in the results (only possible with <code>remove_empty_values: false</code>)",
+          "then": "<code>dup</code> them first &mdash; all empty field values are now one shared, frozen empty string (an allocation optimization), so in-place mutation raises <code>FrozenError</code>."
+        }
+      ]
     }
   }
 }
