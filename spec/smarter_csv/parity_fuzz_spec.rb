@@ -35,6 +35,13 @@ describe 'C/Ruby parity fuzz (seeded)' do
     { convert_values_to_numeric: false },
     { strings_as_keys: true },
     { keep_original_headers: true },
+    # Combined sets — some corners are only reachable when options interact
+    { strip_whitespace: false, remove_empty_values: false },
+    { strip_whitespace: false, remove_zero_values: true },
+    { remove_empty_values: false, remove_empty_hashes: false },
+    { quote_escaping: :backslash, quote_boundary: :legacy },
+    { quote_escaping: :backslash, strip_whitespace: false },
+    { strings_as_keys: true, strip_whitespace: false, remove_empty_values: false },
   ].freeze
 
   def run_path(data, opts, accel)
