@@ -42,6 +42,8 @@
 
   - **An empty-string header key is now dropped on the C path too (C/Ruby parity).** With `strings_as_keys: true` and `duplicate_header_suffix: nil` (which disables the `column_N` auto-naming), an empty header produced a `''` String key that the Ruby path dropped but the C path kept (its cleanup only deleted the `:""` Symbol form).
 
+  - **A one-character, multi-byte `col_sep` (e.g. `'é'`) no longer crashes the pure-Ruby parser (C/Ruby parity).** The Ruby parser's byte-level fast path was gated on the separator's character count, then scanned for its first byte only — which also occurs as the lead byte of other characters — and raised `ArgumentError` on quoted lines. The fast path is now gated on `bytesize`; multi-byte separators take the character-level path, matching the C parser's results.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

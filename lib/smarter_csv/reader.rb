@@ -676,8 +676,11 @@ module SmarterCSV
       in_quotes     = false
       field_started = false
 
-      if col_sep_size == 1
-        # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17)
+      if col_sep.bytesize == 1
+        # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17).
+        # Gated on bytesize, not size: a one-character multi-byte separator (e.g. 'é')
+        # must take the character-level path below — byte scanning would match its
+        # first byte inside other characters sharing that lead byte.
         col_sep_byte     = col_sep.getbyte(0)
         quote_byte       = quote.getbyte(0)
         row_sep_bytesize = row_sep.is_a?(String) ? row_sep.bytesize : 0

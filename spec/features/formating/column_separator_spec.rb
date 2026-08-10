@@ -369,4 +369,17 @@ describe 'can handle col_sep' do
 
     end
   end
+
+  # A col_sep that is one character but multiple bytes (e.g. 'é') must parse identically on
+  # both paths — including quoted lines, and content containing other characters that share
+  # the separator's lead byte (here 'è').
+  describe 'single-character multi-byte col_sep (both paths)' do
+    [true, false].each do |acceleration|
+      it "parses quoted lines correctly with col_sep 'é' (acceleration: #{acceleration})" do
+        data = "aébéc\n\"x\"éèéz\n"
+        result = SmarterCSV.process(StringIO.new(data), col_sep: 'é', acceleration: acceleration)
+        expect(result).to eq [{ a: 'x', b: 'è', c: 'z' }]
+      end
+    end
+  end
 end

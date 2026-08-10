@@ -320,12 +320,15 @@ module SmarterCSV
       row_sep = options[:row_sep]
       row_sep_size = row_sep.is_a?(String) ? row_sep.size : 0
 
-      # Optimization #1: for the common single-char separator, use direct
-      # character comparison instead of allocating a substring via line[i...i+n].
-      if col_sep_size == 1
-        # Optimization #13: byte-level indexing for single-char separator.
-        # col_sep and quote_char are both validated to be single-byte at option
-        # parsing time. UTF-8 multi-byte continuation bytes (0x80–0xBF) never
+      # Optimization #1: for the common single-BYTE separator, use direct
+      # byte comparison instead of allocating a substring via line[i...i+n].
+      # The gate must be on bytesize, not size: a one-character multi-byte separator
+      # (e.g. 'é') would be scanned by its first byte only, which also occurs as the
+      # lead byte of other characters — the character-level path below handles it.
+      if col_sep.bytesize == 1
+        # Optimization #13: byte-level indexing for single-byte separator.
+        # quote_char is validated to be single-byte at option parsing time.
+        # UTF-8 multi-byte continuation bytes (0x80–0xBF) never
         # alias ASCII delimiter bytes (0x00–0x7F), so byte scanning is safe for
         # UTF-8 strings with ASCII delimiters — no String allocation per character.
         col_sep_byte     = col_sep.getbyte(0)
