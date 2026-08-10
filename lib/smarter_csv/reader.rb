@@ -631,7 +631,22 @@ module SmarterCSV
       return false unless line.include?(options[:quote_char])
 
       if options[:quote_boundary] == :standard
-        detect_multiline_strict(line, options)
+        case options[:quote_escaping]
+        when :backslash
+          detect_multiline_strict(line, options, true)
+        when :auto
+          if line.include?('\\')
+            # :auto parses with backslash semantics first and retries with RFC semantics
+            # (see @hot_path_options / @quote_escaping_double) — the row is only still
+            # open if BOTH interpretations leave the quote open, mirroring the dual
+            # counting in the non-strict branch below.
+            detect_multiline_strict(line, options, true) && detect_multiline_strict(line, options, false)
+          else
+            detect_multiline_strict(line, options, false)
+          end
+        else
+          detect_multiline_strict(line, options, false)
+        end
       elsif options[:quote_escaping] == :auto
         escaped_count, rfc_count = count_quote_chars_auto(line, options[:quote_char], options[:col_sep])
         # If backslash-aware count is even → line is self-contained either way
@@ -656,7 +671,7 @@ module SmarterCSV
     #   - inside an unquoted field: jump directly to next col_sep via C-level byteindex
     # This makes detect_multiline_strict competitive with parse_csv_line_ruby on the same
     # content, enabling it to serve as a cheap gate in the stitch loop (Opt #18).
-    def detect_multiline_strict(line, options)
+    def detect_multiline_strict(line, options, allow_escaped_quotes = options[:quote_escaping] == :backslash)
       col_sep = options[:col_sep]
       quote   = options[:quote_char]
       strip   = options[:strip_whitespace]
@@ -666,6 +681,20 @@ module SmarterCSV
       row_sep_size  = row_sep.is_a?(String) ? row_sep.size : 0
       in_quotes     = false
       field_started = false
+      # The gate must agree with the parser, or the stitch loop keeps accumulating a row
+      # the parser would have closed and fabricates "Unclosed quoted field" at EOF. Two
+      # parser behaviors must therefore be modeled here exactly:
+      #   - a doubled quote inside a quoted field ("" → ") takes precedence over the
+      #     closing-quote check when another byte follows the pair (parser.rb, issue #334);
+      #   - with allow_escaped_quotes, a quote preceded by an odd number of backslashes is
+      #     escaped → literal, never a closing quote (detect_multiline passes the flag per
+      #     quote_escaping mode; :auto runs both interpretations).
+
+      # Walk the same string the parser parses: parse_line_to_hash_ruby chomps the trailing
+      # row separator (String#chomp — for "\n" that also removes a trailing "\r\n" or "\r")
+      # before parsing. Without this, a terminal doubled quote or a CRLF line ending flips
+      # the pair-precedence / close-quote decisions at end-of-line.
+      line = line.chomp(row_sep) if row_sep.is_a?(String)
 
       if col_sep.bytesize == 1
         # Fast path: byte-level scanning with byteindex skip-ahead (Opt #17).
@@ -721,15 +750,28 @@ module SmarterCSV
             field_started = false
           elsif b == quote_byte
             if in_quotes
-              # closing quote: only valid if followed by col_sep, row_sep, or end of line
-              next_i = i + 1
-              if next_i >= bytesize ||
-                 line.getbyte(next_i) == col_sep_byte ||
-                 (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
-                in_quotes     = false
-                field_started = true
+              escaped = false
+              if allow_escaped_quotes
+                k = i - 1
+                k -= 1 while k >= 0 && line.getbyte(k) == 0x5C # '\\'
+                escaped = (i - 1 - k).odd?
               end
-              # else: quote inside quoted field → literal (handles "" doubling)
+              unless escaped # escaped quote → literal, stays inside the quoted field
+                next_i = i + 1
+                if next_i + 1 < bytesize && line.getbyte(next_i) == quote_byte
+                  # doubled quote ("" → ") with another byte following: consume the pair,
+                  # stay inside the quoted field (precedence over the closing-quote check;
+                  # terminal "" keeps the parser's lenient close — see parse_csv_line_ruby)
+                  i = next_i
+                # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                elsif next_i >= bytesize ||
+                      line.getbyte(next_i) == col_sep_byte ||
+                      (row_sep_bytesize > 0 && line.byteslice(next_i, row_sep_bytesize) == row_sep)
+                  in_quotes     = false
+                  field_started = true
+                end
+                # else: quote inside quoted field → literal
+              end
             elsif !field_started # at field boundary: open quoted field
               in_quotes     = true
               field_started = true
@@ -759,15 +801,27 @@ module SmarterCSV
 
           if line[i] == quote
             if in_quotes
-              # closing quote: only valid if followed by col_sep, row_sep, or end of line
-              next_i = i + 1
-              if next_i >= line_size ||
-                 line[next_i...next_i + col_sep_size] == col_sep ||
-                 (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
-                in_quotes     = false
-                field_started = true
+              escaped = false
+              if allow_escaped_quotes
+                k = i - 1
+                k -= 1 while k >= 0 && line[k] == '\\'
+                escaped = (i - 1 - k).odd?
               end
-              # else: quote inside quoted field → literal (handles "" doubling)
+              unless escaped # escaped quote → literal, stays inside the quoted field
+                next_i = i + 1
+                if next_i + 1 < line_size && line[next_i] == quote
+                  # doubled quote ("" → ") with another character following: consume the
+                  # pair, stay inside the quoted field (see byte path above)
+                  i = next_i
+                # closing quote: only valid if followed by col_sep, row_sep, or end of line
+                elsif next_i >= line_size ||
+                      line[next_i...next_i + col_sep_size] == col_sep ||
+                      (row_sep_size > 0 && line[next_i...next_i + row_sep_size] == row_sep)
+                  in_quotes     = false
+                  field_started = true
+                end
+                # else: quote inside quoted field → literal
+              end
             elsif !field_started # at field boundary: open quoted field
               in_quotes     = true
               field_started = true
