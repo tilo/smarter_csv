@@ -148,6 +148,32 @@ module SmarterCSV
           @options[:except_headers] = string_keys ? values.map(&:to_s) : values.map(&:to_sym)
         end
 
+        # The Hash form of convert_values_to_numeric accepts EXACTLY ONE of only:/except:,
+        # with field name(s) (String/Symbol or an Array of them) as the value. Anything else
+        # is an invalid declaration → ValidationError, instead of silently picking a behavior
+        # (the C and Ruby paths used to disagree on these shapes). Values are normalized to
+        # the row-key type, like headers: { only: } above.
+        if (cvn = @options[:convert_values_to_numeric]).is_a?(Hash)
+          unless (cvn.keys - %i[only except]).empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: only the keys only:/except: are accepted, got: #{cvn.keys.inspect}"
+          end
+          if cvn.key?(:only) && cvn.key?(:except)
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: cannot use only: and except: at the same time"
+          end
+          unless cvn.key?(:only) || cvn.key?(:except)
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: the Hash form requires only: or except: with field name(s)"
+          end
+
+          list_key = cvn.key?(:only) ? :only : :except
+          values = cvn[list_key].is_a?(Array) ? cvn[list_key] : [cvn[list_key]]
+          bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
+          unless bad.empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: #{list_key}: expects field name(s) (String or Symbol), got: #{bad.map(&:class).uniq.inspect}"
+          end
+
+          @options[:convert_values_to_numeric] = { list_key => string_keys ? values.map(&:to_s) : values.map(&:to_sym) }
+        end
+
         # Deprecation: remove_values_matching → nil_values_matching
         # Old behavior: removes the key-value pair entirely.
         # New behavior: nil_values_matching sets the value to nil (key kept);

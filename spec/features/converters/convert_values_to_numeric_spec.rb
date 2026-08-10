@@ -2,6 +2,48 @@
 
 fixture_path = 'spec/fixtures'
 
+# The Hash form of convert_values_to_numeric accepts EXACTLY ONE of only:/except:, with
+# field name(s) (String/Symbol or an Array of them) as the value. Anything else is an
+# invalid option declaration and raises a ValidationError instead of silently picking a
+# behavior (the C and Ruby paths used to disagree on these shapes).
+describe 'convert_values_to_numeric option validation' do
+  {
+    'empty hash' => {},
+    'unknown key' => { foo: 1 },
+    'both only: and except:' => { only: [:a], except: [:a] },
+    'except: nil' => { except: nil },
+    'except: false' => { except: false },
+    'only: nil' => { only: nil },
+    'only: an Integer' => { only: 1 },
+  }.each do |label, invalid|
+    it "raises ValidationError for #{label}" do
+      expect { SmarterCSV.process("#{fixture_path}/numeric.csv", convert_values_to_numeric: invalid) }
+        .to raise_error(SmarterCSV::ValidationError, /convert_values_to_numeric/)
+    end
+  end
+
+  it 'accepts false (no conversion) and true (convert everything)' do
+    expect { SmarterCSV.process("#{fixture_path}/numeric.csv", convert_values_to_numeric: false) }.not_to raise_error
+    expect { SmarterCSV.process("#{fixture_path}/numeric.csv", convert_values_to_numeric: true) }.not_to raise_error
+  end
+
+  # only:/except: values are normalized to the row-key type, like headers: { only: } —
+  # with strings_as_keys the row keys are Strings, so Symbol selectors must still match.
+  [true, false].each do |acceleration|
+    it "converts the selected column under strings_as_keys (acceleration: #{acceleration})" do
+      require 'stringio'
+      data = SmarterCSV.process(StringIO.new("a,b\n1,2\n"), convert_values_to_numeric: { only: [:a] }, strings_as_keys: true, acceleration: acceleration)
+      expect(data).to eq [{ 'a' => 1, 'b' => '2' }]
+    end
+
+    it "excludes the selected column under strings_as_keys (acceleration: #{acceleration})" do
+      require 'stringio'
+      data = SmarterCSV.process(StringIO.new("a,b\n1,2\n"), convert_values_to_numeric: { except: 'a' }, strings_as_keys: true, acceleration: acceleration)
+      expect(data).to eq [{ 'a' => '1', 'b' => 2 }]
+    end
+  end
+end
+
 describe 'numeric conversion of values' do
   [true, false].each do |acceleration|
     context "acceleration: #{acceleration}" do
