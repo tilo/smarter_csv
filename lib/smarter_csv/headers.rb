@@ -18,6 +18,19 @@ module SmarterCSV
 
         file_header_array, file_header_size = parse(header_line, options)
 
+        # A quoted header containing an embedded newline is stitched across physical lines,
+        # the same way data rows are (the parser signals an unclosed quoted field with
+        # size -1). The embedded newline then becomes '_' via the header transformations.
+        while file_header_size == -1
+          next_line = filehandle.gets(options[:row_sep])
+          raise SmarterCSV::MalformedCSV, "Unclosed quoted field detected in the header" if next_line.nil?
+
+          @file_line_count += 1
+          @raw_header = @raw_header + next_line
+          header_line = preprocess_header_line(@raw_header, options)
+          file_header_array, file_header_size = parse(header_line, options)
+        end
+
         file_header_array = header_transformations(file_header_array, options)
 
       else

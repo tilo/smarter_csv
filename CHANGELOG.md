@@ -38,6 +38,8 @@
 
   - **`headers: { only: }` / `{ except: }` now works together with `strings_as_keys` / `keep_original_headers`.** The selector values were always normalized to Symbols, but in those modes the row keys are Strings — so nothing matched, and with `headers: { only: }` every row came back empty (then was dropped by `remove_empty_hashes`): silent total data loss. The selectors are now normalized to the row-key type.
 
+  - **A quoted header containing an embedded newline is now stitched across physical lines, like data rows.** Previously the first header fragment was silently lost and the second fragment was parsed as a data row — silent corruption. The embedded newline becomes `_` via the standard header transformations (`"first\nname"` → `:first_name`); an unclosed quote that reaches end-of-file raises `MalformedCSV`.
+
 ## 1.18.1 (2026-06-30)
 
 ### Bug Fixes

@@ -72,4 +72,20 @@ describe 'header transformations option' do
       end
     end
   end
+
+  # A quoted header containing an embedded newline is stitched across physical lines, the
+  # same way data rows are; the embedded newline then becomes '_' via the standard header
+  # transformations. (Previously the first header fragment was silently lost and the second
+  # fragment was parsed as a data row.)
+  describe 'quoted header with an embedded newline' do
+    require 'stringio'
+
+    [true, false].each do |acceleration|
+      it "stitches the multiline header like a data row (acceleration: #{acceleration})" do
+        data = "\"first\nname\",age\njohn,33\n"
+        result = SmarterCSV.process(StringIO.new(data), col_sep: ',', acceleration: acceleration)
+        expect(result).to eq [{ first_name: 'john', age: 33 }]
+      end
+    end
+  end
 end
