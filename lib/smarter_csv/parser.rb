@@ -194,6 +194,14 @@ module SmarterCSV
       strip   = options[:strip_whitespace]
       prefix  = options[:missing_header_prefix]
 
+      # headers: { only: } SHORT-CUT (mirrors the C path's early exit): stop parsing right
+      # after the last wanted column and ignore everything behind it — extra columns are
+      # not discovered (no :column_N growth) and even an unclosed quote in an unwanted
+      # trailing column is ignored. _early_exit_after is the 0-based index of the last
+      # wanted column (set by the reader for only: without missing_headers: :raise).
+      early_exit = options[:_early_exit_after]
+      max_fields = early_exit && early_exit >= 0 ? early_exit + 1 : nil
+
       # Optimization #11: for unquoted lines, build the hash in one pass directly
       # from String#split — no intermediate array returned from parse_csv_line_ruby
       # and no second iteration to convert array → hash. Saves one Array allocation
@@ -205,7 +213,14 @@ module SmarterCSV
       # (default), v.empty? after strip catches both empty and whitespace-only
       # fields without a regex. Most impactful on sparse files (many empty fields).
       unless has_quotes || col_sep == ' '
-        fields = line.split(col_sep, -1)
+        if max_fields
+          # limited split: at most max_fields + 1 elements, the last being the unparsed
+          # remainder of the line — drop it, it is behind the last wanted column
+          fields = line.split(col_sep, max_fields + 1)
+          fields.pop if fields.size == max_fields + 1
+        else
+          fields = line.split(col_sep, -1)
+        end
         n = fields.size
 
         if options[:remove_empty_hashes]
@@ -237,7 +252,9 @@ module SmarterCSV
       end
 
       # Quoted/complex path: parse into elements array, then build hash.
-      elements, data_size = parse_csv_line_ruby(line, options, nil, has_quotes)
+      # max_fields makes parse_csv_line_ruby stop scanning after the last wanted column
+      # (same short-cut as the C path's early exit).
+      elements, data_size = parse_csv_line_ruby(line, options, max_fields, has_quotes)
       return [nil, -1] if data_size == -1 # unclosed quote at EOL → caller stitches next line
 
       # Optimization #6: elements are always String or nil from parse_csv_line_ruby,
