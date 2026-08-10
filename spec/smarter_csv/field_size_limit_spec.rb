@@ -71,7 +71,7 @@ describe 'field_size_limit option' do
       # -----------------------------------------------------------------------
 
       it 'raises FieldSizeLimitExceeded when a single-line field exceeds the limit' do
-        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n")
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 1)}\"\n")
         expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }
           .to raise_error(SmarterCSV::FieldSizeLimitExceeded)
       end
@@ -136,7 +136,7 @@ describe 'field_size_limit option' do
       # -----------------------------------------------------------------------
 
       it 'skips the oversized row and continues when on_bad_row: :skip' do
-        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n2,small\n")
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 1)}\"\n2,small\n")
         data = SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT, on_bad_row: :skip))
         # Row 1 is skipped due to oversized field; row 2 is returned
         expect(data.size).to eq 1
@@ -144,7 +144,7 @@ describe 'field_size_limit option' do
       end
 
       it 'collects the oversized row error when on_bad_row: :collect' do
-        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n2,ok\n")
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 1)}\"\n2,ok\n")
         reader = SmarterCSV::Reader.new(csv, opts.merge(field_size_limit: MINIMUM_LIMIT, on_bad_row: :collect))
         data = reader.process
         expect(data.size).to eq 1
