@@ -361,6 +361,24 @@ RSpec.describe SmarterCSV do
           expect(result.first[:val].encoding).to eq Encoding::UTF_8
           expect(result.last).to eq({ name: 'bar', val: 'ok' })
         end
+
+        it 'keeps an invalid-byte value starting with a digit as a String (numeric regex must not raise)' do
+          data = "a,b\n1\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x31, 0xFF]
+        end
+
+        it 'keeps an invalid-byte value starting with 0 when remove_zero_values is set (zero regex must not raise)' do
+          data = "a,b\n0\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), remove_zero_values: true, acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x30, 0xFF]
+        end
+
+        it 'does not raise from nil_values_matching on an invalid-byte value' do
+          data = "a,b\n1\xFF,x\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), nil_values_matching: /\ANULL\z/, acceleration: acceleration)
+          expect(result.first[:a].bytes).to eq [0x31, 0xFF]
+        end
       end
     end
   end

@@ -41,10 +41,12 @@ module SmarterCSV
       keys_to_delete = nil # lazily allocated only if something is actually removed
 
       hash.each do |k, v|
-        # Nil-ify values matching the pattern (keeps the key; remove_empty_values handles deletion)
+        # Nil-ify values matching the pattern (keeps the key; remove_empty_values handles deletion).
+        # A string with invalid bytes for its encoding would make the regex raise — and it
+        # cannot match a pattern, so skip it (same guard on the zero/numeric regexes below).
         if nil_values_matching
           str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-          if str_val && nil_values_matching.match?(str_val)
+          if str_val && str_val.valid_encoding? && nil_values_matching.match?(str_val)
             hash[k] = nil
             v = nil
             # fall through: remove_empty_values will delete the key if true
@@ -59,7 +61,7 @@ module SmarterCSV
         end
 
         # Handle both string zeros ("0", "0.0") and numeric zeros (already converted by C)
-        if remove_zero_values && ((v.is_a?(String) && ZERO_REGEX.match?(v)) || (v.is_a?(Numeric) && v == 0))
+        if remove_zero_values && ((v.is_a?(String) && v.valid_encoding? && ZERO_REGEX.match?(v)) || (v.is_a?(Numeric) && v == 0))
           (keys_to_delete ||= []) << k
           next
         end
@@ -71,7 +73,7 @@ module SmarterCSV
           # so a value whose first byte isn't a digit, '+', or '-' cannot be numeric — skip the regex entirely.
           first_byte = v.getbyte(0)
           if first_byte && ((first_byte >= ZERO_BYTE && first_byte <= NINE_BYTE) || first_byte == MINUS_BYTE || first_byte == PLUS_BYTE)
-            if NUMERIC_REGEX.match?(v)
+            if v.valid_encoding? && NUMERIC_REGEX.match?(v)
               # A value with a '.' is a decimal → honor decimal_precision; otherwise it's an integer.
               hash[k] = if v.include?('.')
                           convert_decimal(v, options[:decimal_precision])

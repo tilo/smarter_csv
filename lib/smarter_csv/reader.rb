@@ -416,22 +416,13 @@ module SmarterCSV
                 hash.delete('')
               end
 
-              if (matcher = options[:nil_values_matching])
-                if options[:remove_empty_values]
-                  hash.delete_if do |_k, v|
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    str_val && matcher.match?(str_val)
-                  end
-                else
-                  hash.each_key do |k|
-                    v = hash[k]
-                    str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-                    hash[k] = nil if str_val && matcher.match?(str_val)
-                  end
-                end
-              end
-
-              if options[:value_converters]
+              if options[:nil_values_matching]
+                # The C parser deferred numeric conversion and zero-removal (see
+                # defer_value_transforms_to_ruby in the extension), so run the full Ruby
+                # pipeline: nil-matching on the raw strings first, then zero-removal,
+                # numeric conversion, and value_converters — the pure-Ruby-path order.
+                hash = hash_transformations(hash, options)
+              elsif options[:value_converters]
                 options[:value_converters].each do |key, converter|
                   hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
                 end
@@ -866,23 +857,13 @@ module SmarterCSV
           hash.delete('')
         end
 
-        # Only these Ruby-only post-filters remain (user-provided Ruby objects):
-        if (matcher = options[:nil_values_matching])
-          if options[:remove_empty_values]
-            hash.delete_if do |_k, v|
-              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-              str_val && matcher.match?(str_val)
-            end
-          else
-            hash.each_key do |k|
-              v = hash[k]
-              str_val = v.is_a?(String) ? v : (v.is_a?(Numeric) ? v.to_s : nil)
-              hash[k] = nil if str_val && matcher.match?(str_val)
-            end
-          end
-        end
-
-        if options[:value_converters]
+        if options[:nil_values_matching]
+          # The C parser deferred numeric conversion and zero-removal (see
+          # defer_value_transforms_to_ruby in the extension), so run the full Ruby
+          # pipeline: nil-matching on the raw strings first, then zero-removal,
+          # numeric conversion, and value_converters — the pure-Ruby-path order.
+          hash = hash_transformations(hash, options)
+        elsif options[:value_converters]
           options[:value_converters].each do |key, converter|
             hash[key] = converter.respond_to?(:convert) ? converter.convert(hash[key]) : converter.call(hash[key]) if hash.key?(key)
           end
