@@ -30,6 +30,8 @@
 
   - **Non-ASCII `missing_header_prefix` (e.g. `"spalte_ä_"`) no longer raises `EncodingError` on the C path.** Generated extra-column keys are now interned as UTF-8 symbols.
 
+  - **`field_size_limit` now also catches oversized digit-only fields on the C path (C/Ruby parity).** The C path converted a huge digit field to a number before the size check (which only measured Strings), so the limit never fired — and converting e.g. a 200KB digit string to an Integer is exactly the expensive overrun the option exists to prevent. The C parser now checks the raw field size before any conversion. Additionally, `field_size_limit` values below `4096` now raise a `ValidationError` — the option is overrun protection, not per-field validation.
+
   - **All empty field values are now ONE shared, frozen, UTF-8 empty-string object — on both paths.** This was the C path's design (no per-empty-field object retained in the results), but the shared object was mutable — appending to one empty value silently changed every other empty value in the result — and the Ruby path allocated a fresh string per empty field. Mutating an empty value now raises `FrozenError` on both paths. Relevant with `remove_empty_values: false`; with the default `true`, empty values are removed anyway.
 
   - **Exotic option sizes fall back to the pure-Ruby parser instead of silently truncating.** The C parse context stores `col_sep` (7 bytes), `row_sep` (15), and `missing_header_prefix` (63) in fixed-size buffers; longer values produced wrong results on the accelerated path. The reader now automatically uses the pure-Ruby parser for these, which handles any length.

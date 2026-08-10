@@ -267,9 +267,11 @@ module SmarterCSV
           warn "WARNING: buffer_size (#{options[:buffer_size]}) < auto_row_sep_chars (#{arc}); bumping buffer_size to #{bumped}" unless quiet
           options[:buffer_size] = bumped
         end
+        # field_size_limit is overrun protection (a hard upper bound against runaway fields),
+        # not per-field validation — small values make no sense and are rejected.
         fsl = options[:field_size_limit]
-        unless fsl.nil? || (fsl.is_a?(Integer) && fsl > 0)
-          errors << "invalid field_size_limit: must be nil or a positive Integer (got #{fsl.inspect})"
+        unless fsl.nil? || (fsl.is_a?(Integer) && fsl >= 4096)
+          errors << "invalid field_size_limit: must be nil or an Integer >= 4096 (got #{fsl.inspect})"
         end
         obr = options[:on_bad_row]
         unless %i[raise skip collect].include?(obr) || obr.respond_to?(:call)

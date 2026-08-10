@@ -45,7 +45,8 @@ VALUE Qempty_string = Qnil;
 static ID id_col_sep, id_quote_char, id_row_sep, id_missing_header_prefix;
 static ID id_strip_whitespace, id_remove_empty_hashes, id_remove_empty_values;
 static ID id_quote_escaping, id_convert_values_to_numeric, id_remove_zero_values;
-static ID id_nil_values_matching;
+static ID id_nil_values_matching, id_field_size_limit;
+static VALUE eFieldSizeLimitExceeded = Qnil;
 static ID id_only, id_except, id_quote_boundary;
 static ID id_only_headers, id_except_headers, id_keep_cols, id_strict;
 static ID id_keep_bitmap, id_keep_extra_cols, id_early_exit_after_sym;
@@ -77,6 +78,7 @@ typedef struct {
   bool remove_zero_values;
   bool allow_escaped_quotes;   /* quote_escaping == :backslash */
   bool quote_boundary_standard;
+  long field_size_limit;       /* 0 = no limit (see field_transform_opts) */
 
   /* Numeric conversion: 0=off, 1=all, 2=only listed keys, 3=except listed keys */
   int  numeric_mode;
@@ -760,6 +762,7 @@ typedef struct {
   const char *prefix_str;
   long headers_len;
   long hash_capa;           // Pre-computed capacity for lazy hash allocation
+  long field_size_limit;    // 0 = no limit; raw field bytes above this raise FieldSizeLimitExceeded
   int numeric_mode;         // 0=off, 1=all, 2=only, 3=except
   int decimal_precision;    // 0=float, 1=auto (BigDecimal above 16 sig digits), 2=bigdecimal
   bool remove_empty_values;
@@ -803,6 +806,17 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     long element_count, bool is_quoted,
     char quote_char_val, rb_encoding *encoding
 ) {
+  // 0. Overrun protection: check the RAW field size BEFORE any conversion, so an
+  // oversized digit-only field raises here instead of being converted to a huge
+  // Integer (Bignum conversion cost grows with the square of the digit count —
+  // the exact overrun field_size_limit exists to prevent). Same error and message
+  // as the Ruby path's post-parse check; on_bad_row can quarantine it as usual.
+  if (opts->field_size_limit > 0 && trimmed_len > opts->field_size_limit) {
+    rb_raise(eFieldSizeLimitExceeded,
+             "Field exceeds field_size_limit of %ld bytes (got %ld bytes)",
+             opts->field_size_limit, trimmed_len);
+  }
+
   VALUE key = get_key_for_index(element_count, opts->headers, opts->headers_len, opts->prefix_str);
 
   // 1. Empty/blank field handling
@@ -991,6 +1005,8 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
   bool remove_empty = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   bool remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
   bool remove_zero_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
+  VALUE fsl_val = rb_hash_aref(options_hash, ID2SYM(id_field_size_limit));
+  long field_size_limit = NIL_P(fsl_val) ? 0 : NUM2LONG(fsl_val);
 
   // Numeric conversion: supports true (all), {only: [...]}, {except: [...]}
   // numeric_mode: 0=off, 1=all, 2=only listed keys, 3=except listed keys
@@ -1168,6 +1184,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
     .numeric_mode = numeric_mode,
     .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
+    .field_size_limit = field_size_limit,
     .remove_zero_values = remove_zero_values,
   };
 
@@ -1548,6 +1565,10 @@ __attribute__((cold)) static VALUE rb_new_parse_context(VALUE self, VALUE header
   ctx->remove_empty        = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_hashes)));
   ctx->remove_empty_values = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_empty_values)));
   ctx->remove_zero_values  = RTEST(rb_hash_aref(options_hash, ID2SYM(id_remove_zero_values)));
+  {
+    VALUE fsl_val = rb_hash_aref(options_hash, ID2SYM(id_field_size_limit));
+    ctx->field_size_limit = NIL_P(fsl_val) ? 0 : NUM2LONG(fsl_val);
+  }
 
   /* Numeric conversion */
   if (defer_value_transforms_to_ruby(options_hash)) {
@@ -1730,6 +1751,7 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     .numeric_mode      = numeric_mode,
     .decimal_precision = decimal_precision,
     .remove_empty_values = remove_empty_values,
+    .field_size_limit    = ctx->field_size_limit,
     .remove_zero_values  = remove_zero_values,
   };
 
@@ -2070,6 +2092,8 @@ static VALUE rb_count_quote_chars_auto(VALUE self, VALUE line, VALUE quote_char,
 
 void Init_smarter_csv(void) {
   SmarterCSV = rb_const_get(rb_cObject, rb_intern("SmarterCSV"));
+  eFieldSizeLimitExceeded = rb_const_get(SmarterCSV, rb_intern("FieldSizeLimitExceeded"));
+  rb_gc_register_address(&eFieldSizeLimitExceeded);
   Parser = rb_const_get(SmarterCSV, rb_intern("Parser"));
   eMalformedCSVError = rb_const_get(SmarterCSV, rb_intern("MalformedCSV"));
   /* One shared empty string for all empty field values (avoids a String allocation per
@@ -2092,6 +2116,7 @@ void Init_smarter_csv(void) {
   id_convert_values_to_numeric = rb_intern("convert_values_to_numeric");
   id_remove_zero_values = rb_intern("remove_zero_values");
   id_nil_values_matching = rb_intern("nil_values_matching");
+  id_field_size_limit = rb_intern("field_size_limit");
   id_only = rb_intern("only");
   id_except = rb_intern("except");
   id_quote_boundary = rb_intern("quote_boundary");

@@ -3,6 +3,11 @@
 describe 'field_size_limit option' do
   let(:fixture_path) { 'spec/fixtures' }
 
+  # field_size_limit is OVERRUN PROTECTION — a hard upper bound (in bytes) against runaway
+  # fields (never-closing quotes, crafted huge fields), not a per-field validation tool.
+  # It is therefore never meant to be small: values below 4096 raise a ValidationError.
+  MINIMUM_LIMIT = 4096
+
   # ---------------------------------------------------------------------------
   # Option validation
   # ---------------------------------------------------------------------------
@@ -12,8 +17,19 @@ describe 'field_size_limit option' do
       expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: nil) }.not_to raise_error
     end
 
-    it 'accepts a positive Integer' do
-      expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: 1024) }.not_to raise_error
+    it 'accepts the minimum value 4096' do
+      expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: 4096) }.not_to raise_error
+    end
+
+    it 'accepts a large Integer' do
+      expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: 1_000_000) }.not_to raise_error
+    end
+
+    it 'raises ValidationError for values below 4096 (overrun protection, not field validation)' do
+      [4095, 1024, 100, 1].each do |too_small|
+        expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: too_small) }
+          .to raise_error(SmarterCSV::ValidationError, /invalid field_size_limit/)
+      end
     end
 
     it 'raises ValidationError for zero' do
@@ -27,7 +43,7 @@ describe 'field_size_limit option' do
     end
 
     it 'raises ValidationError for a non-Integer' do
-      expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: "1024") }
+      expect { SmarterCSV.process("#{fixture_path}/basic.csv", field_size_limit: "4096") }
         .to raise_error(SmarterCSV::ValidationError, /invalid field_size_limit/)
     end
   end
@@ -55,14 +71,32 @@ describe 'field_size_limit option' do
       # -----------------------------------------------------------------------
 
       it 'raises FieldSizeLimitExceeded when a single-line field exceeds the limit' do
-        csv = StringIO.new("id,payload\n1,\"#{"x" * 200}\"\n")
-        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: 100)) }
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n")
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }
           .to raise_error(SmarterCSV::FieldSizeLimitExceeded)
       end
 
       it 'does not raise when the field is exactly at the limit' do
-        csv = StringIO.new("id,payload\n1,\"#{"x" * 100}\"\n")
-        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: 100)) }.not_to raise_error
+        csv = StringIO.new("id,payload\n1,\"#{'x' * MINIMUM_LIMIT}\"\n")
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }.not_to raise_error
+      end
+
+      # -----------------------------------------------------------------------
+      # Attack vector 1b: huge DIGIT-ONLY field — must raise BEFORE the expensive
+      # conversion to a huge Integer (Bignum conversion cost grows with the square
+      # of the digit count — the exact overrun this option exists to prevent).
+      # -----------------------------------------------------------------------
+
+      it 'raises FieldSizeLimitExceeded for an oversized digit-only field (not converted to a number)' do
+        csv = StringIO.new("id,amount\n1,#{'9' * (MINIMUM_LIMIT * 2)}\n")
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }
+          .to raise_error(SmarterCSV::FieldSizeLimitExceeded)
+      end
+
+      it 'still converts digit fields under the limit to numbers' do
+        csv = StringIO.new("id,amount\n1,42\n")
+        data = SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT))
+        expect(data.first[:amount]).to eql 42
       end
 
       # -----------------------------------------------------------------------
@@ -70,11 +104,11 @@ describe 'field_size_limit option' do
       # -----------------------------------------------------------------------
 
       it 'does not raise when many small fields together exceed the limit but no single field does' do
-        # 10 fields of 20 bytes each → row ~220 bytes; limit 50 → no field is 50+ bytes
+        # 10 fields of ~1000 bytes each → row ~10KB; limit 4096 → no field is 4096+ bytes
         headers = (1..10).map { |i| "col#{i}" }.join(',')
-        values  = (1..10).map { "x" * 20 }.join(',')
+        values  = (1..10).map { 'x' * 1000 }.join(',')
         csv = StringIO.new("#{headers}\n#{values}\n")
-        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: 50)) }.not_to raise_error
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }.not_to raise_error
       end
 
       # -----------------------------------------------------------------------
@@ -83,16 +117,17 @@ describe 'field_size_limit option' do
 
       it 'raises FieldSizeLimitExceeded when a multiline field accumulates beyond the limit' do
         # Quoted field spans many physical lines without closing
-        lines = ["id,notes\n", "1,\"line one\n", "line two\n", "line three\n", "line four\n"]
+        big_line = "#{'x' * 2000}\n"
+        lines = ["id,notes\n", "1,\"line one\n", big_line, big_line, big_line]
         csv = StringIO.new(lines.join)
-        # Each "line N\n" is ~8 bytes; limit of 30 bytes fires well before the field closes
-        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: 30)) }
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }
           .to raise_error(SmarterCSV::FieldSizeLimitExceeded)
       end
 
       it 'raises FieldSizeLimitExceeded for a never-closing quoted field (rest of file eaten)' do
-        csv = StringIO.new("id,comment\n1,\"this quote never closes\nrow two data\nrow three data\n")
-        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: 40)) }
+        filler = "#{'y' * 3000}\n"
+        csv = StringIO.new("id,comment\n1,\"this quote never closes\n#{filler}#{filler}")
+        expect { SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT)) }
           .to raise_error(SmarterCSV::FieldSizeLimitExceeded)
       end
 
@@ -101,16 +136,16 @@ describe 'field_size_limit option' do
       # -----------------------------------------------------------------------
 
       it 'skips the oversized row and continues when on_bad_row: :skip' do
-        csv = StringIO.new("id,payload\n1,\"#{"x" * 200}\"\n2,small\n")
-        data = SmarterCSV.process(csv, opts.merge(field_size_limit: 100, on_bad_row: :skip))
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n2,small\n")
+        data = SmarterCSV.process(csv, opts.merge(field_size_limit: MINIMUM_LIMIT, on_bad_row: :skip))
         # Row 1 is skipped due to oversized field; row 2 is returned
         expect(data.size).to eq 1
         expect(data.first[:id]).to eq 2
       end
 
       it 'collects the oversized row error when on_bad_row: :collect' do
-        csv = StringIO.new("id,payload\n1,\"#{"x" * 200}\"\n2,ok\n")
-        reader = SmarterCSV::Reader.new(csv, opts.merge(field_size_limit: 100, on_bad_row: :collect))
+        csv = StringIO.new("id,payload\n1,\"#{'x' * (MINIMUM_LIMIT + 100)}\"\n2,ok\n")
+        reader = SmarterCSV::Reader.new(csv, opts.merge(field_size_limit: MINIMUM_LIMIT, on_bad_row: :collect))
         data = reader.process
         expect(data.size).to eq 1
         expect(reader.errors[:bad_row_count]).to eq 1
