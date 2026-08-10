@@ -15,6 +15,8 @@ describe 'convert_values_to_numeric option validation' do
     'except: false' => { except: false },
     'only: nil' => { only: nil },
     'only: an Integer' => { only: 1 },
+    'only: an empty Array' => { only: [] },
+    'except: an empty Array' => { except: [] },
   }.each do |label, invalid|
     it "raises ValidationError for #{label}" do
       expect { SmarterCSV.process("#{fixture_path}/numeric.csv", convert_values_to_numeric: invalid) }

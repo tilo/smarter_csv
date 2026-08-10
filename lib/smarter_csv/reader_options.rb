@@ -166,6 +166,10 @@ module SmarterCSV
 
           list_key = cvn.key?(:only) ? :only : :except
           values = cvn[list_key].is_a?(Array) ? cvn[list_key] : [cvn[list_key]]
+          if values.empty?
+            raise SmarterCSV::ValidationError, "convert_values_to_numeric: #{list_key}: must not be empty — expects field name(s)"
+          end
+
           bad = values.reject { |v| v.is_a?(Symbol) || v.is_a?(String) }
           unless bad.empty?
             raise SmarterCSV::ValidationError, "convert_values_to_numeric: #{list_key}: expects field name(s) (String or Symbol), got: #{bad.map(&:class).uniq.inspect}"
