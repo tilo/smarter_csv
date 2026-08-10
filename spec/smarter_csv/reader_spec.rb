@@ -196,6 +196,13 @@ RSpec.describe SmarterCSV::Reader do
       expect(reader.send(:detect_multiline_strict, '"unclosed', base_opts)).to eq true
     end
 
+    it 'accepts a close quote followed by an embedded row separator (multi-char col_sep path)' do
+      # Mirrors the parser: a closing quote is valid before col_sep, ROW_SEP, or end of line.
+      # The row_sep arm needs the separator embedded mid-line (as in a stitched line).
+      opts = base_opts.merge(col_sep: '||')
+      expect(reader.send(:detect_multiline_strict, "\"x\"\ny||z", opts)).to eq false
+    end
+
     it 'closes field when closing quote is immediately followed by row_sep (line 484)' do
       opts = base_opts.merge(row_sep: "\n")
       # "hello"\n — the " at position 6 is followed by \n which matches row_sep → field closes
