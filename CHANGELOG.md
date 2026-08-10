@@ -30,6 +30,8 @@
 
   - **Non-ASCII `missing_header_prefix` (e.g. `"spalte_ä_"`) no longer raises `EncodingError` on the C path.** Generated extra-column keys are now interned as UTF-8 symbols.
 
+  - **A row consisting only of NUL bytes now counts as blank on the C path too (C/Ruby parity).** The blank-row test follows Ruby's `value.strip.empty?`, and `String#strip` also removes NUL bytes (`\0`) — the C path kept such rows with `strip_whitespace: false`. The per-field value is unchanged: with `remove_empty_hashes: false` a NUL byte is still kept as data on both paths.
+
   - **`headers: { only: }` now short-cuts on the pure-Ruby path too (C/Ruby parity + speed).** The point of `only:` is to stop parsing each row right after the last wanted column — the C path did that; the Ruby path parsed every column, built the full row hash, and then deleted the unwanted keys, so it also *discovered* extra columns behind the last wanted one (`reader.headers` grew with `:column_N` entries the C path never saw) and raised `MalformedCSV` for an unclosed quote in an unwanted trailing column that the C path ignores. Both paths now stop identically after the last wanted column.
 
   - **`field_size_limit` now also catches oversized digit-only fields on the C path (C/Ruby parity).** The C path converted a huge digit field to a number before the size check (which only measured Strings), so the limit never fired — and converting e.g. a 200KB digit string to an Integer is exactly the expensive overrun the option exists to prevent. The C parser now checks the raw field size before any conversion. Additionally, `field_size_limit` values below `4096` now raise a `ValidationError` — the option is overrun protection, not per-field validation.

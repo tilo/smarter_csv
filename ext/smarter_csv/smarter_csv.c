@@ -887,6 +887,19 @@ static inline __attribute__((always_inline)) bool insert_field_into_hash(
     : rb_enc_str_new(trim_start, trimmed_len, encoding);
   ensure_hash_allocated(opts);
   rb_hash_aset(opts->hash, key, field);
+
+  /* Blank-ROW semantics: the Ruby path's row test is `value.strip.empty?`, and
+   * String#strip also removes NUL bytes — so a field of only strip-set bytes
+   * (space, \t, \n, \v, \f, \r, \0) is inserted as data but must NOT mark the
+   * row non-blank. The first-byte check keeps this off the hot path: real
+   * values almost never start with a strip-set byte here (strip_whitespace
+   * already trimmed them when it is on). */
+  if (ruby_strip_byte(trim_start[0])) {
+    for (long j = 1; j < trimmed_len; j++) {
+      if (!ruby_strip_byte(trim_start[j])) return true;
+    }
+    return false; /* only strip-set bytes → row-blank */
+  }
   return true;
 }
 
