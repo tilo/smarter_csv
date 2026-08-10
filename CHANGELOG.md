@@ -24,6 +24,14 @@
 
   - **A partial multi-char separator at end-of-line is no longer consumed as a separator on the C path (C/Ruby parity — silent data loss).** With `col_sep: '||'`, a value or header ending in a lone `|` lost that character (`"y|"` came back as `"y"`). The separator comparison (and the close-quote lookahead) is now bounded by the end of the line, which also removes an out-of-bounds read for multi-char separators near end-of-line.
 
+  - **An empty line now yields `nil` for ALL columns on the C path too (C/Ruby parity, `remove_empty_values: false`).** The C path gave the first column an empty string (`{a: "", b: nil, ...}`) where the Ruby path — matching `"".split` — yields no fields, so every column is padded with `nil`.
+
+  - **A `nil` entry in `user_provided_headers` now drops that column on the C path too (C/Ruby parity).** The `nil` key survived into the row hashes on the accelerated path.
+
+  - **Non-ASCII `missing_header_prefix` (e.g. `"spalte_ä_"`) no longer raises `EncodingError` on the C path.** Generated extra-column keys are now interned as UTF-8 symbols.
+
+  - **Exotic option sizes fall back to the pure-Ruby parser instead of silently truncating.** The C parse context stores `col_sep` (7 bytes), `row_sep` (15), and `missing_header_prefix` (63) in fixed-size buffers; longer values produced wrong results on the accelerated path. The reader now automatically uses the pure-Ruby parser for these, which handles any length.
+
   - **Writer: fields are now wrapped in the configured `quote_char`, not a hard-coded double quote.** Output written with a custom `quote_char` (e.g. `"'"`) could not be read back: the custom quote_char was doubled correctly inside the field, but the field itself was wrapped in `"`.
 
   - **`Reader#each` without a block no longer clears the configured `chunk_size`.** Calling `each` in its Enumerator form (no block) overwrote `options[:chunk_size]` with `nil`, so a later `each_chunk` on the same Reader ignored the configured chunk size.

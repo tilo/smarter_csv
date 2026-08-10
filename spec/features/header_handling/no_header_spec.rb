@@ -67,4 +67,15 @@ describe 'no header in file' do
       expect(my_headers).to eq [:a, :b]
     end
   end
+
+  # A nil entry in user_provided_headers means "drop this column" — the nil key must not
+  # appear in the row hashes, on either path.
+  context 'when user_provided_headers contains nil (both paths)' do
+    [true, false].each do |acceleration|
+      it "drops the nil-keyed column (acceleration: #{acceleration})" do
+        result = SmarterCSV.process(StringIO.new("1,2\n3,4\n"), user_provided_headers: [nil, :b], headers_in_file: false, remove_empty_values: false, acceleration: acceleration)
+        expect(result).to eq [{ b: 2 }, { b: 4 }]
+      end
+    end
+  end
 end

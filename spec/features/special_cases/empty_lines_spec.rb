@@ -24,5 +24,12 @@ end
       expect(data[0]).to eq({id: 1, name: 'Bob'})
       expect(data[1]).to eq({id: 2, name: 'Paul'})
     end
+
+    it 'pads an empty line with nil for ALL columns (remove_empty_values: false)' do
+      # an empty line has zero fields — like "".split(',', -1) — so no column gets ""
+      require 'stringio'
+      data = SmarterCSV.process(StringIO.new("a,b,c\n\n"), options.merge(remove_empty_values: false, remove_empty_hashes: false))
+      expect(data).to eq [{ a: nil, b: nil, c: nil }]
+    end
   end
 end

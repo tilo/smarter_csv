@@ -604,10 +604,13 @@ static inline VALUE get_key_for_index(long index, VALUE headers, long headers_le
     // Use existing header from the headers array
     return rb_ary_entry(headers, index);
   } else {
-    // Generate a new key for extra columns: "column_7" -> :column_7
-    char key_buf[64];
-    snprintf(key_buf, sizeof(key_buf), "%s%ld", prefix_str, index + 1);
-    return ID2SYM(rb_intern(key_buf));
+    // Generate a new key for extra columns: "column_7" -> :column_7.
+    // Built as a UTF-8 Ruby string and interned via rb_str_intern: rb_intern on a
+    // char* interns US-ASCII only and raises EncodingError for non-ASCII prefixes
+    // (e.g. missing_header_prefix: "spalte_ä_"). Extra columns are rare, so the
+    // extra allocation is not on the hot path.
+    VALUE key_str = rb_enc_sprintf(rb_utf8_encoding(), "%s%ld", prefix_str, index + 1);
+    return rb_str_intern(key_str);
   }
 }
 
@@ -786,8 +789,10 @@ static inline void ensure_hash_allocated(field_transform_opts *opts) {
  *   3. Try numeric conversion (strtol/strtod) — avoids Ruby String allocation
  *   4. Insert the final value into the hash as String
  *
- * For quoted fields, pass is_quoted=true — numeric conversion is skipped since
- * the raw C string may differ from the unescaped content.
+ * For quoted fields, pass is_quoted=true — it routes the value through quote
+ * unescaping. Numeric conversion runs the same as for unquoted fields: quoting
+ * does NOT suppress conversion ("42" in quotes becomes 42), matching the Ruby
+ * path, where hash_transformations sees the already-unquoted value.
  *
  * Returns: true if a non-blank value was inserted, false otherwise.
  *          (Used to track all_blank for remove_empty_hashes.)
@@ -1174,7 +1179,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
    *
    * __builtin_expect hints to the compiler that this branch is likely taken.
    */
-  if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
+  if (endP == startP) {
+    /* Empty line (after chomp) → zero fields, matching Ruby's "".split(col_sep, -1) == [].
+     * Sections 6/7 then handle blank-row removal / nil-padding for ALL headers —
+     * no column gets an empty string. */
+  } else if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
     char sep = *col_sepP;
     char *sep_pos = NULL;
 
@@ -1730,7 +1739,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
    *   (a) no filter + no early exit → pure memchr loop, zero extra branches
    *   (b) filter active             → bitmap/early-exit checks per field
    * ======================================== */
-  if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
+  if (endP == startP) {
+    /* Empty line (after chomp) → zero fields, matching Ruby's "".split(col_sep, -1) == [].
+     * Sections 6/7 then handle blank-row removal / nil-padding for ALL headers —
+     * no column gets an empty string. */
+  } else if (__builtin_expect(!has_quotes && col_sep_len == 1, 1)) {
     char sep      = *col_sepP;
     char *sep_pos = NULL;
 

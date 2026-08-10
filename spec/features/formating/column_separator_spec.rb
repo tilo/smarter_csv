@@ -240,6 +240,12 @@ describe 'can handle col_sep' do
           expect(data).to eq [{ a: 'x', b: 'y<=' }]
         end
 
+        it 'parses correctly with a col_sep longer than 7 bytes' do
+          sep = '<' * 8
+          data = SmarterCSV.process(StringIO.new("a#{sep}b\n1#{sep}2\n"), col_sep: sep, acceleration: acceleration)
+          expect(data).to eq [{ a: 1, b: 2 }]
+        end
+
         it 'handles a quoted field containing the multi-char separator' do
           csv = StringIO.new("first::second\naaa::\"hel::lo\"\n")
           data = SmarterCSV.process(csv, col_sep: '::', acceleration: acceleration)

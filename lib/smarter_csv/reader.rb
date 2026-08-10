@@ -240,6 +240,15 @@ module SmarterCSV
 
         @quote_escaping_auto = options[:quote_escaping] == :auto
         @use_acceleration    = options[:acceleration] && has_acceleration
+        # The C ParseContext stores separators and the extra-column prefix in fixed-size
+        # buffers (col_sep 7 bytes, row_sep 15, missing_header_prefix 63) and would
+        # silently truncate anything longer — fall back to the pure-Ruby parser for such
+        # exotic options; it handles any length.
+        if @use_acceleration
+          @use_acceleration = false if options[:col_sep].is_a?(String) && options[:col_sep].bytesize > 7
+          @use_acceleration = false if options[:row_sep].is_a?(String) && options[:row_sep].bytesize > 15
+          @use_acceleration = false if options[:missing_header_prefix].is_a?(String) && options[:missing_header_prefix].bytesize > 63
+        end
 
         # The single options hash used on the hot path — for :auto we always try backslash
         # first (C downgrades to RFC internally via Opt #5 when no backslash is found).
@@ -258,7 +267,8 @@ module SmarterCSV
         # Key-cleanup flags — computed once, checked per row via cheap ivar reads.
         # hash.delete(nil) / hash.delete('') only occur when key_mapping maps a header to nil/"".
         # hash.delete(:"") also catches empty headers produced by ,, in the CSV.
-        @delete_nil_keys   = !!options[:key_mapping]
+        # A nil header (key_mapping to nil, or nil in user_provided_headers) drops the column
+        @delete_nil_keys   = !!options[:key_mapping] || @headers.include?(nil)
         # Empty header keys are :"" with symbol keys, '' with strings_as_keys / keep_original_headers
         @delete_empty_keys = !!options[:key_mapping] || @headers.include?(:"") || @headers.include?('')
 
