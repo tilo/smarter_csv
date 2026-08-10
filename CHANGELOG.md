@@ -4,15 +4,15 @@
 > [!TIP]
 > **Upgrading?** The [SmarterCSV Upgrade Wizard](https://tilo.github.io/smarter_csv/upgrade_wizard.html) walks you through what (if anything) you need to change for your specific version. Most steps do not require any changes.
 
-## 1.19.0 (2026-07-22)
+## 1.19.0 (2026-08-10)
 
-### Behavior Changes
+### Reverted Behavior Changes
 
   - **Exponent forms are no longer auto-converted to numbers ([#345](https://github.com/tilo/smarter_csv/issues/345)).**
 
   Version 1.18.0 started converting scientific notation (`"1e3"`, `"12E5"`, `"1.5e3"`) to Floats. In real-world CSV data, digits-E-digits values are far more often identifiers (short codes, hex IDs) than scientific notation, and the auto-conversion corrupted them irreversibly — an ID like `"0047583311587E590003"` came back as `Infinity`.
 
-  As of 1.19.0, exponent forms always stay Strings, identically on the C-accelerated and pure-Ruby paths — as they did in every version before 1.18.0. Plain integers and decimals (`"42"`, `"3.14"`) convert as before, and `decimal_precision` (`:auto` / `:float` / `:bigdecimal`) is unaffected. If a column really does contain scientific notation, convert it per-column with `value_converters`:
+  As of 1.19.0, exponent forms always stay Strings — as they did in every version before 1.18.0. If a column really does contain scientific notation, convert it per-column with `value_converters`:
 
   ```ruby
   SmarterCSV.process(file, value_converters: { measurement: ->(v) { v.to_f } })
@@ -73,6 +73,10 @@
   - **Invalid bytes in the input no longer crash the pure-Ruby parser (C/Ruby parity).** Typical case: Latin-1 data mislabeled as UTF-8. The C path parses leniently and preserves the field's raw bytes; the Ruby fallback raised `ArgumentError` ("invalid byte sequence in UTF-8") — which is not a `SmarterCSV::Error`, so even `on_bad_row: :skip` couldn't quarantine it. The Ruby parser now processes such lines at the byte level and re-tags the fields with the original encoding — bytes preserved exactly, never transcoded, so the data stays recoverable (e.g. via `force_encoding('ISO-8859-1')`). The value-transformation regexes (`nil_values_matching`, zero-removal, numeric conversion) skip invalid-encoding values instead of raising. Cleanup remains opt-in via `force_utf8` / `invalid_byte_sequence`.
 
   - **`nil_values_matching` no longer switches off numeric conversion and zero-removal on the C path.** (Fixes a regression introduced while making the option match raw strings, above: the C parser correctly deferred those transformations to Ruby, but the accelerated post-processing never ran them.) Non-matching values now get numeric conversion, zero-removal, and `value_converters` in the same order as the pure-Ruby path.
+
+### Tests
+
+  - **Every parsing spec now runs on BOTH the C-accelerated and the pure-Ruby path** via `[true, false]` acceleration loops (~420 additional examples), a seeded differential parity-fuzz spec (2,000 randomized inputs per run, including combined option sets) guards C/Ruby parity permanently, and line coverage is at **100%**.
 
 ## 1.18.1 (2026-06-30)
 

@@ -116,36 +116,40 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       reader
     end
 
-    it 'auto-detects row_sep on a pipe' do
-      io = pipe_for("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    ensure
-      io.close unless io.closed?
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects row_sep on a pipe' do
+          io = pipe_for("name,age\nAlice,30\nBob,25\n")
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        ensure
+          io.close unless io.closed?
+        end
 
-    it 'auto-detects col_sep on a pipe' do
-      io = pipe_for("name;age\nAlice;30\nBob;25\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n")
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    ensure
-      io.close unless io.closed?
-    end
+        it 'auto-detects col_sep on a pipe' do
+          io = pipe_for("name;age\nAlice;30\nBob;25\n")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        ensure
+          io.close unless io.closed?
+        end
 
-    it 'auto-detects both col_sep and row_sep on a pipe' do
-      io = pipe_for("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    ensure
-      io.close unless io.closed?
-    end
+        it 'auto-detects both col_sep and row_sep on a pipe' do
+          io = pipe_for("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        ensure
+          io.close unless io.closed?
+        end
 
-    it 'processes a pipe correctly when no auto-detection is needed' do
-      io = pipe_for("name,age\nAlice,30\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n")
-      expect(result).to eq([{ name: 'Alice', age: 30 }])
-    ensure
-      io.close unless io.closed?
+        it 'processes a pipe correctly when no auto-detection is needed' do
+          io = pipe_for("name,age\nAlice,30\n")
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }])
+        ensure
+          io.close unless io.closed?
+        end
+      end
     end
   end
 
@@ -153,28 +157,32 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # NonSeekableIO (STDIN-like)
   # ---------------------------------------------------------------------------
   describe 'NonSeekableIO source (STDIN-like, no rewind)' do
-    it 'auto-detects row_sep' do
-      io = NonSeekableIO.new("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects row_sep' do
+          io = NonSeekableIO.new("name,age\nAlice,30\nBob,25\n")
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
 
-    it 'auto-detects col_sep' do
-      io = NonSeekableIO.new("name|age\nAlice|30\nBob|25\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n")
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    end
+        it 'auto-detects col_sep' do
+          io = NonSeekableIO.new("name|age\nAlice|30\nBob|25\n")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
 
-    it 'auto-detects both separators' do
-      io = NonSeekableIO.new("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    end
+        it 'auto-detects both separators' do
+          io = NonSeekableIO.new("name\tage\r\nAlice\t30\r\nBob\t25\r\n")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
 
-    it 'handles non-UTF-8 encoding (ISO-8859-1)' do
-      io = NonSeekableIO.new("name,city\nAlice,München\n", encoding: Encoding::ISO_8859_1)
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", file_encoding: 'iso-8859-1')
-      expect(result.first[:name]).to eq('Alice')
+        it 'handles non-UTF-8 encoding (ISO-8859-1)' do
+          io = NonSeekableIO.new("name,city\nAlice,München\n", encoding: Encoding::ISO_8859_1)
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", file_encoding: 'iso-8859-1', acceleration: acceleration)
+          expect(result.first[:name]).to eq('Alice')
+        end
+      end
     end
   end
 
@@ -184,14 +192,18 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'file path source' do
     let(:fixture_path) { File.join(File.dirname(__FILE__), '..', 'fixtures', 'basic.csv') }
 
-    it 'processes a file path with auto-detection' do
-      result = SmarterCSV.process(fixture_path, col_sep: :auto, row_sep: :auto)
-      expect(result).not_to be_empty
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'processes a file path with auto-detection' do
+          result = SmarterCSV.process(fixture_path, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).not_to be_empty
+        end
 
-    it 'processes a file path with explicit separators (no peek)' do
-      result = SmarterCSV.process(fixture_path, col_sep: ',', row_sep: "\n")
-      expect(result).not_to be_empty
+        it 'processes a file path with explicit separators (no peek)' do
+          result = SmarterCSV.process(fixture_path, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+          expect(result).not_to be_empty
+        end
+      end
     end
   end
 
@@ -201,17 +213,21 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'open File object source' do
     let(:fixture_path) { File.join(File.dirname(__FILE__), '..', 'fixtures', 'basic.csv') }
 
-    it 'processes an open File with auto-detection' do
-      File.open(fixture_path, 'r:utf-8') do |fh|
-        result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto)
-        expect(result).not_to be_empty
-      end
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'processes an open File with auto-detection' do
+          File.open(fixture_path, 'r:utf-8') do |fh|
+            result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+            expect(result).not_to be_empty
+          end
+        end
 
-    it 'processes an open File with explicit separators (no peek)' do
-      File.open(fixture_path, 'r:utf-8') do |fh|
-        result = SmarterCSV.process(fh, col_sep: ',', row_sep: "\n")
-        expect(result).not_to be_empty
+        it 'processes an open File with explicit separators (no peek)' do
+          File.open(fixture_path, 'r:utf-8') do |fh|
+            result = SmarterCSV.process(fh, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+            expect(result).not_to be_empty
+          end
+        end
       end
     end
   end
@@ -220,16 +236,20 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # StringIO — seekable, in-memory
   # ---------------------------------------------------------------------------
   describe 'StringIO source' do
-    it 'processes StringIO with auto-detection' do
-      io = StringIO.new("a,b\n1,2\n3,4\n")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ a: 1, b: 2 }, { a: 3, b: 4 }])
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'processes StringIO with auto-detection' do
+          io = StringIO.new("a,b\n1,2\n3,4\n")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ a: 1, b: 2 }, { a: 3, b: 4 }])
+        end
 
-    it 'processes StringIO with explicit separators (no peek)' do
-      io = StringIO.new("a,b\n1,2\n3,4\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n")
-      expect(result).to eq([{ a: 1, b: 2 }, { a: 3, b: 4 }])
+        it 'processes StringIO with explicit separators (no peek)' do
+          io = StringIO.new("a,b\n1,2\n3,4\n")
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ a: 1, b: 2 }, { a: 3, b: 4 }])
+        end
+      end
     end
   end
 
@@ -237,10 +257,14 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # NonSeekableIO — explicit separators (no peek path)
   # ---------------------------------------------------------------------------
   describe 'NonSeekableIO source — explicit separators' do
-    it 'processes without auto-detection (no peek needed)' do
-      io = NonSeekableIO.new("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n")
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'processes without auto-detection (no peek needed)' do
+          io = NonSeekableIO.new("name,age\nAlice,30\nBob,25\n")
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
+      end
     end
   end
 
@@ -256,16 +280,20 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       Zlib::GzipReader.new(StringIO.new(buf.string))
     end
 
-    it 'auto-detects both separators on a gzip stream' do
-      gz = gzip_io_for("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(gz, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects both separators on a gzip stream' do
+          gz = gzip_io_for("name,age\nAlice,30\nBob,25\n")
+          result = SmarterCSV.process(gz, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
 
-    it 'processes a gzip stream with explicit separators (no peek)' do
-      gz = gzip_io_for("name,age\nAlice,30\nBob,25\n")
-      result = SmarterCSV.process(gz, col_sep: ',', row_sep: "\n")
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        it 'processes a gzip stream with explicit separators (no peek)' do
+          gz = gzip_io_for("name,age\nAlice,30\nBob,25\n")
+          result = SmarterCSV.process(gz, col_sep: ',', row_sep: "\n", acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
+      end
     end
   end
 
@@ -278,42 +306,46 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   #   c) first and last rows correct (last is read from @io, not the buffer)
   # ---------------------------------------------------------------------------
   describe 'large file spanning multiple 16KB buffer blocks' do
-    it 'parses all rows correctly with auto-detection (StringIO)' do
-      io = StringIO.new(large_csv_content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
-      expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses all rows correctly with auto-detection (StringIO)' do
+          io = StringIO.new(large_csv_content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.length).to eq(2_000)
+          expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
+          expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
+        end
 
-    it 'parses all rows correctly with auto-detection (NonSeekableIO pipe-like)' do
-      io = NonSeekableIO.new(large_csv_content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
-      expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
-    end
+        it 'parses all rows correctly with auto-detection (NonSeekableIO pipe-like)' do
+          io = NonSeekableIO.new(large_csv_content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.length).to eq(2_000)
+          expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
+          expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
+        end
 
-    it 'parses all rows correctly with auto-detection (Zlib stream)' do
-      buf = StringIO.new(''.b)
-      Zlib::GzipWriter.new(buf).tap do |gz|
-        gz.write(large_csv_content)
-        gz.finish
+        it 'parses all rows correctly with auto-detection (Zlib stream)' do
+          buf = StringIO.new(''.b)
+          Zlib::GzipWriter.new(buf).tap do |gz|
+            gz.write(large_csv_content)
+            gz.finish
+          end
+          gz = Zlib::GzipReader.new(StringIO.new(buf.string))
+          result = SmarterCSV.process(gz, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.length).to eq(2_000)
+          expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
+          expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
+        end
+
+        it 'parses all rows correctly with chunk_size on NonSeekableIO' do
+          io = NonSeekableIO.new(large_csv_content)
+          chunks = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, chunk_size: 100, acceleration: acceleration)
+          expect(chunks.length).to eq(20) # 2000 rows / 100 per chunk
+          expect(chunks.first.length).to eq(100)
+          expect(chunks.first.first).to eq({ id: 1, name: 'item_1', value: 100 })
+          expect(chunks.last.last).to   eq({ id: 2_000, name: 'item_2000', value: 200_000 })
+        end
       end
-      gz = Zlib::GzipReader.new(StringIO.new(buf.string))
-      result = SmarterCSV.process(gz, col_sep: :auto, row_sep: :auto)
-      expect(result.length).to eq(2_000)
-      expect(result.first).to eq({ id: 1, name: 'item_1', value: 100 })
-      expect(result.last).to  eq({ id: 2_000, name: 'item_2000', value: 200_000 })
-    end
-
-    it 'parses all rows correctly with chunk_size on NonSeekableIO' do
-      io = NonSeekableIO.new(large_csv_content)
-      chunks = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, chunk_size: 100)
-      expect(chunks.length).to eq(20) # 2000 rows / 100 per chunk
-      expect(chunks.first.length).to eq(100)
-      expect(chunks.first.first).to eq({ id: 1, name: 'item_1', value: 100 })
-      expect(chunks.last.last).to   eq({ id: 2_000, name: 'item_2000', value: 200_000 })
     end
   end
 
@@ -332,42 +364,46 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
                  "2#{col_sep}Bob#{col_sep}200#{row_sep}"
     end
 
-    it 'auto-detects col_sep correctly when comment lines precede the header (StringIO)' do
-      io = StringIO.new(csv_with_comments)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2)
-      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects col_sep correctly when comment lines precede the header (StringIO)' do
+          io = StringIO.new(csv_with_comments)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2, acceleration: acceleration)
+          expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        end
 
-    it 'auto-detects col_sep correctly when comment lines precede the header (NonSeekableIO)' do
-      io = NonSeekableIO.new(csv_with_comments)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2)
-      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
-    end
+        it 'auto-detects col_sep correctly when comment lines precede the header (NonSeekableIO)' do
+          io = NonSeekableIO.new(csv_with_comments)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2, acceleration: acceleration)
+          expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        end
 
-    it 'works with tab-separated content after comment lines' do
-      content = "# comment\n# another\nid\tname\tvalue\n1\tAlice\t100\n2\tBob\t200\n"
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2)
-      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
-    end
+        it 'works with tab-separated content after comment lines' do
+          content = "# comment\n# another\nid\tname\tvalue\n1\tAlice\t100\n2\tBob\t200\n"
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, skip_lines: 2, acceleration: acceleration)
+          expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        end
 
-    # col_sep is fixed, only row_sep is :auto — skip_lines fires in the detection
-    # block before guess_column_separator, which is wasteful but must still produce
-    # correct results.
-    it 'produces correct results when col_sep is fixed and only row_sep is :auto' do
-      content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, skip_lines: 2)
-      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
-    end
+        # col_sep is fixed, only row_sep is :auto — skip_lines fires in the detection
+        # block before guess_column_separator, which is wasteful but must still produce
+        # correct results.
+        it 'produces correct results when col_sep is fixed and only row_sep is :auto' do
+          content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: ',', row_sep: :auto, skip_lines: 2, acceleration: acceleration)
+          expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        end
 
-    # row_sep is fixed, only col_sep is :auto — skip_lines must fire so that
-    # guess_column_separator sees the header line, not a comment line.
-    it 'produces correct results when row_sep is fixed and only col_sep is :auto' do
-      content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", skip_lines: 2)
-      expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        # row_sep is fixed, only col_sep is :auto — skip_lines must fire so that
+        # guess_column_separator sees the header line, not a comment line.
+        it 'produces correct results when row_sep is fixed and only col_sep is :auto' do
+          content = "# comment 1\n# comment 2\nid,name,value\n1,Alice,100\n2,Bob,200\n"
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: "\n", skip_lines: 2, acceleration: acceleration)
+          expect(result).to eq([{ id: 1, name: 'Alice', value: 100 }, { id: 2, name: 'Bob', value: 200 }])
+        end
+      end
     end
   end
 
@@ -411,20 +447,24 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # \r-only line endings (old Mac format)
   # ---------------------------------------------------------------------------
   describe '\r-only line endings' do
-    it 'auto-detects \\r row separator on NonSeekableIO' do
-      io = NonSeekableIO.new("name,age\rAlice,30\rBob,25\r")
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects \\r row separator on NonSeekableIO' do
+          io = NonSeekableIO.new("name,age\rAlice,30\rBob,25\r")
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        end
 
-    it 'auto-detects \\r row separator on a pipe' do
-      reader, writer = IO.pipe
-      writer.write("name,age\rAlice,30\rBob,25\r")
-      writer.close
-      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto)
-      expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
-    ensure
-      reader.close unless reader.closed?
+        it 'auto-detects \\r row separator on a pipe' do
+          reader, writer = IO.pipe
+          writer.write("name,age\rAlice,30\rBob,25\r")
+          writer.close
+          result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result).to eq([{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }])
+        ensure
+          reader.close unless reader.closed?
+        end
+      end
     end
   end
 
@@ -436,19 +476,23 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'BOM file with explicit separators (no peek path)' do
     let(:fixtures) { File.join(File.dirname(__FILE__), '..', 'fixtures') }
 
-    it 'strips UTF-8 BOM (efbbbf) when separators are explicit' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_efbbbf.csv", col_sep: ',', row_sep: "\r\n")
-      expect(result.first[:some_id]).to eq(42_766_805)
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'strips UTF-8 BOM (efbbbf) when separators are explicit' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_efbbbf.csv", col_sep: ',', row_sep: "\r\n", acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
 
-    it 'strips UTF-16LE BOM (fffe) when separators are explicit' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_fffe.csv", col_sep: ',', row_sep: "\r\n")
-      expect(result.first[:some_id]).to eq(42_766_805)
-    end
+        it 'strips UTF-16LE BOM (fffe) when separators are explicit' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_fffe.csv", col_sep: ',', row_sep: "\r\n", acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
 
-    it 'strips UTF-16BE BOM (feff) when separators are explicit' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_feff.csv", col_sep: ',', row_sep: "\r\n")
-      expect(result.first[:some_id]).to eq(42_766_805)
+        it 'strips UTF-16BE BOM (feff) when separators are explicit' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_feff.csv", col_sep: ',', row_sep: "\r\n", acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
+      end
     end
   end
 
@@ -493,94 +537,98 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     let(:first_row) { { id: 1,     name: 'item_1',    value: 100     } }
     let(:last_row)  { { id: 2_000, name: 'item_2000', value: 200_000 } }
 
-    context 'file path (String) input' do
-      it 'auto-detects , and \\n' do
-        with_csv_tempfile(content_lf) do |path|
-          result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        context 'file path (String) input' do
+          it 'auto-detects , and \\n' do
+            with_csv_tempfile(content_lf) do |path|
+              result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
 
-      it 'auto-detects , and \\r\\n' do
-        with_csv_tempfile(content_crlf) do |path|
-          result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
+          it 'auto-detects , and \\r\\n' do
+            with_csv_tempfile(content_crlf) do |path|
+              result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
 
-      it 'auto-detects tab and \\n' do
-        with_csv_tempfile(content_tab) do |path|
-          result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
+          it 'auto-detects tab and \\n' do
+            with_csv_tempfile(content_tab) do |path|
+              result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
 
-      it 'auto-detects ; and \\r\\n' do
-        with_csv_tempfile(content_semi) do |path|
-          result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
+          it 'auto-detects ; and \\r\\n' do
+            with_csv_tempfile(content_semi) do |path|
+              result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
 
-      it 'auto-detects separators with skip_lines (comment lines before header)' do
-        content = "# generated file\n# skip me too\n" + content_lf
-        with_csv_tempfile(content) do |path|
-          result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, skip_lines: 2)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
-    end
-
-    context 'open File handle input' do
-      it 'auto-detects , and \\n from an open File' do
-        with_csv_tempfile(content_lf) do |path|
-          File.open(path, 'r:utf-8') do |fh|
-            result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto)
-            expect(result.length).to eq(rows)
-            expect(result.first).to eq(first_row)
-            expect(result.last).to  eq(last_row)
+          it 'auto-detects separators with skip_lines (comment lines before header)' do
+            content = "# generated file\n# skip me too\n" + content_lf
+            with_csv_tempfile(content) do |path|
+              result = SmarterCSV.process(path, col_sep: :auto, row_sep: :auto, skip_lines: 2, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
           end
         end
-      end
 
-      it 'auto-detects , and \\r\\n from an open File' do
-        with_csv_tempfile(content_crlf) do |path|
-          File.open(path, 'r:utf-8') do |fh|
-            result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto)
-            expect(result.length).to eq(rows)
-            expect(result.first).to eq(first_row)
-            expect(result.last).to  eq(last_row)
+        context 'open File handle input' do
+          it 'auto-detects , and \\n from an open File' do
+            with_csv_tempfile(content_lf) do |path|
+              File.open(path, 'r:utf-8') do |fh|
+                result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+                expect(result.length).to eq(rows)
+                expect(result.first).to eq(first_row)
+                expect(result.last).to  eq(last_row)
+              end
+            end
+          end
+
+          it 'auto-detects , and \\r\\n from an open File' do
+            with_csv_tempfile(content_crlf) do |path|
+              File.open(path, 'r:utf-8') do |fh|
+                result = SmarterCSV.process(fh, col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+                expect(result.length).to eq(rows)
+                expect(result.first).to eq(first_row)
+                expect(result.last).to  eq(last_row)
+              end
+            end
           end
         end
-      end
-    end
 
-    context 'gzip Tempfile (non-seekable compressed, large)' do
-      it 'auto-detects , and \\n from a large gzip file' do
-        with_gzip_tempfile(content_lf) do |path|
-          result = SmarterCSV.process(Zlib::GzipReader.open(path), col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
-        end
-      end
+        context 'gzip Tempfile (non-seekable compressed, large)' do
+          it 'auto-detects , and \\n from a large gzip file' do
+            with_gzip_tempfile(content_lf) do |path|
+              result = SmarterCSV.process(Zlib::GzipReader.open(path), col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
 
-      it 'auto-detects ; and \\r\\n from a large gzip file' do
-        with_gzip_tempfile(content_semi) do |path|
-          result = SmarterCSV.process(Zlib::GzipReader.open(path), col_sep: :auto, row_sep: :auto)
-          expect(result.length).to eq(rows)
-          expect(result.first).to eq(first_row)
-          expect(result.last).to  eq(last_row)
+          it 'auto-detects ; and \\r\\n from a large gzip file' do
+            with_gzip_tempfile(content_semi) do |path|
+              result = SmarterCSV.process(Zlib::GzipReader.open(path), col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+              expect(result.length).to eq(rows)
+              expect(result.first).to eq(first_row)
+              expect(result.last).to  eq(last_row)
+            end
+          end
         end
       end
     end
@@ -593,19 +641,23 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   describe 'BOM file with auto-detection (peek path)' do
     let(:fixtures) { File.join(File.dirname(__FILE__), '..', 'fixtures') }
 
-    it 'strips UTF-8 BOM and auto-detects separators' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_efbbbf.csv", col_sep: :auto, row_sep: :auto)
-      expect(result.first[:some_id]).to eq(42_766_805)
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'strips UTF-8 BOM and auto-detects separators' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_efbbbf.csv", col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
 
-    it 'strips UTF-16LE BOM and auto-detects separators' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_fffe.csv", col_sep: :auto, row_sep: :auto)
-      expect(result.first[:some_id]).to eq(42_766_805)
-    end
+        it 'strips UTF-16LE BOM and auto-detects separators' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_fffe.csv", col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
 
-    it 'strips UTF-16BE BOM and auto-detects separators' do
-      result = SmarterCSV.process("#{fixtures}/bom_test_feff.csv", col_sep: :auto, row_sep: :auto)
-      expect(result.first[:some_id]).to eq(42_766_805)
+        it 'strips UTF-16BE BOM and auto-detects separators' do
+          result = SmarterCSV.process("#{fixtures}/bom_test_feff.csv", col_sep: :auto, row_sep: :auto, acceleration: acceleration)
+          expect(result.first[:some_id]).to eq(42_766_805)
+        end
+      end
     end
   end
 
@@ -632,119 +684,124 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     # Expected UTF-8 header keys after downcasing and space→underscore normalisation
     let(:accented_keys) { %w[date_opération libellé référence] }
 
-    # Path A: transcoding pair — maybe_transcode in PeekableIO does the work.
-    # verbose: :quiet suppresses the false-positive "not opened with b:utf-8"
-    # warning that reader.rb emits when file_encoding contains "UTF-8" but the
-    # underlying handle's external_encoding is non-UTF-8 (expected for transcoding pairs).
-    context 'transcoding pair: file_encoding iso-8859-1:UTF-8 (maybe_transcode path)' do
-      let(:opts) { { file_encoding: 'iso-8859-1:UTF-8', col_sep: ';', verbose: :quiet } }
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        # Path A: transcoding pair — maybe_transcode in PeekableIO does the work.
+        # verbose: :quiet suppresses the false-positive "not opened with b:utf-8"
+        # warning that reader.rb emits when file_encoding contains "UTF-8" but the
+        # underlying handle's external_encoding is non-UTF-8 (expected for transcoding pairs).
+        context 'transcoding pair: file_encoding iso-8859-1:UTF-8 (maybe_transcode path)' do
+          let(:opts) { { file_encoding: 'iso-8859-1:UTF-8', col_sep: ';', verbose: :quiet, acceleration: acceleration } }
 
-      it 'returns correctly transcoded UTF-8 header keys' do
-        result = SmarterCSV.process(iso_fixture, **opts, strings_as_keys: true)
-        expect(result.first.keys).to include(*accented_keys)
-      end
+          it 'returns correctly transcoded UTF-8 header keys' do
+            result = SmarterCSV.process(iso_fixture, **opts, strings_as_keys: true)
+            expect(result.first.keys).to include(*accented_keys)
+          end
 
-      it 'returns header key strings encoded as UTF-8' do
-        result = SmarterCSV.process(iso_fixture, **opts, strings_as_keys: true)
-        result.first.each_key do |k|
-          expect(k.encoding).to eq(Encoding::UTF_8), "key #{k.inspect} has encoding #{k.encoding}"
-          expect(k.valid_encoding?).to be true
+          it 'returns header key strings encoded as UTF-8' do
+            result = SmarterCSV.process(iso_fixture, **opts, strings_as_keys: true)
+            result.first.each_key do |k|
+              expect(k.encoding).to eq(Encoding::UTF_8), "key #{k.inspect} has encoding #{k.encoding}"
+              expect(k.valid_encoding?).to be true
+            end
+          end
+
+          it 'parses all 7 data rows' do
+            result = SmarterCSV.process(iso_fixture, **opts)
+            expect(result.length).to eq(7)
+          end
+
+          it 'auto-detects separators (peek + rewind + maybe_transcode on buffered replay)' do
+            result = SmarterCSV.process(iso_fixture,
+                                        **opts, col_sep: :auto, row_sep: :auto, strings_as_keys: true)
+            expect(result.first.keys).to include(*accented_keys)
+            expect(result.length).to eq(7)
+          end
         end
-      end
 
-      it 'parses all 7 data rows' do
-        result = SmarterCSV.process(iso_fixture, **opts)
-        expect(result.length).to eq(7)
-      end
+        # Path B: single encoding — enforce_utf8_encoding transcodes using the line's
+        # declared encoding (ISO-8859-1) as the source, producing correct UTF-8 output.
+        context 'single encoding: file_encoding iso-8859-1 (enforce_utf8_encoding path)' do
+          it 'does not raise and parses all 7 data rows' do
+            result = SmarterCSV.process(iso_fixture, file_encoding: 'iso-8859-1', col_sep: ';', acceleration: acceleration)
+            expect(result.length).to eq(7)
+          end
 
-      it 'auto-detects separators (peek + rewind + maybe_transcode on buffered replay)' do
-        result = SmarterCSV.process(iso_fixture,
-                                    **opts, col_sep: :auto, row_sep: :auto, strings_as_keys: true)
-        expect(result.first.keys).to include(*accented_keys)
-        expect(result.length).to eq(7)
-      end
-    end
-
-    # Path B: single encoding — enforce_utf8_encoding transcodes using the line's
-    # declared encoding (ISO-8859-1) as the source, producing correct UTF-8 output.
-    context 'single encoding: file_encoding iso-8859-1 (enforce_utf8_encoding path)' do
-      it 'does not raise and parses all 7 data rows' do
-        result = SmarterCSV.process(iso_fixture, file_encoding: 'iso-8859-1', col_sep: ';')
-        expect(result.length).to eq(7)
-      end
-
-      it 'returns correctly transcoded UTF-8 header keys' do
-        result = SmarterCSV.process(iso_fixture,
-                                    file_encoding: 'iso-8859-1',
-                                    col_sep: ';',
-                                    strings_as_keys: true)
-        expect(result.first.keys).to include(*accented_keys)
-        result.first.each_key do |k|
-          expect(k.encoding).to eq(Encoding::UTF_8), "key #{k.inspect} has encoding #{k.encoding}"
+          it 'returns correctly transcoded UTF-8 header keys' do
+            result = SmarterCSV.process(iso_fixture,
+                                        file_encoding: 'iso-8859-1',
+                                        col_sep: ';',
+                                        strings_as_keys: true,
+                                        acceleration: acceleration)
+            expect(result.first.keys).to include(*accented_keys)
+            result.first.each_key do |k|
+              expect(k.encoding).to eq(Encoding::UTF_8), "key #{k.inspect} has encoding #{k.encoding}"
+            end
+          end
         end
-      end
-    end
 
-    # Non-seekable source with a transcoding pair (ext=ISO-8859-1, int=UTF-8).
-    # When auto-detection is requested, peek fills the buffer from the raw IO,
-    # then maybe_transcode converts ISO-8859-1 → UTF-8 on every gets call from
-    # the buffer after rewind — even though the source is non-seekable.
-    context 'non-seekable transcoding stream (ext=ISO-8859-1, int=UTF-8)' do
-      # IO class that reports both external_encoding and internal_encoding but
-      # does NOT support rewind — simulates a pipe or STDIN with encoding metadata.
-      # maybe_transcode uses these to perform ext→int conversion on buffered reads.
-      let(:transcoded_io_class) do
-        Class.new do
-          def initialize(raw_bytes, external, internal)
-            @io  = StringIO.new(raw_bytes.b)
-            @ext = Encoding.find(external)
-            @int = Encoding.find(internal)
+        # Non-seekable source with a transcoding pair (ext=ISO-8859-1, int=UTF-8).
+        # When auto-detection is requested, peek fills the buffer from the raw IO,
+        # then maybe_transcode converts ISO-8859-1 → UTF-8 on every gets call from
+        # the buffer after rewind — even though the source is non-seekable.
+        context 'non-seekable transcoding stream (ext=ISO-8859-1, int=UTF-8)' do
+          # IO class that reports both external_encoding and internal_encoding but
+          # does NOT support rewind — simulates a pipe or STDIN with encoding metadata.
+          # maybe_transcode uses these to perform ext→int conversion on buffered reads.
+          let(:transcoded_io_class) do
+            Class.new do
+              def initialize(raw_bytes, external, internal)
+                @io  = StringIO.new(raw_bytes.b)
+                @ext = Encoding.find(external)
+                @int = Encoding.find(internal)
+              end
+
+              def read(num_bytes = nil)
+                @io.read(num_bytes)
+              end
+
+              def gets(sep = $/, limit = nil)
+                limit ? @io.gets(sep, limit) : @io.gets(sep)
+              end
+
+              def readline(sep = $/)
+                @io.readline(sep)
+              end
+
+              def each_char(&block)
+                @io.each_char(&block)
+              end
+
+              def eof?
+                @io.eof?
+              end
+
+              def close
+                nil
+              end
+
+              def external_encoding
+                @ext
+              end
+
+              def internal_encoding
+                @int
+              end
+              # Intentionally no rewind or seek
+            end
           end
 
-          def read(num_bytes = nil)
-            @io.read(num_bytes)
-          end
+          # \xfc = ü in ISO-8859-1; \xe9 = é in ISO-8859-1
+          let(:csv_iso) { "name,city,note\nAlice,M\xFCnchen,caf\xe9\n".b }
 
-          def gets(sep = $/, limit = nil)
-            limit ? @io.gets(sep, limit) : @io.gets(sep)
+          it 'transcodes ISO-8859-1 bytes to UTF-8 via maybe_transcode after peek + rewind' do
+            io = transcoded_io_class.new(csv_iso, 'ISO-8859-1', 'UTF-8')
+            result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet, acceleration: acceleration)
+            expect(result.first[:city]).to eq('München')
+            expect(result.first[:city].encoding).to eq(Encoding::UTF_8)
+            expect(result.first[:note]).to eq('café')
           end
-
-          def readline(sep = $/)
-            @io.readline(sep)
-          end
-
-          def each_char(&block)
-            @io.each_char(&block)
-          end
-
-          def eof?
-            @io.eof?
-          end
-
-          def close
-            nil
-          end
-
-          def external_encoding
-            @ext
-          end
-
-          def internal_encoding
-            @int
-          end
-          # Intentionally no rewind or seek
         end
-      end
-
-      # \xfc = ü in ISO-8859-1; \xe9 = é in ISO-8859-1
-      let(:csv_iso) { "name,city,note\nAlice,M\xFCnchen,caf\xe9\n".b }
-
-      it 'transcodes ISO-8859-1 bytes to UTF-8 via maybe_transcode after peek + rewind' do
-        io = transcoded_io_class.new(csv_iso, 'ISO-8859-1', 'UTF-8')
-        result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, verbose: :quiet)
-        expect(result.first[:city]).to eq('München')
-        expect(result.first[:city].encoding).to eq(Encoding::UTF_8)
-        expect(result.first[:note]).to eq('café')
       end
     end
   end
@@ -766,16 +823,20 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
   # replace it with the Unicode replacement character.
   # ---------------------------------------------------------------------------
   describe 'buffer boundary inside a multi-byte UTF-8 codepoint (align_to_char_boundary)' do
-    it 'peek landing mid-codepoint is corrected by align_to_char_boundary' do
-      rows = (1..20).map { |i| "a,München_#{i}\n" }.join
-      csv  = "key,val\n" + rows
-      io   = NonSeekableIO.new(csv)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, auto_row_sep_chars: 6)
-      expect(result.length).to eq(20)
-      expect(result.first[:val]).to eq('München_1')
-      expect(result.first[:val].encoding).to eq(Encoding::UTF_8)
-      expect(result.last[:val]).to eq('München_20')
-      expect(result.last[:val].encoding).to eq(Encoding::UTF_8)
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'peek landing mid-codepoint is corrected by align_to_char_boundary' do
+          rows = (1..20).map { |i| "a,München_#{i}\n" }.join
+          csv  = "key,val\n" + rows
+          io   = NonSeekableIO.new(csv)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, auto_row_sep_chars: 6, acceleration: acceleration)
+          expect(result.length).to eq(20)
+          expect(result.first[:val]).to eq('München_1')
+          expect(result.first[:val].encoding).to eq(Encoding::UTF_8)
+          expect(result.last[:val]).to eq('München_20')
+          expect(result.last[:val].encoding).to eq(Encoding::UTF_8)
+        end
+      end
     end
   end
 
@@ -824,18 +885,22 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
     end
 
-    it 'handles rows longer than buffer_size via multiple extend_buffer! calls' do
-      wide_value = 'x' * 200
-      rows = (1..10).map { |i| "item_#{i},#{wide_value}_#{i}\n" }.join
-      csv  = "name,description\n" + rows
-      io   = NonSeekableIO.new(csv)
-      # auto_row_sep_chars: 32 matches buffer_size: 32 — avoids the cross-validation bump.
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 32, auto_row_sep_chars: 32)
-      expect(result.length).to eq(10)
-      expect(result.first[:name]).to eq('item_1')
-      expect(result.first[:description]).to eq("#{wide_value}_1")
-      expect(result.last[:name]).to eq('item_10')
-      expect(result.last[:description]).to eq("#{wide_value}_10")
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'handles rows longer than buffer_size via multiple extend_buffer! calls' do
+          wide_value = 'x' * 200
+          rows = (1..10).map { |i| "item_#{i},#{wide_value}_#{i}\n" }.join
+          csv  = "name,description\n" + rows
+          io   = NonSeekableIO.new(csv)
+          # auto_row_sep_chars: 32 matches buffer_size: 32 — avoids the cross-validation bump.
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 32, auto_row_sep_chars: 32, acceleration: acceleration)
+          expect(result.length).to eq(10)
+          expect(result.first[:name]).to eq('item_1')
+          expect(result.first[:description]).to eq("#{wide_value}_1")
+          expect(result.last[:name]).to eq('item_10')
+          expect(result.last[:description]).to eq("#{wide_value}_10")
+        end
+      end
     end
   end
 
@@ -852,17 +917,21 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
     end
 
-    it 'parses multi-line quoted fields across buffer boundaries on NonSeekableIO' do
-      csv = "name,bio\n" \
-            "\"Alice\",\"line one\nline two\nline three\"\n" \
-            "Bob,plain\n"
-      io = NonSeekableIO.new(csv)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 16, auto_row_sep_chars: 16)
-      expect(result.length).to eq(2)
-      expect(result.first[:name]).to eq('Alice')
-      expect(result.first[:bio]).to eq("line one\nline two\nline three")
-      expect(result.last[:name]).to eq('Bob')
-      expect(result.last[:bio]).to eq('plain')
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses multi-line quoted fields across buffer boundaries on NonSeekableIO' do
+          csv = "name,bio\n" \
+                "\"Alice\",\"line one\nline two\nline three\"\n" \
+                "Bob,plain\n"
+          io = NonSeekableIO.new(csv)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 16, auto_row_sep_chars: 16, acceleration: acceleration)
+          expect(result.length).to eq(2)
+          expect(result.first[:name]).to eq('Alice')
+          expect(result.first[:bio]).to eq("line one\nline two\nline three")
+          expect(result.last[:name]).to eq('Bob')
+          expect(result.last[:bio]).to eq('plain')
+        end
+      end
     end
   end
 
@@ -882,17 +951,21 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       col_seps    = [',', ';', "\t", '|', ':']
       row_sep_map = { 'LF' => "\n", 'CRLF' => "\r\n", 'CR' => "\r" }
 
-      col_seps.each do |col_sep|
-        col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
-        row_sep_map.each do |row_label, row_sep|
-          it "detects col_sep=#{col_label} row_sep=#{row_label}" do
-            header = "name#{col_sep}value#{row_sep}"
-            rows   = (1..20).map { |i| "item_#{i}#{col_sep}#{i * 10}#{row_sep}" }.join
-            io = NonSeekableIO.new(header + rows)
-            result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: test_buffer_size)
-            expect(result.length).to eq(20)
-            expect(result.first).to eq({ name: 'item_1', value: 10 })
-            expect(result.last).to  eq({ name: 'item_20', value: 200 })
+      [true, false].each do |acceleration|
+        context "with#{acceleration ? '' : 'out'} acceleration" do
+          col_seps.each do |col_sep|
+            col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+            row_sep_map.each do |row_label, row_sep|
+              it "detects col_sep=#{col_label} row_sep=#{row_label}" do
+                header = "name#{col_sep}value#{row_sep}"
+                rows   = (1..20).map { |i| "item_#{i}#{col_sep}#{i * 10}#{row_sep}" }.join
+                io = NonSeekableIO.new(header + rows)
+                result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: test_buffer_size, acceleration: acceleration)
+                expect(result.length).to eq(20)
+                expect(result.first).to eq({ name: 'item_1', value: 10 })
+                expect(result.last).to  eq({ name: 'item_20', value: 200 })
+              end
+            end
           end
         end
       end
@@ -986,22 +1059,26 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
         t.unlink
       end
 
-      { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-        context "row_sep=#{row_label}" do
-          encoding_cases.each do |enc|
-            it enc[:label] do
-              with_binary_tempfile(enc[:make_bytes].call(row_sep)) do |path|
-                opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
-                opts[:verbose] = :quiet if enc[:quiet]
-                result = SmarterCSV.process(path, **opts)
-                expect(result.length).to eq(20)
-                enc[:expected].each do |key, val|
-                  expect(result.first[key]).to eq(val)
-                  expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-                end
-                enc[:last_expected].each do |key, val|
-                  expect(result.last[key]).to eq(val)
-                  expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+      [true, false].each do |acceleration|
+        context "with#{acceleration ? '' : 'out'} acceleration" do
+          { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
+            context "row_sep=#{row_label}" do
+              encoding_cases.each do |enc|
+                it enc[:label] do
+                  with_binary_tempfile(enc[:make_bytes].call(row_sep)) do |path|
+                    opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size, acceleration: acceleration }
+                    opts[:verbose] = :quiet if enc[:quiet]
+                    result = SmarterCSV.process(path, **opts)
+                    expect(result.length).to eq(20)
+                    enc[:expected].each do |key, val|
+                      expect(result.first[key]).to eq(val)
+                      expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                    end
+                    enc[:last_expected].each do |key, val|
+                      expect(result.last[key]).to eq(val)
+                      expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                    end
+                  end
                 end
               end
             end
@@ -1017,22 +1094,26 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
     # case: no rewind, the buffer must replay correctly including transcoding.
     # ---------------------------------------------------------------------------
     describe "encoding matrix — EncodedBytesIO non-seekable, LF and CRLF (buffer_size: #{test_buffer_size})" do
-      { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-        context "row_sep=#{row_label}" do
-          encoding_cases.each do |enc|
-            it enc[:label] do
-              io = EncodedBytesIO.new(enc[:make_bytes].call(row_sep), enc[:ext_enc], enc[:int_enc])
-              opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
-              opts[:verbose] = :quiet if enc[:quiet]
-              result = SmarterCSV.process(io, **opts)
-              expect(result.length).to eq(20)
-              enc[:expected].each do |key, val|
-                expect(result.first[key]).to eq(val)
-                expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-              end
-              enc[:last_expected].each do |key, val|
-                expect(result.last[key]).to eq(val)
-                expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+      [true, false].each do |acceleration|
+        context "with#{acceleration ? '' : 'out'} acceleration" do
+          { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
+            context "row_sep=#{row_label}" do
+              encoding_cases.each do |enc|
+                it enc[:label] do
+                  io = EncodedBytesIO.new(enc[:make_bytes].call(row_sep), enc[:ext_enc], enc[:int_enc])
+                  opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size, acceleration: acceleration }
+                  opts[:verbose] = :quiet if enc[:quiet]
+                  result = SmarterCSV.process(io, **opts)
+                  expect(result.length).to eq(20)
+                  enc[:expected].each do |key, val|
+                    expect(result.first[key]).to eq(val)
+                    expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                  end
+                  enc[:last_expected].each do |key, val|
+                    expect(result.last[key]).to eq(val)
+                    expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                  end
+                end
               end
             end
           end
@@ -1066,24 +1147,28 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
           last_expected: { city: 'München_20' } },
       ]
 
-      [';', "\t"].each do |col_sep|
-        col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
-        { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
-          context "col_sep=#{col_label} row_sep=#{row_label}" do
-            non_comma_encoding_cases.each do |enc|
-              it enc[:label] do
-                io   = EncodedBytesIO.new(enc[:make_bytes].call(col_sep, row_sep), enc[:ext_enc], enc[:int_enc])
-                opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size }
-                opts[:verbose] = :quiet if enc[:quiet]
-                result = SmarterCSV.process(io, **opts)
-                expect(result.length).to eq(20)
-                enc[:expected].each do |key, val|
-                  expect(result.first[key]).to eq(val)
-                  expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
-                end
-                enc[:last_expected].each do |key, val|
-                  expect(result.last[key]).to eq(val)
-                  expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+      [true, false].each do |acceleration|
+        context "with#{acceleration ? '' : 'out'} acceleration" do
+          [';', "\t"].each do |col_sep|
+            col_label = col_sep == "\t" ? 'TAB' : col_sep.inspect
+            { 'LF' => "\n", 'CRLF' => "\r\n" }.each do |row_label, row_sep|
+              context "col_sep=#{col_label} row_sep=#{row_label}" do
+                non_comma_encoding_cases.each do |enc|
+                  it enc[:label] do
+                    io   = EncodedBytesIO.new(enc[:make_bytes].call(col_sep, row_sep), enc[:ext_enc], enc[:int_enc])
+                    opts = { col_sep: :auto, row_sep: :auto, file_encoding: enc[:file_encoding], buffer_size: test_buffer_size, acceleration: acceleration }
+                    opts[:verbose] = :quiet if enc[:quiet]
+                    result = SmarterCSV.process(io, **opts)
+                    expect(result.length).to eq(20)
+                    enc[:expected].each do |key, val|
+                      expect(result.first[key]).to eq(val)
+                      expect(result.first[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                    end
+                    enc[:last_expected].each do |key, val|
+                      expect(result.last[key]).to eq(val)
+                      expect(result.last[key].encoding).to eq(Encoding::UTF_8) if val.is_a?(String)
+                    end
+                  end
                 end
               end
             end
@@ -1107,40 +1192,44 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
     end
 
-    it 'auto-detects separators correctly with a tiny buffer_size (forces many extend_buffer! calls)' do
-      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 3, auto_row_sep_chars: 3)
-      expect(result.length).to eq(20)
-      expect(result.first).to eq({ name: 'item_1', value: 10 })
-      expect(result.last).to  eq({ name: 'item_20', value: 200 })
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'auto-detects separators correctly with a tiny buffer_size (forces many extend_buffer! calls)' do
+          content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 3, auto_row_sep_chars: 3, acceleration: acceleration)
+          expect(result.length).to eq(20)
+          expect(result.first).to eq({ name: 'item_1', value: 10 })
+          expect(result.last).to  eq({ name: 'item_20', value: 200 })
+        end
 
-    it 'auto-detects separators correctly with a moderate buffer_size' do
-      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 128, auto_row_sep_chars: 128)
-      expect(result.length).to eq(20)
-      expect(result.first).to eq({ name: 'item_1', value: 10 })
-      expect(result.last).to  eq({ name: 'item_20', value: 200 })
-    end
+        it 'auto-detects separators correctly with a moderate buffer_size' do
+          content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 128, auto_row_sep_chars: 128, acceleration: acceleration)
+          expect(result.length).to eq(20)
+          expect(result.first).to eq({ name: 'item_1', value: 10 })
+          expect(result.last).to  eq({ name: 'item_20', value: 200 })
+        end
 
-    it 'auto-detects separators correctly with buffer_size larger than the full content' do
-      content = "name,value\n" + (1..5).map { |i| "item_#{i},#{i * 10}\n" }.join
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 4096, auto_row_sep_chars: 4096)
-      expect(result.length).to eq(5)
-      expect(result.first).to eq({ name: 'item_1', value: 10 })
-    end
+        it 'auto-detects separators correctly with buffer_size larger than the full content' do
+          content = "name,value\n" + (1..5).map { |i| "item_#{i},#{i * 10}\n" }.join
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto, buffer_size: 4096, auto_row_sep_chars: 4096, acceleration: acceleration)
+          expect(result.length).to eq(5)
+          expect(result.first).to eq({ name: 'item_1', value: 10 })
+        end
 
-    it 'works correctly with buffer_size on a pipe (non-seekable)' do
-      reader, writer = IO.pipe
-      writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
-      writer.close
-      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, buffer_size: 8, auto_row_sep_chars: 8)
-      expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
-    ensure
-      reader.close unless reader.closed?
+        it 'works correctly with buffer_size on a pipe (non-seekable)' do
+          reader, writer = IO.pipe
+          writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
+          writer.close
+          result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto, buffer_size: 8, auto_row_sep_chars: 8, acceleration: acceleration)
+          expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
+        ensure
+          reader.close unless reader.closed?
+        end
+      end
     end
   end
 
@@ -1166,25 +1255,29 @@ RSpec.describe 'PeekableIO integration — non-seekable sources' do
       stub_const('SmarterCSV::AutoDetection::MIN_AUTO_ROW_SEP_CHARS', 1)
     end
 
-    it 'parses all rows correctly at buffer_size=3, auto_row_sep_chars=3' do
-      content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
-      io = NonSeekableIO.new(content)
-      result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto,
-                                  buffer_size: 3, auto_row_sep_chars: 3)
-      expect(result.length).to eq(20)
-      expect(result.first).to eq({ name: 'item_1', value: 10 })
-      expect(result.last).to  eq({ name: 'item_20', value: 200 })
-    end
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses all rows correctly at buffer_size=3, auto_row_sep_chars=3' do
+          content = "name,value\n" + (1..20).map { |i| "item_#{i},#{i * 10}\n" }.join
+          io = NonSeekableIO.new(content)
+          result = SmarterCSV.process(io, col_sep: :auto, row_sep: :auto,
+                                      buffer_size: 3, auto_row_sep_chars: 3, acceleration: acceleration)
+          expect(result.length).to eq(20)
+          expect(result.first).to eq({ name: 'item_1', value: 10 })
+          expect(result.last).to  eq({ name: 'item_20', value: 200 })
+        end
 
-    it 'parses correctly on tab-separated pipe at buffer_size=8, auto_row_sep_chars=8' do
-      reader, writer = IO.pipe
-      writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
-      writer.close
-      result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto,
-                                  buffer_size: 8, auto_row_sep_chars: 8)
-      expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
-    ensure
-      reader.close unless reader.closed?
+        it 'parses correctly on tab-separated pipe at buffer_size=8, auto_row_sep_chars=8' do
+          reader, writer = IO.pipe
+          writer.write("name\tvalue\r\nitem_1\t10\r\nitem_2\t20\r\n")
+          writer.close
+          result = SmarterCSV.process(reader, col_sep: :auto, row_sep: :auto,
+                                      buffer_size: 8, auto_row_sep_chars: 8, acceleration: acceleration)
+          expect(result).to eq([{ name: 'item_1', value: 10 }, { name: 'item_2', value: 20 }])
+        ensure
+          reader.close unless reader.closed?
+        end
+      end
     end
   end
 end
