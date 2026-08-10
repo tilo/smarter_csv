@@ -376,8 +376,12 @@ module SmarterCSV
           # unquoted (field_started && !in_quotes), remaining quotes are literal and
           # cannot affect parser state — jump directly to the next col_sep.
           # Mirrors Opt #10 for the unquoted side of the same trade-off.
+          # byteindex requires the byte offset to be on a character boundary — after
+          # stepping over the first byte of a multi-byte character, i is mid-character
+          # (a UTF-8 continuation byte, 0b10xxxxxx), so fall back to the byte loop there.
+          # (The Opt #10 quote jump can't be mid-character: i is always at quote_byte + 1.)
           elsif quote_boundary_standard && field_started && !in_quotes
-            next_sep = if BYTEINDEX_AVAILABLE
+            next_sep = if BYTEINDEX_AVAILABLE && (line.getbyte(i) & 0xC0) != 0x80
                          line.byteindex(col_sep, i)
                        else
                          j = i

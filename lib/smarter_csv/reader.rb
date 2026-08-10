@@ -708,7 +708,10 @@ module SmarterCSV
             # Opt #12 mirror: unquoted field in progress — jump to next col_sep using C-level
             # byteindex (MRI Ruby ≥ 3.2). Fallback for older Ruby / JRuby: manual getbyte loop —
             # kept inline for the same reason as the Opt #10 mirror above.
-            next_sep = if byteindex_available
+            # byteindex requires a character-boundary offset — after stepping over the first
+            # byte of a multi-byte character, i is mid-character (a UTF-8 continuation byte),
+            # so use the byte loop there.
+            next_sep = if byteindex_available && (line.getbyte(i) & 0xC0) != 0x80
                          line.byteindex(col_sep, i)
                        else
                          j = i

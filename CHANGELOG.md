@@ -44,6 +44,8 @@
 
   - **A one-character, multi-byte `col_sep` (e.g. `'é'`) no longer crashes the pure-Ruby parser (C/Ruby parity).** The Ruby parser's byte-level fast path was gated on the separator's character count, then scanned for its first byte only — which also occurs as the lead byte of other characters — and raised `ArgumentError` on quoted lines. The fast path is now gated on `bytesize`; multi-byte separators take the character-level path, matching the C parser's results.
 
+  - **Multi-byte characters directly before a literal quote no longer crash the pure-Ruby parser (C/Ruby parity).** An unquoted field like `é"x` made the Ruby parser's byte-level skip-ahead hand `String#byteindex` a mid-character byte offset — `IndexError: offset does not land on character boundary`. The skip-ahead now falls back to the byte loop when the scan position is mid-character. Found by differential fuzzing against the C path, which parsed these fine.
+
   - **Invalid bytes in the input no longer crash the pure-Ruby parser (C/Ruby parity).** Typical case: Latin-1 data mislabeled as UTF-8. The C path parses leniently and preserves the field's raw bytes; the Ruby fallback raised `ArgumentError` ("invalid byte sequence in UTF-8") — which is not a `SmarterCSV::Error`, so even `on_bad_row: :skip` couldn't quarantine it. The Ruby parser now processes such lines at the byte level and re-tags the fields with the original encoding — bytes preserved exactly, never transcoded, so the data stays recoverable (e.g. via `force_encoding('ISO-8859-1')`). Cleanup remains opt-in via `force_utf8` / `invalid_byte_sequence`.
 
 ## 1.18.1 (2026-06-30)
