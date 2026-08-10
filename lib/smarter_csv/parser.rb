@@ -169,6 +169,23 @@ module SmarterCSV
     def parse_line_to_hash_ruby(line, headers, options, has_quotes = false)
       return [nil, 0] if line.nil?
 
+      # A line with invalid bytes for its encoding (typically Latin-1 data mislabeled as
+      # UTF-8) would make the encoding-aware operations below (split, strip!, ...) raise
+      # ArgumentError. Like the C path, we parse leniently and preserve the field's raw
+      # bytes: process the line as BINARY, then re-tag each field with the original
+      # encoding. Only relabels — never transcodes. Every byte sequence is valid BINARY,
+      # so the recursive call cannot take this branch again.
+      unless line.valid_encoding?
+        original_encoding = line.encoding
+        binary_options = options.dup
+        %i[col_sep quote_char row_sep].each do |opt|
+          binary_options[opt] = options[opt].dup.force_encoding(Encoding::BINARY) if options[opt].is_a?(String)
+        end
+        hash, data_size = parse_line_to_hash_ruby(line.dup.force_encoding(Encoding::BINARY), headers, binary_options, has_quotes)
+        hash&.transform_values! { |v| v.is_a?(String) ? v.force_encoding(original_encoding) : v }
+        return [hash, data_size]
+      end
+
       # Chomp trailing row separator
       line = line.chomp(options[:row_sep]) if options[:row_sep]
 

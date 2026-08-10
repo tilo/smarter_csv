@@ -342,4 +342,26 @@ RSpec.describe SmarterCSV do
       end
     end
   end
+
+  # Invalid bytes for the input's encoding (typically Latin-1 data mislabeled as UTF-8) must
+  # not crash the parse — on either path. The contract is lenient: preserve the field's raw
+  # bytes exactly, so the user can recover the data (e.g. force_encoding('ISO-8859-1')).
+  # Cleanup stays opt-in via force_utf8 / invalid_byte_sequence.
+  describe 'invalid UTF-8 bytes without force_utf8 (both paths)' do
+    require 'stringio'
+
+    [true, false].each do |acceleration|
+      context "with#{acceleration ? '' : 'out'} acceleration" do
+        it 'parses leniently and preserves the raw bytes of the affected field' do
+          data = "name,val\nfoo,ab\xFFcd\nbar,ok\n".dup.force_encoding(Encoding::UTF_8)
+          result = described_class.process(StringIO.new(data), acceleration: acceleration)
+          expect(result.length).to eq 2
+          expect(result.first[:name]).to eq 'foo'
+          expect(result.first[:val].bytes).to eq [97, 98, 0xFF, 99, 100]
+          expect(result.first[:val].encoding).to eq Encoding::UTF_8
+          expect(result.last).to eq({ name: 'bar', val: 'ok' })
+        end
+      end
+    end
+  end
 end

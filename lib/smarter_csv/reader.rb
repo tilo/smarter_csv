@@ -804,7 +804,9 @@ module SmarterCSV
     def blank?(value)
       case value
       when String
-        value.empty? || BLANK_RE.match?(value)
+        # A string with invalid bytes for its encoding would make the regex raise —
+        # and it necessarily contains non-blank bytes, so it is not blank.
+        value.empty? || (value.valid_encoding? && BLANK_RE.match?(value))
       when NilClass
         true
       when Array
