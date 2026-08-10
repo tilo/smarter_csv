@@ -303,14 +303,16 @@ static inline __attribute__((always_inline))
 bool is_valid_close(const char *p, const char *endP,
                     const char *col_sepP, long col_sep_len,
                     const char *row_sepP, long row_sep_len) {
+  /* Each separator comparison is bounded by endP: a separator truncated by
+   * end-of-line is not a separator (and reading past endP would be out of bounds). */
   bool valid_close = (p + 1 >= endP);
-  if (!valid_close) {
+  if (!valid_close && p + 1 + col_sep_len <= endP) {
     valid_close = true;
     for (long j = 0; j < col_sep_len; j++) {
       if (*(p + 1 + j) != *(col_sepP + j)) { valid_close = false; break; }
     }
   }
-  if (!valid_close && row_sep_len > 0) {
+  if (!valid_close && row_sep_len > 0 && p + 1 + row_sep_len <= endP) {
     valid_close = true;
     for (long j = 0; j < row_sep_len; j++) {
       if (*(p + 1 + j) != *(row_sepP + j)) { valid_close = false; break; }
@@ -432,11 +434,15 @@ static VALUE rb_parse_csv_line(VALUE self, VALUE line, VALUE col_sep, VALUE quot
   bool field_started = false;  // for quote_boundary_standard: true once field has non-boundary content
 
   while (p < endP) {
-    col_sep_found = true;
-    for (i = 0; (i < col_sep_len) && (p + i < endP); i++) {
-      if (*(p + i) != *(col_sepP + i)) {
-        col_sep_found = false;
-        break;
+    /* A separator only matches when it fits completely before endP — a partial
+     * separator truncated by end-of-line is field content, not a separator. */
+    col_sep_found = (p + col_sep_len <= endP);
+    if (col_sep_found) {
+      for (i = 0; i < col_sep_len; i++) {
+        if (*(p + i) != *(col_sepP + i)) {
+          col_sep_found = false;
+          break;
+        }
       }
     }
 
@@ -1279,9 +1285,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash(VALUE self, VALUE line, 
       // so skip the comparison entirely.
       // For single-char separator: direct byte compare.
       // For multi-char separator: pre-filter on first byte, then check the rest.
-      if (!in_quotes && *p == sep_char_slow) {
+      if (!in_quotes && *p == sep_char_slow && p + col_sep_len <= endP) {
+        /* The full separator must fit before endP — a partial separator truncated
+         * by end-of-line is field content, not a separator. */
         col_sep_found = true;
-        for (i = 1; (i < col_sep_len) && (p + i < endP); i++) {
+        for (i = 1; i < col_sep_len; i++) {
           if (*(p + i) != *(col_sepP + i)) { col_sep_found = false; break; }
         }
       } else {
@@ -1800,9 +1808,11 @@ __attribute__((hot)) static VALUE rb_parse_line_to_hash_ctx(VALUE self, VALUE li
     char sep_char_slow = *col_sepP;
 
     while (p < endP) {
-      if (!in_quotes && *p == sep_char_slow) {
+      if (!in_quotes && *p == sep_char_slow && p + col_sep_len <= endP) {
+        /* The full separator must fit before endP — a partial separator truncated
+         * by end-of-line is field content, not a separator. */
         col_sep_found = true;
-        for (i = 1; (i < col_sep_len) && (p + i < endP); i++) {
+        for (i = 1; i < col_sep_len; i++) {
           if (*(p + i) != *(col_sepP + i)) { col_sep_found = false; break; }
         }
       } else {

@@ -224,6 +224,22 @@ describe 'can handle col_sep' do
           expect(data[1][:city]).to eq 'LA'
         end
 
+        it 'keeps a partial separator at end-of-line as field content (data row)' do
+          # 'y|' ends with the FIRST byte of the separator only — that is content, not a separator
+          data = SmarterCSV.process(StringIO.new("a||b\nx||y|\n"), col_sep: '||', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', b: 'y|' }]
+        end
+
+        it 'keeps a partial separator at end-of-line as header content' do
+          data = SmarterCSV.process(StringIO.new("a||b|\nx||y\n"), col_sep: '||', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', "b|": 'y' }]
+        end
+
+        it 'keeps a partial three-char separator at end-of-line as field content' do
+          data = SmarterCSV.process(StringIO.new("a<=>b\nx<=>y<=\n"), col_sep: '<=>', acceleration: acceleration)
+          expect(data).to eq [{ a: 'x', b: 'y<=' }]
+        end
+
         it 'handles a quoted field containing the multi-char separator' do
           csv = StringIO.new("first::second\naaa::\"hel::lo\"\n")
           data = SmarterCSV.process(csv, col_sep: '::', acceleration: acceleration)

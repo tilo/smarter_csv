@@ -22,6 +22,8 @@
 
 ### Bug Fixes
 
+  - **A partial multi-char separator at end-of-line is no longer consumed as a separator on the C path (C/Ruby parity — silent data loss).** With `col_sep: '||'`, a value or header ending in a lone `|` lost that character (`"y|"` came back as `"y"`). The separator comparison (and the close-quote lookahead) is now bounded by the end of the line, which also removes an out-of-bounds read for multi-char separators near end-of-line.
+
   - **Writer: fields are now wrapped in the configured `quote_char`, not a hard-coded double quote.** Output written with a custom `quote_char` (e.g. `"'"`) could not be read back: the custom quote_char was doubled correctly inside the field, but the field itself was wrapped in `"`.
 
   - **`Reader#each` without a block no longer clears the configured `chunk_size`.** Calling `each` in its Enumerator form (no block) overwrote `options[:chunk_size]` with `nil`, so a later `each_chunk` on the same Reader ignored the configured chunk size.
